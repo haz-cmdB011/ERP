@@ -167,14 +167,54 @@ describe("parsePlaneacionExcel", () => {
     expect(resultado.errores[0].mensaje).toMatch(/UNIDAD/);
   });
 
-  it("reporta error de fila cuando COMPONENTE no es MO ni FU", async () => {
+  it("reporta error de fila cuando COMPONENTE no es reconocible", async () => {
     const buf = await construirWorkbook([
       { ITEM: 1, COMPONENTE: "XYZ", DESCRIPCION: "MUEBLE 1", "CANTIDAD TOTAL": 1 },
     ]);
     const resultado = await parsePlaneacionExcel(buf);
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
-    expect(resultado.errores[0].mensaje).toMatch(/COMPONENTE inválida/);
+    expect(resultado.errores[0].mensaje).toMatch(/COMPONENTE no reconocida/);
+  });
+
+  it("determina MO/FU por la forma del ITEM, no por el texto de COMPONENTE", async () => {
+    // Caso real: un PER puede ser padre (ITEM entero) y su despiece puede
+    // venir etiquetado MOB o FUN indistintamente.
+    const buf = await construirWorkbook([
+      { ITEM: 3, COMPONENTE: "PER", DESCRIPCION: "PERIMETRO PRINCIPAL", "CANTIDAD TOTAL": 1 },
+      { ITEM: 3.01, COMPONENTE: "MOB", DESCRIPCION: "PARTE MOBILIARIO", "CANTIDAD TOTAL": 1 },
+      { ITEM: 3.02, COMPONENTE: "FUN", DESCRIPCION: "PARTE FUNCION", "CANTIDAD TOTAL": 1 },
+    ]);
+
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+
+    const [per, mob, fun] = resultado.items;
+    expect(per.tipo_registro).toBe("MO");
+    expect(per.categoria_componente).toBe("PERIMETRO");
+    expect(mob.tipo_registro).toBe("FU");
+    expect(mob.categoria_componente).toBe("MOBILIARIO");
+    expect(fun.tipo_registro).toBe("FU");
+    expect(fun.categoria_componente).toBe("FUNCION");
+  });
+
+  it("acepta variaciones de COMPONENTE por prefijo (MO/MOB, FU/FUN, PER...)", async () => {
+    const buf = await construirWorkbook([
+      { ITEM: 1, COMPONENTE: "mo", DESCRIPCION: "A", "CANTIDAD TOTAL": 1 },
+      { ITEM: 2, COMPONENTE: "MOBILIARIO", DESCRIPCION: "B", "CANTIDAD TOTAL": 1 },
+      { ITEM: 3, COMPONENTE: "fun", DESCRIPCION: "C", "CANTIDAD TOTAL": 1 },
+      { ITEM: 4, COMPONENTE: "Perimetro", DESCRIPCION: "D", "CANTIDAD TOTAL": 1 },
+    ]);
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items.map((i) => i.categoria_componente)).toEqual([
+      "MOBILIARIO",
+      "MOBILIARIO",
+      "FUNCION",
+      "PERIMETRO",
+    ]);
   });
 
   it("reporta error de fila cuando CANTIDAD TOTAL no es numérica", async () => {

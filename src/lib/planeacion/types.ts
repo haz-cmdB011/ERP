@@ -1,8 +1,16 @@
 export type TipoRegistroItem = "MO" | "FU";
 
+export type CategoriaComponente = "MOBILIARIO" | "FUNCION" | "PERIMETRO";
+
 export interface PlaneacionItemParsed {
   item_code: number;
+  // MO (padre) / FU (hijo) se determina por la forma del ITEM (entero vs
+  // decimal), no por el texto de la columna COMPONENTE.
   tipo_registro: TipoRegistroItem;
+  // Categoría real de la columna COMPONENTE (MOB/MO, FUN/FU, PER...),
+  // independiente de si la fila es padre o hijo: un PER puede ser padre,
+  // y sus hijos pueden venir etiquetados MOB o FUN indistintamente.
+  categoria_componente: CategoriaComponente;
   tipo_material: string | null;
   etapa: string | null;
   nivel: string | null;

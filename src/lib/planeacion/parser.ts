@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import type {
+  CategoriaComponente,
   FilaError,
   ParseResult,
   PlaneacionItemParsed,
@@ -14,8 +15,13 @@ import type {
  * - Metadata en las primeras ~8 filas como pares etiqueta/valor
  *   ("PROYECTO:", "CLIENTE:", "No. PEDIDO", "FECHA:", "FECHA DE ENTREGA:").
  * - Una fila de encabezados de columna (contiene "ITEM" y "CANTIDAD TOTAL").
- * - Filas de datos jerárquicas: ITEM entero = mueble (MO), ITEM decimal
- *   (ej. 1.01) = componente (FU) hijo del mueble con ese mismo entero.
+ * - Filas de datos jerárquicas por la forma del ITEM: entero = mueble
+ *   (MO, padre), decimal (ej. 1.01) = componente (FU) hijo del mueble con
+ *   ese mismo entero.
+ * - La columna COMPONENTE (MOB/MO, FUN/FU, PER...) es una CATEGORÍA
+ *   independiente del rol padre/hijo: un PER puede aparecer como padre
+ *   (ITEM entero) y su despiece puede venir etiquetado MOB o FUN — el rol
+ *   padre/hijo lo decide siempre la forma del ITEM, nunca este texto.
  */
 
 const REQUIRED_HEADERS = [
@@ -74,6 +80,18 @@ function cellNumber(value: CellValue): number | null {
   if (!Number.isFinite(n)) return null;
   // Redondea artefactos de precisión flotante (ej. 5.029999999999999 -> 5.03).
   return Math.round(n * 100) / 100;
+}
+
+// Coincidencia por PREFIJO, no exacta: en la práctica los archivos reales
+// usan variaciones ("MO", "MOB", "MOBILIARIO", "FU", "FUN", "PER"...).
+// Siempre van a aparecer variantes nuevas, así que se acepta cualquier
+// texto que empiece por estos prefijos en vez de una lista cerrada.
+function normalizeCategoriaComponente(raw: string): CategoriaComponente | null {
+  const norm = normalize(raw);
+  if (norm.startsWith("MO")) return "MOBILIARIO";
+  if (norm.startsWith("FU")) return "FUNCION";
+  if (norm.startsWith("PE")) return "PERIMETRO";
+  return null;
 }
 
 function cellDateISO(value: CellValue): string | null {
@@ -208,15 +226,21 @@ export async function parsePlaneacionExcel(
       continue;
     }
 
-    const componenteNorm = componenteRaw ? normalize(componenteRaw) : "";
-    if (componenteNorm !== "MO" && componenteNorm !== "FU") {
+    // El rol padre/hijo lo decide la forma del ITEM, no el texto de
+    // COMPONENTE: entero = MO (padre), con decimales = FU (hijo).
+    const tipoRegistro: TipoRegistroItem =
+      Number.isInteger(itemCode) ? "MO" : "FU";
+
+    const categoriaComponente = componenteRaw
+      ? normalizeCategoriaComponente(componenteRaw)
+      : null;
+    if (!categoriaComponente) {
       errores.push({
         fila: r,
-        mensaje: `Columna COMPONENTE inválida: se esperaba "MO" o "FU", se encontró "${componenteRaw ?? ""}".`,
+        mensaje: `Columna COMPONENTE no reconocida: "${componenteRaw ?? ""}" (se esperaba algo como MOB, FUN o PER).`,
       });
       continue;
     }
-    const tipoRegistro = componenteNorm as TipoRegistroItem;
 
     if (!descripcion) {
       errores.push({ fila: r, mensaje: "La columna DESCRIPCION está vacía." });
@@ -239,6 +263,7 @@ export async function parsePlaneacionExcel(
     items.push({
       item_code: itemCode,
       tipo_registro: tipoRegistro,
+      categoria_componente: categoriaComponente,
       tipo_material: cellText(row.getCell(col("TIPO")).value),
       etapa: col("ETAPA") ? cellText(row.getCell(col("ETAPA")).value) : null,
       nivel: col("NIVEL") ? cellText(row.getCell(col("NIVEL")).value) : null,
