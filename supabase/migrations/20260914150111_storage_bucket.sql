@@ -1,7 +1,3 @@
--- ============================================================================
--- Bucket privado para los archivos Excel originales cargados (Planeación hoy,
--- otras áreas después). Se guarda el archivo tal cual se subió, para auditoría.
--- ============================================================================
 insert into storage.buckets (id, name, public)
 values ('cargas-excel', 'cargas-excel', false)
 on conflict (id) do nothing;

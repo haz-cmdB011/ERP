@@ -1,11 +1,3 @@
--- ============================================================================
--- Endurece RLS: quita el permiso de DELETE de las políticas amplias
--- iniciales. Perder versiones/pedidos/items borraría el historial de
--- auditoría que es el propósito central del revisor de cantidades.
--- select/insert/update se mantienen abiertos para cualquier usuario
--- autenticado (roles granulares por área llegan en una fase posterior).
--- ============================================================================
-
 drop policy "authenticated_all_proyectos" on public.proyectos;
 create policy "authenticated_select_proyectos" on public.proyectos
   for select using (auth.role() = 'authenticated');

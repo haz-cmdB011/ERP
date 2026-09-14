@@ -1,11 +1,3 @@
--- ============================================================================
--- Función de ingestión atómica de una versión de Planeación.
--- Recibe los items ya validados en la aplicación (estructura y tipos) y
--- realiza upsert de proyecto/pedido + inserción de la nueva versión +
--- items en una sola transacción (todo o nada).
--- security invoker: corre con los permisos/RLS del usuario autenticado que
--- llama la función (no bypassa RLS).
--- ============================================================================
 create or replace function public.ingest_planeacion_version(
   p_proyecto_nombre text,
   p_cliente text,
@@ -33,7 +25,6 @@ begin
     raise exception 'El archivo no contiene items válidos para ingerir';
   end if;
 
-  -- upsert proyecto (por nombre + cliente)
   select id into v_proyecto_id
     from public.proyectos
     where nombre = p_proyecto_nombre and cliente = p_cliente;
@@ -44,7 +35,6 @@ begin
       returning id into v_proyecto_id;
   end if;
 
-  -- upsert pedido (por proyecto + numero_pedido, ya es unique constraint)
   select id into v_pedido_id
     from public.pedidos
     where proyecto_id = v_proyecto_id and numero_pedido = p_numero_pedido;
@@ -60,7 +50,6 @@ begin
       where id = v_pedido_id;
   end if;
 
-  -- la version anterior deja de ser la activa
   update public.pedido_versiones
     set es_version_activa = false
     where pedido_id = v_pedido_id and es_version_activa = true;
@@ -73,7 +62,6 @@ begin
     values (v_pedido_id, v_next_version, p_carga_id, true)
     returning id into v_version_id;
 
-  -- pase 1: insertar todos los items de la version (MO y FU), sin parent aun
   for v_item in select * from jsonb_array_elements(p_items)
   loop
     insert into public.planeacion_items (
@@ -100,7 +88,6 @@ begin
     );
   end loop;
 
-  -- pase 2: resolver parent_item_id de las filas FU -> su MO (item_code entero = floor(item_code hijo))
   update public.planeacion_items child
     set parent_item_id = parent.id
     from public.planeacion_items parent

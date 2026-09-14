@@ -11,7 +11,7 @@
 create type public.area_tipo as enum ('produccion', 'calidad', 'estimaciones', 'finanzas');
 create type public.origen_dato as enum ('excel', 'formulario');
 create type public.estado_procesamiento as enum ('pendiente', 'procesando', 'exitoso', 'error', 'error_parcial');
-create type public.tipo_registro_item as enum ('MO', 'FU'); -- Mueble (padre) / Componente-Fabricación (hijo)
+create type public.tipo_registro_item as enum ('MO', 'FU');
 
 -- ---------------------------------------------------------------------------
 -- proyectos
@@ -107,10 +107,7 @@ create table public.planeacion_items (
   observaciones text,
   fila_excel_origen integer,                    -- fila original en el Excel, para trazabilidad
   created_at timestamptz not null default now(),
-  -- item_code NO es único por versión: es habitual que un mismo mueble
-  -- tenga varias filas FU con distinto material (madera, metal, tapiz...).
-  -- La identidad única de la fila es fila_excel_origen.
-  unique (pedido_version_id, fila_excel_origen)
+  unique (pedido_version_id, item_code)
 );
 create index idx_planeacion_items_version on public.planeacion_items (pedido_version_id);
 create index idx_planeacion_items_parent on public.planeacion_items (parent_item_id);
