@@ -144,42 +144,41 @@ export default async function PedidoDetailPage({
         <div className="flex flex-col gap-4">
           {mo.map((m) => (
             <div key={m.id} className="rounded border border-gray-200 p-3">
-              <div className="flex items-baseline justify-between text-sm">
-                <span className="font-medium">
-                  {m.item_code} — {m.descripcion}
-                </span>
-                <span className="text-gray-500">
-                  {m.cantidad_total} {m.unidad}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500">{m.modelo}</p>
-
-              {(fuPorPadre.get(m.id) ?? []).length > 0 && (
-                <table className="mt-2 w-full text-left text-xs">
-                  <thead>
-                    <tr className="text-gray-400">
-                      <th className="py-1 pr-2">Item</th>
-                      <th className="py-1 pr-2">Material</th>
-                      <th className="py-1 pr-2">Descripción</th>
-                      <th className="py-1 pr-2">Cant.</th>
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-gray-400">
+                    <th className="py-1 pr-2">Item</th>
+                    <th className="py-1 pr-2">Modelo</th>
+                    <th className="py-1 pr-2">Material</th>
+                    <th className="py-1 pr-2">Descripción</th>
+                    <th className="py-1 pr-2">Cant.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="text-sm font-medium">
+                    <td className="py-1 pr-2">{m.item_code}</td>
+                    <td className="py-1 pr-2">{m.modelo}</td>
+                    <td className="py-1 pr-2">{m.tipo_material}</td>
+                    <td className="py-1 pr-2">{m.descripcion}</td>
+                    <td className="py-1 pr-2">
+                      {m.cantidad_total} {m.unidad}
+                    </td>
+                  </tr>
+                  {(fuPorPadre.get(m.id) ?? []).map((f) => (
+                    <tr key={f.id} className="border-t border-gray-100">
+                      <td className="py-1 pr-2">{f.item_code}</td>
+                      <td className="py-1 pr-2">{f.modelo}</td>
+                      <td className="py-1 pr-2">{f.tipo_material}</td>
+                      <td className="py-1 pr-2">
+                        {f.descripcion?.split("\n")[0]}
+                      </td>
+                      <td className="py-1 pr-2">
+                        {f.cantidad_total} {f.unidad}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {(fuPorPadre.get(m.id) ?? []).map((f) => (
-                      <tr key={f.id} className="border-t border-gray-100">
-                        <td className="py-1 pr-2">{f.item_code}</td>
-                        <td className="py-1 pr-2">{f.tipo_material}</td>
-                        <td className="py-1 pr-2">
-                          {f.descripcion?.split("\n")[0]}
-                        </td>
-                        <td className="py-1 pr-2">
-                          {f.cantidad_total} {f.unidad}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                  ))}
+                </tbody>
+              </table>
             </div>
           ))}
         </div>
