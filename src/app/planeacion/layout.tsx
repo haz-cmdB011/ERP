@@ -37,7 +37,9 @@ export default async function PlaneacionLayout({
             Usuarios
           </Link>
         )}
-        <span className="ml-auto text-gray-500">{user.email}</span>
+        <Link href="/planeacion/cuenta" className="ml-auto text-gray-500 hover:text-black">
+          {user.email}
+        </Link>
       </nav>
       {children}
     </div>
