@@ -231,16 +231,13 @@ export async function parsePlaneacionExcel(
     const tipoRegistro: TipoRegistroItem =
       Number.isInteger(itemCode) ? "MO" : "FU";
 
+    // Best-effort: si COMPONENTE no coincide con MOB/FUN/PER (algunos
+    // proyectos usan esa columna para otra cosa, ej. códigos de modelo),
+    // se guarda como null en vez de rechazar la fila — no es un campo
+    // estructural, el rol padre/hijo ya lo decidió el ITEM arriba.
     const categoriaComponente = componenteRaw
       ? normalizeCategoriaComponente(componenteRaw)
       : null;
-    if (!categoriaComponente) {
-      errores.push({
-        fila: r,
-        mensaje: `Columna COMPONENTE no reconocida: "${componenteRaw ?? ""}" (se esperaba algo como MOB, FUN o PER).`,
-      });
-      continue;
-    }
 
     if (!descripcion) {
       errores.push({ fila: r, mensaje: "La columna DESCRIPCION está vacía." });

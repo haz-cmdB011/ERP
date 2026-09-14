@@ -10,7 +10,9 @@ export interface PlaneacionItemParsed {
   // Categoría real de la columna COMPONENTE (MOB/MO, FUN/FU, PER...),
   // independiente de si la fila es padre o hijo: un PER puede ser padre,
   // y sus hijos pueden venir etiquetados MOB o FUN indistintamente.
-  categoria_componente: CategoriaComponente;
+  // Es opcional: algunos proyectos usan esa columna para otra cosa (ej.
+  // códigos de modelo) y no siguen esta clasificación en absoluto.
+  categoria_componente: CategoriaComponente | null;
   tipo_material: string | null;
   etapa: string | null;
   nivel: string | null;

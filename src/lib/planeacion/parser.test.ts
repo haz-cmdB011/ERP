@@ -167,14 +167,15 @@ describe("parsePlaneacionExcel", () => {
     expect(resultado.errores[0].mensaje).toMatch(/UNIDAD/);
   });
 
-  it("reporta error de fila cuando COMPONENTE no es reconocible", async () => {
+  it("acepta COMPONENTE no reconocible como categoria null (ej. proyectos que usan esa columna para códigos de modelo)", async () => {
     const buf = await construirWorkbook([
-      { ITEM: 1, COMPONENTE: "XYZ", DESCRIPCION: "MUEBLE 1", "CANTIDAD TOTAL": 1 },
+      { ITEM: 1, COMPONENTE: "CAR-09", DESCRIPCION: "MEDALLON", "CANTIDAD TOTAL": 1 },
     ]);
     const resultado = await parsePlaneacionExcel(buf);
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.errores[0].mensaje).toMatch(/COMPONENTE no reconocida/);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items[0].categoria_componente).toBeNull();
+    expect(resultado.items[0].tipo_registro).toBe("MO");
   });
 
   it("determina MO/FU por la forma del ITEM, no por el texto de COMPONENTE", async () => {
