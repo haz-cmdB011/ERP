@@ -13,11 +13,18 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
   const rol = body?.rol;
   const area = body?.area || null;
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Email inválido." }, { status: 400 });
+  }
+  if (password.length < 8) {
+    return NextResponse.json(
+      { error: "La contraseña debe tener al menos 8 caracteres." },
+      { status: 400 }
+    );
   }
   if (!ROLES_VALIDOS.includes(rol)) {
     return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
@@ -29,17 +36,19 @@ export async function POST(request: Request) {
     );
   }
 
+  // Se crea directamente con email + contraseña y el correo ya confirmado:
+  // no depende de ningún link de Supabase. Los links de Supabase quedan
+  // reservados exclusivamente para el flujo de "olvidé mi contraseña".
   const adminClient = createAdminClient();
-  const origin = new URL(request.url).origin;
+  const { data: creado, error: createError } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
 
-  const { data: invitado, error: inviteError } =
-    await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${origin}/auth/callback`,
-    });
-
-  if (inviteError || !invitado.user) {
+  if (createError || !creado.user) {
     return NextResponse.json(
-      { error: `No se pudo invitar al usuario: ${inviteError?.message ?? "error desconocido"}` },
+      { error: `No se pudo crear el usuario: ${createError?.message ?? "error desconocido"}` },
       { status: 500 }
     );
   }
@@ -50,14 +59,14 @@ export async function POST(request: Request) {
   const { error: updateError } = await adminClient
     .from("perfiles")
     .update({ rol, area: rol === "area" ? area : null })
-    .eq("id", invitado.user.id);
+    .eq("id", creado.user.id);
 
   if (updateError) {
     return NextResponse.json(
-      { error: `Usuario invitado pero no se pudo asignar el rol: ${updateError.message}` },
+      { error: `Usuario creado pero no se pudo asignar el rol: ${updateError.message}` },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true, userId: invitado.user.id, email });
+  return NextResponse.json({ ok: true, userId: creado.user.id, email });
 }

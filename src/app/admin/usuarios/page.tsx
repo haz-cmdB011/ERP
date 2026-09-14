@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import InvitarForm from "./invitar-form";
+import CrearUsuarioForm from "./crear-usuario-form";
 import UsuariosTable from "./usuarios-table";
 
 export interface PerfilRow {
@@ -43,12 +43,12 @@ export default async function AdminUsuariosPage() {
       <div>
         <h1 className="text-xl font-semibold">Usuarios</h1>
         <p className="text-sm text-gray-600">
-          Invita nuevos usuarios y asigna su rol. Solo administradores pueden
-          ver esta página.
+          Crea usuarios nuevos, asígnales rol y restablece contraseñas. Solo
+          administradores pueden ver esta página.
         </p>
       </div>
 
-      <InvitarForm />
+      <CrearUsuarioForm />
 
       <UsuariosTable usuarios={usuarios ?? []} miId={user.id} />
     </main>
