@@ -119,8 +119,11 @@ export async function POST(request: Request) {
       p_proyecto_nombre: resultado.metadata.proyecto_nombre,
       p_cliente: resultado.metadata.cliente,
       p_numero_pedido: resultado.metadata.numero_pedido,
-      p_fecha_pedido: resultado.metadata.fecha_pedido,
-      p_fecha_entrega: resultado.metadata.fecha_entrega,
+      // ?? null explícito: un valor undefined desaparece al serializar el
+      // body de la llamada RPC, y Postgres responde "no encuentra la
+      // función" en vez de un error claro sobre el argumento faltante.
+      p_fecha_pedido: resultado.metadata.fecha_pedido ?? null,
+      p_fecha_entrega: resultado.metadata.fecha_entrega ?? null,
       p_carga_id: carga.id,
       p_items: resultado.items,
     }

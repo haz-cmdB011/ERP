@@ -283,4 +283,21 @@ describe("parsePlaneacionExcel", () => {
     expect(resultado.metadata.proyecto_nombre).toBe("PROYECTO X");
     expect(resultado.metadata.cliente).toBe("ACME");
   });
+
+  it("deja fecha_pedido/fecha_entrega en null (no undefined) cuando no se encuentran en el archivo", async () => {
+    // Clave: si quedan undefined en vez de null, JSON.stringify() las
+    // elimina al armar el body de la llamada al RPC de ingestión, y
+    // Postgres responde "no encuentra la función" por faltarle argumentos.
+    const buf = await construirWorkbook([
+      { ITEM: 1, COMPONENTE: "MO", DESCRIPCION: "MUEBLE 1", "CANTIDAD TOTAL": 1 },
+    ]);
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.metadata.fecha_pedido).toBeNull();
+    expect(resultado.metadata.fecha_entrega).toBeNull();
+    expect("fecha_pedido" in resultado.metadata).toBe(true);
+    expect("fecha_entrega" in resultado.metadata).toBe(true);
+    expect(JSON.stringify(resultado.metadata)).toContain("fecha_entrega");
+  });
 });

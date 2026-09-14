@@ -147,7 +147,14 @@ export async function parsePlaneacionExcel(
   const errores: FilaError[] = [];
 
   // ---- 1. Metadata (pares etiqueta/valor en las primeras filas) ----------
-  const metadata: Partial<PlaneacionMetadata> = {};
+  // fecha_pedido/fecha_entrega arrancan en null (no undefined): si faltan,
+  // el objeto igual debe tener la clave — de lo contrario, al serializar la
+  // llamada al RPC de ingestión, JSON.stringify elimina las claves con
+  // valor undefined y Postgres recibe menos argumentos de los que espera.
+  const metadata: Partial<PlaneacionMetadata> = {
+    fecha_pedido: null,
+    fecha_entrega: null,
+  };
   const metadataScanLimit = Math.min(worksheet.rowCount, MAX_HEADER_SCAN_ROWS);
 
   for (let r = 1; r <= metadataScanLimit; r++) {
