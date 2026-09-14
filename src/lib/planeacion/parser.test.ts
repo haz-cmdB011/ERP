@@ -6,6 +6,13 @@ import { parsePlaneacionExcel } from "./parser";
 const MUESTRA_REAL =
   "P:/2026/107-26-2 SMART FIT PLAZA PALMIRA/PEDIDO/PM 107-26 SMART FIT PLAZA PALMIRA.xlsx";
 
+// Este archivo tiene CANTIDAD TOTAL calculada por fórmula compartida
+// (K179*M$178) en varias filas; exceljs no siempre expone `result` en
+// `cell.value` para esas celdas "esclavas" del rango compartido, aunque
+// el valor cacheado sí existe en `cell.model.result`.
+const MUESTRA_FORMULAS_COMPARTIDAS =
+  "P:/2026/009-26-2 MOBILIARIO AZOTEA SERVICIOS PH GDL/PEDIDO/PM 009-26 MOBILIARIO AZOTEA-SERVICIOS PH GDL_Actualización 04.09.26.xlsx";
+
 const HEADERS = [
   "ITEM",
   "COMPONENTE",
@@ -107,6 +114,18 @@ describe("parsePlaneacionExcel", () => {
     const item103 = fu.filter((i) => i.item_code === 1.03);
     expect(item103).toHaveLength(2);
     expect(item103.map((i) => i.tipo_material).sort()).toEqual(["MADERA", "METAL"]);
+  });
+
+  it("resuelve CANTIDAD TOTAL calculada por fórmula compartida (cell.model.result como fallback)", async () => {
+    if (!existsSync(MUESTRA_FORMULAS_COMPARTIDAS)) {
+      return;
+    }
+    const buf = readFileSync(MUESTRA_FORMULAS_COMPARTIDAS);
+    const resultado = await parsePlaneacionExcel(buf);
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items.length).toBeGreaterThan(200);
   });
 
   it("acepta un archivo válido mínimo y calcula filasTotales", async () => {

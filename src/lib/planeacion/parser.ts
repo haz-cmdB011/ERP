@@ -56,6 +56,32 @@ function normalize(text: string): string {
 
 type CellValue = ExcelJS.CellValue;
 
+// exceljs no siempre expone `result` en `cell.value` para celdas de
+// fórmula compartida ("shared formula"): las celdas "esclavas" de un
+// rango compartido (y a veces hasta la propia maestra) devuelven un
+// objeto sin `result`, aunque el valor cacheado sí existe en el modelo
+// interno de la celda (`cell.model.result`). Sin este fallback, cualquier
+// columna calculada por fórmula (común en CANTIDAD TOTAL cuando depende
+// de la cantidad del mueble padre) se leería como no numérica.
+function resolvedValue(cell: ExcelJS.Cell): CellValue {
+  const value = cell.value;
+  const esObjetoSinResultado =
+    value !== null &&
+    typeof value === "object" &&
+    !(value instanceof Date) &&
+    !("richText" in value) &&
+    !("text" in value) &&
+    !("result" in value);
+
+  if (esObjetoSinResultado) {
+    const model = cell.model as { result?: CellValue } | undefined;
+    if (model && "result" in model) {
+      return model.result as CellValue;
+    }
+  }
+  return value;
+}
+
 function cellText(value: CellValue): string | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();
@@ -127,7 +153,7 @@ export async function parsePlaneacionExcel(
   for (let r = 1; r <= metadataScanLimit; r++) {
     const row = worksheet.getRow(r);
     for (let c = 1; c <= row.cellCount; c++) {
-      const raw = cellText(row.getCell(c).value);
+      const raw = cellText(resolvedValue(row.getCell(c)));
       if (!raw) continue;
       const label = normalize(raw.replace(/:\s*$/, ""));
       const key = METADATA_LABELS[label];
@@ -135,7 +161,7 @@ export async function parsePlaneacionExcel(
 
       // valor = siguiente celda no vacía a la derecha, en la misma fila
       for (let vc = c + 1; vc <= row.cellCount; vc++) {
-        const cellVal = row.getCell(vc).value;
+        const cellVal = resolvedValue(row.getCell(vc));
         if (key === "fecha_pedido" || key === "fecha_entrega") {
           const iso = cellDateISO(cellVal);
           if (iso) {
@@ -170,7 +196,7 @@ export async function parsePlaneacionExcel(
     const row = worksheet.getRow(r);
     const map: Record<string, number> = {};
     for (let c = 1; c <= row.cellCount; c++) {
-      const text = cellText(row.getCell(c).value);
+      const text = cellText(resolvedValue(row.getCell(c)));
       if (text) map[normalize(text)] = c;
     }
     if (map["ITEM"] && map["CANTIDAD TOTAL"]) {
@@ -211,10 +237,10 @@ export async function parsePlaneacionExcel(
     const row = worksheet.getRow(r);
     if (row.cellCount === 0) continue;
 
-    const itemCode = cellNumber(row.getCell(col("ITEM")).value);
-    const descripcion = cellText(row.getCell(col("DESCRIPCION")).value);
-    const modelo = cellText(row.getCell(col("MODELO")).value);
-    const componenteRaw = cellText(row.getCell(col("COMPONENTE")).value);
+    const itemCode = cellNumber(resolvedValue(row.getCell(col("ITEM"))));
+    const descripcion = cellText(resolvedValue(row.getCell(col("DESCRIPCION"))));
+    const modelo = cellText(resolvedValue(row.getCell(col("MODELO"))));
+    const componenteRaw = cellText(resolvedValue(row.getCell(col("COMPONENTE"))));
 
     const filaTieneContenido = itemCode !== null || descripcion || modelo || componenteRaw;
     if (!filaTieneContenido) continue; // fila vacía / separador, se ignora
@@ -244,7 +270,7 @@ export async function parsePlaneacionExcel(
       continue;
     }
 
-    const cantidadTotal = cellNumber(row.getCell(col("CANTIDAD TOTAL")).value);
+    const cantidadTotal = cellNumber(resolvedValue(row.getCell(col("CANTIDAD TOTAL"))));
     if (cantidadTotal === null) {
       errores.push({
         fila: r,
@@ -261,18 +287,18 @@ export async function parsePlaneacionExcel(
       item_code: itemCode,
       tipo_registro: tipoRegistro,
       categoria_componente: categoriaComponente,
-      tipo_material: cellText(row.getCell(col("TIPO")).value),
-      etapa: col("ETAPA") ? cellText(row.getCell(col("ETAPA")).value) : null,
-      nivel: col("NIVEL") ? cellText(row.getCell(col("NIVEL")).value) : null,
-      departamento: col("DEPARTAMENTO") ? cellText(row.getCell(col("DEPARTAMENTO")).value) : null,
-      elevacion: col("ELEVACION") ? cellText(row.getCell(col("ELEVACION")).value) : null,
+      tipo_material: cellText(resolvedValue(row.getCell(col("TIPO")))),
+      etapa: col("ETAPA") ? cellText(resolvedValue(row.getCell(col("ETAPA")))) : null,
+      nivel: col("NIVEL") ? cellText(resolvedValue(row.getCell(col("NIVEL")))) : null,
+      departamento: col("DEPARTAMENTO") ? cellText(resolvedValue(row.getCell(col("DEPARTAMENTO")))) : null,
+      elevacion: col("ELEVACION") ? cellText(resolvedValue(row.getCell(col("ELEVACION")))) : null,
       modelo,
       descripcion,
-      cantidad_x_mueble: cellNumber(row.getCell(col("CANTIDAD X MUEBLE")).value),
-      unidad: cellText(row.getCell(col("UNIDAD")).value),
+      cantidad_x_mueble: cellNumber(resolvedValue(row.getCell(col("CANTIDAD X MUEBLE")))),
+      unidad: cellText(resolvedValue(row.getCell(col("UNIDAD")))),
       cantidad_total: cantidadTotal,
-      acabados: col("ACABADOS") ? cellText(row.getCell(col("ACABADOS")).value) : null,
-      observaciones: col("OBSERVACIONES") ? cellText(row.getCell(col("OBSERVACIONES")).value) : null,
+      acabados: col("ACABADOS") ? cellText(resolvedValue(row.getCell(col("ACABADOS")))) : null,
+      observaciones: col("OBSERVACIONES") ? cellText(resolvedValue(row.getCell(col("OBSERVACIONES")))) : null,
       fila_excel_origen: r,
     });
   }
