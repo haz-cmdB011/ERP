@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 
 interface FilaError {
@@ -104,6 +105,12 @@ export default function UploadForm() {
             {resultado.items_mo} muebles (MO) y {resultado.items_fu} componentes
             (FU) registrados.
           </p>
+          <Link
+            href={`/planeacion/pedidos/${resultado.pedido_id}`}
+            className="mt-2 inline-block underline"
+          >
+            Ver pedido →
+          </Link>
         </div>
       )}
     </div>
