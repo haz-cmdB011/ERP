@@ -7,6 +7,17 @@ export const runtime = "nodejs";
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB
 const ALLOWED_EXTENSIONS = [".xlsx"];
 
+// Supabase Storage rechaza keys con acentos, espacios u otros caracteres
+// fuera de [A-Za-z0-9._-]. El nombre original se conserva tal cual en
+// cargas_archivo.nombre_archivo (columna de texto, sin esa restricción);
+// esto solo sanitiza la ruta física del objeto en el bucket.
+function sanitizarNombreArchivo(nombre: string): string {
+  const normalizado = nombre
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, ""); // quita acentos
+  return normalizado.replace(/[^A-Za-z0-9._-]+/g, "_");
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
 
@@ -50,7 +61,7 @@ export async function POST(request: Request) {
 
   // 2. Subir el archivo original a Storage para auditoría, siempre
   //    (haya sido válido o no), y registrar el intento en cargas_archivo.
-  const storagePath = `${user.id}/${Date.now()}-${file.name}`;
+  const storagePath = `${user.id}/${Date.now()}-${sanitizarNombreArchivo(file.name)}`;
   const { error: storageError } = await supabase.storage
     .from("cargas-excel")
     .upload(storagePath, buffer, {
