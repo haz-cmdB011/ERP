@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import LogoutButton from "./logout-button";
 
 export default async function PlaneacionLayout({
   children,
@@ -40,6 +41,7 @@ export default async function PlaneacionLayout({
         <Link href="/planeacion/cuenta" className="ml-auto text-gray-500 hover:text-black">
           {user.email}
         </Link>
+        <LogoutButton />
       </nav>
       {children}
     </div>
