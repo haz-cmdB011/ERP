@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { FASES_TALLER_COLUMNS, type FaseTaller } from "./fases-taller";
 import type {
   CategoriaComponente,
   FilaError,
@@ -106,6 +107,20 @@ function cellNumber(value: CellValue): number | null {
   if (!Number.isFinite(n)) return null;
   // Redondea artefactos de precisión flotante (ej. 5.029999999999999 -> 5.03).
   return Math.round(n * 100) / 100;
+}
+
+const VALORES_VERDADEROS = new Set(["1", "X", "SI", "S", "TRUE", "OK"]);
+
+// Banderas de validación (INGENIERIA, SUMINISTRO DE MATS, fases de taller):
+// en la práctica se marcan con "1", "X" o similar, no siempre con booleanos
+// reales de Excel. Todo lo que no sea un valor reconocido como verdadero
+// (vacío, "0", "NO"...) se trata como falso.
+function cellFlag(value: CellValue): boolean {
+  const num = cellNumber(value);
+  if (num !== null) return num === 1;
+  const text = cellText(value);
+  if (!text) return false;
+  return VALORES_VERDADEROS.has(normalize(text));
 }
 
 // Coincidencia por PREFIJO, no exacta: en la práctica los archivos reales
@@ -290,6 +305,13 @@ export async function parsePlaneacionExcel(
     // (ej. "1.03") tenga varias filas FU con distinto material (madera,
     // metal, tapiz...). La identidad única de la fila es fila_excel_origen.
 
+    const fasesTaller: Partial<Record<FaseTaller, boolean>> = {};
+    for (const fase of FASES_TALLER_COLUMNS) {
+      if (col(fase)) {
+        fasesTaller[fase] = cellFlag(resolvedValue(row.getCell(col(fase))));
+      }
+    }
+
     items.push({
       item_code: itemCode,
       tipo_registro: tipoRegistro,
@@ -307,6 +329,14 @@ export async function parsePlaneacionExcel(
       acabados: col("ACABADOS") ? cellText(resolvedValue(row.getCell(col("ACABADOS")))) : null,
       observaciones: col("OBSERVACIONES") ? cellText(resolvedValue(row.getCell(col("OBSERVACIONES")))) : null,
       fila_excel_origen: r,
+      ingenieria: col("INGENIERIA") ? cellFlag(resolvedValue(row.getCell(col("INGENIERIA")))) : null,
+      lista_insumos: col("LISTA DE INSUMOS")
+        ? cellText(resolvedValue(row.getCell(col("LISTA DE INSUMOS"))))
+        : null,
+      suministro_mats: col("SUMINISTRO DE MATS")
+        ? cellFlag(resolvedValue(row.getCell(col("SUMINISTRO DE MATS"))))
+        : null,
+      fases_taller: fasesTaller,
     });
   }
 
