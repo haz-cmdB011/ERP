@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import LogoutButton from "./logout-button";
+import AreaNav from "@/components/area-nav";
 
 export default async function PlaneacionLayout({
   children,
@@ -25,8 +25,7 @@ export default async function PlaneacionLayout({
 
   return (
     <div className="min-h-screen">
-      <nav className="flex items-center gap-4 border-b border-gray-200 px-6 py-3 text-sm">
-        <span className="font-semibold">ERP — Planeación</span>
+      <AreaNav area="planeacion" email={user.email ?? ""}>
         <Link href="/planeacion" className="text-gray-600 hover:text-black">
           Pedidos
         </Link>
@@ -38,11 +37,7 @@ export default async function PlaneacionLayout({
             Usuarios
           </Link>
         )}
-        <Link href="/planeacion/cuenta" className="ml-auto text-gray-500 hover:text-black">
-          {user.email}
-        </Link>
-        <LogoutButton />
-      </nav>
+      </AreaNav>
       {children}
     </div>
   );

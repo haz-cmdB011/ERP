@@ -1,3 +1,5 @@
+import type { FaseTaller } from "./fases-taller";
+
 export type TipoRegistroItem = "MO" | "FU";
 
 export type CategoriaComponente = "MOBILIARIO" | "FUNCION" | "PERIMETRO";
@@ -10,6 +12,8 @@ export interface ImagenExtraida {
   buffer: Buffer;
   extension: string;
 }
+
+export type EstadoLiberacion = "pendiente" | "enviado_a_produccion";
 
 export interface PlaneacionItemParsed {
   item_code: number;
@@ -38,6 +42,14 @@ export interface PlaneacionItemParsed {
   // Imágenes ancladas a esta fila en la columna IMAGEN (puede haber varias
   // sobre el mismo ítem; se observaron hasta 6 en archivos reales).
   imagenes: ImagenExtraida[];
+  // Banderas de validación de Planeación (Filtros Rápidos de Liberación).
+  // null = la columna no existe en este archivo (no todos los PM la traen),
+  // distinto de false = existe y está marcada como no cumplida.
+  ingenieria: boolean | null;
+  lista_insumos: string | null;
+  suministro_mats: boolean | null;
+  // Solo incluye las fases cuya columna existe en el archivo.
+  fases_taller: Partial<Record<FaseTaller, boolean>>;
 }
 
 export interface PlaneacionMetadata {

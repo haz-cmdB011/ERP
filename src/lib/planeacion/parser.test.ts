@@ -382,6 +382,64 @@ describe("parsePlaneacionExcel", () => {
     expect(item2.imagenes).toHaveLength(0);
   });
 
+  it("deja ingenieria/lista_insumos/suministro_mats/fases_taller en null/{} cuando el archivo no trae esas columnas (compatibilidad con archivos existentes)", async () => {
+    const buf = await construirWorkbook([
+      { ITEM: 1, COMPONENTE: "MO", DESCRIPCION: "MUEBLE 1", "CANTIDAD TOTAL": 1 },
+    ]);
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items[0].ingenieria).toBeNull();
+    expect(resultado.items[0].lista_insumos).toBeNull();
+    expect(resultado.items[0].suministro_mats).toBeNull();
+    expect(resultado.items[0].fases_taller).toEqual({});
+  });
+
+  it("lee INGENIERIA/SUMINISTRO DE MATS como booleano aceptando 1/0, X y texto SI/NO", async () => {
+    const headersConFlags = [...HEADERS, "INGENIERIA", "SUMINISTRO DE MATS"];
+    const buf = await construirWorkbook(
+      [
+        { ITEM: 1, COMPONENTE: "MO", DESCRIPCION: "A", "CANTIDAD TOTAL": 1, INGENIERIA: 1, "SUMINISTRO DE MATS": 0 },
+        { ITEM: 2, COMPONENTE: "MO", DESCRIPCION: "B", "CANTIDAD TOTAL": 1, INGENIERIA: "X", "SUMINISTRO DE MATS": "NO" },
+        { ITEM: 3, COMPONENTE: "MO", DESCRIPCION: "C", "CANTIDAD TOTAL": 1, INGENIERIA: "", "SUMINISTRO DE MATS": "SI" },
+      ],
+      { headers: headersConFlags }
+    );
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items.map((i) => [i.ingenieria, i.suministro_mats])).toEqual([
+      [true, false],
+      [true, false],
+      [false, true],
+    ]);
+  });
+
+  it("lee LISTA DE INSUMOS como texto crudo, y fases_taller solo con las columnas presentes en el archivo", async () => {
+    const headersConFases = [...HEADERS, "LISTA DE INSUMOS", "HAB MAD", "TAPIZ"];
+    const buf = await construirWorkbook(
+      [
+        {
+          ITEM: 1,
+          COMPONENTE: "MO",
+          DESCRIPCION: "A",
+          "CANTIDAD TOTAL": 1,
+          "LISTA DE INSUMOS": "LI-004",
+          "HAB MAD": "X",
+          TAPIZ: "",
+        },
+      ],
+      { headers: headersConFases }
+    );
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items[0].lista_insumos).toBe("LI-004");
+    expect(resultado.items[0].fases_taller).toEqual({ "HAB MAD": true, TAPIZ: false });
+    // ENS MAD no está en el archivo: no debe aparecer en el objeto.
+    expect("ENS MAD" in resultado.items[0].fases_taller).toBe(false);
+  });
+
   it("deja fecha_pedido/fecha_entrega en null (no undefined) cuando no se encuentran en el archivo", async () => {
     // Clave: si quedan undefined en vez de null, JSON.stringify() las
     // elimina al armar el body de la llamada al RPC de ingestión, y
