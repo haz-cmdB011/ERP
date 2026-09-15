@@ -1,19 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-export type RolPerfil =
-  | "desarrollador"
-  | "admin_planeacion"
-  | "admin_produccion"
-  | "admin_calidad"
-  | "admin_estimaciones"
-  | "admin_finanzas"
-  | "planeacion"
-  | "area";
+import type { RolValido, AreaValida } from "./roles";
 
 export interface PerfilActual {
   userId: string;
-  rol: RolPerfil;
-  area: "produccion" | "calidad" | "estimaciones" | "finanzas" | null;
+  rol: RolValido;
+  area: AreaValida | null;
 }
 
 export async function getPerfilActual(
@@ -33,10 +24,14 @@ export async function getPerfilActual(
 
   if (!perfil) return null;
 
-  return { userId: user.id, rol: perfil.rol as RolPerfil, area: perfil.area };
+  return { userId: user.id, rol: perfil.rol as RolValido, area: perfil.area };
 }
 
-// Único con permiso para eliminar/restaurar pedidos (PM) de Planeación.
+// Único con permiso para eliminar/restaurar pedidos (PM) de Planeación:
+// el desarrollador (acceso global) o el administrador de esa área.
 export function puedeAdministrarPlaneacion(perfil: PerfilActual | null): boolean {
-  return perfil?.rol === "desarrollador" || perfil?.rol === "admin_planeacion";
+  return (
+    perfil?.rol === "desarrollador" ||
+    (perfil?.rol === "administrador" && perfil.area === "planeacion")
+  );
 }

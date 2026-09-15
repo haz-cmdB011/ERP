@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ROLES_VALIDOS, derivarArea } from "@/lib/auth/roles";
+import { ROLES_VALIDOS, derivarArea, requiereArea } from "@/lib/auth/roles";
 
 export async function POST(request: Request) {
   const admin = await requireAdmin();
@@ -27,9 +27,9 @@ export async function POST(request: Request) {
   if (!ROLES_VALIDOS.includes(rol)) {
     return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
   }
-  if (rol === "area" && !derivarArea(rol, areaEnviada)) {
+  if (requiereArea(rol) && !derivarArea(rol, areaEnviada)) {
     return NextResponse.json(
-      { error: "Un usuario de rol 'area' requiere un área válida." },
+      { error: "Este rol requiere elegir un área válida." },
       { status: 400 }
     );
   }
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   // El trigger on_auth_user_created ya creó la fila en perfiles con los
-  // valores por defecto (rol='area', area=null); la actualizamos con lo
+  // valores por defecto (rol='usuario', area=null); la actualizamos con lo
   // elegido en el formulario.
   const { error: updateError } = await adminClient
     .from("perfiles")

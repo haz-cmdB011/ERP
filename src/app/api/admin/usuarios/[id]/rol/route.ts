@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
-import { ROLES_VALIDOS, derivarArea } from "@/lib/auth/roles";
+import { ROLES_VALIDOS, derivarArea, requiereArea } from "@/lib/auth/roles";
 
 export async function PATCH(
   request: Request,
@@ -20,9 +20,9 @@ export async function PATCH(
   if (!ROLES_VALIDOS.includes(rol)) {
     return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
   }
-  if (rol === "area" && !derivarArea(rol, areaEnviada)) {
+  if (requiereArea(rol) && !derivarArea(rol, areaEnviada)) {
     return NextResponse.json(
-      { error: "Un usuario de rol 'area' requiere un área válida." },
+      { error: "Este rol requiere elegir un área válida." },
       { status: 400 }
     );
   }

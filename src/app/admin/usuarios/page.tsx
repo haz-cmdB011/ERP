@@ -2,21 +2,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CrearUsuarioForm from "./crear-usuario-form";
 import UsuariosTable from "./usuarios-table";
+import type { RolValido, AreaValida } from "@/lib/auth/roles";
 
 export interface PerfilRow {
   id: string;
   email: string | null;
   nombre_completo: string | null;
-  rol:
-    | "desarrollador"
-    | "admin_planeacion"
-    | "admin_produccion"
-    | "admin_calidad"
-    | "admin_estimaciones"
-    | "admin_finanzas"
-    | "planeacion"
-    | "area";
-  area: "produccion" | "calidad" | "estimaciones" | "finanzas" | null;
+  rol: RolValido;
+  area: AreaValida | null;
   created_at: string;
 }
 
