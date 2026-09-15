@@ -17,12 +17,6 @@ export default async function PlaneacionLayout({
     redirect("/login");
   }
 
-  const { data: perfil } = await supabase
-    .from("perfiles")
-    .select("rol")
-    .eq("id", user.id)
-    .single();
-
   return (
     <div className="min-h-screen">
       <AreaNav area="planeacion" email={user.email ?? ""}>
@@ -32,11 +26,6 @@ export default async function PlaneacionLayout({
         <Link href="/planeacion/upload" className="text-gray-600 hover:text-black">
           Cargar Excel
         </Link>
-        {perfil?.rol === "desarrollador" && (
-          <Link href="/admin/usuarios" className="text-gray-600 hover:text-black">
-            Usuarios
-          </Link>
-        )}
       </AreaNav>
       {children}
     </div>
