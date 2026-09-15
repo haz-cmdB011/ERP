@@ -64,9 +64,9 @@ export default function ViajeroFicha({
         )}
       </header>
 
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-start">
+      <section className="flex flex-row items-start gap-4">
         {imagenUrls.length > 0 && (
-          <div className="flex flex-wrap gap-3 sm:shrink-0">
+          <div className="flex shrink-0 flex-wrap gap-3">
             {imagenUrls.map((url) => (
               // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
               <img
