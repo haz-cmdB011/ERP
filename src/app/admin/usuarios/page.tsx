@@ -13,6 +13,8 @@ export interface PerfilRow {
   created_at: string;
 }
 
+// El acceso (solo desarrollador) ya lo valida admin/layout.tsx antes de
+// llegar aquí — esta página asume que quien la ve ya está autorizado.
 export default async function AdminUsuariosPage() {
   const supabase = await createClient();
   const {
@@ -21,16 +23,6 @@ export default async function AdminUsuariosPage() {
 
   if (!user) {
     redirect("/login");
-  }
-
-  const { data: miPerfil } = await supabase
-    .from("perfiles")
-    .select("rol")
-    .eq("id", user.id)
-    .single();
-
-  if (miPerfil?.rol !== "desarrollador") {
-    redirect("/planeacion");
   }
 
   const { data: usuarios } = await supabase

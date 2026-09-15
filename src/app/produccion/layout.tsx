@@ -17,9 +17,19 @@ export default async function ProduccionLayout({
     redirect("/login");
   }
 
+  const { data: perfil } = await supabase
+    .from("perfiles")
+    .select("rol")
+    .eq("id", user.id)
+    .single();
+
   return (
     <div className="min-h-screen">
-      <AreaNav area="produccion" email={user.email ?? ""}>
+      <AreaNav
+        area="produccion"
+        email={user.email ?? ""}
+        esDesarrollador={perfil?.rol === "desarrollador"}
+      >
         <Link href="/produccion" className="text-gray-600 hover:text-black">
           Pedidos
         </Link>

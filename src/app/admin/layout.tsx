@@ -1,9 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
 
-export default async function PlaneacionLayout({
+// Usuarios vive como panel propio (mismo peso visual que Planeación y
+// Producción en AreaNav), pero solo es accesible para desarrolladores:
+// cualquier otro rol se redirige antes de renderizar nada de /admin/*.
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -23,20 +25,13 @@ export default async function PlaneacionLayout({
     .eq("id", user.id)
     .single();
 
+  if (perfil?.rol !== "desarrollador") {
+    redirect("/planeacion");
+  }
+
   return (
     <div className="min-h-screen">
-      <AreaNav
-        area="planeacion"
-        email={user.email ?? ""}
-        esDesarrollador={perfil?.rol === "desarrollador"}
-      >
-        <Link href="/planeacion" className="text-gray-600 hover:text-black">
-          Pedidos
-        </Link>
-        <Link href="/planeacion/upload" className="text-gray-600 hover:text-black">
-          Cargar Excel
-        </Link>
-      </AreaNav>
+      <AreaNav area="usuarios" email={user.email ?? ""} esDesarrollador />
       {children}
     </div>
   );

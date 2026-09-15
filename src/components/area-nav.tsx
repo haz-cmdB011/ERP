@@ -11,10 +11,14 @@ import LogoutButton from "./logout-button";
 export default function AreaNav({
   area,
   email,
+  esDesarrollador = false,
   children,
 }: {
-  area: "planeacion" | "produccion";
+  area: "planeacion" | "produccion" | "usuarios";
   email: string;
+  // Usuarios es un panel más, pero solo para desarrolladores (acceso
+  // global): las demás áreas no lo ven en su selector.
+  esDesarrollador?: boolean;
   children?: React.ReactNode;
 }) {
   return (
@@ -37,6 +41,16 @@ export default function AreaNav({
           >
             Producción
           </Link>
+          {esDesarrollador && (
+            <Link
+              href="/admin/usuarios"
+              className={`rounded px-2 py-1 font-semibold ${
+                area === "usuarios" ? "bg-black text-white" : "text-gray-600 hover:text-black"
+              }`}
+            >
+              Usuarios
+            </Link>
+          )}
         </div>
         <Link href="/planeacion/cuenta" className="ml-auto text-gray-500 hover:text-black">
           {email}
