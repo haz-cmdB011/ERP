@@ -33,10 +33,14 @@ export default function ViajeroFicha({
   pedido,
   item,
   padre,
+  qrUrl,
 }: {
   pedido: ViajeroFichaPedido;
   item: ViajeroFichaItem;
   padre: ViajeroFichaPadre | null;
+  // URL absoluta a la Hoja de Viajero de este ítem: lo que debe codificar
+  // el QR para que escanearlo abra la página, en vez de solo mostrar texto.
+  qrUrl: string;
 }) {
   const fasesAplicables = FASES_TALLER_COLUMNS.filter(
     (fase) => item.fases_taller?.[fase] === true
@@ -79,13 +83,9 @@ export default function ViajeroFicha({
         </dl>
       </section>
 
-      <section>
-        <h2 className="text-sm font-semibold uppercase text-gray-500">Ruta de procesos</h2>
-        {fasesAplicables.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-500">
-            Sin fases de taller registradas para este ítem.
-          </p>
-        ) : (
+      {fasesAplicables.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold uppercase text-gray-500">Ruta de procesos</h2>
           <table className="mt-2 w-full text-left text-sm">
             <thead>
               <tr className="text-gray-400">
@@ -108,8 +108,8 @@ export default function ViajeroFicha({
               ))}
             </tbody>
           </table>
-        )}
-      </section>
+        </section>
+      )}
 
       <section>
         <h2 className="text-sm font-semibold uppercase text-gray-500">Observaciones</h2>
@@ -122,8 +122,8 @@ export default function ViajeroFicha({
       </section>
 
       <section className="flex items-center justify-between border-t border-gray-300 pt-4">
-        <p className="text-xs text-gray-500">Escanea para identificar este ítem en taller.</p>
-        <ViajeroQr value={item.id} />
+        <p className="text-xs text-gray-500">Escanea para abrir esta hoja en el celular.</p>
+        <ViajeroQr value={qrUrl} />
       </section>
     </article>
   );

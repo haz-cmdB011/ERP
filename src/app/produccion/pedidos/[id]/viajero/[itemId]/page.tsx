@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getBaseUrl } from "@/lib/site-url";
 import ViajeroFicha, {
   type ViajeroFichaItem,
   type ViajeroFichaPadre,
@@ -56,6 +57,8 @@ export default async function ViajeroPage({
     padre = data ?? null;
   }
 
+  const baseUrl = await getBaseUrl();
+
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6 print:max-w-none print:p-4">
       <div className="flex items-center justify-between print:hidden">
@@ -65,7 +68,12 @@ export default async function ViajeroPage({
         <ImprimirButton />
       </div>
 
-      <ViajeroFicha pedido={pedido} item={item} padre={padre} />
+      <ViajeroFicha
+        pedido={pedido}
+        item={item}
+        padre={padre}
+        qrUrl={`${baseUrl}/produccion/pedidos/${id}/viajero/${item.id}`}
+      />
     </main>
   );
 }

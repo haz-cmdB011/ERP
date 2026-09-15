@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getBaseUrl } from "@/lib/site-url";
 import ViajeroFicha, {
   type ViajeroFichaItem,
   type ViajeroFichaPadre,
@@ -75,6 +76,8 @@ export default async function ViajeroLotePage({
     }
   }
 
+  const baseUrl = await getBaseUrl();
+
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6 print:max-w-none print:p-4">
       <div className="flex items-center justify-between print:hidden">
@@ -94,6 +97,7 @@ export default async function ViajeroLotePage({
               pedido={pedido}
               item={item}
               padre={item.parent_item_id ? padresPorId.get(item.parent_item_id) ?? null : null}
+              qrUrl={`${baseUrl}/produccion/pedidos/${id}/viajero/${item.id}`}
             />
           </div>
         ))}
