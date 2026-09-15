@@ -9,7 +9,16 @@ export default function CrearUsuarioForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rol, setRol] = useState<"admin" | "planeacion" | "area">("area");
+  const [rol, setRol] = useState<
+    | "desarrollador"
+    | "admin_planeacion"
+    | "admin_produccion"
+    | "admin_calidad"
+    | "admin_estimaciones"
+    | "admin_finanzas"
+    | "planeacion"
+    | "area"
+  >("area");
   const [area, setArea] = useState<(typeof AREAS)[number]>("produccion");
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
@@ -73,7 +82,12 @@ export default function CrearUsuarioForm() {
         >
           <option value="area">Área</option>
           <option value="planeacion">Planeación</option>
-          <option value="admin">Admin</option>
+          <option value="admin_planeacion">Admin de Planeación</option>
+          <option value="admin_produccion">Admin de Producción</option>
+          <option value="admin_calidad">Admin de Calidad</option>
+          <option value="admin_estimaciones">Admin de Estimaciones</option>
+          <option value="admin_finanzas">Admin de Finanzas</option>
+          <option value="desarrollador">Desarrollador</option>
         </select>
         {rol === "area" && (
           <select

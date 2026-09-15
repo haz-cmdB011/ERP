@@ -7,7 +7,15 @@ export interface PerfilRow {
   id: string;
   email: string | null;
   nombre_completo: string | null;
-  rol: "admin" | "planeacion" | "area";
+  rol:
+    | "desarrollador"
+    | "admin_planeacion"
+    | "admin_produccion"
+    | "admin_calidad"
+    | "admin_estimaciones"
+    | "admin_finanzas"
+    | "planeacion"
+    | "area";
   area: "produccion" | "calidad" | "estimaciones" | "finanzas" | null;
   created_at: string;
 }
@@ -28,7 +36,7 @@ export default async function AdminUsuariosPage() {
     .eq("id", user.id)
     .single();
 
-  if (miPerfil?.rol !== "admin") {
+  if (miPerfil?.rol !== "desarrollador") {
     redirect("/planeacion");
   }
 
@@ -44,7 +52,7 @@ export default async function AdminUsuariosPage() {
         <h1 className="text-xl font-semibold">Usuarios</h1>
         <p className="text-sm text-gray-600">
           Crea usuarios nuevos, asígnales rol y restablece contraseñas. Solo
-          administradores pueden ver esta página.
+          desarrolladores pueden ver esta página.
         </p>
       </div>
 

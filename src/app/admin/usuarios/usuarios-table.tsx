@@ -124,7 +124,12 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
         >
           <option value="area">Área</option>
           <option value="planeacion">Planeación</option>
-          <option value="admin">Admin</option>
+          <option value="admin_planeacion">Admin de Planeación</option>
+          <option value="admin_produccion">Admin de Producción</option>
+          <option value="admin_calidad">Admin de Calidad</option>
+          <option value="admin_estimaciones">Admin de Estimaciones</option>
+          <option value="admin_finanzas">Admin de Finanzas</option>
+          <option value="desarrollador">Desarrollador</option>
         </select>
       </td>
       <td className="py-2 pr-4">

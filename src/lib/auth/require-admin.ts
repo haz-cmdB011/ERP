@@ -7,8 +7,10 @@ type RequireAdminResult =
 
 /**
  * Verifica que el usuario autenticado en la sesión actual tiene rol
- * 'admin' en public.perfiles. Debe llamarse al inicio de toda ruta o
- * server action que dependa del cliente con privilegios de service_role.
+ * 'desarrollador' en public.perfiles (acceso global, sin restricción de
+ * área — hoy reservado al equipo técnico). Debe llamarse al inicio de toda
+ * ruta o server action que dependa del cliente con privilegios de
+ * service_role.
  */
 export async function requireAdmin(): Promise<RequireAdminResult> {
   const supabase = await createClient();
@@ -26,8 +28,8 @@ export async function requireAdmin(): Promise<RequireAdminResult> {
     .eq("id", user.id)
     .single();
 
-  if (perfil?.rol !== "admin") {
-    return { ok: false, status: 403, error: "Requiere rol de administrador." };
+  if (perfil?.rol !== "desarrollador") {
+    return { ok: false, status: 403, error: "Requiere rol de desarrollador." };
   }
 
   return { ok: true, user };
