@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const ROLES_VALIDOS = ["admin", "planeacion", "area"] as const;
-const AREAS_VALIDAS = ["produccion", "calidad", "estimaciones", "finanzas"] as const;
+import { ROLES_VALIDOS, derivarArea, requiereArea } from "@/lib/auth/roles";
 
 export async function POST(request: Request) {
   const admin = await requireAdmin();
@@ -15,7 +13,7 @@ export async function POST(request: Request) {
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body?.password === "string" ? body.password : "";
   const rol = body?.rol;
-  const area = body?.area || null;
+  const areaEnviada = body?.area || null;
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Email inválido." }, { status: 400 });
@@ -29,9 +27,9 @@ export async function POST(request: Request) {
   if (!ROLES_VALIDOS.includes(rol)) {
     return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
   }
-  if (rol === "area" && !AREAS_VALIDAS.includes(area)) {
+  if (requiereArea(rol) && !derivarArea(rol, areaEnviada)) {
     return NextResponse.json(
-      { error: "Un usuario de rol 'area' requiere un área válida." },
+      { error: "Este rol requiere elegir un área válida." },
       { status: 400 }
     );
   }
@@ -54,11 +52,11 @@ export async function POST(request: Request) {
   }
 
   // El trigger on_auth_user_created ya creó la fila en perfiles con los
-  // valores por defecto (rol='area', area=null); la actualizamos con lo
+  // valores por defecto (rol='usuario', area=null); la actualizamos con lo
   // elegido en el formulario.
   const { error: updateError } = await adminClient
     .from("perfiles")
-    .update({ rol, area: rol === "area" ? area : null })
+    .update({ rol, area: derivarArea(rol, areaEnviada) })
     .eq("id", creado.user.id);
 
   if (updateError) {

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
 
-export default async function PlaneacionLayout({
+export default async function ProduccionLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -26,15 +26,12 @@ export default async function PlaneacionLayout({
   return (
     <div className="min-h-screen">
       <AreaNav
-        area="planeacion"
+        area="produccion"
         email={user.email ?? ""}
         esDesarrollador={perfil?.rol === "desarrollador"}
       >
-        <Link href="/planeacion" className="text-gray-600 hover:text-black">
+        <Link href="/produccion" className="text-gray-600 hover:text-black">
           Pedidos
-        </Link>
-        <Link href="/planeacion/upload" className="text-gray-600 hover:text-black">
-          Cargar Excel
         </Link>
       </AreaNav>
       {children}

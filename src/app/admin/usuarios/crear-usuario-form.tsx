@@ -2,17 +2,26 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-const AREAS = ["produccion", "calidad", "estimaciones", "finanzas"] as const;
+import {
+  AREAS_VALIDAS,
+  AREA_LABELS,
+  ROLES_VALIDOS,
+  ROL_LABELS,
+  requiereArea,
+  type RolValido,
+  type AreaValida,
+} from "@/lib/auth/roles";
 
 export default function CrearUsuarioForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rol, setRol] = useState<"admin" | "planeacion" | "area">("area");
-  const [area, setArea] = useState<(typeof AREAS)[number]>("produccion");
+  const [rol, setRol] = useState<RolValido>("usuario");
+  const [area, setArea] = useState<AreaValida>("planeacion");
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
+
+  const mostrarArea = requiereArea(rol);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +31,7 @@ export default function CrearUsuarioForm() {
     const res = await fetch("/api/admin/usuarios/crear", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, rol, area: rol === "area" ? area : null }),
+      body: JSON.stringify({ email, password, rol, area: mostrarArea ? area : null }),
     });
     const data = await res.json();
 
@@ -68,22 +77,24 @@ export default function CrearUsuarioForm() {
       <div className="flex gap-3">
         <select
           value={rol}
-          onChange={(e) => setRol(e.target.value as typeof rol)}
+          onChange={(e) => setRol(e.target.value as RolValido)}
           className="rounded border border-gray-300 px-3 py-2 text-sm"
         >
-          <option value="area">Área</option>
-          <option value="planeacion">Planeación</option>
-          <option value="admin">Admin</option>
+          {ROLES_VALIDOS.map((r) => (
+            <option key={r} value={r}>
+              {ROL_LABELS[r]}
+            </option>
+          ))}
         </select>
-        {rol === "area" && (
+        {mostrarArea && (
           <select
             value={area}
-            onChange={(e) => setArea(e.target.value as typeof area)}
+            onChange={(e) => setArea(e.target.value as AreaValida)}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           >
-            {AREAS.map((a) => (
+            {AREAS_VALIDAS.map((a) => (
               <option key={a} value={a}>
-                {a}
+                {AREA_LABELS[a]}
               </option>
             ))}
           </select>

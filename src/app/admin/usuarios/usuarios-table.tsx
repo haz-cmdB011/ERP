@@ -3,8 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { PerfilRow } from "./page";
-
-const AREAS = ["produccion", "calidad", "estimaciones", "finanzas"] as const;
+import {
+  AREAS_VALIDAS,
+  AREA_LABELS,
+  ROLES_VALIDOS,
+  ROL_LABELS,
+  requiereArea,
+  type AreaValida,
+} from "@/lib/auth/roles";
 
 function ResetPasswordCell({ userId }: { userId: string }) {
   const [abierto, setAbierto] = useState(false);
@@ -86,9 +92,11 @@ function ResetPasswordCell({ userId }: { userId: string }) {
 function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   const router = useRouter();
   const [rol, setRol] = useState(usuario.rol);
-  const [area, setArea] = useState(usuario.area ?? "produccion");
+  const [area, setArea] = useState<AreaValida>(usuario.area ?? "planeacion");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const mostrarArea = requiereArea(rol);
 
   async function guardar() {
     setGuardando(true);
@@ -96,7 +104,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
     const res = await fetch(`/api/admin/usuarios/${usuario.id}/rol`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rol, area: rol === "area" ? area : null }),
+      body: JSON.stringify({ rol, area: mostrarArea ? area : null }),
     });
     const data = await res.json();
     setGuardando(false);
@@ -107,7 +115,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
     router.refresh();
   }
 
-  const cambios = rol !== usuario.rol || (rol === "area" && area !== usuario.area);
+  const cambios = rol !== usuario.rol || (mostrarArea && area !== usuario.area);
 
   return (
     <tr className="border-t border-gray-100">
@@ -122,22 +130,24 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
           className="rounded border border-gray-300 px-2 py-1 text-sm"
           disabled={esYo}
         >
-          <option value="area">Área</option>
-          <option value="planeacion">Planeación</option>
-          <option value="admin">Admin</option>
+          {ROLES_VALIDOS.map((r) => (
+            <option key={r} value={r}>
+              {ROL_LABELS[r]}
+            </option>
+          ))}
         </select>
       </td>
       <td className="py-2 pr-4">
-        {rol === "area" ? (
+        {mostrarArea ? (
           <select
             value={area}
-            onChange={(e) => setArea(e.target.value as typeof area)}
+            onChange={(e) => setArea(e.target.value as AreaValida)}
             className="rounded border border-gray-300 px-2 py-1 text-sm"
             disabled={esYo}
           >
-            {AREAS.map((a) => (
+            {AREAS_VALIDAS.map((a) => (
               <option key={a} value={a}>
-                {a}
+                {AREA_LABELS[a]}
               </option>
             ))}
           </select>

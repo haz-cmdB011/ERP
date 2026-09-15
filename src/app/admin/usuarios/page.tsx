@@ -2,16 +2,19 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CrearUsuarioForm from "./crear-usuario-form";
 import UsuariosTable from "./usuarios-table";
+import type { RolValido, AreaValida } from "@/lib/auth/roles";
 
 export interface PerfilRow {
   id: string;
   email: string | null;
   nombre_completo: string | null;
-  rol: "admin" | "planeacion" | "area";
-  area: "produccion" | "calidad" | "estimaciones" | "finanzas" | null;
+  rol: RolValido;
+  area: AreaValida | null;
   created_at: string;
 }
 
+// El acceso (solo desarrollador) ya lo valida admin/layout.tsx antes de
+// llegar aquí — esta página asume que quien la ve ya está autorizado.
 export default async function AdminUsuariosPage() {
   const supabase = await createClient();
   const {
@@ -20,16 +23,6 @@ export default async function AdminUsuariosPage() {
 
   if (!user) {
     redirect("/login");
-  }
-
-  const { data: miPerfil } = await supabase
-    .from("perfiles")
-    .select("rol")
-    .eq("id", user.id)
-    .single();
-
-  if (miPerfil?.rol !== "admin") {
-    redirect("/planeacion");
   }
 
   const { data: usuarios } = await supabase
@@ -44,7 +37,7 @@ export default async function AdminUsuariosPage() {
         <h1 className="text-xl font-semibold">Usuarios</h1>
         <p className="text-sm text-gray-600">
           Crea usuarios nuevos, asígnales rol y restablece contraseñas. Solo
-          administradores pueden ver esta página.
+          desarrolladores pueden ver esta página.
         </p>
       </div>
 

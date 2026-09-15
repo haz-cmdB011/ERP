@@ -1,7 +1,9 @@
 import ExcelJS from "exceljs";
+import { FASES_TALLER_COLUMNS, type FaseTaller } from "./fases-taller";
 import type {
   CategoriaComponente,
   FilaError,
+  ImagenExtraida,
   ParseResult,
   PlaneacionItemParsed,
   PlaneacionMetadata,
@@ -108,6 +110,20 @@ function cellNumber(value: CellValue): number | null {
   return Math.round(n * 100) / 100;
 }
 
+const VALORES_VERDADEROS = new Set(["1", "X", "SI", "S", "TRUE", "OK"]);
+
+// Banderas de validación (INGENIERIA, SUMINISTRO DE MATS, fases de taller):
+// en la práctica se marcan con "1", "X" o similar, no siempre con booleanos
+// reales de Excel. Todo lo que no sea un valor reconocido como verdadero
+// (vacío, "0", "NO"...) se trata como falso.
+function cellFlag(value: CellValue): boolean {
+  const num = cellNumber(value);
+  if (num !== null) return num === 1;
+  const text = cellText(value);
+  if (!text) return false;
+  return VALORES_VERDADEROS.has(normalize(text));
+}
+
 // Coincidencia por PREFIJO, no exacta: en la práctica los archivos reales
 // usan variaciones ("MO", "MOB", "MOBILIARIO", "FU", "FUN", "PER"...).
 // Siempre van a aparecer variantes nuevas, así que se acepta cualquier
@@ -127,6 +143,42 @@ function cellDateISO(value: CellValue): string | null {
     return cellDateISO(value.result as CellValue);
   }
   return null;
+}
+
+// Las imágenes de la columna IMAGEN no son valores de celda: Excel las
+// ancla como objetos flotantes (drawing) sobre un rango de celdas, vía
+// worksheet.getImages(). Se filtran por cercanía a la columna IMAGEN para
+// no capturar objetos ajenos (ej. el logo del encabezado, anclado en otra
+// columna) y se agrupan por fila de origen porque un mismo ítem puede
+// tener varias imágenes ancladas (se observaron hasta 6 en archivos reales).
+function extraerImagenesPorFila(
+  worksheet: ExcelJS.Worksheet,
+  workbook: ExcelJS.Workbook,
+  imagenColIndex: number | undefined
+): Map<number, ImagenExtraida[]> {
+  const porFila = new Map<number, ImagenExtraida[]>();
+  if (!imagenColIndex) return porFila;
+
+  const imagenColZeroBased = imagenColIndex - 1;
+  const media = workbook.model.media;
+
+  for (const img of worksheet.getImages()) {
+    const tlCol = Math.floor(img.range.tl.nativeCol);
+    // br puede faltar en anclas de una sola celda (oneCellAnchor); en ese
+    // caso se trata la imagen como si ocupara solo la celda de tl.
+    const brCol = img.range.br ? Math.ceil(img.range.br.nativeCol) : tlCol;
+    if (imagenColZeroBased < tlCol - 1 || imagenColZeroBased > brCol + 1) continue;
+
+    const asset = media[Number(img.imageId)];
+    if (!asset?.buffer) continue;
+
+    const excelRow = Math.round(img.range.tl.nativeRow) + 1;
+    const lista = porFila.get(excelRow) ?? [];
+    lista.push({ buffer: Buffer.from(asset.buffer), extension: asset.extension ?? "png" });
+    porFila.set(excelRow, lista);
+  }
+
+  return porFila;
 }
 
 export async function parsePlaneacionExcel(
@@ -239,6 +291,7 @@ export async function parsePlaneacionExcel(
   let filasTotales = 0;
 
   const col = (name: (typeof REQUIRED_HEADERS)[number] | string) => columnMap[name];
+  const imagenesPorFila = extraerImagenesPorFila(worksheet, workbook, columnMap["IMAGEN"]);
 
   for (let r = headerRowNumber + 1; r <= worksheet.rowCount; r++) {
     const row = worksheet.getRow(r);
@@ -290,6 +343,13 @@ export async function parsePlaneacionExcel(
     // (ej. "1.03") tenga varias filas FU con distinto material (madera,
     // metal, tapiz...). La identidad única de la fila es fila_excel_origen.
 
+    const fasesTaller: Partial<Record<FaseTaller, boolean>> = {};
+    for (const fase of FASES_TALLER_COLUMNS) {
+      if (col(fase)) {
+        fasesTaller[fase] = cellFlag(resolvedValue(row.getCell(col(fase))));
+      }
+    }
+
     items.push({
       item_code: itemCode,
       tipo_registro: tipoRegistro,
@@ -307,6 +367,15 @@ export async function parsePlaneacionExcel(
       acabados: col("ACABADOS") ? cellText(resolvedValue(row.getCell(col("ACABADOS")))) : null,
       observaciones: col("OBSERVACIONES") ? cellText(resolvedValue(row.getCell(col("OBSERVACIONES")))) : null,
       fila_excel_origen: r,
+      imagenes: imagenesPorFila.get(r) ?? [],
+      ingenieria: col("INGENIERIA") ? cellFlag(resolvedValue(row.getCell(col("INGENIERIA")))) : null,
+      lista_insumos: col("LISTA DE INSUMOS")
+        ? cellText(resolvedValue(row.getCell(col("LISTA DE INSUMOS"))))
+        : null,
+      suministro_mats: col("SUMINISTRO DE MATS")
+        ? cellFlag(resolvedValue(row.getCell(col("SUMINISTRO DE MATS"))))
+        : null,
+      fases_taller: fasesTaller,
     });
   }
 
