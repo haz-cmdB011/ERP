@@ -30,6 +30,15 @@ interface ItemRow {
   fila_excel_origen: number | null;
 }
 
+interface ImagenRow {
+  planeacion_item_id: string;
+  storage_path: string;
+  orden: number;
+}
+
+const BUCKET_IMAGENES_ITEMS = "planeacion-item-imagenes";
+const SIGNED_URL_EXPIRES_SECONDS = 3600;
+
 export default async function PedidoDetailPage({
   params,
   searchParams,
@@ -83,6 +92,38 @@ export default async function PedidoDetailPage({
         .order("fila_excel_origen")
         .returns<ItemRow[]>()
     : { data: null };
+
+  const itemIds = (items ?? []).map((i) => i.id);
+  const { data: imagenes } = itemIds.length
+    ? await supabase
+        .from("planeacion_item_imagenes")
+        .select("planeacion_item_id, storage_path, orden")
+        .in("planeacion_item_id", itemIds)
+        .order("orden")
+        .returns<ImagenRow[]>()
+    : { data: [] as ImagenRow[] };
+
+  const rutasUnicas = Array.from(new Set((imagenes ?? []).map((i) => i.storage_path)));
+  const { data: firmadas } = rutasUnicas.length
+    ? await supabase.storage
+        .from(BUCKET_IMAGENES_ITEMS)
+        .createSignedUrls(rutasUnicas, SIGNED_URL_EXPIRES_SECONDS)
+    : { data: [] };
+
+  const urlPorRuta = new Map(
+    (firmadas ?? [])
+      .filter((f): f is typeof f & { signedUrl: string } => !f.error && !!f.signedUrl)
+      .map((f) => [f.path, f.signedUrl])
+  );
+
+  const imagenesPorItem = new Map<string, string[]>();
+  for (const img of imagenes ?? []) {
+    const url = urlPorRuta.get(img.storage_path);
+    if (!url) continue;
+    const lista = imagenesPorItem.get(img.planeacion_item_id) ?? [];
+    lista.push(url);
+    imagenesPorItem.set(img.planeacion_item_id, lista);
+  }
 
   const mo = items?.filter((i) => i.tipo_registro === "MO") ?? [];
   const fuPorPadre = new Map<string, ItemRow[]>();
@@ -147,6 +188,7 @@ export default async function PedidoDetailPage({
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="text-gray-400">
+                    <th className="py-1 pr-2">Imagen</th>
                     <th className="py-1 pr-2">Item</th>
                     <th className="py-1 pr-2">Modelo</th>
                     <th className="py-1 pr-2">Material</th>
@@ -156,6 +198,9 @@ export default async function PedidoDetailPage({
                 </thead>
                 <tbody>
                   <tr className="text-sm font-medium">
+                    <td className="py-1 pr-2">
+                      <ImagenesItem urls={imagenesPorItem.get(m.id) ?? []} />
+                    </td>
                     <td className="py-1 pr-2">{m.item_code}</td>
                     <td className="py-1 pr-2">{m.modelo}</td>
                     <td className="py-1 pr-2">{m.tipo_material}</td>
@@ -166,6 +211,9 @@ export default async function PedidoDetailPage({
                   </tr>
                   {(fuPorPadre.get(m.id) ?? []).map((f) => (
                     <tr key={f.id} className="border-t border-gray-100">
+                      <td className="py-1 pr-2">
+                        <ImagenesItem urls={imagenesPorItem.get(f.id) ?? []} />
+                      </td>
                       <td className="py-1 pr-2">{f.item_code}</td>
                       <td className="py-1 pr-2">{f.modelo}</td>
                       <td className="py-1 pr-2">{f.tipo_material}</td>
@@ -184,5 +232,17 @@ export default async function PedidoDetailPage({
         </div>
       )}
     </main>
+  );
+}
+
+function ImagenesItem({ urls }: { urls: string[] }) {
+  if (urls.length === 0) return null;
+  return (
+    <div className="flex gap-1">
+      {urls.map((url) => (
+        // eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image
+        <img key={url} src={url} alt="" className="h-10 w-10 rounded object-cover" />
+      ))}
+    </div>
   );
 }

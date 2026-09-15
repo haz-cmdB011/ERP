@@ -1,11 +1,49 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parsePlaneacionExcel } from "@/lib/planeacion/parser";
+import type { PlaneacionItemParsed } from "@/lib/planeacion/types";
 
 export const runtime = "nodejs";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB
 const ALLOWED_EXTENSIONS = [".xlsx"];
+const BUCKET_IMAGENES_ITEMS = "planeacion-item-imagenes";
+
+type ItemParaIngesta = Omit<PlaneacionItemParsed, "imagenes"> & {
+  imagen_paths: string[];
+};
+
+// Las imágenes extraídas por el parser traen el buffer binario en memoria
+// (no son jsonb-safe): se suben a Storage aquí, antes de llamar al RPC de
+// ingestión, que solo recibe las rutas resultantes.
+async function subirImagenesDeItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  cargaId: string,
+  items: PlaneacionItemParsed[]
+): Promise<ItemParaIngesta[]> {
+  return Promise.all(
+    items.map(async ({ imagenes, ...resto }) => {
+      const imagenPaths = await Promise.all(
+        imagenes.map(async (imagen, indice) => {
+          const path = `${cargaId}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
+          const { error } = await supabase.storage
+            .from(BUCKET_IMAGENES_ITEMS)
+            .upload(path, imagen.buffer, {
+              contentType: `image/${imagen.extension === "jpg" ? "jpeg" : imagen.extension}`,
+              upsert: false,
+            });
+          if (error) {
+            throw new Error(
+              `No se pudo subir una imagen de la fila ${resto.fila_excel_origen}: ${error.message}`
+            );
+          }
+          return path;
+        })
+      );
+      return { ...resto, imagen_paths: imagenPaths };
+    })
+  );
+}
 
 // Supabase Storage rechaza keys con acentos, espacios u otros caracteres
 // fuera de [A-Za-z0-9._-]. El nombre original se conserva tal cual en
@@ -112,7 +150,26 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Ingestión atómica vía función RPC (todo o nada).
+  // 3. Subir a Storage las imágenes embebidas de cada fila, ANTES de la
+  //    ingestión: el RPC solo recibe jsonb (rutas de texto), no buffers.
+  let itemsParaIngesta: ItemParaIngesta[];
+  try {
+    itemsParaIngesta = await subirImagenesDeItems(supabase, carga.id, resultado.items);
+  } catch (err) {
+    const mensaje = err instanceof Error ? err.message : "error desconocido";
+    await supabase
+      .from("cargas_archivo")
+      .update({
+        estado: "error",
+        errores: [{ fila: 0, mensaje }],
+        procesado_en: new Date().toISOString(),
+      })
+      .eq("id", carga.id);
+
+    return NextResponse.json({ error: mensaje, cargaId: carga.id }, { status: 500 });
+  }
+
+  // 4. Ingestión atómica vía función RPC (todo o nada).
   const { data: ingestData, error: ingestError } = await supabase.rpc(
     "ingest_planeacion_version",
     {
@@ -125,7 +182,7 @@ export async function POST(request: Request) {
       p_fecha_pedido: resultado.metadata.fecha_pedido ?? null,
       p_fecha_entrega: resultado.metadata.fecha_entrega ?? null,
       p_carga_id: carga.id,
-      p_items: resultado.items,
+      p_items: itemsParaIngesta,
     }
   );
 

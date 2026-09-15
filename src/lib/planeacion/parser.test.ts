@@ -128,6 +128,33 @@ describe("parsePlaneacionExcel", () => {
     expect(resultado.items.length).toBeGreaterThan(200);
   });
 
+  it("extrae las imágenes ancladas a la columna IMAGEN y las asocia a la fila correcta", async () => {
+    if (!existsSync(MUESTRA_FORMULAS_COMPARTIDAS)) {
+      return;
+    }
+    const buf = readFileSync(MUESTRA_FORMULAS_COMPARTIDAS);
+    const resultado = await parsePlaneacionExcel(buf);
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+
+    const conImagenes = resultado.items.filter((i) => i.imagenes.length > 0);
+    expect(conImagenes.length).toBeGreaterThan(0);
+
+    // Item 1 (primera fila de datos) trae imagen en el archivo real.
+    const item1 = resultado.items.find((i) => i.item_code === 1);
+    expect(item1?.imagenes.length).toBeGreaterThan(0);
+    for (const img of item1?.imagenes ?? []) {
+      expect(img.buffer.length).toBeGreaterThan(0);
+      expect(img.extension).toBe("png");
+    }
+
+    // Ítems con varias imágenes ancladas a la misma fila (caso real
+    // observado: hasta 6 imágenes sobre un mismo ítem).
+    const conVarias = resultado.items.find((i) => i.imagenes.length > 1);
+    expect(conVarias).toBeDefined();
+  });
+
   it("acepta un archivo válido mínimo y calcula filasTotales", async () => {
     const buf = await construirWorkbook([
       {
@@ -282,6 +309,77 @@ describe("parsePlaneacionExcel", () => {
     expect(resultado.metadata.numero_pedido).toBe("PM-999");
     expect(resultado.metadata.proyecto_nombre).toBe("PROYECTO X");
     expect(resultado.metadata.cliente).toBe("ACME");
+  });
+
+  it("asocia imágenes ancladas a la columna IMAGEN con la fila correspondiente, ignorando objetos flotantes en otras columnas", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("MOBILIARIO");
+
+    const headers = [...HEADERS, "IMAGEN"];
+    ws.getCell("L2").value = "No. PEDIDO";
+    ws.getCell("N2").value = "PM-TEST-IMG";
+    ws.getCell("L4").value = "PROYECTO:";
+    ws.getCell("N4").value = "PROYECTO IMG";
+    ws.getCell("L5").value = "CLIENTE:";
+    ws.getCell("N5").value = "CLIENTE IMG";
+    ws.getRow(9).values = headers;
+
+    const filas: FilaTest[] = [
+      { ITEM: 1, COMPONENTE: "MO", DESCRIPCION: "MUEBLE 1", "CANTIDAD TOTAL": 1 },
+      { ITEM: 2, COMPONENTE: "MO", DESCRIPCION: "MUEBLE 2", "CANTIDAD TOTAL": 1 },
+    ];
+    filas.forEach((fila, i) => {
+      const row = ws.getRow(10 + i);
+      headers.forEach((h, colIdx) => {
+        row.getCell(colIdx + 1).value = (fila[h] ?? null) as ExcelJS.CellValue;
+      });
+    });
+
+    const imagenColIndex = headers.indexOf("IMAGEN") + 1; // 1-indexed
+    // exceljs declara `buffer` como Buffer sin genéricos en su propio
+    // index.d.ts; con @types/node recientes, Buffer.from(...) trae
+    // miembros adicionales que rompen la asignación estructural estricta,
+    // aunque en runtime es el mismo Buffer de Node.
+    const pngBuffer = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64"
+    ) as unknown as ExcelJS.Buffer;
+
+    // Imagen "real" sobre la fila del item 1, en la columna IMAGEN.
+    const imgId1 = wb.addImage({ buffer: pngBuffer, extension: "png" });
+    ws.addImage(imgId1, {
+      tl: { col: imagenColIndex - 1, row: 9 },
+      ext: { width: 40, height: 40 },
+    });
+
+    // Segunda imagen sobre la misma fila del item 1 (caso real: varias
+    // imágenes ancladas al mismo ítem).
+    const imgId1b = wb.addImage({ buffer: pngBuffer, extension: "png" });
+    ws.addImage(imgId1b, {
+      tl: { col: imagenColIndex - 1, row: 9 },
+      ext: { width: 40, height: 40 },
+    });
+
+    // Objeto flotante ajeno (ej. un logo) anclado lejos de la columna
+    // IMAGEN: no debe asociarse a ningún ítem.
+    const imgLogo = wb.addImage({ buffer: pngBuffer, extension: "png" });
+    ws.addImage(imgLogo, {
+      tl: { col: 0, row: 0 },
+      ext: { width: 40, height: 40 },
+    });
+
+    const arrayBuffer = await wb.xlsx.writeBuffer();
+    const buf = Buffer.from(arrayBuffer);
+
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+
+    const [item1, item2] = resultado.items;
+    expect(item1.imagenes).toHaveLength(2);
+    expect(item1.imagenes[0].extension).toBe("png");
+    expect(item1.imagenes[0].buffer.length).toBeGreaterThan(0);
+    expect(item2.imagenes).toHaveLength(0);
   });
 
   it("deja fecha_pedido/fecha_entrega en null (no undefined) cuando no se encuentran en el archivo", async () => {

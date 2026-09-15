@@ -2,6 +2,15 @@ export type TipoRegistroItem = "MO" | "FU";
 
 export type CategoriaComponente = "MOBILIARIO" | "FUNCION" | "PERIMETRO";
 
+// Imagen embebida como objeto flotante en la columna IMAGEN del Excel,
+// extraída en memoria durante el parseo. No es jsonb-safe (trae el buffer
+// binario): se sube a Storage antes de llamar al RPC de ingestión, que solo
+// recibe las rutas resultantes (ver imagen_paths en route.ts).
+export interface ImagenExtraida {
+  buffer: Buffer;
+  extension: string;
+}
+
 export interface PlaneacionItemParsed {
   item_code: number;
   // MO (padre) / FU (hijo) se determina por la forma del ITEM (entero vs
@@ -26,6 +35,9 @@ export interface PlaneacionItemParsed {
   acabados: string | null;
   observaciones: string | null;
   fila_excel_origen: number;
+  // Imágenes ancladas a esta fila en la columna IMAGEN (puede haber varias
+  // sobre el mismo ítem; se observaron hasta 6 en archivos reales).
+  imagenes: ImagenExtraida[];
 }
 
 export interface PlaneacionMetadata {
