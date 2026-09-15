@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/site-url";
+import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
 import ViajeroFicha, {
   type ViajeroFichaItem,
   type ViajeroFichaPadre,
@@ -77,6 +78,10 @@ export default async function ViajeroLotePage({
   }
 
   const baseUrl = await getBaseUrl();
+  const imagenesPorItem = await getImagenesPorItem(
+    supabase,
+    items.map((i) => i.id)
+  );
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6 print:max-w-none print:p-4">
@@ -98,6 +103,7 @@ export default async function ViajeroLotePage({
               item={item}
               padre={item.parent_item_id ? padresPorId.get(item.parent_item_id) ?? null : null}
               qrUrl={`${baseUrl}/produccion/pedidos/${id}/viajero/${item.id}`}
+              imagenUrls={imagenesPorItem.get(item.id) ?? []}
             />
           </div>
         ))}

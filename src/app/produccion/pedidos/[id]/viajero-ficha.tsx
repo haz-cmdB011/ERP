@@ -34,6 +34,7 @@ export default function ViajeroFicha({
   item,
   padre,
   qrUrl,
+  imagenUrls = [],
 }: {
   pedido: ViajeroFichaPedido;
   item: ViajeroFichaItem;
@@ -41,6 +42,9 @@ export default function ViajeroFicha({
   // URL absoluta a la Hoja de Viajero de este ítem: lo que debe codificar
   // el QR para que escanearlo abra la página, en vez de solo mostrar texto.
   qrUrl: string;
+  // URLs firmadas (bucket privado) de las imágenes que trae el ítem en el
+  // Excel original, si tiene alguna.
+  imagenUrls?: string[];
 }) {
   return (
     <article className="flex flex-col gap-6">
@@ -59,6 +63,20 @@ export default function ViajeroFicha({
           </p>
         )}
       </header>
+
+      {imagenUrls.length > 0 && (
+        <section className="flex flex-wrap gap-3">
+          {imagenUrls.map((url) => (
+            // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
+            <img
+              key={url}
+              src={url}
+              alt={`Imagen del ítem ${item.item_code}`}
+              className="h-40 w-40 rounded border border-gray-200 object-contain print:h-32 print:w-32"
+            />
+          ))}
+        </section>
+      )}
 
       <section>
         <h2 className="text-sm font-semibold uppercase text-gray-500">
