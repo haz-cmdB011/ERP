@@ -33,7 +33,7 @@ export default async function PlaneacionLayout({
         <Link href="/planeacion/upload" className="text-gray-600 hover:text-black">
           Cargar Excel
         </Link>
-        {perfil?.rol === "admin" && (
+        {perfil?.rol === "desarrollador" && (
           <Link href="/admin/usuarios" className="text-gray-600 hover:text-black">
             Usuarios
           </Link>

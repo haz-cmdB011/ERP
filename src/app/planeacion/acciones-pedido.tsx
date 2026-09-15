@@ -3,6 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+type Accion = "logico" | "definitivo" | "restaurar";
+
+const MENSAJES: Record<Accion, string> = {
+  logico: "¿Marcar este pedido como eliminado? Se puede restaurar después.",
+  definitivo:
+    "¿Eliminar DEFINITIVAMENTE este pedido? Se borrará junto con todo su historial de versiones, items e imágenes. Esta acción no se puede deshacer.",
+  restaurar: "¿Restaurar este pedido? Volverá a aparecer como activo.",
+};
+
 export default function AccionesPedido({
   pedidoId,
   eliminado,
@@ -11,10 +20,12 @@ export default function AccionesPedido({
   eliminado: boolean;
 }) {
   const router = useRouter();
-  const [cargando, setCargando] = useState<"logico" | "definitivo" | "restaurar" | null>(null);
+  const [confirmando, setConfirmando] = useState<Accion | null>(null);
+  const [cargando, setCargando] = useState<Accion | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function llamar(accion: "logico" | "definitivo" | "restaurar") {
+  async function ejecutar(accion: Accion) {
+    setConfirmando(null);
     setCargando(accion);
     setError(null);
 
@@ -36,18 +47,37 @@ export default function AccionesPedido({
     router.refresh();
   }
 
-  function confirmarYLlamar(accion: "logico" | "definitivo" | "restaurar", mensaje: string) {
-    if (!confirm(mensaje)) return;
-    void llamar(accion);
+  // Confirmación dentro de la propia página en vez de window.confirm():
+  // los diálogos nativos del navegador pueden quedar bloqueados según el
+  // navegador/extensiones/contexto de vista, dejando el botón "sin efecto"
+  // aparente al hacer clic.
+  if (confirmando) {
+    return (
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-gray-700">{MENSAJES[confirmando]}</p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => ejecutar(confirmando)}
+            className="text-xs font-medium text-red-700 underline"
+          >
+            Sí, confirmar
+          </button>
+          <button
+            onClick={() => setConfirmando(null)}
+            className="text-xs text-gray-500 underline"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="flex items-center gap-2">
       {eliminado ? (
         <button
-          onClick={() =>
-            confirmarYLlamar("restaurar", "¿Restaurar este pedido? Volverá a aparecer como activo.")
-          }
+          onClick={() => setConfirmando("restaurar")}
           disabled={cargando !== null}
           className="text-xs text-blue-700 underline disabled:opacity-50"
         >
@@ -55,12 +85,7 @@ export default function AccionesPedido({
         </button>
       ) : (
         <button
-          onClick={() =>
-            confirmarYLlamar(
-              "logico",
-              "¿Marcar este pedido como eliminado? Se puede restaurar después."
-            )
-          }
+          onClick={() => setConfirmando("logico")}
           disabled={cargando !== null}
           className="text-xs text-amber-700 underline disabled:opacity-50"
         >
@@ -68,12 +93,7 @@ export default function AccionesPedido({
         </button>
       )}
       <button
-        onClick={() =>
-          confirmarYLlamar(
-            "definitivo",
-            "¿Eliminar DEFINITIVAMENTE este pedido? Se borrará junto con todo su historial de versiones, items e imágenes. Esta acción no se puede deshacer."
-          )
-        }
+        onClick={() => setConfirmando("definitivo")}
         disabled={cargando !== null}
         className="text-xs text-red-700 underline disabled:opacity-50"
       >
