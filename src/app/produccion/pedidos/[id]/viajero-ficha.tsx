@@ -64,37 +64,38 @@ export default function ViajeroFicha({
         )}
       </header>
 
-      {imagenUrls.length > 0 && (
-        <section className="flex flex-wrap gap-3">
-          {imagenUrls.map((url) => (
-            // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
-            <img
-              key={url}
-              src={url}
-              alt={`Imagen del ítem ${item.item_code}`}
-              className="h-40 w-40 rounded border border-gray-200 object-contain print:h-32 print:w-32"
-            />
-          ))}
-        </section>
-      )}
-
-      <section>
-        <h2 className="text-sm font-semibold uppercase text-gray-500">
-          Detalle de fabricación
-        </h2>
-        {/* Precios/costos: intencionalmente omitidos, no forman parte del viajero de taller. */}
-        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-gray-500">Descripción</dt>
-          <dd>{item.descripcion}</dd>
-          <dt className="text-gray-500">Cantidad a fabricar</dt>
-          <dd>
-            {item.cantidad_total} {item.unidad}
-          </dd>
-          <dt className="text-gray-500">Acabado</dt>
-          <dd>{item.acabados ?? "—"}</dd>
-          <dt className="text-gray-500">Material</dt>
-          <dd>{item.tipo_material ?? "—"}</dd>
-        </dl>
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        {imagenUrls.length > 0 && (
+          <div className="flex flex-wrap gap-3 sm:shrink-0">
+            {imagenUrls.map((url) => (
+              // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
+              <img
+                key={url}
+                src={url}
+                alt={`Imagen del ítem ${item.item_code}`}
+                className="h-64 w-64 rounded border border-gray-200 object-contain print:h-56 print:w-56"
+              />
+            ))}
+          </div>
+        )}
+        <div className="flex-1">
+          <h2 className="text-sm font-semibold uppercase text-gray-500">
+            Detalle de fabricación
+          </h2>
+          {/* Precios/costos: intencionalmente omitidos, no forman parte del viajero de taller. */}
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+            <dt className="text-gray-500">Descripción</dt>
+            <dd>{item.descripcion}</dd>
+            <dt className="text-gray-500">Cantidad a fabricar</dt>
+            <dd>
+              {item.cantidad_total} {item.unidad}
+            </dd>
+            <dt className="text-gray-500">Acabado</dt>
+            <dd>{item.acabados ?? "—"}</dd>
+            <dt className="text-gray-500">Material</dt>
+            <dd>{item.tipo_material ?? "—"}</dd>
+          </dl>
+        </div>
       </section>
 
       <section>
