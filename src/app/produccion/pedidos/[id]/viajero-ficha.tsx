@@ -1,4 +1,4 @@
-import { FASES_TALLER_COLUMNS, type FaseTaller } from "@/lib/planeacion/fases-taller";
+import type { FaseTaller } from "@/lib/planeacion/fases-taller";
 import ViajeroQr from "./viajero-qr";
 
 export interface ViajeroFichaPedido {
@@ -42,10 +42,6 @@ export default function ViajeroFicha({
   // el QR para que escanearlo abra la página, en vez de solo mostrar texto.
   qrUrl: string;
 }) {
-  const fasesAplicables = FASES_TALLER_COLUMNS.filter(
-    (fase) => item.fases_taller?.[fase] === true
-  );
-
   return (
     <article className="flex flex-col gap-6">
       <header className="border-b border-gray-300 pb-3">
@@ -82,34 +78,6 @@ export default function ViajeroFicha({
           <dd>{item.tipo_material ?? "—"}</dd>
         </dl>
       </section>
-
-      {fasesAplicables.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold uppercase text-gray-500">Ruta de procesos</h2>
-          <table className="mt-2 w-full text-left text-sm">
-            <thead>
-              <tr className="text-gray-400">
-                <th className="w-10 py-1"></th>
-                <th className="py-1">Fase</th>
-                <th className="py-1">Firma / Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fasesAplicables.map((fase) => (
-                <tr key={fase} className="border-t border-gray-200">
-                  <td className="py-2">
-                    <span className="inline-block h-4 w-4 border border-gray-500" />
-                  </td>
-                  <td className="py-2 font-medium">{fase}</td>
-                  <td className="py-2">
-                    <span className="inline-block h-4 w-full border-b border-gray-400" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
 
       <section>
         <h2 className="text-sm font-semibold uppercase text-gray-500">Observaciones</h2>
