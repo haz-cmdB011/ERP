@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/site-url";
 import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
+import { nombreArchivoSeguro } from "@/lib/nombre-archivo";
 import ViajeroFicha, {
   type ViajeroFichaItem,
   type ViajeroFichaPadre,
   type ViajeroFichaPedido,
 } from "../viajero-ficha";
 import ImprimirButton from "../imprimir-button";
+import DescargarPdfButton from "../descargar-pdf-button";
 
 interface ItemConVersion extends ViajeroFichaItem {
   parent_item_id: string | null;
@@ -82,6 +84,9 @@ export default async function ViajeroLotePage({
     supabase,
     items.map((i) => i.id)
   );
+  const nombreArchivo = nombreArchivoSeguro(
+    `${pedido.numero_pedido} ${pedido.proyectos?.nombre ?? ""} - Reporte.pdf`
+  );
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6 print:max-w-none print:p-4">
@@ -89,7 +94,10 @@ export default async function ViajeroLotePage({
         <Link href={`/produccion/pedidos/${id}`} className="text-sm text-gray-500 underline">
           ← Volver al pedido
         </Link>
-        <ImprimirButton etiqueta={`Imprimir / Descargar Reporte (${items.length} ítems) (PDF)`} />
+        <div className="flex gap-2">
+          <DescargarPdfButton nombreArchivo={nombreArchivo} />
+          <ImprimirButton sufijo={` (${items.length} ítems)`} />
+        </div>
       </div>
 
       <div className="flex flex-col gap-10">

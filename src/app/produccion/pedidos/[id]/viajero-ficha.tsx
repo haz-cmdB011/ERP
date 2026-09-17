@@ -46,22 +46,34 @@ export default function ViajeroFicha({
   // Excel original, si tiene alguna.
   imagenUrls?: string[];
 }) {
+  // Locale explícito: el servidor de producción no necesariamente usa la
+  // misma configuración regional que un entorno de desarrollo local.
+  const generadoEn = new Date().toLocaleString("es-MX");
+
   return (
-    <article className="flex flex-col gap-6">
-      <header className="border-b border-gray-300 pb-3">
-        <h1 className="text-lg font-semibold">Hoja de Viajero</h1>
-        <p className="text-sm text-gray-700">
-          {pedido.numero_pedido} — {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
-        </p>
-        <p className="text-sm text-gray-700">
-          Ítem {item.item_code}
-          {item.modelo ? ` — ${item.modelo}` : ""}
-        </p>
-        {padre && (
-          <p className="text-xs text-gray-500">
-            Componente de Ítem {padre.item_code} — {padre.descripcion}
+    <article data-viajero-ficha className="flex flex-col gap-6 bg-white p-2">
+      <header className="flex items-start justify-between gap-4 border-b border-gray-300 pb-3">
+        <div>
+          <h1 className="text-lg font-semibold">Hoja de Viajero</h1>
+          <p className="text-sm text-gray-700">
+            {pedido.numero_pedido} — {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
           </p>
-        )}
+          <p className="text-sm text-gray-700">
+            Ítem {item.item_code}
+            {item.modelo ? ` — ${item.modelo}` : ""}
+          </p>
+          {padre && (
+            <p className="text-xs text-gray-500">
+              Componente de Ítem {padre.item_code} — {padre.descripcion}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          <ViajeroQr value={qrUrl} size={90} />
+          <p className="max-w-[90px] text-center text-[10px] text-gray-500">
+            Escanea para abrir esta hoja en el celular
+          </p>
+        </div>
       </header>
 
       <section className="flex flex-row items-start gap-4">
@@ -73,7 +85,7 @@ export default function ViajeroFicha({
                 key={url}
                 src={url}
                 alt={`Imagen del ítem ${item.item_code}`}
-                className="h-64 w-64 rounded border border-gray-200 object-contain print:h-56 print:w-56"
+                className="h-80 w-80 rounded border border-gray-200 object-contain print:h-72 print:w-72"
               />
             ))}
           </div>
@@ -108,10 +120,9 @@ export default function ViajeroFicha({
         </div>
       </section>
 
-      <section className="flex items-center justify-between border-t border-gray-300 pt-4">
-        <p className="text-xs text-gray-500">Escanea para abrir esta hoja en el celular.</p>
-        <ViajeroQr value={qrUrl} />
-      </section>
+      <footer className="border-t border-gray-300 pt-2 text-left text-xs text-gray-400">
+        Generado: {generadoEn}
+      </footer>
     </article>
   );
 }
