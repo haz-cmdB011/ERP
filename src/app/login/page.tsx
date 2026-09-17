@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -90,6 +91,9 @@ export default function LoginPage() {
           >
             ¿Olvidaste tu contraseña?
           </button>
+          <Link href="/registro" className="text-left text-xs text-gray-500 underline">
+            ¿No tienes cuenta? Regístrate
+          </Link>
         </form>
       ) : (
         <div className="flex flex-col gap-3">
