@@ -89,7 +89,7 @@ export default async function PedidoProduccionPage({
     ? await supabase
         .from("planeacion_items")
         .select(
-          "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, ingenieria, lista_insumos, suministro_mats, estado_liberacion, eliminacion_solicitada_en, eliminacion_solicitada_por"
+          "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, ingenieria, lista_insumos, suministro_mats, estado_liberacion, eliminacion_solicitada_en, eliminacion_solicitada_por, estado_revision"
         )
         .eq("pedido_version_id", versionSeleccionada.id)
         .order("fila_excel_origen")

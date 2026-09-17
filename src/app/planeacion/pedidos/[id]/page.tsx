@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
+import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
+import { colorFilaEstadoRevision, type EstadoRevision } from "@/lib/planeacion/estado-revision";
+import EstadoRevisionSelect from "./estado-revision-select";
+import { ESTADO_REVISION_LABELS } from "@/lib/planeacion/estado-revision";
 
 interface VersionRow {
   id: string;
@@ -28,16 +33,8 @@ interface ItemRow {
   cantidad_total: number;
   parent_item_id: string | null;
   fila_excel_origen: number | null;
+  estado_revision: EstadoRevision;
 }
-
-interface ImagenRow {
-  planeacion_item_id: string;
-  storage_path: string;
-  orden: number;
-}
-
-const BUCKET_IMAGENES_ITEMS = "planeacion-item-imagenes";
-const SIGNED_URL_EXPIRES_SECONDS = 3600;
 
 export default async function PedidoDetailPage({
   params,
@@ -49,6 +46,8 @@ export default async function PedidoDetailPage({
   const { id } = await params;
   const { version } = await searchParams;
   const supabase = await createClient();
+  const perfil = await getPerfilActual(supabase);
+  const puedeEditar = puedeEditarPlaneacion(perfil);
 
   const { data: pedido } = await supabase
     .from("pedidos")
@@ -86,7 +85,7 @@ export default async function PedidoDetailPage({
     ? await supabase
         .from("planeacion_items")
         .select(
-          "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen"
+          "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, estado_revision"
         )
         .eq("pedido_version_id", versionSeleccionada.id)
         .order("fila_excel_origen")
@@ -94,36 +93,7 @@ export default async function PedidoDetailPage({
     : { data: null };
 
   const itemIds = (items ?? []).map((i) => i.id);
-  const { data: imagenes } = itemIds.length
-    ? await supabase
-        .from("planeacion_item_imagenes")
-        .select("planeacion_item_id, storage_path, orden")
-        .in("planeacion_item_id", itemIds)
-        .order("orden")
-        .returns<ImagenRow[]>()
-    : { data: [] as ImagenRow[] };
-
-  const rutasUnicas = Array.from(new Set((imagenes ?? []).map((i) => i.storage_path)));
-  const { data: firmadas } = rutasUnicas.length
-    ? await supabase.storage
-        .from(BUCKET_IMAGENES_ITEMS)
-        .createSignedUrls(rutasUnicas, SIGNED_URL_EXPIRES_SECONDS)
-    : { data: [] };
-
-  const urlPorRuta = new Map(
-    (firmadas ?? [])
-      .filter((f): f is typeof f & { signedUrl: string } => !f.error && !!f.signedUrl)
-      .map((f) => [f.path, f.signedUrl])
-  );
-
-  const imagenesPorItem = new Map<string, string[]>();
-  for (const img of imagenes ?? []) {
-    const url = urlPorRuta.get(img.storage_path);
-    if (!url) continue;
-    const lista = imagenesPorItem.get(img.planeacion_item_id) ?? [];
-    lista.push(url);
-    imagenesPorItem.set(img.planeacion_item_id, lista);
-  }
+  const imagenesPorItem = await getImagenesPorItem(supabase, itemIds);
 
   const mo = items?.filter((i) => i.tipo_registro === "MO") ?? [];
   const fuPorPadre = new Map<string, ItemRow[]>();
@@ -194,10 +164,11 @@ export default async function PedidoDetailPage({
                     <th className="py-1 pr-2">Material</th>
                     <th className="py-1 pr-2">Descripción</th>
                     <th className="py-1 pr-2">Cant.</th>
+                    <th className="py-1 pr-2">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="text-sm font-medium">
+                  <tr className={`text-sm font-medium ${colorFilaEstadoRevision(m.estado_revision)}`}>
                     <td className="py-1 pr-2">
                       <ImagenesItem urls={imagenesPorItem.get(m.id) ?? []} />
                     </td>
@@ -208,9 +179,15 @@ export default async function PedidoDetailPage({
                     <td className="py-1 pr-2">
                       {m.cantidad_total} {m.unidad}
                     </td>
+                    <td className="py-1 pr-2">
+                      <EstadoCelda itemId={m.id} estado={m.estado_revision} puedeEditar={puedeEditar} />
+                    </td>
                   </tr>
                   {(fuPorPadre.get(m.id) ?? []).map((f) => (
-                    <tr key={f.id} className="border-t border-gray-100">
+                    <tr
+                      key={f.id}
+                      className={`border-t border-gray-100 ${colorFilaEstadoRevision(f.estado_revision)}`}
+                    >
                       <td className="py-1 pr-2">
                         <ImagenesItem urls={imagenesPorItem.get(f.id) ?? []} />
                       </td>
@@ -223,6 +200,9 @@ export default async function PedidoDetailPage({
                       <td className="py-1 pr-2">
                         {f.cantidad_total} {f.unidad}
                       </td>
+                      <td className="py-1 pr-2">
+                        <EstadoCelda itemId={f.id} estado={f.estado_revision} puedeEditar={puedeEditar} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -233,6 +213,22 @@ export default async function PedidoDetailPage({
       )}
     </main>
   );
+}
+
+function EstadoCelda({
+  itemId,
+  estado,
+  puedeEditar,
+}: {
+  itemId: string;
+  estado: EstadoRevision;
+  puedeEditar: boolean;
+}) {
+  if (puedeEditar) {
+    return <EstadoRevisionSelect itemId={itemId} estadoActual={estado} />;
+  }
+  if (!estado) return <span className="text-gray-400">—</span>;
+  return <span>{ESTADO_REVISION_LABELS[estado]}</span>;
 }
 
 function ImagenesItem({ urls }: { urls: string[] }) {

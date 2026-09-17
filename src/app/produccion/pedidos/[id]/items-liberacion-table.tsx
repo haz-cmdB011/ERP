@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/confirm-dialog";
+import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 
 export interface ItemLiberacionRow {
   id: string;
@@ -24,6 +25,7 @@ export interface ItemLiberacionRow {
   estado_liberacion: "pendiente" | "enviado_a_produccion";
   eliminacion_solicitada_en: string | null;
   eliminacion_solicitada_por: string | null;
+  estado_revision: EstadoRevision;
 }
 
 type FiltroEstado = "todos" | "listos" | "incompletos";
@@ -257,7 +259,9 @@ export default function ItemsLiberacionTable({
     const procesando = procesandoId === item.id;
 
     return (
-      <tr className={indentado ? "border-t border-gray-100" : "text-sm font-medium"}>
+      <tr
+        className={`${indentado ? "border-t border-gray-100" : "text-sm font-medium"} ${colorFilaEstadoRevision(item.estado_revision)}`}
+      >
         <td className="py-1 pr-2">
           <input
             type="checkbox"
@@ -277,6 +281,11 @@ export default function ItemsLiberacionTable({
         </td>
         <td className="py-1 pr-2">
           <EstadoBadge item={item} />
+          {item.estado_revision && (
+            <span className="mt-1 block text-xs font-semibold">
+              {ESTADO_REVISION_LABELS[item.estado_revision]} (Planeación)
+            </span>
+          )}
         </td>
         <td className="flex flex-wrap gap-2 py-1 pr-2">
           <Link
