@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parsePlaneacionExcel } from "@/lib/planeacion/parser";
 import type { PlaneacionItemParsed } from "@/lib/planeacion/types";
+import { comprimirImagenItem, quitarImagenesDelExcel } from "@/lib/planeacion/optimizar-almacenamiento";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,14 @@ async function subirImagenesDeItems(
   return Promise.all(
     items.map(async ({ imagenes, ...resto }) => {
       const imagenPaths = await Promise.all(
-        imagenes.map(async (imagen, indice) => {
+        imagenes.map(async (imagenOriginal, indice) => {
+          // Se redimensionan a tamaño de miniatura antes de subir: en la UI
+          // nunca se muestran a más de 40x40 px, pero el original embebido
+          // en el Excel puede pesar varios cientos de KB.
+          const imagen = await comprimirImagenItem(
+            imagenOriginal.buffer,
+            imagenOriginal.extension
+          );
           const path = `${cargaId}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
           const { error } = await supabase.storage
             .from(BUCKET_IMAGENES_ITEMS)
@@ -95,14 +103,21 @@ export async function POST(request: Request) {
   const buffer = Buffer.from(arrayBuffer);
 
   // 1. Parseo y validación de estructura ANTES de tocar la base de datos.
+  //    Usa el buffer ORIGINAL (con imágenes): de ahí es de donde el parser
+  //    extrae la imagen de cada fila.
   const resultado = await parsePlaneacionExcel(buffer);
 
-  // 2. Subir el archivo original a Storage para auditoría, siempre
-  //    (haya sido válido o no), y registrar el intento en cargas_archivo.
+  // 2. Subir a Storage, para auditoría y siempre (haya sido válido o no),
+  //    una copia del archivo SIN las imágenes embebidas: son puro peso
+  //    redundante ahí, porque esas mismas imágenes ya quedan guardadas
+  //    (más livianas) por ítem en el paso 3. Los datos/fórmulas/texto del
+  //    Excel quedan 100% intactos — solo las imágenes se verían "rotas" si
+  //    alguien abre este archivo archivado directamente en Excel.
+  const bufferArchivo = await quitarImagenesDelExcel(buffer);
   const storagePath = `${user.id}/${Date.now()}-${sanitizarNombreArchivo(file.name)}`;
   const { error: storageError } = await supabase.storage
     .from("cargas-excel")
-    .upload(storagePath, buffer, {
+    .upload(storagePath, bufferArchivo, {
       contentType:
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       upsert: false,
@@ -121,7 +136,7 @@ export async function POST(request: Request) {
       area: "planeacion",
       nombre_archivo: file.name,
       storage_path: storagePath,
-      tamano_bytes: file.size,
+      tamano_bytes: bufferArchivo.length,
       cargado_por: user.id,
       estado: resultado.ok ? "procesando" : "error",
       filas_totales: resultado.filasTotales,

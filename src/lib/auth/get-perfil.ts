@@ -35,3 +35,14 @@ export function puedeAdministrarPlaneacion(perfil: PerfilActual | null): boolean
     (perfil?.rol === "administrador" && perfil.area === "planeacion")
   );
 }
+
+// Espejo de is_planeacion() en la base: trabajador, administrador o
+// desarrollador de Planeación — quien puede editar items (incluido el
+// estado de revisión), no solo verlos.
+export function puedeEditarPlaneacion(perfil: PerfilActual | null): boolean {
+  return (
+    perfil?.rol === "desarrollador" ||
+    ((perfil?.rol === "administrador" || perfil?.rol === "trabajador") &&
+      perfil.area === "planeacion")
+  );
+}

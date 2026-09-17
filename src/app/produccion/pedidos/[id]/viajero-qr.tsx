@@ -7,12 +7,12 @@ import QRCode from "qrcode";
 // `value` es la URL absoluta de la Hoja de Viajero (la arma el server
 // component que llama a este componente): al escanearla, el celular abre
 // la página directamente en vez de solo mostrar texto suelto.
-export default function ViajeroQr({ value }: { value: string }) {
+export default function ViajeroQr({ value, size = 120 }: { value: string; size?: number }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelado = false;
-    QRCode.toDataURL(value, { margin: 1, width: 120 })
+    QRCode.toDataURL(value, { margin: 1, width: size })
       .then((url) => {
         if (!cancelado) setDataUrl(url);
       })
@@ -22,13 +22,16 @@ export default function ViajeroQr({ value }: { value: string }) {
     return () => {
       cancelado = true;
     };
-  }, [value]);
+  }, [value, size]);
 
   return (
-    <div className="flex h-[120px] w-[120px] items-center justify-center border border-gray-300 text-[10px] text-gray-400">
+    <div
+      className="flex items-center justify-center border border-gray-300 text-[10px] text-gray-400"
+      style={{ height: size, width: size }}
+    >
       {dataUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- data: URL generado en cliente, next/image no aplica
-        <img src={dataUrl} alt="Código QR del ítem" width={120} height={120} />
+        <img src={dataUrl} alt="Código QR del ítem" width={size} height={size} />
       ) : (
         "QR"
       )}

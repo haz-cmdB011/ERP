@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/confirm-dialog";
+import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 
 export interface ItemLiberacionRow {
   id: string;
@@ -24,6 +25,7 @@ export interface ItemLiberacionRow {
   estado_liberacion: "pendiente" | "enviado_a_produccion";
   eliminacion_solicitada_en: string | null;
   eliminacion_solicitada_por: string | null;
+  estado_revision: EstadoRevision;
 }
 
 type FiltroEstado = "todos" | "listos" | "incompletos";
@@ -255,9 +257,16 @@ export default function ItemsLiberacionTable({
 
   function Fila({ item, indentado }: { item: ItemLiberacionRow; indentado: boolean }) {
     const procesando = procesandoId === item.id;
+    const seleccionado = seleccionados.has(item.id);
 
     return (
-      <tr className={indentado ? "border-t border-gray-100" : "text-sm font-medium"}>
+      <tr
+        className={`${
+          seleccionado
+            ? "bg-blue-50"
+            : colorFilaEstadoRevision(item.estado_revision) || "odd:bg-gray-50"
+        } ${indentado ? "border-t border-gray-100" : "text-sm font-medium"}`}
+      >
         <td className="py-1 pr-2">
           <input
             type="checkbox"
@@ -277,6 +286,11 @@ export default function ItemsLiberacionTable({
         </td>
         <td className="py-1 pr-2">
           <EstadoBadge item={item} />
+          {item.estado_revision && (
+            <span className="mt-1 block text-xs font-semibold">
+              {ESTADO_REVISION_LABELS[item.estado_revision]} (Planeación)
+            </span>
+          )}
         </td>
         <td className="flex flex-wrap gap-2 py-1 pr-2">
           <Link
@@ -383,7 +397,7 @@ export default function ItemsLiberacionTable({
                   {itemsPapelera.map((item) => {
                     const procesando = procesandoId === item.id;
                     return (
-                      <tr key={item.id} className="border-t border-gray-100">
+                      <tr key={item.id} className="border-t border-gray-100 odd:bg-gray-50">
                         <td className="py-1 pr-2">{item.item_code}</td>
                         <td className="py-1 pr-2">{item.modelo}</td>
                         <td className="py-1 pr-2">{item.tipo_material}</td>
@@ -451,8 +465,9 @@ export default function ItemsLiberacionTable({
             ))}
           </div>
 
-          {/* Barra de acción masiva */}
-          <div className="flex flex-wrap items-center gap-3 rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+          {/* Barra de acción masiva: sticky para no tener que subir hasta
+              arriba en pedidos con muchos ítems después de seleccionar. */}
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded border border-gray-200 bg-gray-50 p-3 text-sm shadow-sm">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
