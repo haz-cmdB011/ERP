@@ -89,7 +89,7 @@ export default async function ViajeroLotePage({
         <Link href={`/produccion/pedidos/${id}`} className="text-sm text-gray-500 underline">
           ← Volver al pedido
         </Link>
-        <ImprimirButton etiqueta={`Imprimir / Descargar Reporte (${items.length} ítems) (PDF)`} />
+        <ImprimirButton sufijo={` (${items.length} ítems)`} />
       </div>
 
       <div className="flex flex-col gap-10">

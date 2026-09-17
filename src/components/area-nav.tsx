@@ -22,7 +22,7 @@ export default function AreaNav({
   children?: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className="print:hidden">
       <nav className="flex flex-wrap items-center gap-4 border-b border-gray-200 px-6 py-3 text-sm">
         <div className="flex items-center gap-1">
           <Link
