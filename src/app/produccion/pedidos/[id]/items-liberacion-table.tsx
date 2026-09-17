@@ -255,9 +255,14 @@ export default function ItemsLiberacionTable({
 
   function Fila({ item, indentado }: { item: ItemLiberacionRow; indentado: boolean }) {
     const procesando = procesandoId === item.id;
+    const seleccionado = seleccionados.has(item.id);
 
     return (
-      <tr className={indentado ? "border-t border-gray-100" : "text-sm font-medium"}>
+      <tr
+        className={`${seleccionado ? "bg-blue-50" : "odd:bg-gray-50"} ${
+          indentado ? "border-t border-gray-100" : "text-sm font-medium"
+        }`}
+      >
         <td className="py-1 pr-2">
           <input
             type="checkbox"
@@ -383,7 +388,7 @@ export default function ItemsLiberacionTable({
                   {itemsPapelera.map((item) => {
                     const procesando = procesandoId === item.id;
                     return (
-                      <tr key={item.id} className="border-t border-gray-100">
+                      <tr key={item.id} className="border-t border-gray-100 odd:bg-gray-50">
                         <td className="py-1 pr-2">{item.item_code}</td>
                         <td className="py-1 pr-2">{item.modelo}</td>
                         <td className="py-1 pr-2">{item.tipo_material}</td>
@@ -451,8 +456,9 @@ export default function ItemsLiberacionTable({
             ))}
           </div>
 
-          {/* Barra de acción masiva */}
-          <div className="flex flex-wrap items-center gap-3 rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+          {/* Barra de acción masiva: sticky para no tener que subir hasta
+              arriba en pedidos con muchos ítems después de seleccionar. */}
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded border border-gray-200 bg-gray-50 p-3 text-sm shadow-sm">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
