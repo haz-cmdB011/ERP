@@ -51,7 +51,7 @@ export default function ViajeroFicha({
   const generadoEn = new Date().toLocaleString("es-MX");
 
   return (
-    <article className="flex flex-col gap-6">
+    <article data-viajero-ficha className="flex flex-col gap-6 bg-white p-2">
       <header className="flex items-start justify-between gap-4 border-b border-gray-300 pb-3">
         <div>
           <h1 className="text-lg font-semibold">Hoja de Viajero</h1>
