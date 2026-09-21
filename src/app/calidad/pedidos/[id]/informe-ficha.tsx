@@ -124,20 +124,24 @@ export default function InformeFicha({
         </div>
       )}
 
-      <div className="mt-2 flex flex-col gap-4 border-t border-dashed border-slate-300 pt-3">
-        <div>
-          <div className="h-8 border-b border-slate-400" />
-          <p className="mt-1 text-center text-[9px] text-slate-500">
-            Firma de quien elaboró el informe
-          </p>
+      {/* Un informe "No aprobado" no lleva firmas (ni en pantalla, ni al
+          imprimir, ni en el PDF): solo el aprobado se firma. */}
+      {informe.aprobado && (
+        <div className="mt-2 flex flex-col gap-4 border-t border-dashed border-slate-300 pt-3">
+          <div>
+            <div className="h-8 border-b border-slate-400" />
+            <p className="mt-1 text-center text-[9px] text-slate-500">
+              Firma de quien elaboró el informe
+            </p>
+          </div>
+          <div>
+            <div className="h-8 border-b border-slate-400" />
+            <p className="mt-1 text-center text-[9px] text-slate-500">
+              Firma de quien fabricó el ítem
+            </p>
+          </div>
         </div>
-        <div>
-          <div className="h-8 border-b border-slate-400" />
-          <p className="mt-1 text-center text-[9px] text-slate-500">
-            Firma de quien fabricó el ítem
-          </p>
-        </div>
-      </div>
+      )}
     </article>
   );
 }
