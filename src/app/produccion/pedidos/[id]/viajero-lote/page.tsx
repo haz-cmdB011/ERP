@@ -79,6 +79,16 @@ export default async function ViajeroLotePage({
     }
   }
 
+  const { data: foliosRows } = await supabase
+    .from("folios_produccion")
+    .select("planeacion_item_id, folio")
+    .in(
+      "planeacion_item_id",
+      items.map((i) => i.id)
+    )
+    .returns<{ planeacion_item_id: string; folio: string }[]>();
+  const folioPorItem = new Map((foliosRows ?? []).map((f) => [f.planeacion_item_id, f.folio]));
+
   const baseUrl = await getBaseUrl();
   const imagenesPorItem = await getImagenesPorItem(
     supabase,
@@ -110,6 +120,7 @@ export default async function ViajeroLotePage({
               pedido={pedido}
               item={item}
               padre={item.parent_item_id ? padresPorId.get(item.parent_item_id) ?? null : null}
+              folio={folioPorItem.get(item.id) ?? null}
               qrUrl={`${baseUrl}/produccion/pedidos/${id}/viajero/${item.id}`}
               imagenUrls={imagenesPorItem.get(item.id) ?? []}
             />

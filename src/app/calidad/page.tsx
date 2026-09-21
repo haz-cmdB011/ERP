@@ -11,7 +11,7 @@ interface PedidoRow {
   pedido_versiones: { id: string; numero_version: number; es_version_activa: boolean }[];
 }
 
-export default async function ProduccionListPage() {
+export default async function CalidadListPage() {
   const supabase = await createClient();
 
   const { data: pedidos, error } = await supabase
@@ -28,10 +28,10 @@ export default async function ProduccionListPage() {
       <div className="flex items-end justify-between border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Pedidos — Producción
+            Pedidos — Calidad
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Selecciona un pedido para liberar sus ítems a producción y generar los viajeros.
+            Selecciona un pedido para revisar y evaluar sus ítems enviados a producción.
           </p>
         </div>
         {pedidos && pedidos.length > 0 && (
@@ -54,7 +54,7 @@ export default async function ProduccionListPage() {
       )}
 
       {pedidos && pedidos.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -72,7 +72,7 @@ export default async function ProduccionListPage() {
                   <tr key={p.id} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/produccion/pedidos/${p.id}`}
+                        href={`/calidad/pedidos/${p.id}`}
                         className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
                       >
                         {p.numero_pedido}

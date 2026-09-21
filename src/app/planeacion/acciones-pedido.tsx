@@ -23,11 +23,13 @@ export default function AccionesPedido({
   const [confirmando, setConfirmando] = useState<Accion | null>(null);
   const [cargando, setCargando] = useState<Accion | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   async function ejecutar(accion: Accion) {
     setConfirmando(null);
     setCargando(accion);
     setError(null);
+    setAviso(null);
 
     const res =
       accion === "definitivo"
@@ -43,6 +45,13 @@ export default function AccionesPedido({
     if (!res.ok) {
       setError(data.error ?? "Error desconocido.");
       return;
+    }
+    // eliminar_pedido_definitivo no borra un pedido que ya tiene folio(s)
+    // de Calidad — lo deja cancelado en vez de eliminarlo (ver Cancelados).
+    if (accion === "definitivo" && data.conservadoPorFolio) {
+      setAviso(
+        "Este pedido ya tenía folio(s) de Calidad: se conservó como cancelado en vez de eliminarse. Puedes verlo en Cancelados."
+      );
     }
     router.refresh();
   }
@@ -74,32 +83,35 @@ export default function AccionesPedido({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      {eliminado ? (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        {eliminado ? (
+          <button
+            onClick={() => setConfirmando("restaurar")}
+            disabled={cargando !== null}
+            className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50"
+          >
+            {cargando === "restaurar" ? "Restaurando..." : "Restaurar"}
+          </button>
+        ) : (
+          <button
+            onClick={() => setConfirmando("logico")}
+            disabled={cargando !== null}
+            className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+          >
+            {cargando === "logico" ? "Eliminando..." : "Eliminar"}
+          </button>
+        )}
         <button
-          onClick={() => setConfirmando("restaurar")}
+          onClick={() => setConfirmando("definitivo")}
           disabled={cargando !== null}
-          className="text-xs text-blue-700 underline disabled:opacity-50"
+          className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
         >
-          {cargando === "restaurar" ? "Restaurando..." : "Restaurar"}
+          {cargando === "definitivo" ? "Eliminando..." : "Eliminar definitivo"}
         </button>
-      ) : (
-        <button
-          onClick={() => setConfirmando("logico")}
-          disabled={cargando !== null}
-          className="text-xs text-amber-700 underline disabled:opacity-50"
-        >
-          {cargando === "logico" ? "Eliminando..." : "Eliminar"}
-        </button>
-      )}
-      <button
-        onClick={() => setConfirmando("definitivo")}
-        disabled={cargando !== null}
-        className="text-xs text-red-700 underline disabled:opacity-50"
-      >
-        {cargando === "definitivo" ? "Eliminando..." : "Eliminar definitivo"}
-      </button>
+      </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
+      {aviso && <p className="max-w-xs text-xs text-amber-700">{aviso}</p>}
     </div>
   );
 }

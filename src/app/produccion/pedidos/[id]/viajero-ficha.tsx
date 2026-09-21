@@ -33,12 +33,16 @@ export default function ViajeroFicha({
   pedido,
   item,
   padre,
+  folio = null,
   qrUrl,
   imagenUrls = [],
 }: {
   pedido: ViajeroFichaPedido;
   item: ViajeroFichaItem;
   padre: ViajeroFichaPadre | null;
+  // Folio único de producción del ítem (para rastrearlo); null si aún no
+  // se ha liberado a producción.
+  folio?: string | null;
   // URL absoluta a la Hoja de Viajero de este ítem: lo que debe codificar
   // el QR para que escanearlo abra la página, en vez de solo mostrar texto.
   qrUrl: string;
@@ -55,6 +59,7 @@ export default function ViajeroFicha({
       <header className="flex items-start justify-between gap-4 border-b border-gray-300 pb-3">
         <div>
           <h1 className="text-lg font-semibold">Hoja de Viajero</h1>
+          {folio && <p className="font-mono text-sm font-semibold text-gray-900">Folio {folio}</p>}
           <p className="text-sm text-gray-700">
             {pedido.numero_pedido} — {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
           </p>

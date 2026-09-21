@@ -33,6 +33,9 @@ export default async function ProduccionLayout({
         <Link href="/produccion" className="text-gray-600 hover:text-black">
           Pedidos
         </Link>
+        <Link href="/produccion/cancelados" className="text-gray-600 hover:text-black">
+          Cancelados / Eliminados
+        </Link>
       </AreaNav>
       {children}
     </div>
