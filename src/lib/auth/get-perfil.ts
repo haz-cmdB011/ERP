@@ -46,3 +46,14 @@ export function puedeEditarPlaneacion(perfil: PerfilActual | null): boolean {
       perfil.area === "planeacion")
   );
 }
+
+// Solo el desarrollador (acceso global) o el administrador de Estimaciones
+// ven el precio sugerido del motor y deciden si aceptan o corrigen el
+// precio propuesto por el maquilador. El resto del área solo captura lo
+// que el maquilador propuso.
+export function puedeVerPrecioSugerido(perfil: PerfilActual | null): boolean {
+  return (
+    perfil?.rol === "desarrollador" ||
+    (perfil?.rol === "administrador" && perfil.area === "estimaciones")
+  );
+}

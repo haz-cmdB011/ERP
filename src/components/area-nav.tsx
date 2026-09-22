@@ -14,7 +14,7 @@ export default function AreaNav({
   esDesarrollador = false,
   children,
 }: {
-  area: "planeacion" | "produccion" | "calidad" | "usuarios";
+  area: "planeacion" | "produccion" | "calidad" | "estimaciones" | "usuarios";
   email: string;
   // Usuarios es un panel más, pero solo para desarrolladores (acceso
   // global): las demás áreas no lo ven en su selector.
@@ -61,6 +61,14 @@ export default function AreaNav({
               <path d="m9 12 2 2 4-4" />
             </svg>
             Calidad
+          </Link>
+          <Link
+            href="/estimaciones"
+            className={`rounded px-2 py-1 font-semibold ${
+              area === "estimaciones" ? "bg-black text-white" : "text-gray-600 hover:text-black"
+            }`}
+          >
+            Estimaciones
           </Link>
           {esDesarrollador && (
             <Link
