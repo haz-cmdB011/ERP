@@ -36,6 +36,9 @@ export default async function CalidadLayout({
         <Link href="/calidad/cancelados" className="text-gray-600 hover:text-black">
           Cancelados
         </Link>
+        <Link href="/calidad/folios" className="text-gray-600 hover:text-black">
+          Folios de calidad
+        </Link>
       </AreaNav>
       {children}
     </div>
