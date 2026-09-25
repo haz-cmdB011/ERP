@@ -1,6 +1,11 @@
 import type { createClient } from "@/lib/supabase/server";
 import { elegirPlanos, normalizarModelo } from "./modelo";
 
+// Carpeta compartida de Ingeniería en la red de la empresa (en las PC suele
+// estar conectada como I:, pero la letra cambia de una PC a otra: la ruta
+// de red funciona en todas).
+const RAIZ_PLANOS_RED = process.env.RAIZ_PLANOS_RED ?? "\\\\192.168.120.100\\ingenieria";
+
 export interface PlanoLink {
   id: string;
   nombre_archivo: string;
@@ -8,19 +13,29 @@ export interface PlanoLink {
   cancelada: boolean;
   // PM de donde viene el plano cuando no es del mismo PM (modelo reutilizado).
   de_otro_pm: string | null;
+  // Ruta de red completa del PDF, para abrirlo desde el servidor.
+  ruta: string;
+  paginas: number | null;
+  especificacion: string | null;
+  descripcion: string | null;
+  dibujo: string | null;
+  verifico: string | null;
+  fecha_plano: string | null;
+  escala: string | null;
+  acabados: string[];
+  notas: string[];
+  error_lectura: string | null;
 }
 
-interface PlanoRow {
-  id: string;
+interface PlanoRow extends Omit<PlanoLink, "de_otro_pm" | "ruta"> {
   pm: string | null;
   anio: number;
-  modelo_carpeta: string;
   modelo_normalizado: string;
-  cancelada: boolean;
-  nombre_archivo: string;
+  ruta_origen: string;
 }
 
-const COLUMNAS = "id, pm, anio, modelo_carpeta, modelo_normalizado, cancelada, nombre_archivo";
+const COLUMNAS =
+  "id, pm, anio, modelo_carpeta, modelo_normalizado, cancelada, nombre_archivo, ruta_origen, paginas, especificacion, descripcion, dibujo, verifico, fecha_plano, escala, acabados, notas, error_lectura";
 
 /**
  * Planos de Ingeniería de cada ítem (sincronizados por
@@ -46,8 +61,7 @@ export async function getPlanosPorItem(
     supabase.from("planos").select(COLUMNAS).eq("pm", pm).returns<PlanoRow[]>(),
     supabase.from("planos").select(COLUMNAS).in("modelo_normalizado", claves).returns<PlanoRow[]>(),
   ]);
-  // Sin la tabla (migración pendiente) o sin permisos: la página se muestra
-  // igual, solo sin planos.
+  // Sin la tabla o sin permisos: la página se muestra igual, solo sin planos.
   if (errorPm || errorExactos) return {};
 
   const candidatos = Array.from(
@@ -70,6 +84,17 @@ export async function getPlanosPorItem(
         modelo_carpeta: p.modelo_carpeta,
         cancelada: p.cancelada,
         de_otro_pm: deOtroPm ? (p.pm ?? "otro proyecto") : null,
+        ruta: `${RAIZ_PLANOS_RED}\\${p.ruta_origen}`,
+        paginas: p.paginas,
+        especificacion: p.especificacion,
+        descripcion: p.descripcion,
+        dibujo: p.dibujo,
+        verifico: p.verifico,
+        fecha_plano: p.fecha_plano,
+        escala: p.escala,
+        acabados: p.acabados,
+        notas: p.notas,
+        error_lectura: p.error_lectura,
       }));
   }
   return resultado;
