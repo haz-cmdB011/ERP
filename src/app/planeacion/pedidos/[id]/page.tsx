@@ -3,11 +3,11 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
-import { colorFilaEstadoRevision, type EstadoRevision } from "@/lib/planeacion/estado-revision";
-import EstadoRevisionSelect from "./estado-revision-select";
-import { ESTADO_REVISION_LABELS } from "@/lib/planeacion/estado-revision";
+import type { EstadoRevision } from "@/lib/planeacion/estado-revision";
 import CancelarPedido from "./cancelar-pedido";
-import EliminarItemBoton from "./eliminar-item-boton";
+import ItemsTabla, { type MuebleTabla } from "./items-tabla";
+import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
+import { getPlanosPorItem } from "@/lib/planos/planos-por-item";
 
 interface VersionRow {
   id: string;
@@ -45,10 +45,10 @@ export default async function PedidoDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ version?: string }>;
+  searchParams: Promise<{ version?: string; modelo?: string }>;
 }) {
   const { id } = await params;
-  const { version } = await searchParams;
+  const { version, modelo } = await searchParams;
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
   const puedeEditar = puedeEditarPlaneacion(perfil);
@@ -104,7 +104,14 @@ export default async function PedidoDetailPage({
     : { data: null };
 
   const itemIds = (items ?? []).map((i) => i.id);
-  const imagenesPorItem = await getImagenesPorItem(supabase, itemIds);
+  const [imagenesPorItem, planosPorItem] = await Promise.all([
+    getImagenesPorItem(supabase, itemIds),
+    getPlanosPorItem(
+      supabase,
+      normalizarNumeroPM(pedido.numero_pedido, { fechaPedido: pedido.fecha_pedido }),
+      items ?? []
+    ),
+  ]);
 
   // Los ítems cancelados o enviados a la papelera de Producción salen de la
   // vista normal: los cancelados viven en /planeacion/cancelados, y los de
@@ -129,6 +136,13 @@ export default async function PedidoDetailPage({
   const fuSueltos = itemsVisibles.filter(
     (i) => i.tipo_registro === "FU" && (!i.parent_item_id || !idsMoVisibles.has(i.parent_item_id))
   );
+
+  // Los sueltos van al final como filas sin hijos, para que también
+  // entren en el filtro por modelo.
+  const muebles: MuebleTabla[] = [
+    ...mo.map((m) => ({ ...m, hijos: fuPorPadre.get(m.id) ?? [] })),
+    ...fuSueltos.map((f) => ({ ...f, hijos: [] })),
+  ];
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
@@ -187,157 +201,16 @@ export default async function PedidoDetailPage({
         <p className="text-sm text-slate-600">Este pedido no tiene versiones.</p>
       )}
 
-      {mo.length > 0 && (
-        <div className="flex flex-col gap-4">
-          {mo.map((m) => (
-            <div
-              key={m.id}
-              className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm"
-            >
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2">Imagen</th>
-                    <th className="px-3 py-2">Item</th>
-                    <th className="px-3 py-2">Modelo</th>
-                    <th className="px-3 py-2">Material</th>
-                    <th className="px-3 py-2">Descripción</th>
-                    <th className="px-3 py-2">Cant.</th>
-                    <th className="px-3 py-2">Estado</th>
-                    {puedeEliminar && <th className="px-3 py-2"></th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  <FilaItem
-                    item={m}
-                    indentado={false}
-                    imagenesPorItem={imagenesPorItem}
-                    puedeEditar={puedeEditar}
-                    puedeEliminar={puedeEliminar}
-                  />
-                  {(fuPorPadre.get(m.id) ?? []).map((f) => (
-                    <FilaItem
-                      key={f.id}
-                      item={f}
-                      indentado
-                      imagenesPorItem={imagenesPorItem}
-                      puedeEditar={puedeEditar}
-                      puedeEliminar={puedeEliminar}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {fuSueltos.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2">Imagen</th>
-                <th className="px-3 py-2">Item</th>
-                <th className="px-3 py-2">Modelo</th>
-                <th className="px-3 py-2">Material</th>
-                <th className="px-3 py-2">Descripción</th>
-                <th className="px-3 py-2">Cant.</th>
-                <th className="px-3 py-2">Estado</th>
-                {puedeEliminar && <th className="px-3 py-2"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {fuSueltos.map((f) => (
-                <FilaItem
-                  key={f.id}
-                  item={f}
-                  indentado={false}
-                  imagenesPorItem={imagenesPorItem}
-                  puedeEditar={puedeEditar}
-                  puedeEliminar={puedeEliminar}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {muebles.length > 0 && (
+        <ItemsTabla
+          muebles={muebles}
+          imagenesPorItem={Object.fromEntries(imagenesPorItem)}
+          planosPorItem={planosPorItem}
+          puedeEditar={puedeEditar}
+          puedeEliminar={puedeEliminar}
+          filtroInicial={modelo ?? ""}
+        />
       )}
     </main>
-  );
-}
-
-function FilaItem({
-  item,
-  indentado,
-  imagenesPorItem,
-  puedeEditar,
-  puedeEliminar,
-}: {
-  item: ItemRow;
-  indentado: boolean;
-  imagenesPorItem: Map<string, string[]>;
-  puedeEditar: boolean;
-  puedeEliminar: boolean;
-}) {
-  return (
-    <tr
-      className={`align-top transition-colors hover:bg-slate-50 ${indentado ? "text-slate-700" : "text-sm font-medium text-slate-900"} ${colorFilaEstadoRevision(item.estado_revision)}`}
-    >
-      <td className="px-3 py-2">
-        <ImagenesItem urls={imagenesPorItem.get(item.id) ?? []} />
-      </td>
-      <td className="px-3 py-2">{item.item_code}</td>
-      <td className="px-3 py-2">{item.modelo}</td>
-      <td className="px-3 py-2">{item.tipo_material}</td>
-      <td className="px-3 py-2">
-        {indentado ? item.descripcion?.split("\n")[0] : item.descripcion}
-      </td>
-      <td className="px-3 py-2">
-        {item.cantidad_total} {item.unidad}
-      </td>
-      <td className="px-3 py-2">
-        <EstadoCelda
-          itemId={item.id}
-          estado={item.estado_revision}
-          motivo={item.motivo_cancelacion}
-          puedeEditar={puedeEditar}
-        />
-      </td>
-      {puedeEliminar && (
-        <td className="px-3 py-2">
-          <EliminarItemBoton itemId={item.id} />
-        </td>
-      )}
-    </tr>
-  );
-}
-
-function EstadoCelda({
-  itemId,
-  estado,
-  motivo,
-  puedeEditar,
-}: {
-  itemId: string;
-  estado: EstadoRevision;
-  motivo: string | null;
-  puedeEditar: boolean;
-}) {
-  if (puedeEditar) {
-    return <EstadoRevisionSelect itemId={itemId} estadoActual={estado} motivoActual={motivo} />;
-  }
-  if (!estado) return <span className="text-slate-400">—</span>;
-  return <span>{ESTADO_REVISION_LABELS[estado]}</span>;
-}
-
-function ImagenesItem({ urls }: { urls: string[] }) {
-  if (urls.length === 0) return null;
-  return (
-    <div className="flex gap-1">
-      {urls.map((url) => (
-        // eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image
-        <img key={url} src={url} alt="" className="h-10 w-10 rounded border border-slate-200 object-cover" />
-      ))}
-    </div>
   );
 }

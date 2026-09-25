@@ -8,6 +8,7 @@ import {
   quitarImagenesDelExcel,
 } from "@/lib/planeacion/optimizar-almacenamiento";
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
+import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,8 @@ async function subirImagenesDeItems(
     items.map(async ({ imagenes, ...resto }) => {
       const imagenPaths = await Promise.all(
         imagenes.map(async (imagenOriginal, indice) => {
-          // La miniatura (la de las tablas) se redimensiona antes de subir: el
+          // La miniatura (la de las tablas y el visor) se redimensiona antes de
+          // subir (ver comprimirImagenItem): el
           // original embebido en el Excel puede pesar varios cientos de KB.
           const imagen = await comprimirImagenItem(
             imagenOriginal.buffer,
@@ -122,6 +124,15 @@ export async function POST(request: Request) {
   //    Usa el buffer ORIGINAL (con imágenes): de ahí es de donde el parser
   //    extrae la imagen de cada fila.
   const resultado = await parsePlaneacionExcel(buffer);
+
+  // El título del PM siempre se guarda como "PM<NUMERO>-<AÑO>", sin importar
+  // cómo venga escrito en la celda "No. PEDIDO" o en el nombre del archivo.
+  if (resultado.ok) {
+    resultado.metadata.numero_pedido = normalizarNumeroPM(resultado.metadata.numero_pedido, {
+      nombreArchivo: file.name,
+      fechaPedido: resultado.metadata.fecha_pedido,
+    });
+  }
 
   // 2. Subir a Storage, para auditoría y siempre (haya sido válido o no),
   //    una copia del archivo SIN las imágenes embebidas: son puro peso

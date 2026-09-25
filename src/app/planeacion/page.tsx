@@ -14,10 +14,38 @@ interface PedidoRow {
   pedido_versiones: { id: string; numero_version: number; es_version_activa: boolean }[];
 }
 
+interface ResultadoModeloRow {
+  id: string;
+  item_code: number;
+  modelo: string | null;
+  descripcion: string | null;
+  pedido_versiones: {
+    numero_version: number;
+    pedidos: {
+      id: string;
+      numero_pedido: string;
+      proyectos: { nombre: string } | null;
+    };
+  };
+}
+
+const MAX_RESULTADOS_MODELO = 100;
+
+// Escapa los comodines de LIKE para que el texto buscado se tome literal.
+function escaparLike(texto: string): string {
+  return texto.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 const COLUMNAS =
   "id, numero_pedido, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )";
 
-export default async function PlaneacionListPage() {
+export default async function PlaneacionListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ modelo?: string }>;
+}) {
+  const { modelo } = await searchParams;
+  const busqueda = modelo?.trim() ?? "";
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
   const esAdmin = puedeAdministrarPlaneacion(perfil);
@@ -37,6 +65,25 @@ export default async function PlaneacionListPage() {
         .order("eliminado_en", { ascending: false })
         .returns<PedidoRow[]>()
     : { data: null };
+
+  // Búsqueda de modelos: solo en la versión activa de pedidos no eliminados,
+  // sin ítems cancelados ni en papelera (los mismos que oculta el detalle).
+  const { data: resultadosModelo, error: errorBusqueda } = busqueda
+    ? await supabase
+        .from("planeacion_items")
+        .select(
+          "id, item_code, modelo, descripcion, pedido_versiones!inner ( numero_version, es_version_activa, pedidos!inner ( id, numero_pedido, eliminado_en, proyectos ( nombre ) ) )"
+        )
+        .ilike("modelo", `%${escaparLike(busqueda)}%`)
+        .eq("pedido_versiones.es_version_activa", true)
+        .is("pedido_versiones.pedidos.eliminado_en", null)
+        .or("estado_revision.is.null,estado_revision.neq.cancelado")
+        .is("eliminacion_solicitada_en", null)
+        .order("modelo")
+        .order("item_code")
+        .limit(MAX_RESULTADOS_MODELO)
+        .returns<ResultadoModeloRow[]>()
+    : { data: null, error: null };
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
@@ -63,6 +110,87 @@ export default async function PlaneacionListPage() {
           </Link>
         </div>
       </div>
+
+      <form action="/planeacion" className="flex gap-2">
+        <input
+          type="search"
+          name="modelo"
+          defaultValue={busqueda}
+          placeholder="Buscar modelo..."
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-400 focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        >
+          Buscar
+        </button>
+        {busqueda && (
+          <Link
+            href="/planeacion"
+            className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:underline"
+          >
+            Limpiar
+          </Link>
+        )}
+      </form>
+
+      {busqueda && (
+        <div className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-slate-600">
+            Modelos que coinciden con &ldquo;{busqueda}&rdquo;
+            {resultadosModelo ? ` (${resultadosModelo.length}${resultadosModelo.length === MAX_RESULTADOS_MODELO ? "+" : ""})` : ""}
+          </h2>
+          {errorBusqueda && (
+            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              No se pudo buscar: {errorBusqueda.message}
+            </p>
+          )}
+          {resultadosModelo && resultadosModelo.length === 0 && (
+            <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+              No se encontró ningún modelo.
+            </p>
+          )}
+          {resultadosModelo && resultadosModelo.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3">Modelo</th>
+                    <th className="px-4 py-3">Item</th>
+                    <th className="px-4 py-3">Descripción</th>
+                    <th className="px-4 py-3">Pedido</th>
+                    <th className="px-4 py-3">Proyecto</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {resultadosModelo.map((r) => {
+                    const pedido = r.pedido_versiones.pedidos;
+                    return (
+                      <tr key={r.id} className="align-top transition-colors hover:bg-slate-50">
+                        <td className="px-4 py-3 font-medium text-slate-900">{r.modelo}</td>
+                        <td className="px-4 py-3 text-slate-700">{r.item_code}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {r.descripcion?.split("\n")[0]}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/planeacion/pedidos/${pedido.id}?modelo=${encodeURIComponent(busqueda)}`}
+                            className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                          >
+                            {pedido.numero_pedido}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{pedido.proyectos?.nombre ?? "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">

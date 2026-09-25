@@ -10,7 +10,7 @@ interface ImagenRow {
 }
 
 export interface ImagenItemUrls {
-  // Miniatura (200 px): la que se muestra en las tablas.
+  // Miniatura (600 px): la que se muestra en las tablas y el visor.
   url: string;
   // Versión grande para la vista ampliada; null en las cargas anteriores a
   // que se guardara (ahí la vista ampliada usa la miniatura).

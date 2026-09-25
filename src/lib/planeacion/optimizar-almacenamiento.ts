@@ -1,11 +1,11 @@
 import JSZip from "jszip";
 import sharp from "sharp";
 
-// Las imágenes de un ítem solo se muestran como miniatura (40x40 en la UI
-// de detalle de pedido) — 200px de lado da margen de sobra hasta para
-// pantallas retina, sin cargar el peso completo de la imagen embebida
-// original (algunas superan los 400 KB para mostrarse en 40x40 px).
-const LADO_MAXIMO_MINIATURA = 200;
+// Las imágenes de un ítem se muestran como miniatura (40x40) y, al hacer
+// click, ampliadas en un visor — 600px de lado se ve nítido ampliado sin
+// cargar el peso completo de la imagen embebida original (algunas superan
+// los 400 KB); en WebP quedan en unas decenas de KB.
+const LADO_MAXIMO_MINIATURA = 600;
 const CALIDAD_WEBP = 80;
 
 // Recomprime una imagen extraída del Excel para guardarla en Storage:

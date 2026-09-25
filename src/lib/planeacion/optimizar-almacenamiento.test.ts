@@ -14,7 +14,7 @@ async function imagenGrandeDePrueba(ancho = 3000, alto = 2000): Promise<Buffer> 
 }
 
 describe("versiones de imagen de ítems", () => {
-  it("la miniatura sigue acotada a 200 px y la grande a 1600 px, ambas WebP", async () => {
+  it("la miniatura queda acotada a 600 px y la grande a 1600 px, ambas WebP", async () => {
     const original = await imagenGrandeDePrueba();
 
     const miniatura = await comprimirImagenItem(original, "png");
@@ -22,7 +22,7 @@ describe("versiones de imagen de ítems", () => {
 
     expect(miniatura.extension).toBe("webp");
     const metaMini = await sharp(miniatura.buffer).metadata();
-    expect(Math.max(metaMini.width ?? 0, metaMini.height ?? 0)).toBe(200);
+    expect(Math.max(metaMini.width ?? 0, metaMini.height ?? 0)).toBe(600);
 
     expect(grande).not.toBeNull();
     const metaGrande = await sharp(grande as Buffer).metadata();
