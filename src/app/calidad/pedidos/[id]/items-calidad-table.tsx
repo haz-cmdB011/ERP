@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import ImagenAmpliable from "@/components/imagen-ampliable";
 import { DIAS_ANTIGUEDAD_ALERTA } from "./antiguedad";
 
 export interface InformeResumen {
@@ -25,6 +26,7 @@ export interface ItemCalidadRow {
   unidad: string | null;
   parent_item_id: string | null;
   imagenUrl: string | null;
+  imagenGrandeUrl: string | null;
   liberadoEn: string | null;
   estadoRevision: string | null;
   motivoCancelacion: string | null;
@@ -318,11 +320,11 @@ export default function ItemsCalidadTable({
       >
         <td className={`border-l-4 py-2 pl-2 pr-1 ${franja}`}>
           {item.imagenUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
-            <img
-              src={item.imagenUrl}
-              alt=""
-              className="h-8 w-8 rounded border border-slate-200 object-cover"
+            <ImagenAmpliable
+              url={item.imagenUrl}
+              urlGrande={item.imagenGrandeUrl}
+              alt={`Ítem ${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`}
+              className="h-8 w-8"
             />
           ) : (
             <div className="h-8 w-8 rounded border border-dashed border-slate-200 bg-slate-50" />
@@ -566,12 +568,14 @@ export default function ItemsCalidadTable({
             </div>
 
             {previewInforme.item.imagenUrl && (
-              // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
-              <img
-                src={previewInforme.item.imagenUrl}
-                alt=""
-                className="mx-auto mt-3 h-28 w-28 rounded border border-slate-200 object-cover"
-              />
+              <div className="mt-3 flex justify-center">
+                <ImagenAmpliable
+                  url={previewInforme.item.imagenUrl}
+                  urlGrande={previewInforme.item.imagenGrandeUrl}
+                  alt={`Ítem ${previewInforme.item.item_code}`}
+                  className="h-28 w-28"
+                />
+              </div>
             )}
 
             <p

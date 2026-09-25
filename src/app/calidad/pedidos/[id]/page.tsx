@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
 
 interface VersionRow {
@@ -150,7 +150,7 @@ export default async function PedidoCalidadPage({
     informesPorItem.set(inf.planeacion_item_id, lista);
   }
 
-  const imagenesPorItem = await getImagenesPorItem(supabase, itemIds);
+  const imagenesPorItem = await getImagenesConGrandePorItem(supabase, itemIds);
 
   const itemsConInforme: ItemCalidadRow[] = items.map((item) => ({
     id: item.id,
@@ -165,7 +165,8 @@ export default async function PedidoCalidadPage({
     liberadoEn: item.liberado_en,
     estadoRevision: item.estado_revision,
     motivoCancelacion: item.motivo_cancelacion,
-    imagenUrl: imagenesPorItem.get(item.id)?.[0] ?? null,
+    imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
+    imagenGrandeUrl: imagenesPorItem.get(item.id)?.[0]?.urlGrande ?? null,
     informes: (informesPorItem.get(item.id) ?? []).map((inf) => ({
       id: inf.id,
       folio: inf.folio,
