@@ -16,7 +16,23 @@ export const NOMBRE_TIPO_RECIBO: Record<TipoRecibo, string> = {
   armado: "Armado",
 };
 
+// Ciclo de vida del recibo (común a todos los tipos, Electrificación
+// incluida): al maquilador no se le paga hasta que está 'revisado'.
+export type EstadoRecibo = "pendiente" | "revisado" | "pagado" | "cancelado";
+
+export const ESTADO_NOMBRE: Record<EstadoRecibo, string> = {
+  pendiente: "Pendiente de revisión",
+  revisado: "Revisado · por pagar",
+  pagado: "Pagado",
+  cancelado: "Cancelado",
+};
+
+// Decisión del revisor sobre un renglón; null = todavía sin revisar.
+export type DecisionRenglon = "aceptado" | "modificado" | null;
+
 export interface RenglonGuardado {
+  // Solo en renglones leídos de la base (lo usa la pantalla de revisión).
+  id?: string;
   numero: number;
   modelo: string;
   familia: string;
@@ -33,15 +49,20 @@ export interface RenglonGuardado {
   nota: string;
   puSugerido: number | null;
   fuente: Fuente;
-  banda: Banda;
+  // null en renglones del maquilador que nadie ha revisado todavía.
+  banda: Banda | null;
   propuesto: number;
   aceptado: number;
   importe: number;
   justificacion: string;
   pendienteRevision: boolean;
+  decision?: DecisionRenglon;
 }
 
 export interface ReciboGuardado {
+  // id y estado solo vienen cuando el recibo se lee de la base.
+  id?: string;
+  estado?: EstadoRecibo;
   tipo: TipoRecibo;
   folio: string;
   fecha: string;
@@ -139,9 +160,10 @@ export async function cargarHistoricoDb(
   const { data, error } = await supabase
     .from("renglones")
     .select(
-      "modelo, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo)"
+      "modelo, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo, estado)"
     )
     .eq("recibos.tipo", tipo)
+    .neq("recibos.estado", "cancelado")
     .order("creado_en", { ascending: false })
     .limit(3000)
     .returns<RenglonConRecibo[]>();
@@ -168,6 +190,7 @@ export async function cargarHistoricoDb(
 }
 
 interface RenglonDbRow {
+  id: string;
   numero: number;
   modelo: string;
   familia: string;
@@ -183,14 +206,17 @@ interface RenglonDbRow {
   nota: string | null;
   pu_sugerido: number | null;
   fuente_sugerido: Fuente;
-  banda: Banda;
+  banda: Banda | null;
   pu_propuesto: number;
   pu_aceptado: number;
   importe: number;
   justificacion: string | null;
+  decision: DecisionRenglon;
 }
 
 interface ReciboDbRow {
+  id: string;
+  estado: EstadoRecibo;
   tipo: TipoRecibo;
   folio: string;
   fecha_recibo: string;
@@ -203,12 +229,18 @@ interface ReciboDbRow {
   renglones: RenglonDbRow[];
 }
 
-// Un renglón queda "pendiente de revisión" cuando lo capturó alguien sin
-// permiso para ver el precio sugerido: su banda se calculó igual (para no
-// perder la señal), pero el precio aceptado sigue en 0 hasta que el
-// desarrollador o el admin del área lo revisen.
-function esPendienteRevision(r: RenglonDbRow): boolean {
-  return Number(r.pu_aceptado) === 0 && Number(r.pu_propuesto) > 0;
+// Un renglón queda "pendiente de revisión" mientras nadie de Estimaciones
+// haya aceptado o modificado su precio (típicamente, lo capturó el
+// maquilador). Su precio aceptado sigue en 0 hasta entonces.
+function esPendienteRevision(r: { decision: DecisionRenglon }): boolean {
+  return r.decision == null;
+}
+
+// Un folio cancelado deja de ocupar su folio, así que puede haber varios
+// recibos con el mismo: se muestra el vigente y, si no hay, el cancelado
+// más reciente.
+export function elegirVigente<T extends { estado: EstadoRecibo }>(filas: T[]): T | null {
+  return filas.find((f) => f.estado !== "cancelado") ?? filas[0] ?? null;
 }
 
 export async function buscarReciboPorFolio(
@@ -216,21 +248,24 @@ export async function buscarReciboPorFolio(
   folio: string,
   tipo: TipoRecibo = "acabados"
 ): Promise<ReciboGuardado | null> {
-  const { data, error } = await supabase
+  const { data: filas, error } = await supabase
     .from("recibos")
     .select(
-      "tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
-        "renglones(numero, modelo, familia, tamano, cantidad, acabado, acabado_2, tipo_armado, colocacion_herrajes, tipo_trabajo, " +
-        "causa_reproceso, fases, nota, pu_sugerido, fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion)"
+      "id, estado, tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
+        "renglones(id, numero, modelo, familia, tamano, cantidad, acabado, acabado_2, tipo_armado, colocacion_herrajes, tipo_trabajo, " +
+        "causa_reproceso, fases, nota, pu_sugerido, fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision)"
     )
     .eq("folio", folio)
     .eq("tipo", tipo)
-    .maybeSingle()
-    .returns<ReciboDbRow | null>();
+    .order("creado_en", { ascending: false })
+    .returns<ReciboDbRow[]>();
 
-  if (error || !data) return null;
+  const data = error || !filas ? null : elegirVigente(filas);
+  if (!data) return null;
 
   return {
+    id: data.id,
+    estado: data.estado,
     tipo: data.tipo,
     folio: data.folio,
     fecha: data.fecha_recibo,
@@ -243,6 +278,7 @@ export async function buscarReciboPorFolio(
     renglones: [...data.renglones]
       .sort((a, b) => a.numero - b.numero)
       .map((r) => ({
+        id: r.id,
         numero: r.numero,
         modelo: r.modelo,
         familia: r.familia,
@@ -264,11 +300,14 @@ export async function buscarReciboPorFolio(
         importe: Number(r.importe),
         justificacion: r.justificacion ?? "",
         pendienteRevision: esPendienteRevision(r),
+        decision: r.decision,
       })),
   };
 }
 
 export interface ReciboResumen {
+  id: string;
+  estado: EstadoRecibo;
   tipo: TipoRecibo;
   folio: string;
   fecha: string;
@@ -298,11 +337,13 @@ export async function listarRecibos(supabase: SupabaseClient): Promise<ReciboRes
   const { data, error } = await supabase
     .from("recibos")
     .select(
-      "tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
-        "renglones(cantidad, pu_propuesto, pu_aceptado)"
+      "id, estado, tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
+        "renglones(cantidad, pu_propuesto, pu_aceptado, decision)"
     )
     .returns<
       {
+        id: string;
+        estado: EstadoRecibo;
         tipo: TipoRecibo;
         folio: string;
         fecha_recibo: string;
@@ -311,7 +352,12 @@ export async function listarRecibos(supabase: SupabaseClient): Promise<ReciboRes
         ot: string | null;
         prioridad: string;
         creado_en: string;
-        renglones: { cantidad: number; pu_propuesto: number; pu_aceptado: number }[];
+        renglones: {
+          cantidad: number;
+          pu_propuesto: number;
+          pu_aceptado: number;
+          decision: DecisionRenglon;
+        }[];
       }[]
     >();
 
@@ -320,10 +366,10 @@ export async function listarRecibos(supabase: SupabaseClient): Promise<ReciboRes
   const resumenes = data.map((r) => {
     const totalPropuesto = r.renglones.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_propuesto), 0);
     const totalAceptado = r.renglones.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_aceptado), 0);
-    const numPendientes = r.renglones.filter(
-      (x) => Number(x.pu_aceptado) === 0 && Number(x.pu_propuesto) > 0
-    ).length;
+    const numPendientes = r.renglones.filter(esPendienteRevision).length;
     return {
+      id: r.id,
+      estado: r.estado,
       tipo: r.tipo,
       folio: r.folio,
       fecha: r.fecha_recibo,

@@ -12,6 +12,7 @@ export default function AreaNav({
   area,
   email,
   esDesarrollador = false,
+  soloEstimaciones = false,
   children,
 }: {
   area: "planeacion" | "produccion" | "calidad" | "estimaciones" | "usuarios";
@@ -19,81 +20,96 @@ export default function AreaNav({
   // Usuarios es un panel más, pero solo para desarrolladores (acceso
   // global): las demás áreas no lo ven en su selector.
   esDesarrollador?: boolean;
+  // Maquilador (usuario externo): solo existe Estimaciones para él, así que
+  // no se le muestran las demás áreas ni el enlace a la cuenta de Planeación.
+  soloEstimaciones?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <div className="print:hidden">
       <nav className="flex flex-wrap items-center gap-4 border-b border-gray-200 px-6 py-3 text-sm">
         <div className="flex items-center gap-1">
-          <Link
-            href="/planeacion"
-            className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-              area === "planeacion" ? "bg-black text-white" : "text-gray-600 hover:text-black"
-            }`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden="true"
-            >
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-              <rect x="8" y="2" width="8" height="4" rx="1" />
-              <path d="M9 12h6M9 16h6" />
-            </svg>
-            Planeación
-          </Link>
-          <Link
-            href="/produccion"
-            className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-              area === "produccion" ? "bg-black text-white" : "text-gray-600 hover:text-black"
-            }`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden="true"
-            >
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-              <path d="m3.27 6.96 8.73 5.05 8.73-5.05" />
-              <path d="M12 22.08V12" />
-            </svg>
-            Producción
-          </Link>
-          <Link
-            href="/calidad"
-            className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-              area === "calidad" ? "bg-black text-white" : "text-gray-600 hover:text-black"
-            }`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden="true"
-            >
-              <path d="M12 3 4 6v6c0 4.5 3.2 7.7 8 9 4.8-1.3 8-4.5 8-9V6l-8-3Z" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
-            Calidad
-          </Link>
+          {!soloEstimaciones && (
+            <>
+              <Link
+                href="/planeacion"
+                className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
+                  area === "planeacion"
+                    ? "bg-black text-white"
+                    : "text-gray-600 hover:text-black"
+                }`}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                  <rect x="8" y="2" width="8" height="4" rx="1" />
+                  <path d="M9 12h6M9 16h6" />
+                </svg>
+                Planeación
+              </Link>
+              <Link
+                href="/produccion"
+                className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
+                  area === "produccion"
+                    ? "bg-black text-white"
+                    : "text-gray-600 hover:text-black"
+                }`}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                  <path d="m3.27 6.96 8.73 5.05 8.73-5.05" />
+                  <path d="M12 22.08V12" />
+                </svg>
+                Producción
+              </Link>
+              <Link
+                href="/calidad"
+                className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
+                  area === "calidad"
+                    ? "bg-black text-white"
+                    : "text-gray-600 hover:text-black"
+                }`}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3 4 6v6c0 4.5 3.2 7.7 8 9 4.8-1.3 8-4.5 8-9V6l-8-3Z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                Calidad
+              </Link>
+            </>
+          )}
           <Link
             href="/estimaciones"
             className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-              area === "estimaciones" ? "bg-black text-white" : "text-gray-600 hover:text-black"
+              area === "estimaciones"
+                ? "bg-black text-white"
+                : "text-gray-600 hover:text-black"
             }`}
           >
             <svg
@@ -116,7 +132,9 @@ export default function AreaNav({
             <Link
               href="/admin/usuarios"
               className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-                area === "usuarios" ? "bg-black text-white" : "text-gray-600 hover:text-black"
+                area === "usuarios"
+                  ? "bg-black text-white"
+                  : "text-gray-600 hover:text-black"
               }`}
             >
               <svg
@@ -136,9 +154,16 @@ export default function AreaNav({
             </Link>
           )}
         </div>
-        <Link href="/planeacion/cuenta" className="ml-auto text-gray-500 hover:text-black">
-          {email}
-        </Link>
+        {soloEstimaciones ? (
+          <span className="ml-auto text-gray-500">{email}</span>
+        ) : (
+          <Link
+            href="/planeacion/cuenta"
+            className="ml-auto text-gray-500 hover:text-black"
+          >
+            {email}
+          </Link>
+        )}
         <LogoutButton />
       </nav>
       {children && (

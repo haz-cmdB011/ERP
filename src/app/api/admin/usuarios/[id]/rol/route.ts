@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
-import { ROLES_VALIDOS, derivarArea, requiereArea } from "@/lib/auth/roles";
+import {
+  ROLES_VALIDOS,
+  derivarArea,
+  requiereArea,
+  requiereContratista,
+} from "@/lib/auth/roles";
 
 export async function PATCH(
   request: Request,
@@ -16,6 +21,7 @@ export async function PATCH(
   const body = await request.json().catch(() => null);
   const rol = body?.rol;
   const areaEnviada = body?.area || null;
+  const contratista = typeof body?.contratista === "string" ? body.contratista.trim() : "";
 
   if (!ROLES_VALIDOS.includes(rol)) {
     return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
@@ -27,13 +33,24 @@ export async function PATCH(
     );
   }
 
+  if (requiereContratista(rol) && !contratista) {
+    return NextResponse.json(
+      { error: "El maquilador necesita su nombre de contratista." },
+      { status: 400 }
+    );
+  }
+
   // Se usa el cliente normal (no service_role): la RLS "admin_update_any_perfil"
   // ya permite esto porque quien llama es admin, validado arriba con
   // requireAdmin(). No hace falta bypassar RLS para esta operación.
   const supabase = await createClient();
   const { error } = await supabase
     .from("perfiles")
-    .update({ rol, area: derivarArea(rol, areaEnviada) })
+    .update({
+      rol,
+      area: derivarArea(rol, areaEnviada),
+      contratista: requiereContratista(rol) ? contratista : null,
+    })
     .eq("id", id);
 
   if (error) {

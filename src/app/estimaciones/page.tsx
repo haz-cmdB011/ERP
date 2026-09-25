@@ -1,6 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { esMaquilador, getPerfilActual } from "@/lib/auth/get-perfil";
 
-export default function EstimacionesPage() {
+export default async function EstimacionesPage() {
+  const supabase = await createClient();
+  if (esMaquilador(await getPerfilActual(supabase))) {
+    redirect("/estimaciones/recibos");
+  }
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <div className="border-b border-slate-200 pb-4">
@@ -20,6 +28,18 @@ export default function EstimacionesPage() {
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Captura los recibos de maquila y obtén el precio sugerido de cada pieza.
+          </p>
+        </Link>
+        <Link
+          href="/estimaciones/registro?estado=pendiente"
+          className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-indigo-300"
+        >
+          <h2 className="text-base font-semibold text-slate-900 group-hover:text-indigo-600">
+            Por revisar
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Recibos de maquiladores pendientes: acepta o modifica cada precio. No se pagan hasta
+            quedar revisados.
           </p>
         </Link>
         <Link

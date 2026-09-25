@@ -9,6 +9,7 @@ import {
   ROLES_VALIDOS,
   ROL_LABELS,
   requiereArea,
+  requiereContratista,
   type AreaValida,
 } from "@/lib/auth/roles";
 
@@ -93,10 +94,12 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   const router = useRouter();
   const [rol, setRol] = useState(usuario.rol);
   const [area, setArea] = useState<AreaValida>(usuario.area ?? "planeacion");
+  const [contratista, setContratista] = useState(usuario.contratista ?? "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const mostrarArea = requiereArea(rol);
+  const mostrarContratista = requiereContratista(rol);
 
   async function guardar() {
     setGuardando(true);
@@ -104,7 +107,11 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
     const res = await fetch(`/api/admin/usuarios/${usuario.id}/rol`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rol, area: mostrarArea ? area : null }),
+      body: JSON.stringify({
+        rol,
+        area: mostrarArea ? area : null,
+        contratista: mostrarContratista ? contratista : null,
+      }),
     });
     const data = await res.json();
     setGuardando(false);
@@ -115,7 +122,10 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
     router.refresh();
   }
 
-  const cambios = rol !== usuario.rol || (mostrarArea && area !== usuario.area);
+  const cambios =
+    rol !== usuario.rol ||
+    (mostrarArea && area !== usuario.area) ||
+    (mostrarContratista && contratista.trim() !== (usuario.contratista ?? ""));
 
   return (
     <tr className="border-t border-gray-100">
@@ -151,6 +161,17 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
               </option>
             ))}
           </select>
+        ) : mostrarContratista ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-gray-500">Estimaciones</span>
+            <input
+              placeholder="Contratista"
+              value={contratista}
+              onChange={(e) => setContratista(e.target.value)}
+              className="w-40 rounded border border-gray-300 px-2 py-1 text-sm"
+              disabled={esYo}
+            />
+          </div>
         ) : (
           <span className="text-gray-400">—</span>
         )}

@@ -12,7 +12,13 @@ import type {
   ComplejidadLed,
   FuenteElectrificacion,
 } from "./motor-electrificacion";
-import { compararFolios, type ReciboResumen } from "./recibos-db";
+import {
+  compararFolios,
+  elegirVigente,
+  type DecisionRenglon,
+  type EstadoRecibo,
+  type ReciboResumen,
+} from "./recibos-db";
 
 export interface CharolaGuardada {
   numero: number;
@@ -21,6 +27,7 @@ export interface CharolaGuardada {
 }
 
 export interface RenglonElectrificacionGuardado {
+  id?: string;
   numero: number;
   modelo: string;
   cantidad: number;
@@ -30,15 +37,18 @@ export interface RenglonElectrificacionGuardado {
   nota: string;
   puSugerido: number | null;
   fuente: FuenteElectrificacion;
-  banda: Banda;
+  banda: Banda | null;
   propuesto: number;
   aceptado: number;
   importe: number;
   justificacion: string;
   pendienteRevision: boolean;
+  decision?: DecisionRenglon;
 }
 
 export interface ReciboElectrificacionGuardado {
+  id?: string;
+  estado?: EstadoRecibo;
   folio: string;
   fecha: string;
   contratista: string;
@@ -101,13 +111,15 @@ export interface FolioElectrificacionExistente {
   numRenglones: number;
 }
 
-// Folios ya guardados, para ofrecer "Continuar este folio" en la captura.
+// Folios vigentes, para ofrecer "Continuar este folio" en la captura (al
+// maquilador, RLS solo le devuelve los suyos).
 export async function listarFoliosElectrificacion(
   supabase: SupabaseClient
 ): Promise<FolioElectrificacionExistente[]> {
   const { data, error } = await supabase
     .from("recibos_electrificacion")
     .select("folio, fecha_recibo, obra, ot, renglones_electrificacion(count)")
+    .neq("estado", "cancelado")
     .returns<
       {
         folio: string;
@@ -128,6 +140,7 @@ export async function listarFoliosElectrificacion(
 }
 
 interface RenglonDbRow {
+  id: string;
   numero: number;
   modelo: string;
   cantidad: number;
@@ -136,15 +149,18 @@ interface RenglonDbRow {
   nota: string | null;
   pu_sugerido: number | null;
   fuente_sugerido: FuenteElectrificacion;
-  banda: Banda;
+  banda: Banda | null;
   pu_propuesto: number;
   pu_aceptado: number;
   importe: number;
   justificacion: string | null;
+  decision: DecisionRenglon;
   charolas_electrificacion: { numero: number; drivers: number; categoria: CategoriaCharola }[];
 }
 
 interface ReciboDbRow {
+  id: string;
+  estado: EstadoRecibo;
   folio: string;
   fecha_recibo: string;
   contratista: string;
@@ -160,21 +176,24 @@ export async function buscarReciboElectrificacionPorFolio(
   supabase: SupabaseClient,
   folio: string
 ): Promise<ReciboElectrificacionGuardado | null> {
-  const { data, error } = await supabase
+  const { data: filas, error } = await supabase
     .from("recibos_electrificacion")
     .select(
-      "folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
-        "renglones_electrificacion(numero, modelo, cantidad, metros_led, complejidad_led, nota, pu_sugerido, " +
-        "fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, " +
+      "id, estado, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
+        "renglones_electrificacion(id, numero, modelo, cantidad, metros_led, complejidad_led, nota, pu_sugerido, " +
+        "fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision, " +
         "charolas_electrificacion(numero, drivers, categoria))"
     )
     .eq("folio", folio)
-    .maybeSingle()
-    .returns<ReciboDbRow | null>();
+    .order("creado_en", { ascending: false })
+    .returns<ReciboDbRow[]>();
 
-  if (error || !data) return null;
+  const data = error || !filas ? null : elegirVigente(filas);
+  if (!data) return null;
 
   return {
+    id: data.id,
+    estado: data.estado,
     folio: data.folio,
     fecha: data.fecha_recibo,
     contratista: data.contratista,
@@ -186,6 +205,7 @@ export async function buscarReciboElectrificacionPorFolio(
     renglones: [...data.renglones_electrificacion]
       .sort((a, b) => a.numero - b.numero)
       .map((r) => ({
+        id: r.id,
         numero: r.numero,
         modelo: r.modelo,
         cantidad: Number(r.cantidad),
@@ -200,7 +220,8 @@ export async function buscarReciboElectrificacionPorFolio(
         aceptado: Number(r.pu_aceptado),
         importe: Number(r.importe),
         justificacion: r.justificacion ?? "",
-        pendienteRevision: Number(r.pu_aceptado) === 0 && Number(r.pu_propuesto) > 0,
+        pendienteRevision: r.decision == null,
+        decision: r.decision,
       })),
   };
 }
@@ -215,11 +236,13 @@ export async function listarRecibosElectrificacion(
   const { data, error } = await supabase
     .from("recibos_electrificacion")
     .select(
-      "folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
-        "renglones_electrificacion(cantidad, pu_propuesto, pu_aceptado)"
+      "id, estado, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
+        "renglones_electrificacion(cantidad, pu_propuesto, pu_aceptado, decision)"
     )
     .returns<
       {
+        id: string;
+        estado: EstadoRecibo;
         folio: string;
         fecha_recibo: string;
         contratista: string;
@@ -227,7 +250,12 @@ export async function listarRecibosElectrificacion(
         ot: string | null;
         prioridad: string;
         creado_en: string;
-        renglones_electrificacion: { cantidad: number; pu_propuesto: number; pu_aceptado: number }[];
+        renglones_electrificacion: {
+          cantidad: number;
+          pu_propuesto: number;
+          pu_aceptado: number;
+          decision: DecisionRenglon;
+        }[];
       }[]
     >();
 
@@ -237,6 +265,8 @@ export async function listarRecibosElectrificacion(
     .map((r) => {
       const rs = r.renglones_electrificacion;
       return {
+        id: r.id,
+        estado: r.estado,
         tipo: "electrificacion" as const,
         folio: r.folio,
         fecha: r.fecha_recibo,
@@ -246,8 +276,7 @@ export async function listarRecibosElectrificacion(
         prioridad: r.prioridad,
         guardadoEn: r.creado_en,
         numRenglones: rs.length,
-        numPendientes: rs.filter((x) => Number(x.pu_aceptado) === 0 && Number(x.pu_propuesto) > 0)
-          .length,
+        numPendientes: rs.filter((x) => x.decision == null).length,
         totalPropuesto: rs.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_propuesto), 0),
         totalAceptado: rs.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_aceptado), 0),
       };

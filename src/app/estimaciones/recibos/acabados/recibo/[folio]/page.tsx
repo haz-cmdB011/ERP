@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { buscarReciboPorFolio } from "@/lib/estimaciones/recibos-db";
 import ReciboFicha from "../../recibo-ficha";
 import DescargarPdfButton from "../../descargar-pdf-button";
@@ -17,6 +19,7 @@ export default async function SeguimientoReciboPage({
   const folio = decodeURIComponent(folioParam);
 
   const supabase = await createClient();
+  const esPersonal = puedeVerPrecioSugerido(await getPerfilActual(supabase));
   const recibo = await buscarReciboPorFolio(supabase, folio);
 
   const h = await headers();
@@ -39,10 +42,20 @@ export default async function SeguimientoReciboPage({
     <main className="mx-auto flex max-w-xl flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-slate-900">Seguimiento de recibo</h1>
-        <DescargarPdfButton nombreArchivo={`recibo-acabados-${recibo.folio}.pdf`} />
+        <div className="flex items-center gap-3">
+          {esPersonal && (recibo.estado === "pendiente" || recibo.estado === "revisado") && (
+            <Link
+              href={`/estimaciones/revision/acabados/${encodeURIComponent(recibo.folio)}`}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              {recibo.estado === "pendiente" ? "Revisar" : "Pagar"}
+            </Link>
+          )}
+          <DescargarPdfButton nombreArchivo={`recibo-acabados-${recibo.folio}.pdf`} />
+        </div>
       </div>
       <div className="rounded-xl border border-slate-200 shadow-sm">
-        <ReciboFicha recibo={recibo} qrUrl={qrUrl} />
+        <ReciboFicha recibo={recibo} qrUrl={qrUrl} mostrarInterno={esPersonal} />
       </div>
     </main>
   );

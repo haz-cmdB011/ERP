@@ -8,6 +8,7 @@ import {
   ROLES_VALIDOS,
   ROL_LABELS,
   requiereArea,
+  requiereContratista,
   type RolValido,
   type AreaValida,
 } from "@/lib/auth/roles";
@@ -18,10 +19,12 @@ export default function CrearUsuarioForm() {
   const [password, setPassword] = useState("");
   const [rol, setRol] = useState<RolValido>("usuario");
   const [area, setArea] = useState<AreaValida>("planeacion");
+  const [contratista, setContratista] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
 
   const mostrarArea = requiereArea(rol);
+  const mostrarContratista = requiereContratista(rol);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,7 +34,13 @@ export default function CrearUsuarioForm() {
     const res = await fetch("/api/admin/usuarios/crear", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, rol, area: mostrarArea ? area : null }),
+      body: JSON.stringify({
+        email,
+        password,
+        rol,
+        area: mostrarArea ? area : null,
+        contratista: mostrarContratista ? contratista : null,
+      }),
     });
     const data = await res.json();
 
@@ -43,6 +52,7 @@ export default function CrearUsuarioForm() {
     setMensaje({ tipo: "ok", texto: `Usuario ${data.email} creado.` });
     setEmail("");
     setPassword("");
+    setContratista("");
     router.refresh();
   }
 
@@ -99,7 +109,22 @@ export default function CrearUsuarioForm() {
             ))}
           </select>
         )}
+        {mostrarContratista && (
+          <input
+            required
+            placeholder="Nombre del contratista"
+            value={contratista}
+            onChange={(e) => setContratista(e.target.value)}
+            className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
+          />
+        )}
       </div>
+      {mostrarContratista && (
+        <p className="text-xs text-gray-500">
+          El maquilador solo entra a Estimaciones: captura sus recibos con este contratista y ve
+          su estado (pendiente, revisado o pagado). No ve el precio sugerido ni el resto del ERP.
+        </p>
+      )}
       <button
         type="submit"
         disabled={enviando}

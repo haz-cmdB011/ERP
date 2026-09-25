@@ -102,7 +102,15 @@ function comoOpciones(valores: readonly string[]) {
   return valores.map((v) => ({ value: v, label: v }));
 }
 
-export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido: boolean }) {
+// contratistaFijo: solo cuando captura un maquilador. Su contratista sale de
+// su usuario y no se edita (la base además lo fuerza al guardar).
+export default function CapturaAcabados({
+  puedeVerSugerido,
+  contratistaFijo = null,
+}: {
+  puedeVerSugerido: boolean;
+  contratistaFijo?: string | null;
+}) {
   // Arranca con dos renglones que muestran los dos extremos del motor: una
   // tarifa fija que no se negocia, y un precedente por debajo de lo que el
   // maquilador propone.
@@ -129,7 +137,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
 
   const [folio, setFolio] = useState("");
   const [fecha, setFecha] = useState("");
-  const [contratista, setContratista] = useState("");
+  const [contratista, setContratista] = useState(contratistaFijo ?? "");
   const [obra, setObra] = useState("");
   const [ot, setOt] = useState("");
   const [prioridad, setPrioridad] = useState("normal");
@@ -170,8 +178,11 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
   const folioPrevio = useMemo(() => {
     const f = folio.trim();
     if (!f) return [];
-    return historico.filter((h) => h.folio === f);
-  }, [folio, historico]);
+    // Al maquilador solo se le avisa de SUS folios (el histórico base es
+    // de todos los contratistas).
+    const fuente = contratistaFijo ? historicoDb : historico;
+    return fuente.filter((h) => h.folio === f);
+  }, [folio, historico, historicoDb, contratistaFijo]);
 
   function actualizar(id: number, cambios: Partial<Renglon>) {
     setRenglones((prev) => prev.map((r) => (r.id === id ? { ...r, ...cambios } : r)));
@@ -377,7 +388,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
         `Recibo ${nuevoRecibo.folio} guardado con ${renglones.length} renglones.`,
         sombras ? `${sombras} con estimado de nivel 3 guardado en sombra para calibrar.` : "",
         !puedeVerSugerido
-          ? "Queda pendiente de que el desarrollador o el administrador de Estimaciones acepte o corrija los precios."
+          ? "Queda pendiente de revisión: el personal de Estimaciones acepta o modifica cada precio antes del pago."
           : "",
         "Generando el PDF del recibo…",
       ].filter(Boolean),
@@ -394,8 +405,9 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
     <main className="mx-auto flex max-w-6xl flex-col gap-5 p-6 pb-28">
       {!puedeVerSugerido && (
         <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
-          Como capturista solo ves lo que propone el maquilador. El precio sugerido y la decisión de
-          aceptar o corregirlo quedan para el desarrollador o el administrador de Estimaciones.
+          Captura tu precio propuesto para cada renglón. El personal de Estimaciones lo revisa
+          (acepta o modifica) y el recibo se paga una vez revisado. Consulta el estado en Mis
+          recibos.
         </div>
       )}
 
@@ -442,8 +454,9 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>Contratista</span>
             <input
-              className={CONTROL}
+              className={`${CONTROL} ${contratistaFijo ? "bg-slate-50 text-slate-600" : ""}`}
               value={contratista}
+              readOnly={!!contratistaFijo}
               onChange={(e) => setContratista(e.target.value)}
             />
           </label>

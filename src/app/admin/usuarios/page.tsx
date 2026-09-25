@@ -10,6 +10,7 @@ export interface PerfilRow {
   nombre_completo: string | null;
   rol: RolValido;
   area: AreaValida | null;
+  contratista: string | null;
   created_at: string;
 }
 
@@ -27,7 +28,7 @@ export default async function AdminUsuariosPage() {
 
   const { data: usuarios } = await supabase
     .from("perfiles")
-    .select("id, email, nombre_completo, rol, area, created_at")
+    .select("id, email, nombre_completo, rol, area, contratista, created_at")
     .order("created_at", { ascending: true })
     .returns<PerfilRow[]>();
 

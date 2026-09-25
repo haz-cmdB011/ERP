@@ -23,6 +23,11 @@ export default async function PlaneacionLayout({
     .eq("id", user.id)
     .single();
 
+  // El maquilador es externo: solo tiene acceso a Estimaciones.
+  if (perfil?.rol === "maquilador") {
+    redirect("/estimaciones/recibos");
+  }
+
   return (
     <div className="min-h-screen">
       <AreaNav

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ROLES_VALIDOS, derivarArea, requiereArea } from "@/lib/auth/roles";
+import {
+  ROLES_VALIDOS,
+  derivarArea,
+  requiereArea,
+  requiereContratista,
+} from "@/lib/auth/roles";
 
 export async function POST(request: Request) {
   const admin = await requireAdmin();
@@ -14,6 +19,7 @@ export async function POST(request: Request) {
   const password = typeof body?.password === "string" ? body.password : "";
   const rol = body?.rol;
   const areaEnviada = body?.area || null;
+  const contratista = typeof body?.contratista === "string" ? body.contratista.trim() : "";
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Email inválido." }, { status: 400 });
@@ -30,6 +36,13 @@ export async function POST(request: Request) {
   if (requiereArea(rol) && !derivarArea(rol, areaEnviada)) {
     return NextResponse.json(
       { error: "Este rol requiere elegir un área válida." },
+      { status: 400 }
+    );
+  }
+
+  if (requiereContratista(rol) && !contratista) {
+    return NextResponse.json(
+      { error: "El maquilador necesita su nombre de contratista." },
       { status: 400 }
     );
   }
@@ -56,7 +69,11 @@ export async function POST(request: Request) {
   // elegido en el formulario.
   const { error: updateError } = await adminClient
     .from("perfiles")
-    .update({ rol, area: derivarArea(rol, areaEnviada) })
+    .update({
+      rol,
+      area: derivarArea(rol, areaEnviada),
+      contratista: requiereContratista(rol) ? contratista : null,
+    })
     .eq("id", creado.user.id);
 
   if (updateError) {

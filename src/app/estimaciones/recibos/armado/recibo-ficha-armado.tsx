@@ -1,4 +1,4 @@
-import type { ReciboGuardado } from "@/lib/estimaciones/recibos-db";
+import { ESTADO_NOMBRE, type ReciboGuardado } from "@/lib/estimaciones/recibos-db";
 import { BANDA_NOMBRE, money } from "@/lib/estimaciones/motor-precio";
 import type { Banda } from "@/lib/estimaciones/motor-precio";
 import QrCode from "../acabados/qr-code";
@@ -32,9 +32,12 @@ function Campo({ label, valor }: { label: string; valor: string }) {
 export default function ReciboFichaArmado({
   recibo,
   qrUrl,
+  mostrarInterno = true,
 }: {
   recibo: ReciboGuardado;
   qrUrl: string;
+  // false para el maquilador: no ve las justificaciones internas.
+  mostrarInterno?: boolean;
 }) {
   const totalPropuesto = recibo.renglones.reduce((s, r) => s + r.cantidad * r.propuesto, 0);
   const totalAceptado = recibo.renglones.reduce((s, r) => s + r.importe, 0);
@@ -66,6 +69,7 @@ export default function ReciboFichaArmado({
           label="Prioridad"
           valor={recibo.prioridad === "normal" ? "Normal" : `${recibo.prioridad} — ${recibo.motivo}`}
         />
+        {recibo.estado && <Campo label="Estado" valor={ESTADO_NOMBRE[recibo.estado]} />}
         <Campo label="Guardado" valor={guardadoEn} />
       </div>
 
@@ -116,7 +120,7 @@ export default function ReciboFichaArmado({
         </span>
       </div>
 
-      {recibo.renglones.some((r) => r.banda === "justificar" && r.justificacion) && (
+      {mostrarInterno && recibo.renglones.some((r) => r.banda === "justificar" && r.justificacion) && (
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
             Justificaciones
@@ -127,7 +131,7 @@ export default function ReciboFichaArmado({
               .map((r) => (
                 <li key={r.numero}>
                   <span className="font-mono font-medium">#{r.numero}</span>{" "}
-                  <span className={BANDA_COLOR[r.banda]}>({BANDA_NOMBRE[r.banda]})</span>:{" "}
+                  <span className={BANDA_COLOR.justificar}>({BANDA_NOMBRE.justificar})</span>:{" "}
                   {r.justificacion}
                 </li>
               ))}

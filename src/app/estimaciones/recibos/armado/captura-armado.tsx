@@ -117,14 +117,22 @@ function aEntrada(r: Renglon): EntradaRenglon {
   };
 }
 
-export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: boolean }) {
+// contratistaFijo: solo cuando captura un maquilador. Su contratista sale de
+// su usuario y no se edita (la base además lo fuerza al guardar).
+export default function CapturaArmado({
+  puedeVerSugerido,
+  contratistaFijo = null,
+}: {
+  puedeVerSugerido: boolean;
+  contratistaFijo?: string | null;
+}) {
   // Arranca con un renglón vacío: Armado no tiene histórico ni tarifas de
   // ejemplo (las de Acabados no aplican al armado).
   const [renglones, setRenglones] = useState<Renglon[]>(() => [nuevoRenglon()]);
 
   const [folio, setFolio] = useState("");
   const [fecha, setFecha] = useState("");
-  const [contratista, setContratista] = useState("");
+  const [contratista, setContratista] = useState(contratistaFijo ?? "");
   const [obra, setObra] = useState("");
   const [ot, setOt] = useState("");
   const [prioridad, setPrioridad] = useState("normal");
@@ -383,7 +391,7 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
         `Recibo ${nuevoRecibo.folio} guardado con ${renglones.length} renglones.`,
         sombras ? `${sombras} con estimado de nivel 3 guardado en sombra para calibrar.` : "",
         !puedeVerSugerido
-          ? "Queda pendiente de que el desarrollador o el administrador de Estimaciones acepte o corrija los precios."
+          ? "Queda pendiente de revisión: el personal de Estimaciones acepta o modifica cada precio antes del pago."
           : "",
         "Generando el PDF del recibo…",
       ].filter(Boolean),
@@ -400,8 +408,9 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
     <main className="mx-auto flex max-w-6xl flex-col gap-5 p-6 pb-28">
       {!puedeVerSugerido && (
         <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
-          Como capturista solo ves lo que propone el maquilador. El precio sugerido y la decisión de
-          aceptar o corregirlo quedan para el desarrollador o el administrador de Estimaciones.
+          Captura tu precio propuesto para cada renglón. El personal de Estimaciones lo revisa
+          (acepta o modifica) y el recibo se paga una vez revisado. Consulta el estado en Mis
+          recibos.
         </div>
       )}
 
@@ -448,8 +457,9 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>Contratista</span>
             <input
-              className={CONTROL}
+              className={`${CONTROL} ${contratistaFijo ? "bg-slate-50 text-slate-600" : ""}`}
               value={contratista}
+              readOnly={!!contratistaFijo}
               onChange={(e) => setContratista(e.target.value)}
             />
           </label>
