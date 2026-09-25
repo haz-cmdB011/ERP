@@ -308,7 +308,7 @@ function VisorImagen({
         src={urls[indice]}
         alt=""
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] min-w-64 max-w-[90vw] rounded bg-white object-contain shadow-lg"
+        className="max-h-[85vh] w-[min(90vw,40rem)] rounded bg-white object-contain shadow-lg"
       />
       <button
         type="button"

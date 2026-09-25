@@ -80,6 +80,7 @@ export default async function PlaneacionListPage({
         .or("estado_revision.is.null,estado_revision.neq.cancelado")
         .is("eliminacion_solicitada_en", null)
         .order("modelo")
+        .order("item_code")
         .limit(MAX_RESULTADOS_MODELO)
         .returns<ResultadoModeloRow[]>()
     : { data: null, error: null };
