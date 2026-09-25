@@ -100,7 +100,7 @@ export default function EstadoRevisionSelect({
         value={estadoActual ?? ""}
         onChange={(e) => cambiar(e.target.value)}
         disabled={guardando}
-        className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+        className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
       >
         <option value="">Normal</option>
         <option value="en_revision">En revisión</option>

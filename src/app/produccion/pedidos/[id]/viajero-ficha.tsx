@@ -59,7 +59,7 @@ export default function ViajeroFicha({
       <header className="flex items-start justify-between gap-4 border-b border-gray-300 pb-3">
         <div>
           <h1 className="text-lg font-semibold">Hoja de Viajero</h1>
-          {folio && <p className="font-mono text-sm font-semibold text-gray-900">Folio {folio}</p>}
+          {folio && <p className="font-mono text-sm text-gray-900">Folio {folio}</p>}
           <p className="text-sm text-gray-700">
             {pedido.numero_pedido} — {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
           </p>

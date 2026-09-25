@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
 
 interface VersionRow {
@@ -150,7 +150,7 @@ export default async function PedidoCalidadPage({
     informesPorItem.set(inf.planeacion_item_id, lista);
   }
 
-  const imagenesPorItem = await getImagenesPorItem(supabase, itemIds);
+  const imagenesPorItem = await getImagenesConGrandePorItem(supabase, itemIds);
 
   const itemsConInforme: ItemCalidadRow[] = items.map((item) => ({
     id: item.id,
@@ -165,7 +165,8 @@ export default async function PedidoCalidadPage({
     liberadoEn: item.liberado_en,
     estadoRevision: item.estado_revision,
     motivoCancelacion: item.motivo_cancelacion,
-    imagenUrl: imagenesPorItem.get(item.id)?.[0] ?? null,
+    imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
+    imagenGrandeUrl: imagenesPorItem.get(item.id)?.[0]?.urlGrande ?? null,
     informes: (informesPorItem.get(item.id) ?? []).map((inf) => ({
       id: inf.id,
       folio: inf.folio,
@@ -207,12 +208,12 @@ export default async function PedidoCalidadPage({
       )}
 
       {versiones && versiones.length > 0 && (
-        <div className="flex w-fit flex-wrap gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 text-sm">
+        <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
           {versiones.map((v) => (
             <Link
               key={v.id}
               href={`/calidad/pedidos/${id}?version=${v.numero_version}`}
-              className={`rounded-full px-3 py-1 font-medium transition-colors ${
+              className={`rounded px-3 py-1 font-medium transition-colors ${
                 versionSeleccionada?.id === v.id
                   ? "bg-slate-900 text-white shadow-sm"
                   : "text-slate-600 hover:bg-slate-200/70"

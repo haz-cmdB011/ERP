@@ -69,7 +69,7 @@ function BotonConfirmado({
     <button
       type="button"
       onClick={() => setConfirmando(true)}
-      className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100"
+      className="rounded border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100"
     >
       {etiqueta}
     </button>

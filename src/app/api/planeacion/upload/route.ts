@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parsePlaneacionExcel } from "@/lib/planeacion/parser";
 import type { PlaneacionItemParsed } from "@/lib/planeacion/types";
-import { comprimirImagenItem, quitarImagenesDelExcel } from "@/lib/planeacion/optimizar-almacenamiento";
+import {
+  comprimirImagenGrande,
+  comprimirImagenItem,
+  quitarImagenesDelExcel,
+} from "@/lib/planeacion/optimizar-almacenamiento";
+import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
+import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
 
 export const runtime = "nodejs";
 
@@ -26,9 +32,9 @@ async function subirImagenesDeItems(
     items.map(async ({ imagenes, ...resto }) => {
       const imagenPaths = await Promise.all(
         imagenes.map(async (imagenOriginal, indice) => {
-          // Se redimensionan a tamaño de miniatura antes de subir: en la UI
-          // nunca se muestran a más de 40x40 px, pero el original embebido
-          // en el Excel puede pesar varios cientos de KB.
+          // La miniatura (la de las tablas y el visor) se redimensiona antes de
+          // subir (ver comprimirImagenItem): el
+          // original embebido en el Excel puede pesar varios cientos de KB.
           const imagen = await comprimirImagenItem(
             imagenOriginal.buffer,
             imagenOriginal.extension
@@ -44,6 +50,18 @@ async function subirImagenesDeItems(
             throw new Error(
               `No se pudo subir una imagen de la fila ${resto.fila_excel_origen}: ${error.message}`
             );
+          }
+
+          // Versión grande para la vista ampliada con zoom. Es un extra: si no
+          // se pudo generar o subir, la carga sigue y se usará la miniatura.
+          const grande = await comprimirImagenGrande(imagenOriginal.buffer);
+          if (grande) {
+            await supabase.storage
+              .from(BUCKET_IMAGENES_ITEMS)
+              .upload(rutaImagenGrande(path), grande, {
+                contentType: "image/webp",
+                upsert: false,
+              });
           }
           return path;
         })
@@ -106,6 +124,15 @@ export async function POST(request: Request) {
   //    Usa el buffer ORIGINAL (con imágenes): de ahí es de donde el parser
   //    extrae la imagen de cada fila.
   const resultado = await parsePlaneacionExcel(buffer);
+
+  // El título del PM siempre se guarda como "PM<NUMERO>-<AÑO>", sin importar
+  // cómo venga escrito en la celda "No. PEDIDO" o en el nombre del archivo.
+  if (resultado.ok) {
+    resultado.metadata.numero_pedido = normalizarNumeroPM(resultado.metadata.numero_pedido, {
+      nombreArchivo: file.name,
+      fechaPedido: resultado.metadata.fecha_pedido,
+    });
+  }
 
   // 2. Subir a Storage, para auditoría y siempre (haya sido válido o no),
   //    una copia del archivo SIN las imágenes embebidas: son puro peso

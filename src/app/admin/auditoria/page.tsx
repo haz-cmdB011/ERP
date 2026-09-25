@@ -136,7 +136,7 @@ export default async function AuditoriaPage({
           <Link
             key={valor}
             href={hrefPagina(valor)}
-            className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+            className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -188,7 +188,7 @@ export default async function AuditoriaPage({
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-1 font-medium ${TONOS[tono]}`}
+                        className={`inline-flex items-center rounded border px-2.5 py-1 font-medium ${TONOS[tono]}`}
                       >
                         {etiqueta}
                       </span>

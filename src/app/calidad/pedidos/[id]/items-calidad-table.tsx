@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import ImagenAmpliable from "@/components/imagen-ampliable";
+import { IconoCancelado, IconoCheck, IconoReloj, IconoX } from "@/components/iconos-estado";
 import { DIAS_ANTIGUEDAD_ALERTA } from "./antiguedad";
 
 export interface InformeResumen {
@@ -25,6 +27,7 @@ export interface ItemCalidadRow {
   unidad: string | null;
   parent_item_id: string | null;
   imagenUrl: string | null;
+  imagenGrandeUrl: string | null;
   liberadoEn: string | null;
   estadoRevision: string | null;
   motivoCancelacion: string | null;
@@ -170,52 +173,22 @@ export default function ItemsCalidadTable({
     router.push(`/calidad/pedidos/${pedidoId}/informe/${data}`);
   }
 
+  // Columna "Calidad": solo el estado (Aprobado / No aprobado / Sin evaluar /
+  // Cancelado). El folio y el historial de folios viven en la columna "Folio".
   function EstadoBadge({ item }: { item: ItemCalidadRow }) {
     const ultimo = item.informes[0];
-    const historialAnterior = item.informes.slice(1);
-    const abierto = historialAbierto.has(item.id);
 
     if (item.estadoRevision === "cancelado") {
-      // El folio (si ya tenía uno) no se pierde: sigue disponible en el
-      // historial, solo que el ítem ya no se puede seguir evaluando.
-      const historialCompleto = item.informes;
       return (
         <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500">
+            <IconoCancelado />
             Cancelado
           </span>
           {item.motivoCancelacion && (
             <p className="mt-1 max-w-[220px] text-[11px] text-slate-500">
               Motivo: {item.motivoCancelacion}
             </p>
-          )}
-          {historialCompleto.length > 0 && (
-            <div className="mt-1">
-              <button
-                type="button"
-                onClick={() => toggleHistorial(item.id)}
-                className="text-[11px] text-slate-400 underline hover:text-slate-600"
-              >
-                {abierto ? "Ocultar" : "Ver"} folio(s) previo(s) ({historialCompleto.length})
-              </button>
-              {abierto && (
-                <ul className="mt-1 flex flex-col gap-1 border-l-2 border-slate-100 pl-2">
-                  {historialCompleto.map((inf) => (
-                    <li key={inf.id}>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewInforme({ item, informe: inf })}
-                        className="text-left text-[11px] text-slate-500 underline hover:text-slate-700"
-                      >
-                        {inf.aprobado ? "Aprobado" : "No aprobado"} ({inf.folio}) —{" "}
-                        {new Date(inf.elaborado_en).toLocaleDateString("es-MX")}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
           )}
         </div>
       );
@@ -227,13 +200,11 @@ export default function ItemsCalidadTable({
       return (
         <div>
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
-              antiguo
-                ? "border-amber-200 bg-amber-50 text-amber-700"
-                : "border-slate-200 bg-slate-50 text-slate-600"
+            className={`inline-flex items-center gap-1.5 text-sm font-medium ${
+              antiguo ? "text-amber-600" : "text-slate-500"
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${antiguo ? "bg-amber-500" : "bg-slate-300"}`} />
+            <IconoReloj />
             Sin evaluar
           </span>
           {antiguo && (
@@ -244,18 +215,17 @@ export default function ItemsCalidadTable({
         </div>
       );
     }
-    const clase = ultimo.aprobado
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : "border-rose-200 bg-rose-50 text-rose-700";
-    const punto = ultimo.aprobado ? "bg-emerald-500" : "bg-rose-500";
     return (
       <div>
         <Link
           href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 ${clase}`}
+          title="Ver informe"
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium hover:underline ${
+            ultimo.aprobado ? "text-emerald-700" : "text-rose-700"
+          }`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${punto}`} />
-          {ultimo.aprobado ? "Aprobado" : "No aprobado"} ({ultimo.folio})
+          {ultimo.aprobado ? <IconoCheck /> : <IconoX />}
+          {ultimo.aprobado ? "Aprobado" : "No aprobado"}
         </Link>
         {!ultimo.aprobado && ultimo.descripcion && (
           <button
@@ -266,6 +236,29 @@ export default function ItemsCalidadTable({
             Ver motivo
           </button>
         )}
+      </div>
+    );
+  }
+
+  // Columna "Folio": el folio (CAL-…) del último informe del ítem, enlazado a
+  // su ficha, y el historial de los folios anteriores (un ítem puede evaluarse
+  // varias veces; ninguno se pierde, tampoco si el ítem se cancela).
+  function FolioCelda({ item }: { item: ItemCalidadRow }) {
+    const ultimo = item.informes[0];
+    const historialAnterior = item.informes.slice(1);
+    const abierto = historialAbierto.has(item.id);
+
+    if (!ultimo) return <span className="text-xs text-slate-400">—</span>;
+
+    return (
+      <div>
+        <Link
+          href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
+          title="Ver informe"
+          className="whitespace-nowrap font-mono text-xs text-slate-800 hover:text-indigo-600 hover:underline"
+        >
+          {ultimo.folio}
+        </Link>
         {historialAnterior.length > 0 && (
           <div className="mt-1">
             <button
@@ -284,7 +277,7 @@ export default function ItemsCalidadTable({
                       onClick={() => setPreviewInforme({ item, informe: inf })}
                       className="text-left text-[11px] text-slate-500 underline hover:text-slate-700"
                     >
-                      {inf.aprobado ? "Aprobado" : "No aprobado"} ({inf.folio}) —{" "}
+                      {inf.folio} · {inf.aprobado ? "Aprobado" : "No aprobado"} —{" "}
                       {new Date(inf.elaborado_en).toLocaleDateString("es-MX")}
                     </button>
                   </li>
@@ -318,11 +311,11 @@ export default function ItemsCalidadTable({
       >
         <td className={`border-l-4 py-2 pl-2 pr-1 ${franja}`}>
           {item.imagenUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
-            <img
-              src={item.imagenUrl}
-              alt=""
-              className="h-8 w-8 rounded border border-slate-200 object-cover"
+            <ImagenAmpliable
+              url={item.imagenUrl}
+              urlGrande={item.imagenGrandeUrl}
+              alt={`Ítem ${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`}
+              className="h-8 w-8"
             />
           ) : (
             <div className="h-8 w-8 rounded border border-dashed border-slate-200 bg-slate-50" />
@@ -340,6 +333,9 @@ export default function ItemsCalidadTable({
         <td className="px-3 py-2">
           <EstadoBadge item={item} />
         </td>
+        <td className="px-3 py-2">
+          <FolioCelda item={item} />
+        </td>
         {puedeEvaluar && (
           <td className="flex flex-wrap gap-2 px-3 py-2">
             {estado === "cancelado" ? (
@@ -350,17 +346,25 @@ export default function ItemsCalidadTable({
                   type="button"
                   onClick={() => aprobarDirecto(item)}
                   disabled={procesandoId === item.id}
-                  className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                  title={procesandoId === item.id ? "Generando informe..." : "Aprobar"}
+                  aria-label={`Aprobar ítem ${item.item_code}`}
+                  className="flex h-8 w-8 items-center justify-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
                 >
-                  {procesandoId === item.id ? "Generando..." : "Aprobar"}
+                  {procesandoId === item.id ? (
+                    <span className="text-xs font-semibold">…</span>
+                  ) : (
+                    <IconoCheck />
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => abrirDialogoRechazo(item)}
                   disabled={procesandoId === item.id}
-                  className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                  title="No aprobar"
+                  aria-label={`No aprobar ítem ${item.item_code}`}
+                  className="flex h-8 w-8 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
                 >
-                  No aprobar
+                  <IconoX />
                 </button>
               </>
             )}
@@ -387,7 +391,7 @@ export default function ItemsCalidadTable({
               key={valor}
               type="button"
               onClick={() => setFiltroCalidad(valor)}
-              className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+              className={`rounded border px-3 py-1 font-medium transition-colors ${
                 filtroCalidad === valor
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -451,7 +455,8 @@ export default function ItemsCalidadTable({
                     <th className="px-3 py-2.5">Descripción</th>
                     <th className="px-3 py-2.5">Cant.</th>
                     <th className="px-3 py-2.5">Calidad</th>
-                    {puedeEvaluar && <th className="px-3 py-2.5"></th>}
+                    <th className="px-3 py-2.5">Folio</th>
+                    {puedeEvaluar && <th className="px-3 py-2.5">Aprobación</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -476,7 +481,8 @@ export default function ItemsCalidadTable({
                     <th className="px-3 py-2.5">Descripción</th>
                     <th className="px-3 py-2.5">Cant.</th>
                     <th className="px-3 py-2.5">Calidad</th>
-                    {puedeEvaluar && <th className="px-3 py-2.5"></th>}
+                    <th className="px-3 py-2.5">Folio</th>
+                    {puedeEvaluar && <th className="px-3 py-2.5">Aprobación</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -566,12 +572,14 @@ export default function ItemsCalidadTable({
             </div>
 
             {previewInforme.item.imagenUrl && (
-              // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
-              <img
-                src={previewInforme.item.imagenUrl}
-                alt=""
-                className="mx-auto mt-3 h-28 w-28 rounded border border-slate-200 object-cover"
-              />
+              <div className="mt-3 flex justify-center">
+                <ImagenAmpliable
+                  url={previewInforme.item.imagenUrl}
+                  urlGrande={previewInforme.item.imagenGrandeUrl}
+                  alt={`Ítem ${previewInforme.item.item_code}`}
+                  className="h-28 w-28"
+                />
+              </div>
             )}
 
             <p
