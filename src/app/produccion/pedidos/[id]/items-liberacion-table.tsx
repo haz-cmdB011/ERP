@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/confirm-dialog";
+import ImagenAmpliable from "@/components/imagen-ampliable";
+import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 
 export interface ItemLiberacionRow {
@@ -27,6 +29,17 @@ export interface ItemLiberacionRow {
   eliminacion_solicitada_por: string | null;
   estado_revision: EstadoRevision;
   folio: string | null;
+  imagenUrl: string | null;
+  imagenGrandeUrl: string | null;
+}
+
+interface GrupoMueble {
+  padre: ItemLiberacionRow;
+  // Hijos que se muestran al desplegar: todos si el mueble coincide con la
+  // búsqueda (o no hay búsqueda); solo los que coinciden si coincidió un hijo.
+  hijos: ItemLiberacionRow[];
+  totalHijos: number;
+  abrirPorBusqueda: boolean;
 }
 
 type FiltroEstado = "todos" | "listos" | "incompletos";
@@ -40,6 +53,15 @@ function esListo(item: ItemLiberacionRow): boolean {
     item.suministro_mats === true &&
     !!item.lista_insumos?.trim()
   );
+}
+
+// Búsqueda sin distinguir mayúsculas ni acentos ("pergola" encuentra "PÉRGOLA").
+function normalizar(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 export default function ItemsLiberacionTable({
@@ -57,6 +79,10 @@ export default function ItemsLiberacionTable({
   const [vistaPapelera, setVistaPapelera] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
   const [filtroMaterial, setFiltroMaterial] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+  // Muebles desplegados a mano (true/false); sin entrada, se decide solo: cerrado,
+  // salvo que la búsqueda haya coincidido únicamente con un hijo.
+  const [abiertos, setAbiertos] = useState<Record<string, boolean>>({});
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [liberando, setLiberando] = useState(false);
   const [revirtiendo, setRevirtiendo] = useState(false);
@@ -92,7 +118,67 @@ export default function ItemsLiberacionTable({
     });
   }, [itemsActivos, filtroEstado, filtroMaterial]);
 
-  const idsFiltrados = useMemo(() => itemsFiltrados.map((i) => i.id), [itemsFiltrados]);
+  // Agrupación visual mueble (MO, "ítem padre") -> componentes (FU, "hijos"),
+  // ya con la búsqueda aplicada. Un mueble entra si él o alguno de sus hijos
+  // coincide con el texto buscado (código, modelo, descripción, material o
+  // folio). Los MO sin hijos se muestran solos.
+  const { grupos, sueltos } = useMemo(() => {
+    const q = normalizar(busqueda);
+    const coincide = (item: ItemLiberacionRow) =>
+      !q ||
+      normalizar(
+        [item.item_code, item.modelo, item.descripcion, item.tipo_material, item.folio]
+          .filter((v) => v !== null && v !== undefined)
+          .join(" ")
+      ).includes(q);
+
+    const hijosPorPadre = new Map<string, ItemLiberacionRow[]>();
+    const idsMO = new Set<string>();
+    for (const item of itemsFiltrados) {
+      if (item.tipo_registro === "MO") idsMO.add(item.id);
+    }
+    for (const item of itemsFiltrados) {
+      if (item.tipo_registro === "FU" && item.parent_item_id && idsMO.has(item.parent_item_id)) {
+        const lista = hijosPorPadre.get(item.parent_item_id) ?? [];
+        lista.push(item);
+        hijosPorPadre.set(item.parent_item_id, lista);
+      }
+    }
+
+    const grupos: GrupoMueble[] = [];
+    for (const padre of itemsFiltrados) {
+      if (padre.tipo_registro !== "MO") continue;
+      const todos = hijosPorPadre.get(padre.id) ?? [];
+      const padreCoincide = coincide(padre);
+      const hijosCoinciden = todos.filter(coincide);
+      if (!padreCoincide && hijosCoinciden.length === 0) continue;
+      grupos.push({
+        padre,
+        hijos: padreCoincide ? todos : hijosCoinciden,
+        totalHijos: todos.length,
+        abrirPorBusqueda: !!q && !padreCoincide,
+      });
+    }
+
+    // FU huérfanos dentro del filtro actual (su MO padre quedó fuera del filtro).
+    const sueltos = itemsFiltrados.filter(
+      (i) =>
+        i.tipo_registro === "FU" &&
+        !(i.parent_item_id && idsMO.has(i.parent_item_id)) &&
+        coincide(i)
+    );
+    return { grupos, sueltos };
+  }, [itemsFiltrados, busqueda]);
+
+  // "Seleccionar todos" abarca todo lo que se ve con los filtros y la
+  // búsqueda actuales, incluidos los hijos de muebles que estén contraídos.
+  const idsFiltrados = useMemo(
+    () => [
+      ...grupos.flatMap((g) => [g.padre.id, ...g.hijos.map((h) => h.id)]),
+      ...sueltos.map((s) => s.id),
+    ],
+    [grupos, sueltos]
+  );
   const todosFiltradosSeleccionados =
     idsFiltrados.length > 0 && idsFiltrados.every((id) => seleccionados.has(id));
 
@@ -116,25 +202,31 @@ export default function ItemsLiberacionTable({
     });
   }
 
-  // Agrupación visual MO -> FU (los MO sin hijos se muestran solos).
-  const mo = itemsFiltrados.filter((i) => i.tipo_registro === "MO");
-  const fuPorPadre = new Map<string, ItemLiberacionRow[]>();
-  const idsEnGrupos = new Set<string>();
-  for (const item of itemsFiltrados) {
-    if (item.tipo_registro === "FU" && item.parent_item_id) {
-      const lista = fuPorPadre.get(item.parent_item_id) ?? [];
-      lista.push(item);
-      fuPorPadre.set(item.parent_item_id, lista);
-    }
+  function estaAbierto(grupo: GrupoMueble): boolean {
+    return abiertos[grupo.padre.id] ?? grupo.abrirPorBusqueda;
   }
-  for (const m of mo) {
-    idsEnGrupos.add(m.id);
-    for (const f of fuPorPadre.get(m.id) ?? []) idsEnGrupos.add(f.id);
+
+  function alternarMueble(grupo: GrupoMueble) {
+    const actual = estaAbierto(grupo);
+    setAbiertos((prev) => ({ ...prev, [grupo.padre.id]: !actual }));
   }
-  // FU huérfanos dentro del filtro actual (su MO padre quedó fuera del filtro).
-  const fuSueltos = itemsFiltrados.filter(
-    (i) => i.tipo_registro === "FU" && !idsEnGrupos.has(i.id)
-  );
+
+  function desplegarTodos(abrir: boolean) {
+    setAbiertos(Object.fromEntries(grupos.map((g) => [g.padre.id, abrir])));
+  }
+
+  // Marcar un mueble marca también sus componentes (y desmarcarlo, los
+  // desmarca): así se puede liberar un mueble completo sin desplegarlo.
+  // Cada hijo se puede seguir marcando por separado una vez desplegado.
+  function alternarGrupo(grupo: GrupoMueble) {
+    const ids = [grupo.padre.id, ...grupo.hijos.map((h) => h.id)];
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      if (prev.has(grupo.padre.id)) for (const id of ids) next.delete(id);
+      else for (const id of ids) next.add(id);
+      return next;
+    });
+  }
 
   async function liberarSeleccion() {
     if (seleccionados.size === 0) return;
@@ -260,41 +352,101 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-emerald-700">
+          <IconoCheck />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
-        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-slate-500">
+        <IconoReloj />
         Pendiente
       </span>
     );
   }
 
-  function Fila({ item, indentado }: { item: ItemLiberacionRow; indentado: boolean }) {
+  // `grupo` solo viene en las filas de mueble (MO): con hijos, la fila entera
+  // es clicable para desplegarlos/contraerlos; sin hijos, es una fila normal.
+  function Fila({
+    item,
+    indentado,
+    grupo,
+  }: {
+    item: ItemLiberacionRow;
+    indentado: boolean;
+    grupo?: GrupoMueble;
+  }) {
     const procesando = procesandoId === item.id;
     const seleccionado = seleccionados.has(item.id);
+    const desplegable = !!grupo && grupo.totalHijos > 0;
+    const abierto = grupo ? estaAbierto(grupo) : false;
+    // Los controles de la fila no deben desplegar/contraer el mueble.
+    const sinToggle = (e: React.MouseEvent) => e.stopPropagation();
 
     return (
       <tr
+        onClick={desplegable && grupo ? () => alternarMueble(grupo) : undefined}
         className={`align-top transition-colors ${
           seleccionado
             ? "bg-indigo-50"
             : colorFilaEstadoRevision(item.estado_revision) || "odd:bg-slate-50/60 hover:bg-slate-100/70"
-        } ${indentado ? "text-slate-700" : "text-sm font-medium text-slate-900"}`}
+        } ${indentado ? "text-slate-700" : "text-sm font-medium text-slate-900"} ${
+          desplegable ? "cursor-pointer" : ""
+        }`}
       >
-        <td className="px-3 py-2">
+        <td className="px-3 py-2" onClick={sinToggle}>
           <input
             type="checkbox"
             checked={seleccionados.has(item.id)}
-            onChange={() => alternarSeleccion(item.id)}
+            onChange={() => (grupo ? alternarGrupo(grupo) : alternarSeleccion(item.id))}
             aria-label={`Seleccionar ítem ${item.item_code}`}
           />
         </td>
-        <td className="px-3 py-2">{item.item_code}</td>
+        <td className="px-3 py-2">
+          {item.imagenUrl ? (
+            <ImagenAmpliable
+              url={item.imagenUrl}
+              urlGrande={item.imagenGrandeUrl}
+              alt={`Ítem ${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`}
+              className={indentado ? "h-9 w-9" : "h-11 w-11"}
+            />
+          ) : (
+            <span
+              className={`block rounded border border-dashed border-slate-200 ${
+                indentado ? "h-9 w-9" : "h-11 w-11"
+              }`}
+              title="Sin imagen"
+            />
+          )}
+        </td>
+        <td className="px-3 py-2">
+          <span className="inline-flex items-center gap-1.5">
+            {desplegable && (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform ${
+                  abierto ? "rotate-90" : ""
+                }`}
+                aria-hidden="true"
+              >
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            )}
+            {item.item_code}
+          </span>
+          {desplegable && grupo && (
+            <span className="mt-0.5 block text-[11px] font-normal text-slate-500">
+              {grupo.totalHijos} componente{grupo.totalHijos === 1 ? "" : "s"}
+              {grupo.hijos.length !== grupo.totalHijos ? ` (${grupo.hijos.length} coinciden)` : ""}
+            </span>
+          )}
+        </td>
         <td className="px-3 py-2">{item.modelo}</td>
         <td className="px-3 py-2">{item.tipo_material}</td>
         <td className="px-3 py-2">
@@ -305,35 +457,72 @@ export default function ItemsLiberacionTable({
         </td>
         <td className="px-3 py-2">
           <EstadoBadge item={item} />
-          {item.folio && (
-            <span
-              className="mt-1 block font-mono text-[11px] font-semibold text-slate-500"
-              title="Folio único de producción"
-            >
-              {item.folio}
-            </span>
-          )}
           {item.estado_revision && (
             <span className="mt-1 block text-xs font-semibold">
               {ESTADO_REVISION_LABELS[item.estado_revision]} (Planeación)
             </span>
           )}
         </td>
-        <td className="flex flex-wrap items-center gap-2 px-3 py-2">
+        <td className="px-3 py-2">
+          {item.folio ? (
+            <span
+              className="whitespace-nowrap font-mono text-xs text-slate-800"
+              title="Folio único de producción"
+            >
+              {item.folio}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400" title="Se asigna al liberarlo a producción">
+              —
+            </span>
+          )}
+        </td>
+        <td className="flex flex-wrap items-center gap-2 px-3 py-2" onClick={sinToggle}>
           <Link
             href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
-            className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100"
+            title="Viajero"
+            aria-label={`Viajero del ítem ${item.item_code}`}
+            className="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
           >
-            Viajero
+            {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path d="M22 2 11 13" />
+              <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+            </svg>
           </Link>
           {puedeSolicitarEliminacion && (
             <button
               type="button"
               onClick={() => setConfirmacion({ tipo: "solicitar", item })}
               disabled={procesando}
-              className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+              title="Enviar a la papelera"
+              aria-label={`Enviar el ítem ${item.item_code} a la papelera`}
+              className="flex h-8 w-8 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
             >
-              Eliminar
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3.5 w-3.5"
+                aria-hidden="true"
+              >
+                <path d="M3 6h18" />
+                <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                <path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" />
+              </svg>
             </button>
           )}
         </td>
@@ -364,7 +553,7 @@ export default function ItemsLiberacionTable({
               setVistaPapelera(false);
               setFiltroEstado(valor);
             }}
-            className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+            className={`rounded border px-3 py-1 font-medium transition-colors ${
               !vistaPapelera && filtroEstado === valor
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -377,7 +566,7 @@ export default function ItemsLiberacionTable({
           <button
             type="button"
             onClick={() => setVistaPapelera((v) => !v)}
-            className={`ml-auto rounded-full border px-3 py-1 font-medium transition-colors ${
+            className={`ml-auto rounded border px-3 py-1 font-medium transition-colors ${
               vistaPapelera
                 ? "border-rose-600 bg-rose-600 text-white"
                 : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
@@ -445,7 +634,7 @@ export default function ItemsLiberacionTable({
                               type="button"
                               onClick={() => cancelarSolicitud(item)}
                               disabled={procesando}
-                              className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50"
+                              className="rounded border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50"
                             >
                               Restaurar
                             </button>
@@ -455,7 +644,7 @@ export default function ItemsLiberacionTable({
                               type="button"
                               onClick={() => setConfirmacion({ tipo: "definitivo", item })}
                               disabled={procesando}
-                              className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                              className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
                             >
                               Eliminar definitivamente
                             </button>
@@ -471,6 +660,55 @@ export default function ItemsLiberacionTable({
         </div>
       ) : (
         <>
+          {/* Buscador de muebles/modelos: filtra la lista al escribir y
+              despliega solo los muebles cuyo componente coincidió. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full max-w-md">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar mueble, modelo, descripción o folio"
+                autoComplete="off"
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => desplegarTodos(true)}
+              disabled={grupos.every((g) => g.totalHijos === 0)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
+            >
+              Desplegar todos
+            </button>
+            <button
+              type="button"
+              onClick={() => desplegarTodos(false)}
+              disabled={grupos.every((g) => g.totalHijos === 0)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
+            >
+              Contraer todos
+            </button>
+            {busqueda.trim() && (
+              <span className="text-sm text-slate-500">
+                {grupos.length + sueltos.length} resultado(s)
+              </span>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               Material
@@ -478,7 +716,7 @@ export default function ItemsLiberacionTable({
             <button
               type="button"
               onClick={() => setFiltroMaterial(null)}
-              className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+              className={`rounded border px-3 py-1 font-medium transition-colors ${
                 filtroMaterial === null
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -491,7 +729,7 @@ export default function ItemsLiberacionTable({
                 key={mat}
                 type="button"
                 onClick={() => setFiltroMaterial(mat)}
-                className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+                className={`rounded border px-3 py-1 font-medium transition-colors ${
                   filtroMaterial === mat
                     ? "border-slate-900 bg-slate-900 text-white"
                     : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -550,65 +788,51 @@ export default function ItemsLiberacionTable({
             </div>
           </div>
 
-          {itemsFiltrados.length === 0 && (
+          {grupos.length === 0 && sueltos.length === 0 && (
             <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-              Ningún ítem coincide con el filtro seleccionado.
+              {busqueda.trim()
+                ? `Ningún mueble ni componente coincide con "${busqueda.trim()}".`
+                : "Ningún ítem coincide con el filtro seleccionado."}
             </p>
           )}
 
-          {(mo.length > 0 || fuSueltos.length > 0) && (
-            <div className="flex flex-col gap-4">
-              {mo.map((m) => (
-                <div
-                  key={m.id}
-                  className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm"
-                >
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        <th className="px-3 py-2"></th>
-                        <th className="px-3 py-2">Item</th>
-                        <th className="px-3 py-2">Modelo</th>
-                        <th className="px-3 py-2">Material</th>
-                        <th className="px-3 py-2">Descripción</th>
-                        <th className="px-3 py-2">Cant.</th>
-                        <th className="px-3 py-2">Estado</th>
-                        <th className="px-3 py-2"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      <Fila item={m} indentado={false} />
-                      {(fuPorPadre.get(m.id) ?? []).map((f) => (
-                        <Fila key={f.id} item={f} indentado />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ))}
-
-              {fuSueltos.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        <th className="px-3 py-2"></th>
-                        <th className="px-3 py-2">Item</th>
-                        <th className="px-3 py-2">Modelo</th>
-                        <th className="px-3 py-2">Material</th>
-                        <th className="px-3 py-2">Descripción</th>
-                        <th className="px-3 py-2">Cant.</th>
-                        <th className="px-3 py-2">Estado</th>
-                        <th className="px-3 py-2"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {fuSueltos.map((f) => (
-                        <Fila key={f.id} item={f} indentado={false} />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+          {(grupos.length > 0 || sueltos.length > 0) && (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-3 py-2"></th>
+                    <th className="px-3 py-2">Imagen</th>
+                    <th className="px-3 py-2">Item</th>
+                    <th className="px-3 py-2">Modelo</th>
+                    <th className="px-3 py-2">Material</th>
+                    <th className="px-3 py-2">Descripción</th>
+                    <th className="px-3 py-2">Cant.</th>
+                    <th className="px-3 py-2">Estado</th>
+                    <th className="px-3 py-2">Folio</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                {/* Un <tbody> por mueble: su fila y, si está desplegado, sus
+                    componentes; el borde superior los separa entre sí. */}
+                {grupos.map((g) => (
+                  <tbody
+                    key={g.padre.id}
+                    className="divide-y divide-slate-100 border-t border-slate-200 first:border-t-0"
+                  >
+                    <Fila item={g.padre} indentado={false} grupo={g} />
+                    {estaAbierto(g) &&
+                      g.hijos.map((f) => <Fila key={f.id} item={f} indentado />)}
+                  </tbody>
+                ))}
+                {sueltos.length > 0 && (
+                  <tbody className="divide-y divide-slate-100 border-t border-slate-200">
+                    {sueltos.map((f) => (
+                      <Fila key={f.id} item={f} indentado={false} />
+                    ))}
+                  </tbody>
+                )}
+              </table>
             </div>
           )}
         </>
@@ -624,13 +848,15 @@ export default function ItemsLiberacionTable({
         message={
           confirmacion?.tipo === "definitivo"
             ? `Esta acción NO se puede deshacer. ¿Eliminar definitivamente el ítem ${confirmacion.item.item_code}?`
-            : `¿Seguro que quieres eliminar el ítem ${confirmacion?.item.item_code}? Se moverá a la papelera y podrás restaurarlo mientras nadie confirme la eliminación definitiva.${
+            : `¿Enviar el ítem ${confirmacion?.item.item_code} a la papelera? Podrás restaurarlo desde ahí mientras nadie confirme la eliminación definitiva.${
                 hijosDelItemAConfirmar > 0
                   ? ` Este ítem tiene ${hijosDelItemAConfirmar} componente(s) hijo, que se eliminarán junto con él al confirmarse.`
                   : ""
               }`
         }
-        confirmLabel={confirmacion?.tipo === "definitivo" ? "Eliminar definitivamente" : "Eliminar"}
+        confirmLabel={
+          confirmacion?.tipo === "definitivo" ? "Eliminar definitivamente" : "Enviar a papelera"
+        }
         destructive
         onConfirm={confirmarAccionPendiente}
         onCancel={() => setConfirmacion(null)}

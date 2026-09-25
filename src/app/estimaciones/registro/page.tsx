@@ -1,10 +1,23 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { compararFolios, listarRecibos } from "@/lib/estimaciones/recibos-db";
+import {
+  NOMBRE_TIPO_RECIBO,
+  compararFolios,
+  listarRecibos,
+  type TipoRecibo,
+} from "@/lib/estimaciones/recibos-db";
 import { listarRecibosElectrificacion } from "@/lib/estimaciones/recibos-electrificacion-db";
 import { money, fechaCorta } from "@/lib/estimaciones/motor-precio";
 
-// Registro de recibos: todos los recibos de Acabados y Electrificación, ordenados
+// Electrificación vive en sus propias tablas (no en `recibos`), por eso no
+// es un TipoRecibo; aquí solo se junta para listarlo.
+const NOMBRE_TIPO: Record<TipoRecibo | "electrificacion", string> = {
+  ...NOMBRE_TIPO_RECIBO,
+  electrificacion: "Electrificación",
+};
+
+// Registro de recibos: todos los recibos guardados (Acabados, Armado y
+// Electrificación), ordenados
 // por folio de menor a mayor (numéricos primero, en orden; los que llevan
 // letras o guiones van después). RLS ya filtra por is_estimaciones(), así
 // que quien no tiene acceso al área simplemente ve la lista vacía.
@@ -14,10 +27,7 @@ export default async function RegistroRecibosPage() {
     listarRecibos(supabase),
     listarRecibosElectrificacion(supabase),
   ]);
-  const recibos = [
-    ...acabados.map((r) => ({ ...r, tipo: "acabados" as const })),
-    ...electrificacion.map((r) => ({ ...r, tipo: "electrificacion" as const })),
-  ].sort((a, b) => compararFolios(a.folio, b.folio) || a.tipo.localeCompare(b.tipo));
+  const recibos = [...acabados, ...electrificacion].sort((a, b) => compararFolios(a.folio, b.folio) || a.tipo.localeCompare(b.tipo));
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
@@ -27,11 +37,11 @@ export default async function RegistroRecibosPage() {
             Registro de recibos
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Recibos de maquila de Acabados y Electrificación, ordenados por folio.
+            Recibos de maquila (Acabados, Armado y Electrificación), ordenados por folio.
           </p>
         </div>
         {recibos.length > 0 && (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {recibos.length} recibo{recibos.length === 1 ? "" : "s"}
           </span>
         )}
@@ -75,9 +85,7 @@ export default async function RegistroRecibosPage() {
                         {r.folio}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {r.tipo === "acabados" ? "Acabados" : "Electrificación"}
-                    </td>
+                    <td className="px-4 py-3 text-slate-700">{NOMBRE_TIPO[r.tipo]}</td>
                     <td className="px-4 py-3 text-slate-700">{fechaCorta(r.fecha)}</td>
                     <td className="px-4 py-3 text-slate-700">{r.contratista || "—"}</td>
                     <td className="px-4 py-3 text-slate-700">{r.obra || "—"}</td>
@@ -86,7 +94,7 @@ export default async function RegistroRecibosPage() {
                       {r.prioridad === "normal" ? (
                         <span className="text-slate-400">Normal</span>
                       ) : (
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium capitalize text-amber-700 ring-1 ring-amber-200">
+                        <span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium capitalize text-amber-700 ring-1 ring-amber-200">
                           {r.prioridad}
                         </span>
                       )}
@@ -96,7 +104,7 @@ export default async function RegistroRecibosPage() {
                       {r.numPendientes > 0 && (
                         <span
                           title="Renglones pendientes de revisión"
-                          className="ml-1.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200"
+                          className="ml-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200"
                         >
                           {r.numPendientes} pend.
                         </span>

@@ -10,6 +10,7 @@ import {
   RestaurarPedidoBoton,
   RevertirItemBoton,
 } from "@/components/revertir-cancelacion";
+import Paginacion, { TAMANO_PAGINA } from "@/components/paginacion";
 
 interface ItemVivo {
   id: string;
@@ -46,6 +47,13 @@ interface FolioRow {
   cantidad_total: number | null;
   unidad: string | null;
   planeacion_items: ItemVivo | ItemVivo[] | null;
+}
+
+interface InformeResumen {
+  planeacion_item_id: string;
+  folio: string;
+  aprobado: boolean;
+  elaborado_en: string;
 }
 
 type Grupo = "activos" | "eliminados" | "cancelados";
@@ -123,59 +131,125 @@ const FILTROS: [string, string][] = [
 export default async function BuscarFolioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; pagina?: string }>;
 }) {
-  const { q, estado } = await searchParams;
+  const { q, estado, pagina: paginaParam } = await searchParams;
   const termino = (q ?? "").trim();
   const filtro = FILTROS.some(([v]) => v === estado) ? (estado as string) : "todos";
 
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
-  const puedeEditar = puedeEditarPlaneacion(perfil);
+  // Mismos permisos que el panel Cancelados de Producción: ítems
+  // (restaurar/revertir) → Producción o Planeación; restaurar un PM eliminado
+  // → administrador de Planeación o desarrollador.
+  const esProduccion =
+    perfil?.rol === "desarrollador" ||
+    (perfil?.area === "produccion" && (perfil.rol === "administrador" || perfil.rol === "trabajador"));
+  const puedeEditar = esProduccion || puedeEditarPlaneacion(perfil);
   const puedeRestaurarPedido = puedeAdministrarPlaneacion(perfil);
 
-  let consulta = supabase
-    .from("folios_produccion")
-    .select(
-      "id, folio, planeacion_item_id, generado_en, numero_pedido, proyecto, cliente, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, planeacion_items ( id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, estado_revision, eliminacion_solicitada_en, estado_liberacion, pedido_versiones ( pedidos ( id, eliminado_en, cancelado_en ) ) )"
-    )
-    .order("generado_en", { ascending: false })
-    .order("folio", { ascending: false })
-    .limit(300);
+  // Escapa los comodines de LIKE para que se busque el texto tal cual.
+  const literal = termino.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-  if (termino) {
-    // Escapa los comodines de LIKE para que se busque el texto tal cual.
-    const literal = termino.replace(/[\\%_]/g, (c) => `\\${c}`);
-    consulta = consulta.ilike("folio", `%${literal}%`);
+  // Filtra y cuenta en la base (vista folios_produccion_estado: id, folio,
+  // generado_en y grupo activos/eliminados/cancelados), así el buscador
+  // escala sin importar cuántos folios haya: solo se traen los de la página.
+  const contar = async (grupo: string | null) => {
+    let c = supabase
+      .from("folios_produccion_estado")
+      .select("id", { count: "exact", head: true });
+    if (termino) c = c.ilike("folio", `%${literal}%`);
+    if (grupo) c = c.eq("grupo", grupo);
+    const { count, error: errorConteo } = await c;
+    return { count: count ?? 0, error: errorConteo };
+  };
+  const [cTodos, cActivos, cEliminados, cCancelados] = await Promise.all([
+    contar(null),
+    contar("activos"),
+    contar("eliminados"),
+    contar("cancelados"),
+  ]);
+  const conteo = {
+    todos: cTodos.count,
+    activos: cActivos.count,
+    eliminados: cEliminados.count,
+    cancelados: cCancelados.count,
+  };
+  let error = cTodos.error;
+
+  const total = conteo[filtro as keyof typeof conteo];
+  const totalPaginas = Math.max(1, Math.ceil(total / TAMANO_PAGINA));
+  const pedida = Number.parseInt(paginaParam ?? "1", 10);
+  const pagina = Math.min(Math.max(Number.isFinite(pedida) ? pedida : 1, 1), totalPaginas);
+
+  let data: FolioRow[] | null = [];
+  if (total > 0 && !error) {
+    let idsQuery = supabase
+      .from("folios_produccion_estado")
+      .select("id")
+      .order("generado_en", { ascending: false })
+      .order("folio", { ascending: false })
+      .range((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA - 1);
+    if (termino) idsQuery = idsQuery.ilike("folio", `%${literal}%`);
+    if (filtro !== "todos") idsQuery = idsQuery.eq("grupo", filtro);
+    const { data: idsPagina, error: errorIds } = await idsQuery.returns<{ id: string }[]>();
+    error = errorIds;
+
+    if (!errorIds && idsPagina && idsPagina.length > 0) {
+      const ids = idsPagina.map((r) => r.id);
+      const { data: detalle, error: errorDetalle } = await supabase
+        .from("folios_produccion")
+        .select(
+          "id, folio, planeacion_item_id, generado_en, numero_pedido, proyecto, cliente, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, planeacion_items ( id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, estado_revision, eliminacion_solicitada_en, estado_liberacion, pedido_versiones ( pedidos ( id, eliminado_en, cancelado_en ) ) )"
+        )
+        .in("id", ids)
+        .returns<FolioRow[]>();
+      error = errorDetalle;
+      const orden = new Map(ids.map((id, i) => [id, i]));
+      data = (detalle ?? []).sort((a, b) => (orden.get(a.id) ?? 0) - (orden.get(b.id) ?? 0));
+    }
   }
-
-  const { data, error } = await consulta.returns<FolioRow[]>();
 
   const filas = (data ?? []).map((f) => {
     const item = unico(f.planeacion_items);
     return { f, item, estado: estadoDe(item) };
   });
 
-  const conteo = {
-    todos: filas.length,
-    activos: filas.filter((x) => x.estado.grupo === "activos").length,
-    eliminados: filas.filter((x) => x.estado.grupo === "eliminados").length,
-    cancelados: filas.filter((x) => x.estado.grupo === "cancelados").length,
-  };
-  const visibles = filtro === "todos" ? filas : filas.filter((x) => x.estado.grupo === filtro);
+  // Informes de Calidad (CAL-…) de cada ítem, para cruzar ambos folios: se
+  // muestra el más reciente y cuántos hay en total.
+  const itemIds = filas.map((x) => x.item?.id).filter((id): id is string => !!id);
+  const { data: informes } = itemIds.length
+    ? await supabase
+        .from("informes_calidad")
+        .select("planeacion_item_id, folio, aprobado, elaborado_en")
+        .in("planeacion_item_id", itemIds)
+        .order("elaborado_en", { ascending: false })
+        .returns<InformeResumen[]>()
+    : { data: [] as InformeResumen[] };
+  const informesPorItem = new Map<string, InformeResumen[]>();
+  for (const inf of informes ?? []) {
+    const lista = informesPorItem.get(inf.planeacion_item_id) ?? [];
+    lista.push(inf);
+    informesPorItem.set(inf.planeacion_item_id, lista);
+  }
 
-  const hrefFiltro = (valor: string) => {
+  const visibles = filas;
+
+  const hrefFiltro = (valor: string, numeroPagina = 1) => {
     const params = new URLSearchParams();
     if (termino) params.set("q", termino);
     if (valor !== "todos") params.set("estado", valor);
+    if (numeroPagina > 1) params.set("pagina", String(numeroPagina));
     const cadena = params.toString();
-    return cadena ? `/planeacion/folios?${cadena}` : "/planeacion/folios";
+    return cadena ? `/produccion/folios?${cadena}` : "/produccion/folios";
   };
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Buscar folio</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          Folios de producción
+        </h1>
         <p className="mt-1 text-sm text-slate-500">
           Cada ítem recibe un folio único al enviarse a producción. El folio no cambia ni se pierde:
           si el ítem o el pedido se borran, el folio sigue existiendo y aquí aparece como eliminado;
@@ -183,7 +257,7 @@ export default async function BuscarFolioPage({
         </p>
       </div>
 
-      <form method="get" action="/planeacion/folios" className="flex flex-wrap items-center gap-2">
+      <form method="get" action="/produccion/folios" className="flex flex-wrap items-center gap-2">
         <input
           type="search"
           name="q"
@@ -201,7 +275,7 @@ export default async function BuscarFolioPage({
         </button>
         {termino && (
           <Link
-            href={filtro === "todos" ? "/planeacion/folios" : `/planeacion/folios?estado=${filtro}`}
+            href={filtro === "todos" ? "/produccion/folios" : `/produccion/folios?estado=${filtro}`}
             className="text-sm text-slate-500 underline hover:text-slate-700"
           >
             Limpiar
@@ -214,7 +288,7 @@ export default async function BuscarFolioPage({
           <Link
             key={valor}
             href={hrefFiltro(valor)}
-            className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+            className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -251,6 +325,7 @@ export default async function BuscarFolioPage({
                 <th className="px-3 py-2.5">Material</th>
                 <th className="px-3 py-2.5">Descripción</th>
                 <th className="px-3 py-2.5">Cant.</th>
+                <th className="px-3 py-2.5">Calidad</th>
                 <th className="px-3 py-2.5">Generado</th>
                 {puedeEditar && <th className="px-3 py-2.5"></th>}
               </tr>
@@ -267,12 +342,12 @@ export default async function BuscarFolioPage({
                 const unidad = item?.unidad ?? f.unidad;
                 return (
                   <tr key={f.id} className="align-top transition-colors hover:bg-slate-50">
-                    <td className="px-3 py-2 font-mono text-sm font-semibold text-slate-900">
+                    <td className="px-3 py-2 font-mono text-sm text-slate-900">
                       {f.folio}
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-1 font-medium ${TONOS[est.tono]}`}
+                        className={`inline-flex items-center rounded border px-2.5 py-1 font-medium ${TONOS[est.tono]}`}
                       >
                         {est.etiqueta}
                       </span>
@@ -281,9 +356,9 @@ export default async function BuscarFolioPage({
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      {pedido ? (
+                      {pedido && !pedido.eliminado_en ? (
                         <Link
-                          href={`/planeacion/pedidos/${pedido.id}`}
+                          href={`/produccion/pedidos/${pedido.id}`}
                           className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
                         >
                           {f.numero_pedido ?? "—"}
@@ -303,6 +378,28 @@ export default async function BuscarFolioPage({
                     <td className="px-3 py-2 text-slate-700">{descripcion ?? "—"}</td>
                     <td className="px-3 py-2 text-slate-700">
                       {cantidad ?? "—"} {unidad}
+                    </td>
+                    <td className="px-3 py-2">
+                      {(() => {
+                        const lista = item ? (informesPorItem.get(item.id) ?? []) : [];
+                        const ultimo = lista[0];
+                        if (!ultimo) return <span className="text-slate-400">Sin evaluar</span>;
+                        return (
+                          <>
+                            <span
+                              className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${
+                                ultimo.aprobado ? TONOS.emerald : TONOS.rose
+                              }`}
+                            >
+                              {ultimo.aprobado ? "Aprobado" : "No aprobado"}
+                            </span>
+                            <p className="mt-1 font-mono text-[11px] text-slate-500">
+                              {ultimo.folio}
+                              {lista.length > 1 ? ` (+${lista.length - 1})` : ""}
+                            </p>
+                          </>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-2 text-slate-500">
                       {new Date(f.generado_en).toLocaleDateString("es-MX")}
@@ -327,6 +424,8 @@ export default async function BuscarFolioPage({
           </table>
         </div>
       )}
+
+      <Paginacion pagina={pagina} total={total} href={(n) => hrefFiltro(filtro, n)} />
     </main>
   );
 }

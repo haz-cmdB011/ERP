@@ -39,9 +39,6 @@ export default async function PlaneacionLayout({
         <Link href="/planeacion/cancelados" className="text-gray-600 hover:text-black">
           Cancelados
         </Link>
-        <Link href="/planeacion/folios" className="text-gray-600 hover:text-black">
-          Buscar folio
-        </Link>
       </AreaNav>
       {children}
     </div>

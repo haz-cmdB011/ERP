@@ -51,12 +51,15 @@ export default function InformeFicha({
   informe,
   imagenUrls = [],
   qrUrl,
+  folioProduccion = null,
 }: {
   pedido: InformeFichaPedido;
   item: InformeFichaItem;
   informe: InformeFichaInforme;
   imagenUrls?: string[];
   qrUrl: string;
+  // Folio PRD-… del ítem (trazabilidad Producción → Calidad), si ya tiene.
+  folioProduccion?: string | null;
 }) {
   const fechaInforme = new Date(informe.elaborado_en).toLocaleString("es-MX");
 
@@ -99,6 +102,7 @@ export default function InformeFicha({
 
       <div className="flex flex-col">
         <Campo label="Ítem" valor={`${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`} />
+        {folioProduccion && <Campo label="Folio producción" valor={folioProduccion} />}
         <Campo label="No. Pedido" valor={pedido.numero_pedido} />
         <Campo label="Cliente" valor={pedido.proyectos?.cliente ?? "—"} />
         <Campo label="Proyecto" valor={pedido.proyectos?.nombre ?? "—"} />
@@ -124,20 +128,24 @@ export default function InformeFicha({
         </div>
       )}
 
-      <div className="mt-2 flex flex-col gap-4 border-t border-dashed border-slate-300 pt-3">
-        <div>
-          <div className="h-8 border-b border-slate-400" />
-          <p className="mt-1 text-center text-[9px] text-slate-500">
-            Firma de quien elaboró el informe
-          </p>
+      {/* Un informe "No aprobado" no lleva firmas (ni en pantalla, ni al
+          imprimir, ni en el PDF): solo el aprobado se firma. */}
+      {informe.aprobado && (
+        <div className="mt-2 flex flex-col gap-4 border-t border-dashed border-slate-300 pt-3">
+          <div>
+            <div className="h-8 border-b border-slate-400" />
+            <p className="mt-1 text-center text-[9px] text-slate-500">
+              Firma de quien elaboró el informe
+            </p>
+          </div>
+          <div>
+            <div className="h-8 border-b border-slate-400" />
+            <p className="mt-1 text-center text-[9px] text-slate-500">
+              Firma de quien fabricó el ítem
+            </p>
+          </div>
         </div>
-        <div>
-          <div className="h-8 border-b border-slate-400" />
-          <p className="mt-1 text-center text-[9px] text-slate-500">
-            Firma de quien fabricó el ítem
-          </p>
-        </div>
-      </div>
+      )}
     </article>
   );
 }

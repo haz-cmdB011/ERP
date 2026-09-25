@@ -35,7 +35,7 @@ export default async function CalidadListPage() {
           </p>
         </div>
         {pedidos && pedidos.length > 0 && (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {pedidos.length} pedido{pedidos.length === 1 ? "" : "s"}
           </span>
         )}
@@ -83,7 +83,7 @@ export default async function CalidadListPage() {
                     <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
                     <td className="px-4 py-3">
                       {activa ? (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                        <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
                           #{activa.numero_version}
                         </span>
                       ) : (

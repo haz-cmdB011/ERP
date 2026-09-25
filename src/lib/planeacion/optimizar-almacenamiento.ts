@@ -1,11 +1,11 @@
 import JSZip from "jszip";
 import sharp from "sharp";
 
-// Las imágenes de un ítem solo se muestran como miniatura (40x40 en la UI
-// de detalle de pedido) — 200px de lado da margen de sobra hasta para
-// pantallas retina, sin cargar el peso completo de la imagen embebida
-// original (algunas superan los 400 KB para mostrarse en 40x40 px).
-const LADO_MAXIMO_MINIATURA = 200;
+// Las imágenes de un ítem se muestran como miniatura (40x40) y, al hacer
+// click, ampliadas en un visor — 600px de lado se ve nítido ampliado sin
+// cargar el peso completo de la imagen embebida original (algunas superan
+// los 400 KB); en WebP quedan en unas decenas de KB.
+const LADO_MAXIMO_MINIATURA = 600;
 const CALIDAD_WEBP = 80;
 
 // Recomprime una imagen extraída del Excel para guardarla en Storage:
@@ -29,6 +29,31 @@ export async function comprimirImagenItem(
     return { buffer: comprimida, extension: "webp" };
   } catch {
     return { buffer, extension: extensionOriginal };
+  }
+}
+
+// Versión para la vista ampliada con zoom: mucho más grande que la miniatura
+// pero acotada (un original embebido puede superar los 4000 px) para que el
+// bucket no se llene. Se guarda aparte de la miniatura, que sigue siendo la
+// única que carga en las tablas.
+const LADO_MAXIMO_GRANDE = 1600;
+const CALIDAD_WEBP_GRANDE = 85;
+
+// Devuelve null si sharp no puede procesar la imagen: la versión grande es un
+// extra, así que en ese caso simplemente no se guarda (se usará la miniatura).
+export async function comprimirImagenGrande(buffer: Buffer): Promise<Buffer | null> {
+  try {
+    return await sharp(buffer)
+      .resize({
+        width: LADO_MAXIMO_GRANDE,
+        height: LADO_MAXIMO_GRANDE,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: CALIDAD_WEBP_GRANDE })
+      .toBuffer();
+  } catch {
+    return null;
   }
 }
 

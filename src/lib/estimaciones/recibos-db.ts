@@ -6,7 +6,15 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RenglonHistorico } from "./datos-acabados";
-import type { Banda, Fuente } from "./motor-precio";
+import { HERRAJES_NO, HERRAJES_SI, type Banda, type Fuente } from "./motor-precio";
+
+// Tipo de recibo: comparten tablas (recibos/renglones) y motor de precio.
+export type TipoRecibo = "acabados" | "armado";
+
+export const NOMBRE_TIPO_RECIBO: Record<TipoRecibo, string> = {
+  acabados: "Acabados",
+  armado: "Armado",
+};
 
 export interface RenglonGuardado {
   numero: number;
@@ -16,6 +24,9 @@ export interface RenglonGuardado {
   cantidad: number;
   acabado: string;
   acabado2: string;
+  // Solo en recibos de Armado.
+  tipoArmado?: string;
+  colocacionHerrajes?: boolean;
   tipoTrabajo: "produccion" | "reproceso";
   causa: string;
   fases: string[];
@@ -31,6 +42,7 @@ export interface RenglonGuardado {
 }
 
 export interface ReciboGuardado {
+  tipo: TipoRecibo;
   folio: string;
   fecha: string;
   contratista: string;
@@ -48,6 +60,9 @@ export interface RenglonParaGuardar {
   familia: string;
   acabado: string;
   acabado2: string;
+  // Solo en recibos de Armado.
+  tipoArmado?: string;
+  colocacionHerrajes?: boolean;
   tipoTrabajo: "produccion" | "reproceso";
   causa: string;
   cantidad: number;
@@ -74,9 +89,10 @@ export async function guardarReciboEnDb(
     prioridad: string;
     motivoPrioridad: string;
   },
-  renglones: RenglonParaGuardar[]
+  renglones: RenglonParaGuardar[],
+  tipo: TipoRecibo = "acabados"
 ): Promise<{ id: string | null; error: string | null }> {
-  const { data, error } = await supabase.rpc("guardar_recibo_acabados", {
+  const { data, error } = await supabase.rpc(`guardar_recibo_${tipo}`, {
     p_folio: recibo.folio,
     p_fecha_recibo: recibo.fechaRecibo,
     p_contratista: recibo.contratista,
@@ -95,10 +111,18 @@ interface RenglonConRecibo {
   familia: string;
   acabado: string | null;
   acabado_2: string | null;
+  tipo_armado: string | null;
+  colocacion_herrajes: boolean | null;
   cantidad: number;
   pu_propuesto: number;
   pu_aceptado: number;
-  recibos: { folio: string; fecha_recibo: string; obra: string | null; ot: string | null } | null;
+  recibos: {
+    folio: string;
+    fecha_recibo: string;
+    obra: string | null;
+    ot: string | null;
+    tipo: TipoRecibo;
+  } | null;
 }
 
 // Todo el histórico de renglones ya guardados en Supabase, en la forma que
@@ -106,12 +130,18 @@ interface RenglonConRecibo {
 // corresponde, así que aquí se manda todo). Se vuelve a pedir después de
 // cada guardado para que un recibo recién guardado sirva de precedente al
 // siguiente renglón capturado.
-export async function cargarHistoricoDb(supabase: SupabaseClient): Promise<RenglonHistorico[]> {
+export async function cargarHistoricoDb(
+  supabase: SupabaseClient,
+  tipo: TipoRecibo = "acabados"
+): Promise<RenglonHistorico[]> {
+  // Cada tipo de recibo tiene su propio histórico: el precio de un armado no
+  // sirve de precedente para un acabado ni al revés.
   const { data, error } = await supabase
     .from("renglones")
     .select(
-      "modelo, familia, acabado, acabado_2, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot)"
+      "modelo, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo)"
     )
+    .eq("recibos.tipo", tipo)
     .order("creado_en", { ascending: false })
     .limit(3000)
     .returns<RenglonConRecibo[]>();
@@ -123,8 +153,10 @@ export async function cargarHistoricoDb(supabase: SupabaseClient): Promise<Rengl
     .map((r) => ({
       modelo: r.modelo,
       familia: r.familia,
-      acabado: r.acabado ?? "",
-      acabado2: r.acabado_2 ?? "",
+      // En Armado el tipo de armado viaja en el campo `acabado` (ver motor).
+      acabado: (tipo === "armado" ? r.tipo_armado : r.acabado) ?? "",
+      // En Armado, la colocación de herrajes viaja como "Sí" / "No" en `acabado2`.
+      acabado2: tipo === "armado" ? (r.colocacion_herrajes ? HERRAJES_SI : HERRAJES_NO) : (r.acabado_2 ?? ""),
       cantidad: Number(r.cantidad),
       propuesto: Number(r.pu_propuesto),
       aceptado: Number(r.pu_aceptado),
@@ -143,6 +175,8 @@ interface RenglonDbRow {
   cantidad: number;
   acabado: string | null;
   acabado_2: string | null;
+  tipo_armado: string | null;
+  colocacion_herrajes: boolean | null;
   tipo_trabajo: "produccion" | "reproceso";
   causa_reproceso: string | null;
   fases: string[];
@@ -157,6 +191,7 @@ interface RenglonDbRow {
 }
 
 interface ReciboDbRow {
+  tipo: TipoRecibo;
   folio: string;
   fecha_recibo: string;
   contratista: string;
@@ -178,22 +213,25 @@ function esPendienteRevision(r: RenglonDbRow): boolean {
 
 export async function buscarReciboPorFolio(
   supabase: SupabaseClient,
-  folio: string
+  folio: string,
+  tipo: TipoRecibo = "acabados"
 ): Promise<ReciboGuardado | null> {
   const { data, error } = await supabase
     .from("recibos")
     .select(
-      "folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
-        "renglones(numero, modelo, familia, tamano, cantidad, acabado, acabado_2, tipo_trabajo, " +
+      "tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
+        "renglones(numero, modelo, familia, tamano, cantidad, acabado, acabado_2, tipo_armado, colocacion_herrajes, tipo_trabajo, " +
         "causa_reproceso, fases, nota, pu_sugerido, fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion)"
     )
     .eq("folio", folio)
+    .eq("tipo", tipo)
     .maybeSingle()
     .returns<ReciboDbRow | null>();
 
   if (error || !data) return null;
 
   return {
+    tipo: data.tipo,
     folio: data.folio,
     fecha: data.fecha_recibo,
     contratista: data.contratista,
@@ -212,6 +250,8 @@ export async function buscarReciboPorFolio(
         cantidad: Number(r.cantidad),
         acabado: r.acabado ?? "",
         acabado2: r.acabado_2 ?? "",
+        tipoArmado: r.tipo_armado ?? undefined,
+        colocacionHerrajes: r.tipo_armado ? (r.colocacion_herrajes ?? false) : undefined,
         tipoTrabajo: r.tipo_trabajo,
         causa: r.causa_reproceso ?? "",
         fases: r.fases ?? [],
@@ -229,6 +269,7 @@ export async function buscarReciboPorFolio(
 }
 
 export interface ReciboResumen {
+  tipo: TipoRecibo;
   folio: string;
   fecha: string;
   contratista: string;
@@ -257,11 +298,12 @@ export async function listarRecibos(supabase: SupabaseClient): Promise<ReciboRes
   const { data, error } = await supabase
     .from("recibos")
     .select(
-      "folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
+      "tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
         "renglones(cantidad, pu_propuesto, pu_aceptado)"
     )
     .returns<
       {
+        tipo: TipoRecibo;
         folio: string;
         fecha_recibo: string;
         contratista: string;
@@ -282,6 +324,7 @@ export async function listarRecibos(supabase: SupabaseClient): Promise<ReciboRes
       (x) => Number(x.pu_aceptado) === 0 && Number(x.pu_propuesto) > 0
     ).length;
     return {
+      tipo: r.tipo,
       folio: r.folio,
       fecha: r.fecha_recibo,
       contratista: r.contratista,

@@ -63,7 +63,7 @@ export default function EliminarItemBoton({ itemId }: { itemId: string }) {
     <button
       type="button"
       onClick={() => setConfirmando(true)}
-      className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100"
+      className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100"
     >
       Eliminar
     </button>

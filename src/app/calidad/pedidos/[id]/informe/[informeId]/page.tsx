@@ -77,6 +77,12 @@ export default async function InformeCalidadPage({
     elaboradoPorNombre = perfilElaboro?.nombre_completo || perfilElaboro?.email || null;
   }
 
+  const { data: folioProd } = await supabase
+    .from("folios_produccion")
+    .select("folio")
+    .eq("planeacion_item_id", item.id)
+    .maybeSingle<{ folio: string }>();
+
   const baseUrl = await getBaseUrl();
   const imagenesPorItem = await getImagenesPorItem(supabase, [item.id]);
   const nombreArchivo = nombreArchivoSeguro(
@@ -106,6 +112,7 @@ export default async function InformeCalidadPage({
           elaboradoPorNombre,
         }}
         imagenUrls={imagenesPorItem.get(item.id) ?? []}
+        folioProduccion={folioProd?.folio ?? null}
         qrUrl={`${baseUrl}/calidad/pedidos/${id}/informe/${informe.id}`}
       />
     </main>

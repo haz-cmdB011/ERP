@@ -205,9 +205,13 @@ export async function buscarReciboElectrificacionPorFolio(
   };
 }
 
+export type ReciboResumenElectrificacion = Omit<ReciboResumen, "tipo"> & {
+  tipo: "electrificacion";
+};
+
 export async function listarRecibosElectrificacion(
   supabase: SupabaseClient
-): Promise<ReciboResumen[]> {
+): Promise<ReciboResumenElectrificacion[]> {
   const { data, error } = await supabase
     .from("recibos_electrificacion")
     .select(
@@ -233,6 +237,7 @@ export async function listarRecibosElectrificacion(
     .map((r) => {
       const rs = r.renglones_electrificacion;
       return {
+        tipo: "electrificacion" as const,
         folio: r.folio,
         fecha: r.fecha_recibo,
         contratista: r.contratista,
