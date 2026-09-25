@@ -456,26 +456,47 @@ export default function ItemsLiberacionTable({
         </td>
         <td className="px-3 py-2">
           <EstadoBadge item={item} />
-          {item.folio && (
-            <span
-              className="mt-1 block font-mono text-[11px] font-semibold text-slate-500"
-              title="Folio único de producción"
-            >
-              {item.folio}
-            </span>
-          )}
           {item.estado_revision && (
             <span className="mt-1 block text-xs font-semibold">
               {ESTADO_REVISION_LABELS[item.estado_revision]} (Planeación)
             </span>
           )}
         </td>
+        <td className="px-3 py-2">
+          {item.folio ? (
+            <span
+              className="whitespace-nowrap font-mono text-xs font-semibold text-slate-800"
+              title="Folio único de producción"
+            >
+              {item.folio}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400" title="Se asigna al liberarlo a producción">
+              —
+            </span>
+          )}
+        </td>
         <td className="flex flex-wrap items-center gap-2 px-3 py-2" onClick={sinToggle}>
           <Link
             href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
-            className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100"
+            title="Viajero"
+            aria-label={`Viajero del ítem ${item.item_code}`}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
           >
-            Viajero
+            {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path d="M22 2 11 13" />
+              <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+            </svg>
           </Link>
           {puedeSolicitarEliminacion && (
             <button
@@ -787,6 +808,7 @@ export default function ItemsLiberacionTable({
                     <th className="px-3 py-2">Descripción</th>
                     <th className="px-3 py-2">Cant.</th>
                     <th className="px-3 py-2">Estado</th>
+                    <th className="px-3 py-2">Folio</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>

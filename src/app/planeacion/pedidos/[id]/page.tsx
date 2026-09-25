@@ -8,6 +8,7 @@ import EstadoRevisionSelect from "./estado-revision-select";
 import { ESTADO_REVISION_LABELS } from "@/lib/planeacion/estado-revision";
 import CancelarPedido from "./cancelar-pedido";
 import EliminarItemBoton from "./eliminar-item-boton";
+import MejorarImagenes from "./mejorar-imagenes";
 
 interface VersionRow {
   id: string;
@@ -173,6 +174,10 @@ export default async function PedidoDetailPage({
             </Link>
           ))}
         </div>
+      )}
+
+      {puedeEditar && versionSeleccionada && (
+        <MejorarImagenes pedidoId={id} numeroVersion={versionSeleccionada.numero_version} />
       )}
 
       {versionSeleccionada?.cargas_archivo && (
