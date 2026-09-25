@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import ItemsLiberacionTable, {
   type ItemLiberacionRow,
 } from "./items-liberacion-table";
@@ -19,7 +20,7 @@ interface VersionRow {
   } | null;
 }
 
-type ItemRow = Omit<ItemLiberacionRow, "folio">;
+type ItemRow = Omit<ItemLiberacionRow, "folio" | "imagenUrl" | "imagenGrandeUrl">;
 
 export default async function PedidoProduccionPage({
   params,
@@ -112,8 +113,18 @@ export default async function PedidoProduccionPage({
         .returns<{ planeacion_item_id: string; folio: string }[]>()
     : { data: [] as { planeacion_item_id: string; folio: string }[] };
   const folioPorItem = new Map((folios ?? []).map((f) => [f.planeacion_item_id, f.folio]));
+
+  // Miniatura de cada ítem: la primera imagen guardada (URL firmada del bucket
+  // privado, mismo helper que usan Planeación y Calidad).
+  const imagenesPorItem = await getImagenesConGrandePorItem(supabase, idsItems);
+
   const items: ItemLiberacionRow[] | null = itemsBase
-    ? itemsBase.map((i) => ({ ...i, folio: folioPorItem.get(i.id) ?? null }))
+    ? itemsBase.map((i) => ({
+        ...i,
+        folio: folioPorItem.get(i.id) ?? null,
+        imagenUrl: imagenesPorItem.get(i.id)?.[0]?.url ?? null,
+        imagenGrandeUrl: imagenesPorItem.get(i.id)?.[0]?.urlGrande ?? null,
+      }))
     : null;
 
   return (

@@ -32,6 +32,31 @@ export async function comprimirImagenItem(
   }
 }
 
+// Versión para la vista ampliada con zoom: mucho más grande que la miniatura
+// pero acotada (un original embebido puede superar los 4000 px) para que el
+// bucket no se llene. Se guarda aparte de la miniatura, que sigue siendo la
+// única que carga en las tablas.
+const LADO_MAXIMO_GRANDE = 1600;
+const CALIDAD_WEBP_GRANDE = 85;
+
+// Devuelve null si sharp no puede procesar la imagen: la versión grande es un
+// extra, así que en ese caso simplemente no se guarda (se usará la miniatura).
+export async function comprimirImagenGrande(buffer: Buffer): Promise<Buffer | null> {
+  try {
+    return await sharp(buffer)
+      .resize({
+        width: LADO_MAXIMO_GRANDE,
+        height: LADO_MAXIMO_GRANDE,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: CALIDAD_WEBP_GRANDE })
+      .toBuffer();
+  } catch {
+    return null;
+  }
+}
+
 // El Excel original archivado en Storage (bucket cargas-excel, para
 // auditoría) trae las mismas imágenes que ya extraemos y guardamos aparte
 // —más livianas— para mostrarlas en la app: son puro peso redundante ahí.
