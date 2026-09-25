@@ -6,6 +6,8 @@ import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
 import type { EstadoRevision } from "@/lib/planeacion/estado-revision";
 import CancelarPedido from "./cancelar-pedido";
 import ItemsTabla, { type MuebleTabla } from "./items-tabla";
+import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
+import { getPlanosPorItem } from "@/lib/planos/planos-por-item";
 
 interface VersionRow {
   id: string;
@@ -102,7 +104,14 @@ export default async function PedidoDetailPage({
     : { data: null };
 
   const itemIds = (items ?? []).map((i) => i.id);
-  const imagenesPorItem = await getImagenesPorItem(supabase, itemIds);
+  const [imagenesPorItem, planosPorItem] = await Promise.all([
+    getImagenesPorItem(supabase, itemIds),
+    getPlanosPorItem(
+      supabase,
+      normalizarNumeroPM(pedido.numero_pedido, { fechaPedido: pedido.fecha_pedido }),
+      items ?? []
+    ),
+  ]);
 
   // Los ítems cancelados o enviados a la papelera de Producción salen de la
   // vista normal: los cancelados viven en /planeacion/cancelados, y los de
@@ -196,6 +205,7 @@ export default async function PedidoDetailPage({
         <ItemsTabla
           muebles={muebles}
           imagenesPorItem={Object.fromEntries(imagenesPorItem)}
+          planosPorItem={planosPorItem}
           puedeEditar={puedeEditar}
           puedeEliminar={puedeEliminar}
           filtroInicial={modelo ?? ""}

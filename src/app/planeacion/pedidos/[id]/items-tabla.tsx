@@ -8,6 +8,7 @@ import {
 } from "@/lib/planeacion/estado-revision";
 import EstadoRevisionSelect from "./estado-revision-select";
 import EliminarItemBoton from "./eliminar-item-boton";
+import type { PlanoLink } from "@/lib/planos/planos-por-item";
 
 export interface ItemTabla {
   id: string;
@@ -46,12 +47,14 @@ function padresConHijosCoincidentes(muebles: MuebleTabla[], filtro: string): Set
 export default function ItemsTabla({
   muebles,
   imagenesPorItem,
+  planosPorItem,
   puedeEditar,
   puedeEliminar,
   filtroInicial,
 }: {
   muebles: MuebleTabla[];
   imagenesPorItem: Record<string, string[]>;
+  planosPorItem: Record<string, PlanoLink[]>;
   puedeEditar: boolean;
   puedeEliminar: boolean;
   filtroInicial: string;
@@ -161,7 +164,10 @@ export default function ItemsTabla({
                         <ImagenesItem urls={imagenesPorItem[m.id] ?? []} onAbrir={abrirImagen} />
                       </td>
                       <td className="px-3 py-2">{m.item_code}</td>
-                      <td className="px-3 py-2">{m.modelo}</td>
+                      <td className="px-3 py-2">
+                      {m.modelo}
+                      <PlanosItem planos={planosPorItem[m.id] ?? []} />
+                    </td>
                       <td className="px-3 py-2">{m.tipo_material}</td>
                       <td className="px-3 py-2">
                         {m.descripcion}
@@ -194,7 +200,10 @@ export default function ItemsTabla({
                             <ImagenesItem urls={imagenesPorItem[f.id] ?? []} onAbrir={abrirImagen} />
                           </td>
                           <td className="py-2 pr-3 pl-6">{f.item_code}</td>
-                          <td className="px-3 py-2">{f.modelo}</td>
+                          <td className="px-3 py-2">
+                          {f.modelo}
+                          <PlanosItem planos={planosPorItem[f.id] ?? []} />
+                        </td>
                           <td className="px-3 py-2">{f.tipo_material}</td>
                           <td className="px-3 py-2">{f.descripcion?.split("\n")[0]}</td>
                           <td className="px-3 py-2">
@@ -242,6 +251,66 @@ function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: bool
   }
   if (!item.estado_revision) return <span className="text-slate-400">—</span>;
   return <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>;
+}
+
+// Enlace a los planos de Ingeniería del modelo (se abren en otra pestaña).
+// Con varios PDF (varias hojas, o varias carpetas del mismo modelo) se
+// despliega la lista.
+function PlanosItem({ planos }: { planos: PlanoLink[] }) {
+  if (planos.length === 0) return null;
+  const origen = planos[0].de_otro_pm;
+  const etiqueta = (
+    <>
+      Plano{planos.length > 1 ? `s (${planos.length})` : ""}
+      {origen && <span className="font-normal text-slate-400"> · de {origen}</span>}
+      {planos.every((p) => p.cancelada) && (
+        <span className="font-normal text-rose-500"> · carpeta cancelada</span>
+      )}
+    </>
+  );
+  const claseEnlace =
+    "mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100";
+
+  if (planos.length === 1) {
+    return (
+      <div onClick={(e) => e.stopPropagation()}>
+        <a
+          href={`/api/planos/${planos[0].id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`${planos[0].modelo_carpeta} / ${planos[0].nombre_archivo}`}
+          className={claseEnlace}
+        >
+          {etiqueta}
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <details onClick={(e) => e.stopPropagation()} className="mt-1">
+      <summary className={`${claseEnlace} cursor-pointer list-none`}>{etiqueta} ▾</summary>
+      <ul className="mt-1 flex flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-2 text-[11px] font-normal shadow-sm">
+        {planos.map((p) => (
+          <li key={p.id}>
+            <a
+              href={`/api/planos/${p.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-700 hover:underline"
+            >
+              {p.nombre_archivo}
+            </a>
+            <span className="text-slate-400">
+              {" "}
+              — {p.modelo_carpeta}
+              {p.cancelada ? " (cancelada)" : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
 }
 
 function ImagenesItem({
