@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { listarRecibos } from "@/lib/estimaciones/recibos-db";
+import { NOMBRE_TIPO_RECIBO, listarRecibos } from "@/lib/estimaciones/recibos-db";
 import { money, fechaCorta } from "@/lib/estimaciones/motor-precio";
 
-// Registro de recibos: todos los recibos de Acabados guardados, ordenados
+// Registro de recibos: todos los recibos guardados (Acabados y Armado), ordenados
 // por folio de menor a mayor (numéricos primero, en orden; los que llevan
 // letras o guiones van después). RLS ya filtra por is_estimaciones(), así
 // que quien no tiene acceso al área simplemente ve la lista vacía.
@@ -19,7 +19,7 @@ export default async function RegistroRecibosPage() {
             Registro de recibos
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Recibos de maquila de Acabados, ordenados por folio.
+            Recibos de maquila (Acabados y Armado), ordenados por folio.
           </p>
         </div>
         {recibos.length > 0 && (
@@ -41,6 +41,7 @@ export default async function RegistroRecibosPage() {
             <thead>
               <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-3">Folio</th>
+                <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Fecha</th>
                 <th className="px-4 py-3">Contratista</th>
                 <th className="px-4 py-3">Obra</th>
@@ -57,15 +58,16 @@ export default async function RegistroRecibosPage() {
                 const recorte = r.totalPropuesto - r.totalAceptado;
                 const recortePct = r.totalPropuesto > 0 ? (recorte / r.totalPropuesto) * 100 : 0;
                 return (
-                  <tr key={r.folio} className="transition-colors hover:bg-slate-50">
+                  <tr key={`${r.tipo}-${r.folio}`} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/estimaciones/recibos/acabados/recibo/${encodeURIComponent(r.folio)}`}
+                        href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}
                         className="font-mono font-medium text-slate-900 hover:text-indigo-600 hover:underline"
                       >
                         {r.folio}
                       </Link>
                     </td>
+                    <td className="px-4 py-3 text-slate-700">{NOMBRE_TIPO_RECIBO[r.tipo]}</td>
                     <td className="px-4 py-3 text-slate-700">{fechaCorta(r.fecha)}</td>
                     <td className="px-4 py-3 text-slate-700">{r.contratista || "—"}</td>
                     <td className="px-4 py-3 text-slate-700">{r.obra || "—"}</td>

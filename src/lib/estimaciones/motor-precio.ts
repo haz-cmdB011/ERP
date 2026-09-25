@@ -43,6 +43,10 @@ export interface ConfiguracionMotor {
   nivel3Visible: boolean;
   recargoAcabado2: number;
   tarifasProyecto: TarifaProyecto[];
+  // Tarifas de los niveles 1 y 3. Si no se indican, se usan las de Acabados.
+  // Armado las manda vacías: las tarifas de acabado no aplican al armado.
+  tarifasFijas?: Record<string, number>;
+  tarifasBase?: Record<string, number>;
 }
 
 export interface EntradaRenglon {
@@ -52,6 +56,9 @@ export interface EntradaRenglon {
   cantidad: number | "";
   acabado: string;
   acabado2: string;
+  // Solo en recibos de Armado: el precedente se busca por modelo Y tipo de
+  // armado (el mismo modelo cuesta distinto en Natural que en Laminado).
+  tipoArmado?: string;
 }
 
 export interface EntradaRecibo {
@@ -100,10 +107,16 @@ export function fechaCorta(iso: string): string {
 // que un recibo recién guardado ya sirva de precedente al siguiente.
 export function precedenteDe(
   modelo: string,
-  historico: RenglonHistorico[]
+  historico: RenglonHistorico[],
+  tipoArmado?: string
 ): RenglonHistorico | null {
   const m = normalizar(modelo);
-  const prev = historico.filter((h) => normalizar(h.modelo) === m && h.aceptado > 0);
+  // En Armado el tipo de armado viaja en el campo `acabado` del histórico.
+  const t = tipoArmado ? normalizar(tipoArmado) : null;
+  const prev = historico.filter(
+    (h) =>
+      normalizar(h.modelo) === m && h.aceptado > 0 && (t === null || normalizar(h.acabado) === t)
+  );
   if (!prev.length) return null;
   prev.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
   return prev[0];
@@ -117,6 +130,8 @@ export function resolver(
 ): Resolucion {
   const out: Resolucion = { pu: null, fuente: "manual", detalle: "", sinTamano: false, sombra: false };
   const modeloN = normalizar(r.modelo);
+  const tarifasFijas = cfg.tarifasFijas ?? TARIFAS_FIJAS;
+  const tarifasBase = cfg.tarifasBase ?? TARIFAS_BASE;
 
   const tp = cfg.tarifasProyecto.find(
     (t) => t.ot === normalizar(recibo.ot) && t.modelo === modeloN
@@ -126,22 +141,22 @@ export function resolver(
     out.pu = tp.tarifa;
     out.fuente = "proyecto";
     out.detalle = `Tarifa de proyecto para la OT ${recibo.ot}`;
-  } else if (TARIFAS_FIJAS[r.familia] != null) {
-    out.pu = TARIFAS_FIJAS[r.familia];
+  } else if (tarifasFijas[r.familia] != null) {
+    out.pu = tarifasFijas[r.familia];
     out.fuente = "tarifa_fija";
     out.detalle = `${r.familia} · sin negociación`;
   } else {
-    const p = modeloN ? precedenteDe(modeloN, historico) : null;
+    const p = modeloN ? precedenteDe(modeloN, historico, r.tipoArmado) : null;
     if (p) {
       out.pu = r2((p.aceptado * factorVolumen(r.cantidad)) / factorVolumen(p.cantidad));
       out.fuente = "precedente";
       out.detalle = `Última vez: ${money(p.aceptado)} · ${p.cantidad} pz · ${fechaCorta(p.fecha)}`;
-    } else if (TARIFAS_BASE[r.familia] != null) {
-      out.pu = r2(TARIFAS_BASE[r.familia] * factorVolumen(r.cantidad));
+    } else if (tarifasBase[r.familia] != null) {
+      out.pu = r2(tarifasBase[r.familia] * factorVolumen(r.cantidad));
       out.fuente = "familia";
       out.sinTamano = !r.tamano;
       out.detalle =
-        `Base ${money(TARIFAS_BASE[r.familia])} × ${factorVolumen(r.cantidad).toFixed(2)}` +
+        `Base ${money(tarifasBase[r.familia])} × ${factorVolumen(r.cantidad).toFixed(2)}` +
         (out.sinTamano ? " · sin tamaño" : "");
     }
   }

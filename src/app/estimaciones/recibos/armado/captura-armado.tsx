@@ -5,21 +5,21 @@ import Link from "next/link";
 import SelectMenu from "@/components/select-menu";
 import { createClient } from "@/lib/supabase/client";
 import {
-  ACABADOS,
   CATALOGO,
   CAUSAS_REPROCESO,
   FAMILIAS,
-  FASES,
-  HISTORICO,
   MODELOS,
   OBRAS,
   OTS,
   PRIORIDAD,
-  TARIFAS_BASE,
-  TARIFAS_FIJAS,
   VOLUMEN,
   type RenglonHistorico,
 } from "@/lib/estimaciones/datos-acabados";
+import {
+  TARIFAS_BASE_ARMADO,
+  TARIFAS_FIJAS_ARMADO,
+  TIPOS_ARMADO,
+} from "@/lib/estimaciones/datos-armado";
 import {
   BANDA_NOMBRE,
   FUENTE_NOMBRE,
@@ -30,6 +30,7 @@ import {
   resolver,
   type Banda,
   type ConfiguracionMotor,
+  type EntradaRenglon,
   type Fuente,
   type TarifaProyecto,
 } from "@/lib/estimaciones/motor-precio";
@@ -40,9 +41,9 @@ import {
   type RenglonGuardado,
   type RenglonParaGuardar,
 } from "@/lib/estimaciones/recibos-db";
-import { generarPdfDesdeElemento } from "./generar-pdf";
-import ReciboFicha from "./recibo-ficha";
-import DescargarPdfButton from "./descargar-pdf-button";
+import { generarPdfDesdeElemento } from "../acabados/generar-pdf";
+import DescargarPdfButton from "../acabados/descargar-pdf-button";
+import ReciboFichaArmado from "./recibo-ficha-armado";
 
 interface Renglon {
   id: number;
@@ -50,11 +51,9 @@ interface Renglon {
   familia: string;
   tamano: string;
   cantidad: number | "";
-  acabado: string;
-  acabado2: string;
+  tipoArmado: string;
   tipoTrabajo: "produccion" | "reproceso";
   causa: string;
-  fases: string[];
   propuesto: number | "";
   aceptado: number | "";
   justificacion: string;
@@ -72,11 +71,9 @@ function nuevoRenglon(pre: Partial<Renglon> = {}): Renglon {
     familia: "",
     tamano: "",
     cantidad: 1,
-    acabado: "",
-    acabado2: "",
+    tipoArmado: "",
     tipoTrabajo: "produccion",
     causa: "",
-    fases: [],
     propuesto: 0,
     aceptado: 0,
     justificacion: "",
@@ -102,30 +99,24 @@ function comoOpciones(valores: readonly string[]) {
   return valores.map((v) => ({ value: v, label: v }));
 }
 
-export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido: boolean }) {
-  // Arranca con dos renglones que muestran los dos extremos del motor: una
-  // tarifa fija que no se negocia, y un precedente por debajo de lo que el
-  // maquilador propone.
-  const [renglones, setRenglones] = useState<Renglon[]>(() => [
-    nuevoRenglon({
-      modelo: "ZOCLO",
-      familia: "Zoclo",
-      acabado: "Laca Brillante",
-      cantidad: 50,
-      fases: ["Lijado", "Premiado", "Asentado"],
-      propuesto: 20,
-      aceptado: 20,
-    }),
-    nuevoRenglon({
-      modelo: "G-G001CA",
-      familia: "Góndola / exhibidor",
-      acabado: "Laca Mate",
-      cantidad: 4,
-      fases: ["Limpieza", "Resanado", "Lijado", "Sellado"],
-      propuesto: 250,
-      aceptado: 0,
-    }),
-  ]);
+// Entrada del motor de precio para un renglón de Armado: el tipo de armado
+// ocupa el lugar del acabado y no hay segundo acabado.
+function aEntrada(r: Renglon): EntradaRenglon {
+  return {
+    modelo: r.modelo,
+    familia: r.familia,
+    tamano: r.tamano,
+    cantidad: r.cantidad,
+    acabado: r.tipoArmado,
+    acabado2: "",
+    tipoArmado: r.tipoArmado,
+  };
+}
+
+export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: boolean }) {
+  // Arranca con un renglón vacío: Armado no tiene histórico ni tarifas de
+  // ejemplo (las de Acabados no aplican al armado).
+  const [renglones, setRenglones] = useState<Renglon[]>(() => [nuevoRenglon()]);
 
   const [folio, setFolio] = useState("");
   const [fecha, setFecha] = useState("");
@@ -138,22 +129,21 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
   const [folioContinuado, setFolioContinuado] = useState(false);
 
   const [nivel3Visible, setNivel3Visible] = useState(false);
-  const [recargoAcabado2, setRecargoAcabado2] = useState(0);
   const [tarifasProyecto, setTarifasProyecto] = useState<TarifaProyecto[]>([]);
   const [tpModelo, setTpModelo] = useState("");
   const [tpTarifa, setTpTarifa] = useState("");
   const [parametrosAbiertos, setParametrosAbiertos] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string[] } | null>(null);
 
-  // Renglones ya guardados en Supabase (ver recibos-db.ts): se suman al
-  // histórico real para que un recibo recién guardado sirva de precedente
-  // al siguiente renglón capturado. Se recarga después de cada guardado.
-  const [historicoDb, setHistoricoDb] = useState<RenglonHistorico[]>([]);
-  const historico = useMemo(() => [...HISTORICO, ...historicoDb], [historicoDb]);
+  // Renglones de Armado ya guardados en Supabase (ver recibos-db.ts): son el
+  // histórico de este tipo de recibo (el de Acabados no se mezcla). Un recibo
+  // recién guardado sirve de precedente al siguiente renglón capturado, así
+  // que se recarga después de cada guardado.
+  const [historico, setHistoricoDb] = useState<RenglonHistorico[]>([]);
 
   useEffect(() => {
     const supabase = createClient();
-    cargarHistoricoDb(supabase).then(setHistoricoDb);
+    cargarHistoricoDb(supabase, "armado").then(setHistoricoDb);
   }, []);
 
   const [reciboGuardado, setReciboGuardado] = useState<ReciboGuardado | null>(null);
@@ -162,8 +152,14 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
   const fichaOcultaRef = useRef<HTMLDivElement>(null);
 
   const cfg: ConfiguracionMotor = useMemo(
-    () => ({ nivel3Visible, recargoAcabado2, tarifasProyecto }),
-    [nivel3Visible, recargoAcabado2, tarifasProyecto]
+    () => ({
+      nivel3Visible,
+      recargoAcabado2: 0,
+      tarifasProyecto,
+      tarifasFijas: TARIFAS_FIJAS_ARMADO,
+      tarifasBase: TARIFAS_BASE_ARMADO,
+    }),
+    [nivel3Visible, tarifasProyecto]
   );
   const recibo = { ot, prioridad };
 
@@ -212,7 +208,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
   // En banda 'auto' el aceptado sigue al propuesto mientras el estimador no
   // lo toque: no hay nada que negociar, así que no se le pide capturarlo.
   function aceptadoEfectivo(r: Renglon): number {
-    const res = resolver(r, recibo, cfg, historico);
+    const res = resolver(aEntrada(r), recibo, cfg, historico);
     const esManual = res.fuente === "manual" || res.sombra;
     const b = bandaDe(esManual ? null : res.pu, Number(r.propuesto) || 0, esManual);
     if (b.banda === "auto" && !r.tocadoAceptado) return Number(r.propuesto) || 0;
@@ -257,13 +253,14 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
     const renglonesParaDb: RenglonParaGuardar[] = [];
 
     renglones.forEach((r, i) => {
-      const res = resolver(r, recibo, cfg, historico);
+      const res = resolver(aEntrada(r), recibo, cfg, historico);
       const esManual = res.fuente === "manual" || res.sombra;
       if (res.sombra) sombras += 1;
       const b = bandaDe(esManual ? null : res.pu, Number(r.propuesto) || 0, esManual);
       const num = numeroInicial + i;
 
       if (!r.modelo.trim()) problemas.push(`Renglón #${num}: falta el modelo.`);
+      if (!r.tipoArmado) problemas.push(`Renglón #${num}: falta el tipo de armado.`);
       if (!r.familia) problemas.push(`Renglón #${num}: falta la familia.`);
       if (!(Number(r.propuesto) > 0)) problemas.push(`Renglón #${num}: falta el precio propuesto.`);
 
@@ -292,11 +289,12 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
         familia: r.familia,
         tamano: r.tamano,
         cantidad: Number(r.cantidad) || 0,
-        acabado: r.acabado,
-        acabado2: r.acabado2,
+        acabado: "",
+        acabado2: "",
+        tipoArmado: r.tipoArmado,
         tipoTrabajo: r.tipoTrabajo,
         causa: r.causa,
-        fases: r.fases,
+        fases: [],
         nota: r.nota,
         puSugerido: esManual ? null : res.pu,
         fuente: fuenteFinal,
@@ -311,13 +309,14 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
       renglonesParaDb.push({
         modelo: normalizar(r.modelo),
         familia: r.familia,
-        acabado: r.acabado,
-        acabado2: r.acabado2,
+        acabado: "",
+        acabado2: "",
+        tipoArmado: r.tipoArmado,
         tipoTrabajo: r.tipoTrabajo,
         causa: r.causa,
         cantidad: Number(r.cantidad) || 0,
         tamano: r.tamano,
-        fases: r.fases,
+        fases: [],
         puSugerido: esManual ? null : res.pu,
         fuente: fuenteFinal,
         sinTamano: res.sinTamano,
@@ -347,7 +346,8 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
         prioridad,
         motivoPrioridad: motivo,
       },
-      renglonesParaDb
+      renglonesParaDb,
+      "armado"
     );
     setGuardando(false);
 
@@ -357,7 +357,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
     }
 
     const nuevoRecibo: ReciboGuardado = {
-      tipo: "acabados",
+      tipo: "armado",
       folio: folio.trim(),
       fecha,
       contratista,
@@ -369,7 +369,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
       renglones: renglonesGuardados,
     };
     setReciboGuardado(nuevoRecibo);
-    cargarHistoricoDb(supabase).then(setHistoricoDb);
+    cargarHistoricoDb(supabase, "armado").then(setHistoricoDb);
 
     setResultado({
       ok: true,
@@ -386,7 +386,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
     // El PDF sale automáticamente al guardar; espera a que la ficha oculta
     // se monte con los datos nuevos antes de capturarla.
     window.setTimeout(() => {
-      void generarPdfAutomatico(`recibo-acabados-${nuevoRecibo.folio}.pdf`);
+      void generarPdfAutomatico(`recibo-armado-${nuevoRecibo.folio}.pdf`);
     }, 50);
   }
 
@@ -402,7 +402,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Recibo de Acabados
+            Recibo de Armado
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Captura lo que propone el maquilador; el motor sugiere el precio y de dónde sale.
@@ -527,7 +527,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
       {/* ---------- Renglones ---------- */}
       <div className="flex flex-col gap-4">
         {renglones.map((r, idx) => {
-          const res = resolver(r, recibo, cfg, historico);
+          const res = resolver(aEntrada(r), recibo, cfg, historico);
           const esManual = res.fuente === "manual" || res.sombra;
           const sugerido = esManual ? null : res.pu;
           const b = bandaDe(sugerido, Number(r.propuesto) || 0, esManual);
@@ -571,8 +571,8 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
                 </span>
                 {r.colapsado && (
                   <span className="truncate text-sm text-slate-600">
-                    {r.modelo || "sin modelo"} · {r.familia || "sin familia"} ·{" "}
-                    {Number(r.cantidad) || 0} pz
+                    {r.modelo || "sin modelo"} · {r.tipoArmado || "sin tipo de armado"} ·{" "}
+                    {r.familia || "sin familia"} · {Number(r.cantidad) || 0} pz
                     {puedeVerSugerido && (
                       <>
                         {" · "}
@@ -620,6 +620,15 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
                         />
                       </label>
                       <label className="flex flex-col gap-1">
+                        <span className={ETIQUETA}>Tipo de armado</span>
+                        <SelectMenu
+                          value={r.tipoArmado}
+                          onChange={(v) => actualizar(r.id, { tipoArmado: v })}
+                          opciones={comoOpciones(TIPOS_ARMADO)}
+                          vacio="— elegir —"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Familia</span>
                         <SelectMenu
                           value={r.familia}
@@ -641,42 +650,9 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
                           vacio="— sin definir —"
                         />
                       </label>
-                      <label className="flex flex-col gap-1">
-                        <span className={ETIQUETA}>Cantidad</span>
-                        <input
-                          type="number"
-                          min={1}
-                          step={1}
-                          className={CONTROL}
-                          value={r.cantidad}
-                          onChange={(e) =>
-                            actualizar(r.id, {
-                              cantidad: e.target.value === "" ? "" : Number(e.target.value),
-                            })
-                          }
-                        />
-                      </label>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <label className="flex flex-col gap-1">
-                        <span className={ETIQUETA}>Acabado</span>
-                        <SelectMenu
-                          value={r.acabado}
-                          onChange={(v) => actualizar(r.id, { acabado: v })}
-                          opciones={comoOpciones(ACABADOS)}
-                          vacio="— elegir —"
-                        />
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className={ETIQUETA}>Segundo acabado</span>
-                        <SelectMenu
-                          value={r.acabado2}
-                          onChange={(v) => actualizar(r.id, { acabado2: v })}
-                          opciones={comoOpciones(ACABADOS)}
-                          vacio="— ninguno —"
-                        />
-                      </label>
                       <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Trabajo</span>
                         <SelectMenu
@@ -704,37 +680,21 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
                           />
                         </label>
                       )}
-                    </div>
-
-                    <div>
-                      <span className={ETIQUETA}>Fases realizadas</span>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {FASES.map((f) => {
-                          const on = r.fases.includes(f);
-                          return (
-                            <button
-                              key={f}
-                              type="button"
-                              aria-pressed={on}
-                              onClick={() =>
-                                actualizar(r.id, {
-                                  fases: on ? r.fases.filter((x) => x !== f) : [...r.fases, f],
-                                })
-                              }
-                              className={`rounded px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${
-                                on
-                                  ? "bg-slate-900 text-white ring-slate-900"
-                                  : "bg-white text-slate-600 ring-slate-300 hover:bg-slate-50"
-                              }`}
-                            >
-                              {f}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        Solo auditoría: las fases no cambian el precio.
-                      </p>
+                      <label className="flex flex-col gap-1">
+                        <span className={ETIQUETA}>Cantidad</span>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          className={CONTROL}
+                          value={r.cantidad}
+                          onChange={(e) =>
+                            actualizar(r.id, {
+                              cantidad: e.target.value === "" ? "" : Number(e.target.value),
+                            })
+                          }
+                        />
+                      </label>
                     </div>
 
                     <label className="flex flex-col gap-1">
@@ -913,14 +873,14 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
           {reciboGuardado && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Link
-                href={`/estimaciones/recibos/acabados/recibo/${encodeURIComponent(reciboGuardado.folio)}`}
+                href={`/estimaciones/recibos/armado/recibo/${encodeURIComponent(reciboGuardado.folio)}`}
                 className="text-xs font-semibold text-indigo-700 hover:underline"
               >
                 Ver ficha de seguimiento →
               </Link>
               {!generandoPdf && (
                 <DescargarPdfButton
-                  nombreArchivo={`recibo-acabados-${reciboGuardado.folio}.pdf`}
+                  nombreArchivo={`recibo-armado-${reciboGuardado.folio}.pdf`}
                   selector="[data-ficha-oculta] [data-informe]"
                   etiqueta="Descargar PDF de nuevo"
                 />
@@ -939,11 +899,11 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
           className="pointer-events-none fixed left-0 top-0 -z-10 opacity-0"
           aria-hidden="true"
         >
-          <ReciboFicha
+          <ReciboFichaArmado
             recibo={reciboGuardado}
             qrUrl={
               typeof window !== "undefined"
-                ? `${window.location.origin}/estimaciones/recibos/acabados/recibo/${encodeURIComponent(reciboGuardado.folio)}`
+                ? `${window.location.origin}/estimaciones/recibos/armado/recibo/${encodeURIComponent(reciboGuardado.folio)}`
                 : ""
             }
           />
@@ -971,17 +931,6 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
                     onChange={(e) => setNivel3Visible(e.target.checked)}
                   />
                   Mostrar el nivel 3 (estimado por familia)
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className={ETIQUETA}>Recargo por segundo acabado</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={10}
-                    className={`${CONTROL} tabular-nums`}
-                    value={recargoAcabado2}
-                    onChange={(e) => setRecargoAcabado2(Number(e.target.value) || 0)}
-                  />
                 </label>
               </div>
 
@@ -1021,14 +970,21 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
                 </p>
               </div>
 
+              {Object.keys(TARIFAS_FIJAS_ARMADO).length + Object.keys(TARIFAS_BASE_ARMADO).length === 0 && (
+                <p className="text-xs text-slate-500">
+                  Armado todavía no tiene tarifas propias: el precio sugerido sale solo de precedentes
+                  (mismo modelo y tipo de armado). Sin precedente, el precio se fija y se justifica.
+                </p>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <TablaParametro
                   titulo="Tarifas fijas"
-                  filas={Object.entries(TARIFAS_FIJAS).map(([k, v]) => [k, money(v)])}
+                  filas={Object.entries(TARIFAS_FIJAS_ARMADO).map(([k, v]) => [k, money(v)])}
                 />
                 <TablaParametro
                   titulo="Tarifas base por familia"
-                  filas={Object.entries(TARIFAS_BASE).map(([k, v]) => [k, money(v)])}
+                  filas={Object.entries(TARIFAS_BASE_ARMADO).map(([k, v]) => [k, money(v)])}
                 />
                 <TablaParametro
                   titulo="Escalón de volumen"
