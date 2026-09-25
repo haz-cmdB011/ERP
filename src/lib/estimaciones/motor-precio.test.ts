@@ -37,13 +37,20 @@ function entrada(cambios: Partial<EntradaRenglon>): EntradaRenglon {
   };
 }
 
-// En Armado el tipo de armado viaja en el campo `acabado` del histórico.
-function historicoArmado(modelo: string, tipo: string, aceptado: number, fecha: string): RenglonHistorico {
+// En Armado el tipo de armado viaja en `acabado` y la colocación de herrajes
+// ("Sí" / "No") en `acabado2` del histórico.
+function historicoArmado(
+  modelo: string,
+  tipo: string,
+  aceptado: number,
+  fecha: string,
+  herrajes: "Sí" | "No" = "No"
+): RenglonHistorico {
   return {
     modelo,
     familia: "Puerta",
     acabado: tipo,
-    acabado2: "",
+    acabado2: herrajes,
     cantidad: 1,
     propuesto: aceptado,
     aceptado,
@@ -88,6 +95,18 @@ describe("Armado: motor propio", () => {
     expect(precedenteDe("P-1", historico, "Colocación de herrajes")).toBeNull();
   });
 
+  it("la colocación de herrajes (Sí / No) también distingue el precedente", () => {
+    const historico = [
+      historicoArmado("P-1", "Natural", 300, "2026-01-10", "No"),
+      historicoArmado("P-1", "Natural", 380, "2026-02-10", "Sí"),
+    ];
+    expect(precedenteDe("P-1", historico, "Natural", false)?.aceptado).toBe(300);
+    expect(precedenteDe("P-1", historico, "Natural", true)?.aceptado).toBe(380);
+    // Sin indicar herrajes no se filtra por eso (comportamiento de Acabados).
+    expect(precedenteDe("P-1", historico, "Natural")?.aceptado).toBe(380); // el más reciente
+    expect(precedenteDe("P-2", historico, "Natural", true)).toBeNull();
+  });
+
   it("sin tipo de armado, el precedente sigue siendo por modelo (Acabados)", () => {
     const historico = [
       historicoArmado("P-1", "Laca Mate", 100, "2026-01-10"),
@@ -99,7 +118,13 @@ describe("Armado: motor propio", () => {
   it("resuelve por precedente ajustando por volumen y prioridad", () => {
     const historico = [historicoArmado("P-1", "Natural", 300, "2026-01-10")];
     const res = resolver(
-      entrada({ modelo: "P-1", cantidad: 4, acabado: "Natural", tipoArmado: "Natural" }),
+      entrada({
+        modelo: "P-1",
+        cantidad: 4,
+        acabado: "Natural",
+        tipoArmado: "Natural",
+        herrajes: false,
+      }),
       { ot: "", prioridad: "urgente" },
       CFG_ARMADO,
       historico

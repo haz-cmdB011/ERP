@@ -57,8 +57,10 @@ export interface EntradaRenglon {
   acabado: string;
   acabado2: string;
   // Solo en recibos de Armado: el precedente se busca por modelo Y tipo de
-  // armado (el mismo modelo cuesta distinto en Natural que en Laminado).
+  // armado (el mismo modelo cuesta distinto en Natural que en Laminado) y
+  // colocación de herrajes.
   tipoArmado?: string;
+  herrajes?: boolean;
 }
 
 export interface EntradaRecibo {
@@ -105,17 +107,26 @@ export function fechaCorta(iso: string): string {
 // maquilador va a repetir, no el promedio histórico. `historico` incluye el
 // histórico real más los recibos que se hayan guardado en esta sesión, para
 // que un recibo recién guardado ya sirva de precedente al siguiente.
+// En el histórico de Armado, la colocación de herrajes viaja como "Sí" / "No"
+// en el campo `acabado2` (y el tipo de armado en `acabado`).
+export const HERRAJES_SI = "Sí";
+export const HERRAJES_NO = "No";
+
 export function precedenteDe(
   modelo: string,
   historico: RenglonHistorico[],
-  tipoArmado?: string
+  tipoArmado?: string,
+  herrajes?: boolean
 ): RenglonHistorico | null {
   const m = normalizar(modelo);
-  // En Armado el tipo de armado viaja en el campo `acabado` del histórico.
   const t = tipoArmado ? normalizar(tipoArmado) : null;
+  const hz = herrajes === undefined ? null : normalizar(herrajes ? HERRAJES_SI : HERRAJES_NO);
   const prev = historico.filter(
     (h) =>
-      normalizar(h.modelo) === m && h.aceptado > 0 && (t === null || normalizar(h.acabado) === t)
+      normalizar(h.modelo) === m &&
+      h.aceptado > 0 &&
+      (t === null || normalizar(h.acabado) === t) &&
+      (hz === null || normalizar(h.acabado2) === hz)
   );
   if (!prev.length) return null;
   prev.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
@@ -146,7 +157,7 @@ export function resolver(
     out.fuente = "tarifa_fija";
     out.detalle = `${r.familia} · sin negociación`;
   } else {
-    const p = modeloN ? precedenteDe(modeloN, historico, r.tipoArmado) : null;
+    const p = modeloN ? precedenteDe(modeloN, historico, r.tipoArmado, r.herrajes) : null;
     if (p) {
       out.pu = r2((p.aceptado * factorVolumen(r.cantidad)) / factorVolumen(p.cantidad));
       out.fuente = "precedente";

@@ -2,7 +2,9 @@
 // de volumen y prioridad de Acabados (datos-acabados.ts); aquí solo va lo que
 // es propio del armado.
 
-export const TIPOS_ARMADO = ["Natural", "Laminado", "Colocación de herrajes"] as const;
+// La colocación de herrajes no es un tipo de armado: es una opción aparte
+// (Sí / No) que se combina con cualquiera de estos.
+export const TIPOS_ARMADO = ["Natural", "Laminado"] as const;
 export type TipoArmado = (typeof TIPOS_ARMADO)[number];
 
 // Armado arranca sin tarifas propias: las de Acabados (Zoclo $20, Puerta $700…)

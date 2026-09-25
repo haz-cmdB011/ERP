@@ -87,7 +87,10 @@ export default function ReciboFichaArmado({
             <tr key={r.numero} className="border-b border-slate-100 align-top">
               <td className="py-1 pr-1 font-mono">{r.numero}</td>
               <td className="py-1 pr-1 font-mono">{r.modelo}</td>
-              <td className="py-1 pr-1">{r.tipoArmado || "—"}</td>
+              <td className="py-1 pr-1">
+                {r.tipoArmado || "—"}
+                {r.colocacionHerrajes ? " + herrajes" : ""}
+              </td>
               <td className="py-1 pr-1">{r.familia}</td>
               <td className="py-1 pr-1 text-right">{r.cantidad}</td>
               <td className="py-1 pr-1 text-right">{money(r.propuesto)}</td>

@@ -52,6 +52,8 @@ interface Renglon {
   tamano: string;
   cantidad: number | "";
   tipoArmado: string;
+  // "si" | "no": colocación de herrajes (opción aparte del tipo de armado).
+  colocacionHerrajes: "si" | "no";
   tipoTrabajo: "produccion" | "reproceso";
   causa: string;
   propuesto: number | "";
@@ -72,6 +74,7 @@ function nuevoRenglon(pre: Partial<Renglon> = {}): Renglon {
     tamano: "",
     cantidad: 1,
     tipoArmado: "",
+    colocacionHerrajes: "no",
     tipoTrabajo: "produccion",
     causa: "",
     propuesto: 0,
@@ -110,6 +113,7 @@ function aEntrada(r: Renglon): EntradaRenglon {
     acabado: r.tipoArmado,
     acabado2: "",
     tipoArmado: r.tipoArmado,
+    herrajes: r.colocacionHerrajes === "si",
   };
 }
 
@@ -292,6 +296,7 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
         acabado: "",
         acabado2: "",
         tipoArmado: r.tipoArmado,
+        colocacionHerrajes: r.colocacionHerrajes === "si",
         tipoTrabajo: r.tipoTrabajo,
         causa: r.causa,
         fases: [],
@@ -312,6 +317,7 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
         acabado: "",
         acabado2: "",
         tipoArmado: r.tipoArmado,
+        colocacionHerrajes: r.colocacionHerrajes === "si",
         tipoTrabajo: r.tipoTrabajo,
         causa: r.causa,
         cantidad: Number(r.cantidad) || 0,
@@ -571,7 +577,8 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
                 </span>
                 {r.colapsado && (
                   <span className="truncate text-sm text-slate-600">
-                    {r.modelo || "sin modelo"} · {r.tipoArmado || "sin tipo de armado"} ·{" "}
+                    {r.modelo || "sin modelo"} · {r.tipoArmado || "sin tipo de armado"}
+                    {r.colocacionHerrajes === "si" ? " + herrajes" : ""} ·{" "}
                     {r.familia || "sin familia"} · {Number(r.cantidad) || 0} pz
                     {puedeVerSugerido && (
                       <>
@@ -629,6 +636,19 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
                         />
                       </label>
                       <label className="flex flex-col gap-1">
+                        <span className={ETIQUETA}>Colocación de herrajes</span>
+                        <SelectMenu
+                          value={r.colocacionHerrajes}
+                          onChange={(v) =>
+                            actualizar(r.id, { colocacionHerrajes: v as Renglon["colocacionHerrajes"] })
+                          }
+                          opciones={[
+                            { value: "no", label: "No" },
+                            { value: "si", label: "Sí" },
+                          ]}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Familia</span>
                         <SelectMenu
                           value={r.familia}
@@ -637,6 +657,9 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
                           vacio="— elegir —"
                         />
                       </label>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Tamaño</span>
                         <SelectMenu
@@ -650,9 +673,6 @@ export default function CapturaArmado({ puedeVerSugerido }: { puedeVerSugerido: 
                           vacio="— sin definir —"
                         />
                       </label>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Trabajo</span>
                         <SelectMenu
