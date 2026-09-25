@@ -3,9 +3,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
-import { colorFilaEstadoRevision, type EstadoRevision } from "@/lib/planeacion/estado-revision";
-import EstadoRevisionSelect from "./estado-revision-select";
-import { ESTADO_REVISION_LABELS } from "@/lib/planeacion/estado-revision";
+import type { EstadoRevision } from "@/lib/planeacion/estado-revision";
+import ItemsTabla, { type MuebleTabla } from "./items-tabla";
 
 interface VersionRow {
   id: string;
@@ -41,10 +40,10 @@ export default async function PedidoDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ version?: string }>;
+  searchParams: Promise<{ version?: string; modelo?: string }>;
 }) {
   const { id } = await params;
-  const { version } = await searchParams;
+  const { version, modelo } = await searchParams;
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
   const puedeEditar = puedeEditarPlaneacion(perfil);
@@ -95,7 +94,6 @@ export default async function PedidoDetailPage({
   const itemIds = (items ?? []).map((i) => i.id);
   const imagenesPorItem = await getImagenesPorItem(supabase, itemIds);
 
-  const mo = items?.filter((i) => i.tipo_registro === "MO") ?? [];
   const fuPorPadre = new Map<string, ItemRow[]>();
   for (const item of items ?? []) {
     if (item.tipo_registro === "FU" && item.parent_item_id) {
@@ -104,6 +102,9 @@ export default async function PedidoDetailPage({
       fuPorPadre.set(item.parent_item_id, lista);
     }
   }
+  const muebles: MuebleTabla[] = (items ?? [])
+    .filter((i) => i.tipo_registro === "MO")
+    .map((m) => ({ ...m, hijos: fuPorPadre.get(m.id) ?? [] }));
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
@@ -151,94 +152,14 @@ export default async function PedidoDetailPage({
         <p className="text-sm text-gray-600">Este pedido no tiene versiones.</p>
       )}
 
-      {mo.length > 0 && (
-        <div className="flex flex-col gap-4">
-          {mo.map((m) => (
-            <div key={m.id} className="rounded border border-gray-200 p-3">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-gray-400">
-                    <th className="py-1 pr-2">Imagen</th>
-                    <th className="py-1 pr-2">Item</th>
-                    <th className="py-1 pr-2">Modelo</th>
-                    <th className="py-1 pr-2">Material</th>
-                    <th className="py-1 pr-2">Descripción</th>
-                    <th className="py-1 pr-2">Cant.</th>
-                    <th className="py-1 pr-2">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className={`text-sm font-medium ${colorFilaEstadoRevision(m.estado_revision)}`}>
-                    <td className="py-1 pr-2">
-                      <ImagenesItem urls={imagenesPorItem.get(m.id) ?? []} />
-                    </td>
-                    <td className="py-1 pr-2">{m.item_code}</td>
-                    <td className="py-1 pr-2">{m.modelo}</td>
-                    <td className="py-1 pr-2">{m.tipo_material}</td>
-                    <td className="py-1 pr-2">{m.descripcion}</td>
-                    <td className="py-1 pr-2">
-                      {m.cantidad_total} {m.unidad}
-                    </td>
-                    <td className="py-1 pr-2">
-                      <EstadoCelda itemId={m.id} estado={m.estado_revision} puedeEditar={puedeEditar} />
-                    </td>
-                  </tr>
-                  {(fuPorPadre.get(m.id) ?? []).map((f) => (
-                    <tr
-                      key={f.id}
-                      className={`border-t border-gray-100 ${colorFilaEstadoRevision(f.estado_revision)}`}
-                    >
-                      <td className="py-1 pr-2">
-                        <ImagenesItem urls={imagenesPorItem.get(f.id) ?? []} />
-                      </td>
-                      <td className="py-1 pr-2">{f.item_code}</td>
-                      <td className="py-1 pr-2">{f.modelo}</td>
-                      <td className="py-1 pr-2">{f.tipo_material}</td>
-                      <td className="py-1 pr-2">
-                        {f.descripcion?.split("\n")[0]}
-                      </td>
-                      <td className="py-1 pr-2">
-                        {f.cantidad_total} {f.unidad}
-                      </td>
-                      <td className="py-1 pr-2">
-                        <EstadoCelda itemId={f.id} estado={f.estado_revision} puedeEditar={puedeEditar} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-        </div>
+      {muebles.length > 0 && (
+        <ItemsTabla
+          muebles={muebles}
+          imagenesPorItem={Object.fromEntries(imagenesPorItem)}
+          puedeEditar={puedeEditar}
+          filtroInicial={modelo ?? ""}
+        />
       )}
     </main>
-  );
-}
-
-function EstadoCelda({
-  itemId,
-  estado,
-  puedeEditar,
-}: {
-  itemId: string;
-  estado: EstadoRevision;
-  puedeEditar: boolean;
-}) {
-  if (puedeEditar) {
-    return <EstadoRevisionSelect itemId={itemId} estadoActual={estado} />;
-  }
-  if (!estado) return <span className="text-gray-400">—</span>;
-  return <span>{ESTADO_REVISION_LABELS[estado]}</span>;
-}
-
-function ImagenesItem({ urls }: { urls: string[] }) {
-  if (urls.length === 0) return null;
-  return (
-    <div className="flex gap-1">
-      {urls.map((url) => (
-        // eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image
-        <img key={url} src={url} alt="" className="h-10 w-10 rounded object-cover" />
-      ))}
-    </div>
   );
 }
