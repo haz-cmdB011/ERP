@@ -29,9 +29,9 @@ export default function PasswordStrengthMeter({ password }: { password: string }
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+      <div className="h-1.5 w-full overflow-hidden rounded bg-gray-200">
         <div
-          className="h-full rounded-full transition-all"
+          className="h-full rounded transition-all"
           style={{
             width: `${porcentaje}%`,
             backgroundColor: password ? nivel.color : "transparent",

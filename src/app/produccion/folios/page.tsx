@@ -288,7 +288,7 @@ export default async function BuscarFolioPage({
           <Link
             key={valor}
             href={hrefFiltro(valor)}
-            className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+            className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -342,12 +342,12 @@ export default async function BuscarFolioPage({
                 const unidad = item?.unidad ?? f.unidad;
                 return (
                   <tr key={f.id} className="align-top transition-colors hover:bg-slate-50">
-                    <td className="px-3 py-2 font-mono text-sm font-semibold text-slate-900">
+                    <td className="px-3 py-2 font-mono text-sm text-slate-900">
                       {f.folio}
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-1 font-medium ${TONOS[est.tono]}`}
+                        className={`inline-flex items-center rounded border px-2.5 py-1 font-medium ${TONOS[est.tono]}`}
                       >
                         {est.etiqueta}
                       </span>
@@ -387,7 +387,7 @@ export default async function BuscarFolioPage({
                         return (
                           <>
                             <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                              className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${
                                 ultimo.aprobado ? TONOS.emerald : TONOS.rose
                               }`}
                             >

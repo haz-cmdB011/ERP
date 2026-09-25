@@ -23,7 +23,7 @@ export default async function RegistroRecibosPage() {
           </p>
         </div>
         {recibos.length > 0 && (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {recibos.length} recibo{recibos.length === 1 ? "" : "s"}
           </span>
         )}
@@ -74,7 +74,7 @@ export default async function RegistroRecibosPage() {
                       {r.prioridad === "normal" ? (
                         <span className="text-slate-400">Normal</span>
                       ) : (
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium capitalize text-amber-700 ring-1 ring-amber-200">
+                        <span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium capitalize text-amber-700 ring-1 ring-amber-200">
                           {r.prioridad}
                         </span>
                       )}
@@ -84,7 +84,7 @@ export default async function RegistroRecibosPage() {
                       {r.numPendientes > 0 && (
                         <span
                           title="Renglones pendientes de revisión"
-                          className="ml-1.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200"
+                          className="ml-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200"
                         >
                           {r.numPendientes} pend.
                         </span>

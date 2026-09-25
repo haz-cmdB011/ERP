@@ -163,7 +163,7 @@ export default function CancelarPedido({
     <button
       type="button"
       onClick={() => setPidiendoMotivo(true)}
-      className="w-fit rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100"
+      className="w-fit rounded border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100"
     >
       Cancelar pedido
     </button>

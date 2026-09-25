@@ -408,7 +408,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
           </p>
         </div>
         {puedeVerSugerido && (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {nivel3Visible ? "Nivel 3 visible" : "Nivel 3 en sombra"}
           </span>
         )}
@@ -576,7 +576,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
                       <>
                         {" · "}
                         <span
-                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
                         >
                           {BANDA_NOMBRE[b.banda]}
                         </span>
@@ -720,7 +720,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
                                   fases: on ? r.fases.filter((x) => x !== f) : [...r.fases, f],
                                 })
                               }
-                              className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${
+                              className={`rounded px-2.5 py-1 text-xs font-medium ring-1 transition-colors ${
                                 on
                                   ? "bg-slate-900 text-white ring-slate-900"
                                   : "bg-white text-slate-600 ring-slate-300 hover:bg-slate-50"
@@ -836,7 +836,7 @@ export default function CapturaAcabados({ puedeVerSugerido }: { puedeVerSugerido
 
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
+                          className={`rounded px-2.5 py-1 text-xs font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
                         >
                           {BANDA_NOMBRE[b.banda]}
                         </span>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
+import ResultadosMuebles from "./resultados-muebles";
 
 interface PedidoRow {
   id: string;
@@ -11,8 +13,17 @@ interface PedidoRow {
   pedido_versiones: { id: string; numero_version: number; es_version_activa: boolean }[];
 }
 
-export default async function ProduccionListPage() {
+export default async function ProduccionListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const consulta = (q ?? "").trim();
   const supabase = await createClient();
+
+  // Con texto en el buscador se muestran muebles/modelos de todos los pedidos.
+  const busqueda = consulta ? await buscarMuebles(supabase, consulta) : null;
 
   const { data: pedidos, error } = await supabase
     .from("pedidos")
@@ -35,11 +46,65 @@ export default async function ProduccionListPage() {
           </p>
         </div>
         {pedidos && pedidos.length > 0 && (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {pedidos.length} pedido{pedidos.length === 1 ? "" : "s"}
           </span>
         )}
       </div>
+
+      {/* Buscador de muebles y modelos entre todos los pedidos: primero el
+          mueble (ítem padre); al hacer clic se despliegan sus componentes. */}
+      <form method="get" action="/produccion" className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-md">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input
+            type="search"
+            name="q"
+            defaultValue={consulta}
+            placeholder="Buscar mueble o modelo (ej. pérgola, PG-01, PRD-000123)"
+            autoComplete="off"
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+          />
+        </div>
+        <button
+          type="submit"
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+        >
+          Buscar
+        </button>
+        {consulta && (
+          <Link href="/produccion" className="text-sm text-slate-500 underline hover:text-slate-700">
+            Limpiar
+          </Link>
+        )}
+      </form>
+
+      {busqueda && (
+        <section className="flex flex-col gap-3">
+          <p className="text-sm text-slate-600">
+            {busqueda.totalGrupos === 0
+              ? `Ningún mueble ni modelo coincide con "${consulta}".`
+              : `${busqueda.totalGrupos} mueble${busqueda.totalGrupos === 1 ? "" : "s"} encontrado${
+                  busqueda.totalGrupos === 1 ? "" : "s"
+                } para "${consulta}"${
+                  busqueda.truncado ? " — se muestran los primeros 40, afina la búsqueda para ver el resto" : ""
+                }. Haz clic en un mueble para ver sus componentes.`}
+          </p>
+          {busqueda.grupos.length > 0 && <ResultadosMuebles grupos={busqueda.grupos} />}
+        </section>
+      )}
 
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -47,13 +112,13 @@ export default async function ProduccionListPage() {
         </p>
       )}
 
-      {!error && (!pedidos || pedidos.length === 0) && (
+      {!busqueda && !error && (!pedidos || pedidos.length === 0) && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Todavía no hay pedidos cargados.
         </p>
       )}
 
-      {pedidos && pedidos.length > 0 && (
+      {!busqueda && pedidos && pedidos.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead>
@@ -83,7 +148,7 @@ export default async function ProduccionListPage() {
                     <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
                     <td className="px-4 py-3">
                       {activa ? (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                        <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
                           #{activa.numero_version}
                         </span>
                       ) : (

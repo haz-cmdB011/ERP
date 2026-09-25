@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/confirm-dialog";
 import ImagenAmpliable from "@/components/imagen-ampliable";
+import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 
 export interface ItemLiberacionRow {
@@ -351,15 +352,15 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-emerald-700">
+          <IconoCheck />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
-        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-slate-500">
+        <IconoReloj />
         Pendiente
       </span>
     );
@@ -465,7 +466,7 @@ export default function ItemsLiberacionTable({
         <td className="px-3 py-2">
           {item.folio ? (
             <span
-              className="whitespace-nowrap font-mono text-xs font-semibold text-slate-800"
+              className="whitespace-nowrap font-mono text-xs text-slate-800"
               title="Folio único de producción"
             >
               {item.folio}
@@ -481,7 +482,7 @@ export default function ItemsLiberacionTable({
             href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
             title="Viajero"
             aria-label={`Viajero del ítem ${item.item_code}`}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
+            className="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
           >
             {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
             <svg
@@ -504,7 +505,8 @@ export default function ItemsLiberacionTable({
               onClick={() => setConfirmacion({ tipo: "solicitar", item })}
               disabled={procesando}
               title="Enviar a la papelera"
-              className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+              aria-label={`Enviar el ítem ${item.item_code} a la papelera`}
+              className="flex h-8 w-8 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -521,7 +523,6 @@ export default function ItemsLiberacionTable({
                 <path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                 <path d="M10 11v6M14 11v6" />
               </svg>
-              Papelera
             </button>
           )}
         </td>
@@ -552,7 +553,7 @@ export default function ItemsLiberacionTable({
               setVistaPapelera(false);
               setFiltroEstado(valor);
             }}
-            className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+            className={`rounded border px-3 py-1 font-medium transition-colors ${
               !vistaPapelera && filtroEstado === valor
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -565,7 +566,7 @@ export default function ItemsLiberacionTable({
           <button
             type="button"
             onClick={() => setVistaPapelera((v) => !v)}
-            className={`ml-auto rounded-full border px-3 py-1 font-medium transition-colors ${
+            className={`ml-auto rounded border px-3 py-1 font-medium transition-colors ${
               vistaPapelera
                 ? "border-rose-600 bg-rose-600 text-white"
                 : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
@@ -633,7 +634,7 @@ export default function ItemsLiberacionTable({
                               type="button"
                               onClick={() => cancelarSolicitud(item)}
                               disabled={procesando}
-                              className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50"
+                              className="rounded border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50"
                             >
                               Restaurar
                             </button>
@@ -643,7 +644,7 @@ export default function ItemsLiberacionTable({
                               type="button"
                               onClick={() => setConfirmacion({ tipo: "definitivo", item })}
                               disabled={procesando}
-                              className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                              className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
                             >
                               Eliminar definitivamente
                             </button>
@@ -715,7 +716,7 @@ export default function ItemsLiberacionTable({
             <button
               type="button"
               onClick={() => setFiltroMaterial(null)}
-              className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+              className={`rounded border px-3 py-1 font-medium transition-colors ${
                 filtroMaterial === null
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -728,7 +729,7 @@ export default function ItemsLiberacionTable({
                 key={mat}
                 type="button"
                 onClick={() => setFiltroMaterial(mat)}
-                className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+                className={`rounded border px-3 py-1 font-medium transition-colors ${
                   filtroMaterial === mat
                     ? "border-slate-900 bg-slate-900 text-white"
                     : "border-slate-200 text-slate-600 hover:bg-slate-50"

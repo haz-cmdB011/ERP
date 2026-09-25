@@ -126,7 +126,7 @@ export default function ImagenAmpliable({
 
   const fuente = urlGrande && !grandeFalla ? urlGrande : url;
   const botonControl =
-    "flex h-9 min-w-9 items-center justify-center rounded-full bg-white/90 px-2 text-lg font-semibold text-slate-800 shadow hover:bg-white";
+    "flex h-9 min-w-9 items-center justify-center rounded bg-white/90 px-2 text-lg font-semibold text-slate-800 shadow hover:bg-white";
 
   return (
     <>
@@ -192,7 +192,7 @@ export default function ImagenAmpliable({
             >
               −
             </button>
-            <span className="min-w-12 rounded-full bg-black/50 px-2 py-1 text-center text-xs font-medium text-white">
+            <span className="min-w-12 rounded bg-black/50 px-2 py-1 text-center text-xs font-medium text-white">
               {Math.round(vista.escala * 100)}%
             </span>
             <button
@@ -224,7 +224,7 @@ export default function ImagenAmpliable({
             </button>
           </div>
 
-          <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-xs text-white/90">
+          <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/55 px-3 py-1 text-xs text-white/90">
             Rueda del mouse: zoom · Arrastra: mover · Doble clic: acercar · Esc: cerrar
           </p>
         </div>

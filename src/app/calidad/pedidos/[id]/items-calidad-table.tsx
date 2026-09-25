@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ImagenAmpliable from "@/components/imagen-ampliable";
+import { IconoCancelado, IconoCheck, IconoReloj, IconoX } from "@/components/iconos-estado";
 import { DIAS_ANTIGUEDAD_ALERTA } from "./antiguedad";
 
 export interface InformeResumen {
@@ -180,8 +181,8 @@ export default function ItemsCalidadTable({
     if (item.estadoRevision === "cancelado") {
       return (
         <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500">
+            <IconoCancelado />
             Cancelado
           </span>
           {item.motivoCancelacion && (
@@ -199,13 +200,11 @@ export default function ItemsCalidadTable({
       return (
         <div>
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
-              antiguo
-                ? "border-amber-200 bg-amber-50 text-amber-700"
-                : "border-slate-200 bg-slate-50 text-slate-600"
+            className={`inline-flex items-center gap-1.5 text-sm font-medium ${
+              antiguo ? "text-amber-600" : "text-slate-500"
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${antiguo ? "bg-amber-500" : "bg-slate-300"}`} />
+            <IconoReloj />
             Sin evaluar
           </span>
           {antiguo && (
@@ -216,17 +215,16 @@ export default function ItemsCalidadTable({
         </div>
       );
     }
-    const clase = ultimo.aprobado
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : "border-rose-200 bg-rose-50 text-rose-700";
-    const punto = ultimo.aprobado ? "bg-emerald-500" : "bg-rose-500";
     return (
       <div>
         <Link
           href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 ${clase}`}
+          title="Ver informe"
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium hover:underline ${
+            ultimo.aprobado ? "text-emerald-700" : "text-rose-700"
+          }`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${punto}`} />
+          {ultimo.aprobado ? <IconoCheck /> : <IconoX />}
           {ultimo.aprobado ? "Aprobado" : "No aprobado"}
         </Link>
         {!ultimo.aprobado && ultimo.descripcion && (
@@ -257,7 +255,7 @@ export default function ItemsCalidadTable({
         <Link
           href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
           title="Ver informe"
-          className="whitespace-nowrap font-mono text-xs font-semibold text-slate-800 hover:text-indigo-600 hover:underline"
+          className="whitespace-nowrap font-mono text-xs text-slate-800 hover:text-indigo-600 hover:underline"
         >
           {ultimo.folio}
         </Link>
@@ -350,23 +348,12 @@ export default function ItemsCalidadTable({
                   disabled={procesandoId === item.id}
                   title={procesandoId === item.id ? "Generando informe..." : "Aprobar"}
                   aria-label={`Aprobar ítem ${item.item_code}`}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                  className="flex h-8 w-8 items-center justify-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
                 >
                   {procesandoId === item.id ? (
                     <span className="text-xs font-semibold">…</span>
                   ) : (
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4"
-                      aria-hidden="true"
-                    >
-                      <path d="m5 12.5 4.5 4.5L19 7.5" />
-                    </svg>
+                    <IconoCheck />
                   )}
                 </button>
                 <button
@@ -375,20 +362,9 @@ export default function ItemsCalidadTable({
                   disabled={procesandoId === item.id}
                   title="No aprobar"
                   aria-label={`No aprobar ítem ${item.item_code}`}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                  className="flex h-8 w-8 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4"
-                    aria-hidden="true"
-                  >
-                    <path d="M6 6l12 12M18 6 6 18" />
-                  </svg>
+                  <IconoX />
                 </button>
               </>
             )}
@@ -415,7 +391,7 @@ export default function ItemsCalidadTable({
               key={valor}
               type="button"
               onClick={() => setFiltroCalidad(valor)}
-              className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+              className={`rounded border px-3 py-1 font-medium transition-colors ${
                 filtroCalidad === valor
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
