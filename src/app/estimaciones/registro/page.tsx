@@ -1,15 +1,23 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { listarRecibos } from "@/lib/estimaciones/recibos-db";
+import { compararFolios, listarRecibos } from "@/lib/estimaciones/recibos-db";
+import { listarRecibosElectrificacion } from "@/lib/estimaciones/recibos-electrificacion-db";
 import { money, fechaCorta } from "@/lib/estimaciones/motor-precio";
 
-// Registro de recibos: todos los recibos de Acabados guardados, ordenados
+// Registro de recibos: todos los recibos de Acabados y Electrificación, ordenados
 // por folio de menor a mayor (numéricos primero, en orden; los que llevan
 // letras o guiones van después). RLS ya filtra por is_estimaciones(), así
 // que quien no tiene acceso al área simplemente ve la lista vacía.
 export default async function RegistroRecibosPage() {
   const supabase = await createClient();
-  const recibos = await listarRecibos(supabase);
+  const [acabados, electrificacion] = await Promise.all([
+    listarRecibos(supabase),
+    listarRecibosElectrificacion(supabase),
+  ]);
+  const recibos = [
+    ...acabados.map((r) => ({ ...r, tipo: "acabados" as const })),
+    ...electrificacion.map((r) => ({ ...r, tipo: "electrificacion" as const })),
+  ].sort((a, b) => compararFolios(a.folio, b.folio) || a.tipo.localeCompare(b.tipo));
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
@@ -19,7 +27,7 @@ export default async function RegistroRecibosPage() {
             Registro de recibos
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Recibos de maquila de Acabados, ordenados por folio.
+            Recibos de maquila de Acabados y Electrificación, ordenados por folio.
           </p>
         </div>
         {recibos.length > 0 && (
@@ -41,6 +49,7 @@ export default async function RegistroRecibosPage() {
             <thead>
               <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-3">Folio</th>
+                <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Fecha</th>
                 <th className="px-4 py-3">Contratista</th>
                 <th className="px-4 py-3">Obra</th>
@@ -57,14 +66,17 @@ export default async function RegistroRecibosPage() {
                 const recorte = r.totalPropuesto - r.totalAceptado;
                 const recortePct = r.totalPropuesto > 0 ? (recorte / r.totalPropuesto) * 100 : 0;
                 return (
-                  <tr key={r.folio} className="transition-colors hover:bg-slate-50">
+                  <tr key={`${r.tipo}-${r.folio}`} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/estimaciones/recibos/acabados/recibo/${encodeURIComponent(r.folio)}`}
+                        href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}
                         className="font-mono font-medium text-slate-900 hover:text-indigo-600 hover:underline"
                       >
                         {r.folio}
                       </Link>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {r.tipo === "acabados" ? "Acabados" : "Electrificación"}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{fechaCorta(r.fecha)}</td>
                     <td className="px-4 py-3 text-slate-700">{r.contratista || "—"}</td>
