@@ -36,6 +36,9 @@ export default async function PlaneacionLayout({
         <Link href="/planeacion/upload" className="text-gray-600 hover:text-black">
           Cargar Excel
         </Link>
+        <Link href="/planeacion/cancelados" className="text-gray-600 hover:text-black">
+          Cancelados
+        </Link>
       </AreaNav>
       {children}
     </div>

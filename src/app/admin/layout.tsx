@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
@@ -31,7 +32,14 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen">
-      <AreaNav area="usuarios" email={user.email ?? ""} esDesarrollador />
+      <AreaNav area="usuarios" email={user.email ?? ""} esDesarrollador>
+        <Link href="/admin/usuarios" className="text-gray-600 hover:text-black">
+          Usuarios
+        </Link>
+        <Link href="/admin/auditoria" className="text-gray-600 hover:text-black">
+          Auditoría
+        </Link>
+      </AreaNav>
       {children}
     </div>
   );

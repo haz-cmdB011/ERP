@@ -19,7 +19,7 @@ interface VersionRow {
   } | null;
 }
 
-type ItemRow = ItemLiberacionRow;
+type ItemRow = Omit<ItemLiberacionRow, "folio">;
 
 export default async function PedidoProduccionPage({
   params,
@@ -55,7 +55,9 @@ export default async function PedidoProduccionPage({
 
   const { data: pedido } = await supabase
     .from("pedidos")
-    .select("id, numero_pedido, fecha_pedido, fecha_entrega, estado, proyectos ( nombre, cliente )")
+    .select(
+      "id, numero_pedido, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente )"
+    )
     .eq("id", id)
     .maybeSingle<{
       id: string;
@@ -63,10 +65,14 @@ export default async function PedidoProduccionPage({
       fecha_pedido: string | null;
       fecha_entrega: string | null;
       estado: string;
+      eliminado_en: string | null;
       proyectos: { nombre: string; cliente: string } | null;
     }>();
 
-  if (!pedido) {
+  // Un pedido eliminado (papelera de Planeación) deja de existir para
+  // Producción — en cuanto se restaure desde Planeación, vuelve a
+  // aparecer como un pedido normal sin ningún paso extra.
+  if (!pedido || pedido.eliminado_en) {
     notFound();
   }
 
@@ -85,7 +91,7 @@ export default async function PedidoProduccionPage({
     versiones?.[0] ||
     null;
 
-  const { data: items } = versionSeleccionada
+  const { data: itemsBase } = versionSeleccionada
     ? await supabase
         .from("planeacion_items")
         .select(
@@ -96,31 +102,50 @@ export default async function PedidoProduccionPage({
         .returns<ItemRow[]>()
     : { data: null };
 
+  // Folio único de producción de cada ítem (se asigna al liberarlo y no cambia).
+  const idsItems = (itemsBase ?? []).map((i) => i.id);
+  const { data: folios } = idsItems.length
+    ? await supabase
+        .from("folios_produccion")
+        .select("planeacion_item_id, folio")
+        .in("planeacion_item_id", idsItems)
+        .returns<{ planeacion_item_id: string; folio: string }[]>()
+    : { data: [] as { planeacion_item_id: string; folio: string }[] };
+  const folioPorItem = new Map((folios ?? []).map((f) => [f.planeacion_item_id, f.folio]));
+  const items: ItemLiberacionRow[] | null = itemsBase
+    ? itemsBase.map((i) => ({ ...i, folio: folioPorItem.get(i.id) ?? null }))
+    : null;
+
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
-      <div>
-        <Link href="/produccion" className="text-sm text-gray-500 underline">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+      <div className="border-b border-slate-200 pb-4">
+        <Link
+          href="/produccion"
+          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600"
+        >
           ← Pedidos
         </Link>
-        <h1 className="mt-1 text-xl font-semibold">{pedido.numero_pedido}</h1>
-        <p className="text-sm text-gray-600">
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+          {pedido.numero_pedido}
+        </h1>
+        <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="mt-1 text-xs font-medium text-slate-500">
           Entrega: {pedido.fecha_entrega ?? "—"}
         </p>
       </div>
 
       {versiones && versiones.length > 0 && (
-        <div className="flex flex-wrap gap-2 text-sm">
+        <div className="flex w-fit flex-wrap gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 text-sm">
           {versiones.map((v) => (
             <Link
               key={v.id}
               href={`/produccion/pedidos/${id}?version=${v.numero_version}`}
-              className={`rounded border px-3 py-1 ${
+              className={`rounded-full px-3 py-1 font-medium transition-colors ${
                 versionSeleccionada?.id === v.id
-                  ? "border-black bg-black text-white"
-                  : "border-gray-300 text-gray-700"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-200/70"
               }`}
             >
               v{v.numero_version}
@@ -131,7 +156,7 @@ export default async function PedidoProduccionPage({
       )}
 
       {versionSeleccionada?.cargas_archivo && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-slate-500">
           Archivo: {versionSeleccionada.cargas_archivo.nombre_archivo} ·{" "}
           {versionSeleccionada.cargas_archivo.filas_exitosas ?? 0} filas
           ingeridas · {new Date(versionSeleccionada.created_at).toLocaleString()}
@@ -139,7 +164,7 @@ export default async function PedidoProduccionPage({
       )}
 
       {!versionSeleccionada && (
-        <p className="text-sm text-gray-600">Este pedido no tiene versiones.</p>
+        <p className="text-sm text-slate-600">Este pedido no tiene versiones.</p>
       )}
 
       {items && items.length > 0 && (

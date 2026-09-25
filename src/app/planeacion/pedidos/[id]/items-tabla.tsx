@@ -7,6 +7,7 @@ import {
   type EstadoRevision,
 } from "@/lib/planeacion/estado-revision";
 import EstadoRevisionSelect from "./estado-revision-select";
+import EliminarItemBoton from "./eliminar-item-boton";
 
 export interface ItemTabla {
   id: string;
@@ -17,6 +18,7 @@ export interface ItemTabla {
   unidad: string | null;
   cantidad_total: number;
   estado_revision: EstadoRevision;
+  motivo_cancelacion: string | null;
 }
 
 export interface MuebleTabla extends ItemTabla {
@@ -45,11 +47,13 @@ export default function ItemsTabla({
   muebles,
   imagenesPorItem,
   puedeEditar,
+  puedeEliminar,
   filtroInicial,
 }: {
   muebles: MuebleTabla[];
   imagenesPorItem: Record<string, string[]>;
   puedeEditar: boolean;
+  puedeEliminar: boolean;
   filtroInicial: string;
 }) {
   const [filtro, setFiltro] = useState(filtroInicial);
@@ -100,103 +104,118 @@ export default function ItemsTabla({
             setExpandidos(padresConHijosCoincidentes(muebles, e.target.value));
           }}
           placeholder="Buscar modelo en este pedido..."
-          className="min-w-48 flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
+          className="min-w-48 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-400 focus:outline-none"
         />
         <button
           type="button"
           onClick={() => setExpandidos(new Set(muebles.map((m) => m.id)))}
-          className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
         >
           Expandir todo
         </button>
         <button
           type="button"
           onClick={() => setExpandidos(new Set())}
-          className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
         >
           Contraer todo
         </button>
       </div>
 
       {visibles.length === 0 && (
-        <p className="text-sm text-gray-600">Ningún modelo coincide con la búsqueda.</p>
+        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          Ningún modelo coincide con la búsqueda.
+        </p>
       )}
 
       {visibles.length > 0 && (
-        <table className="w-full text-left text-xs">
-          <thead>
-            <tr className="border-b border-gray-200 text-gray-400">
-              <th className="w-6 py-1"></th>
-              <th className="py-1 pr-2">Imagen</th>
-              <th className="py-1 pr-2">Item</th>
-              <th className="py-1 pr-2">Modelo</th>
-              <th className="py-1 pr-2">Material</th>
-              <th className="py-1 pr-2">Descripción</th>
-              <th className="py-1 pr-2">Cant.</th>
-              <th className="py-1 pr-2">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibles.map(({ mueble: m, hijos }) => {
-              const abierto = expandidos.has(m.id);
-              return (
-                <Fragment key={m.id}>
-                  <tr
-                    onClick={() => alternar(m.id)}
-                    aria-expanded={abierto}
-                    className={`cursor-pointer border-t border-gray-200 text-sm font-medium hover:bg-gray-50 ${colorFilaEstadoRevision(m.estado_revision)}`}
-                  >
-                    <td className="py-1 text-gray-400">
-                      {hijos.length > 0 ? (abierto ? "▾" : "▸") : ""}
-                    </td>
-                    <td className="py-1 pr-2">
-                      <ImagenesItem urls={imagenesPorItem[m.id] ?? []} onAbrir={abrirImagen} />
-                    </td>
-                    <td className="py-1 pr-2">{m.item_code}</td>
-                    <td className="py-1 pr-2">{m.modelo}</td>
-                    <td className="py-1 pr-2">{m.tipo_material}</td>
-                    <td className="py-1 pr-2">
-                      {m.descripcion}
-                      {hijos.length > 0 && (
-                        <span className="ml-2 text-xs font-normal text-gray-400">
-                          ({hijos.length} componentes)
-                        </span>
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <th className="w-6 py-2 pl-3"></th>
+                <th className="px-3 py-2">Imagen</th>
+                <th className="px-3 py-2">Item</th>
+                <th className="px-3 py-2">Modelo</th>
+                <th className="px-3 py-2">Material</th>
+                <th className="px-3 py-2">Descripción</th>
+                <th className="px-3 py-2">Cant.</th>
+                <th className="px-3 py-2">Estado</th>
+                {puedeEliminar && <th className="px-3 py-2"></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map(({ mueble: m, hijos }) => {
+                const abierto = expandidos.has(m.id);
+                return (
+                  <Fragment key={m.id}>
+                    <tr
+                      onClick={() => alternar(m.id)}
+                      aria-expanded={abierto}
+                      className={`cursor-pointer border-t border-slate-200 align-top text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 ${colorFilaEstadoRevision(m.estado_revision)}`}
+                    >
+                      <td className="py-2 pl-3 text-slate-400">
+                        {hijos.length > 0 ? (abierto ? "▾" : "▸") : ""}
+                      </td>
+                      <td className="px-3 py-2">
+                        <ImagenesItem urls={imagenesPorItem[m.id] ?? []} onAbrir={abrirImagen} />
+                      </td>
+                      <td className="px-3 py-2">{m.item_code}</td>
+                      <td className="px-3 py-2">{m.modelo}</td>
+                      <td className="px-3 py-2">{m.tipo_material}</td>
+                      <td className="px-3 py-2">
+                        {m.descripcion}
+                        {hijos.length > 0 && (
+                          <span className="ml-2 text-xs font-normal text-slate-400">
+                            ({hijos.length} componentes)
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {m.cantidad_total} {m.unidad}
+                      </td>
+                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        <EstadoCelda item={m} puedeEditar={puedeEditar} />
+                      </td>
+                      {puedeEliminar && (
+                        <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                          <EliminarItemBoton itemId={m.id} />
+                        </td>
                       )}
-                    </td>
-                    <td className="py-1 pr-2">
-                      {m.cantidad_total} {m.unidad}
-                    </td>
-                    <td className="py-1 pr-2" onClick={(e) => e.stopPropagation()}>
-                      <EstadoCelda itemId={m.id} estado={m.estado_revision} puedeEditar={puedeEditar} />
-                    </td>
-                  </tr>
-                  {abierto &&
-                    hijos.map((f) => (
-                      <tr
-                        key={f.id}
-                        className={`border-t border-gray-100 ${colorFilaEstadoRevision(f.estado_revision)}`}
-                      >
-                        <td></td>
-                        <td className="py-1 pr-2 pl-3">
-                          <ImagenesItem urls={imagenesPorItem[f.id] ?? []} onAbrir={abrirImagen} />
-                        </td>
-                        <td className="py-1 pr-2 pl-3">{f.item_code}</td>
-                        <td className="py-1 pr-2">{f.modelo}</td>
-                        <td className="py-1 pr-2">{f.tipo_material}</td>
-                        <td className="py-1 pr-2">{f.descripcion?.split("\n")[0]}</td>
-                        <td className="py-1 pr-2">
-                          {f.cantidad_total} {f.unidad}
-                        </td>
-                        <td className="py-1 pr-2">
-                          <EstadoCelda itemId={f.id} estado={f.estado_revision} puedeEditar={puedeEditar} />
-                        </td>
-                      </tr>
-                    ))}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                    </tr>
+                    {abierto &&
+                      hijos.map((f) => (
+                        <tr
+                          key={f.id}
+                          className={`border-t border-slate-100 align-top text-slate-700 transition-colors hover:bg-slate-50 ${colorFilaEstadoRevision(f.estado_revision)}`}
+                        >
+                          <td></td>
+                          <td className="py-2 pr-3 pl-6">
+                            <ImagenesItem urls={imagenesPorItem[f.id] ?? []} onAbrir={abrirImagen} />
+                          </td>
+                          <td className="py-2 pr-3 pl-6">{f.item_code}</td>
+                          <td className="px-3 py-2">{f.modelo}</td>
+                          <td className="px-3 py-2">{f.tipo_material}</td>
+                          <td className="px-3 py-2">{f.descripcion?.split("\n")[0]}</td>
+                          <td className="px-3 py-2">
+                            {f.cantidad_total} {f.unidad}
+                          </td>
+                          <td className="px-3 py-2">
+                            <EstadoCelda item={f} puedeEditar={puedeEditar} />
+                          </td>
+                          {puedeEliminar && (
+                            <td className="px-3 py-2">
+                              <EliminarItemBoton itemId={f.id} />
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {imagenAbierta && (
@@ -211,20 +230,18 @@ export default function ItemsTabla({
   );
 }
 
-function EstadoCelda({
-  itemId,
-  estado,
-  puedeEditar,
-}: {
-  itemId: string;
-  estado: EstadoRevision;
-  puedeEditar: boolean;
-}) {
+function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: boolean }) {
   if (puedeEditar) {
-    return <EstadoRevisionSelect itemId={itemId} estadoActual={estado} />;
+    return (
+      <EstadoRevisionSelect
+        itemId={item.id}
+        estadoActual={item.estado_revision}
+        motivoActual={item.motivo_cancelacion}
+      />
+    );
   }
-  if (!estado) return <span className="text-gray-400">—</span>;
-  return <span>{ESTADO_REVISION_LABELS[estado]}</span>;
+  if (!item.estado_revision) return <span className="text-slate-400">—</span>;
+  return <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>;
 }
 
 function ImagenesItem({
@@ -249,7 +266,7 @@ function ImagenesItem({
           title="Ver imagen"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image */}
-          <img src={url} alt="" className="h-10 w-10 rounded object-cover" />
+          <img src={url} alt="" className="h-10 w-10 rounded border border-slate-200 object-cover" />
         </button>
       ))}
     </div>

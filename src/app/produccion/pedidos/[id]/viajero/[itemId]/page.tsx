@@ -60,6 +60,12 @@ export default async function ViajeroPage({
     padre = data ?? null;
   }
 
+  const { data: folioRow } = await supabase
+    .from("folios_produccion")
+    .select("folio")
+    .eq("planeacion_item_id", item.id)
+    .maybeSingle<{ folio: string }>();
+
   const baseUrl = await getBaseUrl();
   const imagenesPorItem = await getImagenesPorItem(supabase, [item.id]);
   const nombreArchivo = nombreArchivoSeguro(
@@ -82,6 +88,7 @@ export default async function ViajeroPage({
         pedido={pedido}
         item={item}
         padre={padre}
+        folio={folioRow?.folio ?? null}
         qrUrl={`${baseUrl}/produccion/pedidos/${id}/viajero/${item.id}`}
         imagenUrls={imagenesPorItem.get(item.id) ?? []}
       />

@@ -26,6 +26,7 @@ export interface ItemLiberacionRow {
   eliminacion_solicitada_en: string | null;
   eliminacion_solicitada_por: string | null;
   estado_revision: EstadoRevision;
+  folio: string | null;
 }
 
 type FiltroEstado = "todos" | "listos" | "incompletos";
@@ -64,8 +65,13 @@ export default function ItemsLiberacionTable({
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
 
   // Un ítem con eliminación solicitada sale de la lista normal y vive solo
-  // en la Papelera hasta que se restaure o se elimine definitivamente.
-  const itemsActivos = useMemo(() => items.filter((i) => !i.eliminacion_solicitada_en), [items]);
+  // en la Papelera hasta que se restaure o se elimine definitivamente. Un
+  // ítem cancelado (estado_revision, decidido en Planeación) sale de la
+  // lista normal y solo vive en /produccion/cancelados.
+  const itemsActivos = useMemo(
+    () => items.filter((i) => !i.eliminacion_solicitada_en && i.estado_revision !== "cancelado"),
+    [items]
+  );
   const itemsPapelera = useMemo(() => items.filter((i) => i.eliminacion_solicitada_en), [items]);
 
   const conteos = useMemo(
@@ -222,13 +228,24 @@ export default function ItemsLiberacionTable({
     setProcesandoId(item.id);
     setMensaje(null);
     const supabase = createClient();
-    const { error } = await supabase.rpc("eliminar_item_definitivo", { p_item_id: item.id });
+    const { data: conservadoPorFolio, error } = await supabase.rpc("eliminar_item_definitivo", {
+      p_item_id: item.id,
+    });
     setProcesandoId(null);
     if (error) {
       setMensaje({ tipo: "error", texto: error.message });
       return;
     }
-    setMensaje({ tipo: "ok", texto: `Ítem ${item.item_code} eliminado definitivamente.` });
+    // El RPC no borra un ítem que ya tiene folio(s) de Calidad — lo deja
+    // cancelado para no perder ese historial (ver Cancelados).
+    setMensaje(
+      conservadoPorFolio
+        ? {
+            tipo: "ok",
+            texto: `Ítem ${item.item_code} ya tenía folio(s) de Calidad: se conservó como cancelado en vez de eliminarse. Puedes verlo en Cancelados.`,
+          }
+        : { tipo: "ok", texto: `Ítem ${item.item_code} eliminado definitivamente.` }
+    );
     router.refresh();
   }
 
@@ -243,13 +260,15 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
         Pendiente
       </span>
     );
@@ -261,13 +280,13 @@ export default function ItemsLiberacionTable({
 
     return (
       <tr
-        className={`${
+        className={`align-top transition-colors ${
           seleccionado
-            ? "bg-blue-50"
-            : colorFilaEstadoRevision(item.estado_revision) || "odd:bg-gray-50"
-        } ${indentado ? "border-t border-gray-100" : "text-sm font-medium"}`}
+            ? "bg-indigo-50"
+            : colorFilaEstadoRevision(item.estado_revision) || "odd:bg-slate-50/60 hover:bg-slate-100/70"
+        } ${indentado ? "text-slate-700" : "text-sm font-medium text-slate-900"}`}
       >
-        <td className="py-1 pr-2">
+        <td className="px-3 py-2">
           <input
             type="checkbox"
             checked={seleccionados.has(item.id)}
@@ -275,27 +294,35 @@ export default function ItemsLiberacionTable({
             aria-label={`Seleccionar ítem ${item.item_code}`}
           />
         </td>
-        <td className="py-1 pr-2">{item.item_code}</td>
-        <td className="py-1 pr-2">{item.modelo}</td>
-        <td className="py-1 pr-2">{item.tipo_material}</td>
-        <td className="py-1 pr-2">
+        <td className="px-3 py-2">{item.item_code}</td>
+        <td className="px-3 py-2">{item.modelo}</td>
+        <td className="px-3 py-2">{item.tipo_material}</td>
+        <td className="px-3 py-2">
           {indentado ? item.descripcion?.split("\n")[0] : item.descripcion}
         </td>
-        <td className="py-1 pr-2">
+        <td className="px-3 py-2">
           {item.cantidad_total} {item.unidad}
         </td>
-        <td className="py-1 pr-2">
+        <td className="px-3 py-2">
           <EstadoBadge item={item} />
+          {item.folio && (
+            <span
+              className="mt-1 block font-mono text-[11px] font-semibold text-slate-500"
+              title="Folio único de producción"
+            >
+              {item.folio}
+            </span>
+          )}
           {item.estado_revision && (
             <span className="mt-1 block text-xs font-semibold">
               {ESTADO_REVISION_LABELS[item.estado_revision]} (Planeación)
             </span>
           )}
         </td>
-        <td className="flex flex-wrap gap-2 py-1 pr-2">
+        <td className="flex flex-wrap items-center gap-2 px-3 py-2">
           <Link
             href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
-            className="underline"
+            className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100"
           >
             Viajero
           </Link>
@@ -304,7 +331,7 @@ export default function ItemsLiberacionTable({
               type="button"
               onClick={() => setConfirmacion({ tipo: "solicitar", item })}
               disabled={procesando}
-              className="text-red-700 underline disabled:opacity-50"
+              className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
             >
               Eliminar
             </button>
@@ -337,10 +364,10 @@ export default function ItemsLiberacionTable({
               setVistaPapelera(false);
               setFiltroEstado(valor);
             }}
-            className={`rounded border px-3 py-1 ${
+            className={`rounded-full border px-3 py-1 font-medium transition-colors ${
               !vistaPapelera && filtroEstado === valor
-                ? "border-black bg-black text-white"
-                : "border-gray-300 text-gray-700"
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
             {etiqueta}
@@ -350,8 +377,10 @@ export default function ItemsLiberacionTable({
           <button
             type="button"
             onClick={() => setVistaPapelera((v) => !v)}
-            className={`ml-auto rounded border px-3 py-1 ${
-              vistaPapelera ? "border-red-700 bg-red-700 text-white" : "border-red-300 text-red-700"
+            className={`ml-auto rounded-full border px-3 py-1 font-medium transition-colors ${
+              vistaPapelera
+                ? "border-rose-600 bg-rose-600 text-white"
+                : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
             }`}
           >
             Papelera ({itemsPapelera.length})
@@ -361,10 +390,10 @@ export default function ItemsLiberacionTable({
 
       {mensaje && (
         <div
-          className={`rounded border p-3 text-sm ${
+          className={`rounded-lg border p-3 text-sm ${
             mensaje.tipo === "ok"
-              ? "border-green-300 bg-green-50 text-green-800"
-              : "border-red-300 bg-red-50 text-red-800"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-rose-200 bg-rose-50 text-rose-800"
           }`}
         >
           {mensaje.texto}
@@ -373,48 +402,50 @@ export default function ItemsLiberacionTable({
 
       {vistaPapelera ? (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-slate-600">
             Ítems con eliminación solicitada. Se pueden restaurar mientras no se confirme la
             eliminación definitiva.
           </p>
           {itemsPapelera.length === 0 ? (
-            <p className="text-sm text-gray-600">La papelera está vacía.</p>
+            <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+              La papelera está vacía.
+            </p>
           ) : (
-            <div className="rounded border border-gray-200 p-3">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="text-gray-400">
-                    <th className="py-1 pr-2">Item</th>
-                    <th className="py-1 pr-2">Modelo</th>
-                    <th className="py-1 pr-2">Material</th>
-                    <th className="py-1 pr-2">Descripción</th>
-                    <th className="py-1 pr-2">Cant.</th>
-                    <th className="py-1 pr-2">Eliminado</th>
-                    <th className="py-1 pr-2"></th>
+                  <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-3 py-2">Item</th>
+                    <th className="px-3 py-2">Modelo</th>
+                    <th className="px-3 py-2">Material</th>
+                    <th className="px-3 py-2">Descripción</th>
+                    <th className="px-3 py-2">Cant.</th>
+                    <th className="px-3 py-2">Eliminado</th>
+                    <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {itemsPapelera.map((item) => {
                     const procesando = procesandoId === item.id;
                     return (
-                      <tr key={item.id} className="border-t border-gray-100 odd:bg-gray-50">
-                        <td className="py-1 pr-2">{item.item_code}</td>
-                        <td className="py-1 pr-2">{item.modelo}</td>
-                        <td className="py-1 pr-2">{item.tipo_material}</td>
-                        <td className="py-1 pr-2">{item.descripcion}</td>
-                        <td className="py-1 pr-2">
+                      <tr key={item.id} className="align-top text-slate-700 transition-colors hover:bg-slate-50">
+                        <td className="px-3 py-2">{item.item_code}</td>
+                        <td className="px-3 py-2">{item.modelo}</td>
+                        <td className="px-3 py-2">{item.tipo_material}</td>
+                        <td className="px-3 py-2">{item.descripcion}</td>
+                        <td className="px-3 py-2">
                           {item.cantidad_total} {item.unidad}
                         </td>
-                        <td className="py-1 pr-2 text-gray-500">
+                        <td className="px-3 py-2 text-slate-500">
                           {new Date(item.eliminacion_solicitada_en as string).toLocaleDateString()}
                         </td>
-                        <td className="flex flex-wrap gap-2 py-1 pr-2">
+                        <td className="flex flex-wrap items-center gap-2 px-3 py-2">
                           {puedeSolicitarEliminacion && (
                             <button
                               type="button"
                               onClick={() => cancelarSolicitud(item)}
                               disabled={procesando}
-                              className="text-black underline disabled:opacity-50"
+                              className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50"
                             >
                               Restaurar
                             </button>
@@ -424,7 +455,7 @@ export default function ItemsLiberacionTable({
                               type="button"
                               onClick={() => setConfirmacion({ tipo: "definitivo", item })}
                               disabled={procesando}
-                              className="text-red-700 underline disabled:opacity-50"
+                              className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
                             >
                               Eliminar definitivamente
                             </button>
@@ -441,12 +472,16 @@ export default function ItemsLiberacionTable({
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-gray-500">Material:</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Material
+            </span>
             <button
               type="button"
               onClick={() => setFiltroMaterial(null)}
-              className={`rounded border px-2 py-1 ${
-                filtroMaterial === null ? "border-black bg-black text-white" : "border-gray-300 text-gray-700"
+              className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+                filtroMaterial === null
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
               Todos
@@ -456,8 +491,10 @@ export default function ItemsLiberacionTable({
                 key={mat}
                 type="button"
                 onClick={() => setFiltroMaterial(mat)}
-                className={`rounded border px-2 py-1 ${
-                  filtroMaterial === mat ? "border-black bg-black text-white" : "border-gray-300 text-gray-700"
+                className={`rounded-full border px-3 py-1 font-medium transition-colors ${
+                  filtroMaterial === mat
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 {mat}
@@ -467,7 +504,7 @@ export default function ItemsLiberacionTable({
 
           {/* Barra de acción masiva: sticky para no tener que subir hasta
               arriba en pedidos con muchos ítems después de seleccionar. */}
-          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded border border-gray-200 bg-gray-50 p-3 text-sm shadow-sm">
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -477,7 +514,7 @@ export default function ItemsLiberacionTable({
               />
               Seleccionar todos los filtrados ({idsFiltrados.length})
             </label>
-            <span className="text-gray-500">{seleccionados.size} seleccionado(s)</span>
+            <span className="text-slate-500">{seleccionados.size} seleccionado(s)</span>
             <div className="ml-auto flex flex-wrap gap-2">
               <a
                 href={`/produccion/pedidos/${pedidoId}/viajero-lote?ids=${Array.from(seleccionados).join(",")}`}
@@ -486,10 +523,10 @@ export default function ItemsLiberacionTable({
                 onClick={(e) => {
                   if (seleccionados.size === 0) e.preventDefault();
                 }}
-                className={`rounded border px-3 py-2 text-sm font-medium ${
+                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   seleccionados.size === 0
-                    ? "pointer-events-none border-gray-200 text-gray-400"
-                    : "border-black text-black hover:bg-black hover:text-white"
+                    ? "pointer-events-none border-slate-200 text-slate-400"
+                    : "border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-white"
                 }`}
               >
                 Imprimir Selección (PDF)
@@ -498,7 +535,7 @@ export default function ItemsLiberacionTable({
                 type="button"
                 onClick={revertirSeleccion}
                 disabled={seleccionados.size === 0 || revirtiendo}
-                className="rounded border border-black px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
               >
                 {revirtiendo ? "Revirtiendo..." : "Revertir Selección a Pendiente"}
               </button>
@@ -506,7 +543,7 @@ export default function ItemsLiberacionTable({
                 type="button"
                 onClick={liberarSeleccion}
                 disabled={seleccionados.size === 0 || liberando}
-                className="rounded bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-50"
               >
                 {liberando ? "Liberando..." : "Liberar Selección a Producción"}
               </button>
@@ -514,27 +551,32 @@ export default function ItemsLiberacionTable({
           </div>
 
           {itemsFiltrados.length === 0 && (
-            <p className="text-sm text-gray-600">Ningún ítem coincide con el filtro seleccionado.</p>
+            <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+              Ningún ítem coincide con el filtro seleccionado.
+            </p>
           )}
 
           {(mo.length > 0 || fuSueltos.length > 0) && (
             <div className="flex flex-col gap-4">
               {mo.map((m) => (
-                <div key={m.id} className="rounded border border-gray-200 p-3">
+                <div
+                  key={m.id}
+                  className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm"
+                >
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="text-gray-400">
-                        <th className="py-1 pr-2"></th>
-                        <th className="py-1 pr-2">Item</th>
-                        <th className="py-1 pr-2">Modelo</th>
-                        <th className="py-1 pr-2">Material</th>
-                        <th className="py-1 pr-2">Descripción</th>
-                        <th className="py-1 pr-2">Cant.</th>
-                        <th className="py-1 pr-2">Estado</th>
-                        <th className="py-1 pr-2"></th>
+                      <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2"></th>
+                        <th className="px-3 py-2">Item</th>
+                        <th className="px-3 py-2">Modelo</th>
+                        <th className="px-3 py-2">Material</th>
+                        <th className="px-3 py-2">Descripción</th>
+                        <th className="px-3 py-2">Cant.</th>
+                        <th className="px-3 py-2">Estado</th>
+                        <th className="px-3 py-2"></th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100">
                       <Fila item={m} indentado={false} />
                       {(fuPorPadre.get(m.id) ?? []).map((f) => (
                         <Fila key={f.id} item={f} indentado />
@@ -545,21 +587,21 @@ export default function ItemsLiberacionTable({
               ))}
 
               {fuSueltos.length > 0 && (
-                <div className="rounded border border-gray-200 p-3">
+                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="text-gray-400">
-                        <th className="py-1 pr-2"></th>
-                        <th className="py-1 pr-2">Item</th>
-                        <th className="py-1 pr-2">Modelo</th>
-                        <th className="py-1 pr-2">Material</th>
-                        <th className="py-1 pr-2">Descripción</th>
-                        <th className="py-1 pr-2">Cant.</th>
-                        <th className="py-1 pr-2">Estado</th>
-                        <th className="py-1 pr-2"></th>
+                      <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2"></th>
+                        <th className="px-3 py-2">Item</th>
+                        <th className="px-3 py-2">Modelo</th>
+                        <th className="px-3 py-2">Material</th>
+                        <th className="px-3 py-2">Descripción</th>
+                        <th className="px-3 py-2">Cant.</th>
+                        <th className="px-3 py-2">Estado</th>
+                        <th className="px-3 py-2"></th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100">
                       {fuSueltos.map((f) => (
                         <Fila key={f.id} item={f} indentado={false} />
                       ))}
