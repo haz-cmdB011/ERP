@@ -59,7 +59,7 @@ export default async function PedidoDetailPage({
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, estado, cancelado_en, motivo_cancelacion, proyectos ( nombre, cliente )"
+      "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, estado, cancelado_en, motivo_cancelacion, eliminado_definitivo_en, proyectos ( nombre, cliente )"
     )
     .eq("id", id)
     .maybeSingle<{
@@ -71,6 +71,7 @@ export default async function PedidoDetailPage({
       estado: string;
       cancelado_en: string | null;
       motivo_cancelacion: string | null;
+      eliminado_definitivo_en: string | null;
       proyectos: { nombre: string; cliente: string } | null;
     }>();
 
@@ -170,7 +171,11 @@ export default async function PedidoDetailPage({
 
       <CancelarPedido
         pedidoId={id}
-        cancelacion={{ cancelado_en: pedido.cancelado_en, motivo_cancelacion: pedido.motivo_cancelacion }}
+        cancelacion={{
+          cancelado_en: pedido.cancelado_en,
+          motivo_cancelacion: pedido.motivo_cancelacion,
+          eliminado_definitivo_en: pedido.eliminado_definitivo_en,
+        }}
         puedeEditar={puedeEditar}
       />
 

@@ -13,6 +13,7 @@ import {
 } from "@/components/revertir-cancelacion";
 
 interface PedidoRow {
+  eliminado_definitivo_en: string | null;
   id: string;
   numero_pedido: string;
   cancelado_en: string | null;
@@ -78,6 +79,9 @@ interface PedidoConConteo {
   cliente: string;
   cancelado_en: string | null;
   motivoCancelacionPedido: string | null;
+  // Se eliminó definitivamente pero se conservó por sus folios de Calidad:
+  // ya no se reactiva ni se revierten sus ítems.
+  eliminadoDefinitivo: boolean;
   totalItems: number;
   itemsCancelados: number;
   items: ItemCancelado[];
@@ -103,7 +107,7 @@ export default async function CanceladosProduccionPage() {
   const { data: pedidos } = await supabase
     .from("pedidos")
     .select(
-      "id, numero_pedido, cancelado_en, motivo_cancelacion, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
+      "id, numero_pedido, cancelado_en, motivo_cancelacion, eliminado_definitivo_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
     )
     .is("eliminado_en", null)
     .order("created_at", { ascending: false })
@@ -184,6 +188,7 @@ export default async function CanceladosProduccionPage() {
       cliente: p.proyectos?.cliente ?? "—",
       cancelado_en: p.cancelado_en,
       motivoCancelacionPedido: p.motivo_cancelacion,
+      eliminadoDefinitivo: p.eliminado_definitivo_en !== null,
       totalItems: conteo.total,
       itemsCancelados: conteo.cancelados,
       items: conteo.items,
@@ -245,12 +250,14 @@ export default async function CanceladosProduccionPage() {
             <PedidoCancelado
               key={p.id}
               pedido={p}
-              puedeReactivarPedido={puedeReactivarPedido}
-              puedeRevertirItem={puedeRevertirItem}
+              puedeReactivarPedido={puedeReactivarPedido && !p.eliminadoDefinitivo}
+              puedeRevertirItem={puedeRevertirItem && !p.eliminadoDefinitivo}
               etiquetaRevertir="Reactivar pedido"
               href={`/produccion/pedidos/${p.id}`}
               encabezado={
-                p.cancelado_en
+                p.eliminadoDefinitivo
+                  ? "Eliminado definitivamente · se conserva solo por sus folios de Calidad"
+                  : p.cancelado_en
                   ? `Motivo: ${p.motivoCancelacionPedido ?? "—"} · Cancelado el ${new Date(
                       p.cancelado_en
                     ).toLocaleDateString("es-MX")}`

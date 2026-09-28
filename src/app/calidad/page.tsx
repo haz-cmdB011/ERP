@@ -20,6 +20,8 @@ export default async function CalidadListPage() {
       "id, numero_pedido, fecha_pedido, fecha_entrega, estado, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
     )
     .is("eliminado_en", null)
+    // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
+    .is("eliminado_definitivo_en", null)
     .order("created_at", { ascending: false })
     .returns<PedidoRow[]>();
 

@@ -118,7 +118,7 @@ interface FilaItem {
 }
 
 const SELECT_ITEM =
-  "id, item_code, tipo_registro, modelo, descripcion, tipo_material, cantidad_total, unidad, parent_item_id, estado_liberacion, estado_revision, eliminacion_solicitada_en, pedido_versiones!inner ( es_version_activa, pedidos!inner ( id, numero_pedido, eliminado_en, cancelado_en, proyectos ( nombre, cliente ) ) )";
+  "id, item_code, tipo_registro, modelo, descripcion, tipo_material, cantidad_total, unidad, parent_item_id, estado_liberacion, estado_revision, eliminacion_solicitada_en, pedido_versiones!inner ( es_version_activa, pedidos!inner ( id, numero_pedido, eliminado_en, eliminado_definitivo_en, cancelado_en, proyectos ( nombre, cliente ) ) )";
 
 const MAX_CANDIDATOS = 300;
 const MAX_GRUPOS = 40;
@@ -148,6 +148,7 @@ function baseItems(supabase: Supabase) {
     .select(SELECT_ITEM)
     .eq("pedido_versiones.es_version_activa", true)
     .is("pedido_versiones.pedidos.eliminado_en", null)
+    .is("pedido_versiones.pedidos.eliminado_definitivo_en", null)
     .is("eliminacion_solicitada_en", null);
 }
 

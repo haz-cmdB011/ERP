@@ -81,6 +81,8 @@ export default async function PlaneacionListPage({
     .from("pedidos")
     .select(COLUMNAS)
     .is("eliminado_en", null)
+    // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
+    .is("eliminado_definitivo_en", null)
     .order("created_at", { ascending: false })
     .returns<PedidoRow[]>();
 
@@ -99,11 +101,12 @@ export default async function PlaneacionListPage({
     ? await supabase
         .from("planeacion_items")
         .select(
-          "id, item_code, modelo, descripcion, pedido_versiones!inner ( numero_version, es_version_activa, pedidos!inner ( id, numero_pedido, eliminado_en, proyectos ( nombre ) ) )"
+          "id, item_code, modelo, descripcion, pedido_versiones!inner ( numero_version, es_version_activa, pedidos!inner ( id, numero_pedido, eliminado_en, eliminado_definitivo_en, proyectos ( nombre ) ) )"
         )
         .ilike("modelo", `%${escaparLike(busqueda)}%`)
         .eq("pedido_versiones.es_version_activa", true)
         .is("pedido_versiones.pedidos.eliminado_en", null)
+        .is("pedido_versiones.pedidos.eliminado_definitivo_en", null)
         .or("estado_revision.is.null,estado_revision.neq.cancelado")
         .is("eliminacion_solicitada_en", null)
         .order("modelo")
