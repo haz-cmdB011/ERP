@@ -39,6 +39,9 @@ export default async function AdminLayout({
         <Link href="/admin/auditoria" className="text-gray-600 hover:text-black">
           Auditoría
         </Link>
+        <Link href="/admin/discrepancias-electrificacion" className="text-gray-600 hover:text-black">
+          Discrepancias
+        </Link>
       </AreaNav>
       {children}
     </div>

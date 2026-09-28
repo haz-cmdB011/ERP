@@ -26,10 +26,12 @@ import {
   type TarifasElectrificacion,
 } from "@/lib/estimaciones/motor-electrificacion";
 import {
+  buscarItemsPmElectrificacion,
   guardarReciboElectrificacionEnDb,
   listarFoliosElectrificacion,
   modificarReciboElectrificacionEnDb,
   type FolioElectrificacionExistente,
+  type ItemPm,
   type ReciboElectrificacionGuardado,
   type RenglonElectrificacionGuardado,
   type RenglonElectrificacionParaGuardar,
@@ -55,6 +57,11 @@ interface Renglon {
   nota: string;
   tocadoAceptado: boolean;
   colapsado: boolean;
+  // Vínculo con el PM de Planeación: ver 20260928150000_estimaciones_electrificacion_pm.sql.
+  planeacionItemId: string | null;
+  numeroPedidoPm: string | null;
+  cantidadPm: number | null;
+  motivoDescuadre: string;
 }
 
 let seq = 0;
@@ -73,6 +80,10 @@ function nuevoRenglon(pre: Partial<Renglon> = {}): Renglon {
     nota: "",
     tocadoAceptado: false,
     colapsado: false,
+    planeacionItemId: null,
+    numeroPedidoPm: null,
+    cantidadPm: null,
+    motivoDescuadre: "",
     ...pre,
   };
 }
@@ -108,6 +119,9 @@ function renglonDesdeGuardado(rg: RenglonElectrificacionGuardado): Renglon {
     charolas: rg.charolas.map((c) => ({ drivers: c.drivers })),
     propuesto: rg.propuesto,
     nota: rg.nota,
+    planeacionItemId: rg.planeacionItemId ?? null,
+    numeroPedidoPm: rg.numeroPedidoPm ?? null,
+    cantidadPm: rg.cantidadPm ?? null,
   });
 }
 
@@ -183,6 +197,36 @@ export default function CapturaElectrificacion({
     const cant = Math.max(0, Math.min(50, Math.floor(n) || 0));
     const charolas = Array.from({ length: cant }, (_, i) => r.charolas[i] ?? { drivers: 1 });
     actualizar(r.id, { charolas });
+  }
+
+  // Conciliación con el PM de Planeación: busca el modelo entre los ítems
+  // reales del pedido (por texto de OT) para vincularlo. Sin vínculo, o si
+  // la cantidad acumulada no cuadra con lo declarado, la base exige motivo
+  // al guardar.
+  const [resultadosPm, setResultadosPm] = useState<Record<number, ItemPm[]>>({});
+  const [buscandoPm, setBuscandoPm] = useState<Record<number, boolean>>({});
+
+  async function buscarPm(r: Renglon) {
+    if (r.planeacionItemId || !r.modelo.trim()) return;
+    setBuscandoPm((prev) => ({ ...prev, [r.id]: true }));
+    const resultados = await buscarItemsPmElectrificacion(createClient(), r.modelo, ot);
+    setBuscandoPm((prev) => ({ ...prev, [r.id]: false }));
+    setResultadosPm((prev) => ({ ...prev, [r.id]: resultados }));
+  }
+
+  function vincularPm(r: Renglon, item: ItemPm) {
+    actualizar(r.id, {
+      modelo: item.modelo,
+      planeacionItemId: item.id,
+      numeroPedidoPm: item.numeroPedido,
+      cantidadPm: item.cantidadTotal,
+      motivoDescuadre: "",
+    });
+    setResultadosPm((prev) => ({ ...prev, [r.id]: [] }));
+  }
+
+  function quitarVinculoPm(r: Renglon) {
+    actualizar(r.id, { planeacionItemId: null, numeroPedidoPm: null, cantidadPm: null });
   }
 
   function continuarFolio() {
@@ -311,6 +355,8 @@ export default function CapturaElectrificacion({
         banda: bandaFinal,
         justificacion: justificacionFinal,
         nota: r.nota,
+        planeacionItemId: r.planeacionItemId,
+        motivoDescuadre: r.motivoDescuadre,
       });
     });
 
@@ -598,7 +644,16 @@ export default function CapturaElectrificacion({
                         <input
                           className={`${CONTROL} font-mono`}
                           value={r.modelo}
-                          onChange={(e) => actualizar(r.id, { modelo: e.target.value })}
+                          onChange={(e) => {
+                            actualizar(r.id, {
+                              modelo: e.target.value,
+                              planeacionItemId: null,
+                              numeroPedidoPm: null,
+                              cantidadPm: null,
+                            });
+                            setResultadosPm((prev) => ({ ...prev, [r.id]: [] }));
+                          }}
+                          onBlur={() => void buscarPm(r)}
                         />
                       </label>
                       <label className="flex flex-col gap-1">
@@ -614,6 +669,65 @@ export default function CapturaElectrificacion({
                               cantidad: e.target.value === "" ? "" : Number(e.target.value),
                             })
                           }
+                        />
+                      </label>
+                    </div>
+
+                    {/* Conciliación con el PM de Planeación */}
+                    <div className="rounded-lg border border-slate-200 p-3">
+                      <p className="text-xs font-semibold text-slate-700">
+                        Conciliación con el PM
+                      </p>
+                      {r.planeacionItemId ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                            ✓ Vinculado a {r.numeroPedidoPm} · declarado {r.cantidadPm} pz
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => quitarVinculoPm(r)}
+                            className="font-medium text-slate-500 hover:text-rose-600"
+                          >
+                            Quitar vínculo
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {buscandoPm[r.id]
+                              ? "Buscando en el PM…"
+                              : "Sin vincular al PM. Busca el modelo saliendo del campo, o captura el motivo abajo."}
+                          </p>
+                          {!!resultadosPm[r.id]?.length && (
+                            <ul className="mt-2 flex flex-col gap-1">
+                              {resultadosPm[r.id].map((item) => (
+                                <li key={item.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => vincularPm(r, item)}
+                                    className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-left text-xs hover:border-indigo-300 hover:bg-indigo-50"
+                                  >
+                                    <span className="font-mono font-medium text-slate-900">
+                                      {item.modelo}
+                                    </span>{" "}
+                                    · {item.numeroPedido}
+                                    {item.proyecto ? ` · ${item.proyecto}` : ""} · declarado{" "}
+                                    {item.cantidadTotal} pz
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </>
+                      )}
+                      <label className="mt-2 flex flex-col gap-1">
+                        <span className={ETIQUETA}>Motivo si no cuadra con el PM</span>
+                        <textarea
+                          rows={2}
+                          placeholder="Requerido si no se encontró el modelo, o si la cantidad acumulada no coincide con lo declarado"
+                          className={CONTROL}
+                          value={r.motivoDescuadre}
+                          onChange={(e) => actualizar(r.id, { motivoDescuadre: e.target.value })}
                         />
                       </label>
                     </div>
