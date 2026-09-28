@@ -274,7 +274,7 @@ export async function parsePlaneacionExcel(
     }
   }
   if (!metadata.numero_pedido && opciones.nombreArchivo && /\d/.test(opciones.nombreArchivo)) {
-    metadata.numero_pedido = opciones.nombreArchivo.replace(/\.xlsx$/i, "");
+    metadata.numero_pedido = opciones.nombreArchivo.replace(/\.xls[xm]$/i, "");
   }
 
   for (const [label, key] of Object.entries(METADATA_LABELS)) {
