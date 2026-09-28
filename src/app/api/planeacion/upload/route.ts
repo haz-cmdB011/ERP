@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parsePlaneacionExcel } from "@/lib/planeacion/parser";
 import type { PlaneacionItemParsed } from "@/lib/planeacion/types";
 import {
@@ -11,8 +12,10 @@ import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
 import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
 
 export const runtime = "nodejs";
+// Un Excel grande (muchas imágenes que se comprimen una por una) tarda.
+export const maxDuration = 120;
 
-const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB
+const MAX_FILE_BYTES = 40 * 1024 * 1024; // 40 MB
 const ALLOWED_EXTENSIONS = [".xlsx"];
 const BUCKET_IMAGENES_ITEMS = "planeacion-item-imagenes";
 
@@ -93,43 +96,83 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
 
-  const formData = await request.formData();
-  const file = formData.get("file");
+  // El navegador sube el Excel directo a Storage (carpeta "entrantes/") y
+  // aquí solo llega su ruta: Vercel rechaza cuerpos de más de 4.5 MB, y un
+  // Excel con muchas imágenes los pasa fácilmente (el navegador lo veía
+  // como "error de red"). Se acepta también el archivo en el cuerpo
+  // (multipart) para archivos chicos / desarrollo local.
+  let nombreArchivo: string;
+  let tamanoBytes: number;
+  let buffer: Buffer;
+  let rutaEntrante: string | null = null;
 
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "No se envió ningún archivo." }, { status: 400 });
+  if ((request.headers.get("content-type") ?? "").includes("application/json")) {
+    const body = await request.json().catch(() => null);
+    const storagePath = typeof body?.storagePath === "string" ? body.storagePath : "";
+    nombreArchivo = typeof body?.nombreArchivo === "string" ? body.nombreArchivo : "";
+    // Solo archivos que el propio usuario subió a su carpeta de entrantes.
+    if (!storagePath.startsWith(`${user.id}/entrantes/`) || storagePath.includes("..") || !nombreArchivo) {
+      return NextResponse.json({ error: "Archivo no válido." }, { status: 400 });
+    }
+    const { data: descargado, error: descargaError } = await supabase.storage
+      .from("cargas-excel")
+      .download(storagePath);
+    if (descargaError || !descargado) {
+      return NextResponse.json(
+        { error: `No se pudo leer el archivo subido: ${descargaError?.message ?? "no encontrado"}` },
+        { status: 400 }
+      );
+    }
+    rutaEntrante = storagePath;
+    buffer = Buffer.from(await descargado.arrayBuffer());
+    tamanoBytes = buffer.length;
+  } else {
+    const formData = await request.formData();
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "No se envió ningún archivo." }, { status: 400 });
+    }
+    nombreArchivo = file.name;
+    tamanoBytes = file.size;
+    buffer = Buffer.from(await file.arrayBuffer());
   }
 
+  // El original de "entrantes/" ya no se necesita al terminar (se archiva
+  // abajo una copia sin imágenes). Service role: Storage no deja borrar al
+  // usuario. Si falla, a lo más queda un archivo suelto.
+  const limpiarEntrante = async () => {
+    if (rutaEntrante) await createAdminClient().storage.from("cargas-excel").remove([rutaEntrante]);
+  };
+
   const extensionValida = ALLOWED_EXTENSIONS.some((ext) =>
-    file.name.toLowerCase().endsWith(ext)
+    nombreArchivo.toLowerCase().endsWith(ext)
   );
   if (!extensionValida) {
+    await limpiarEntrante();
     return NextResponse.json(
       { error: "Formato de archivo no soportado. Solo se aceptan archivos .xlsx." },
       { status: 400 }
     );
   }
 
-  if (file.size > MAX_FILE_BYTES) {
+  if (tamanoBytes > MAX_FILE_BYTES) {
+    await limpiarEntrante();
     return NextResponse.json(
       { error: `El archivo excede el tamaño máximo permitido (${MAX_FILE_BYTES / (1024 * 1024)} MB).` },
       { status: 400 }
     );
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
   // 1. Parseo y validación de estructura ANTES de tocar la base de datos.
   //    Usa el buffer ORIGINAL (con imágenes): de ahí es de donde el parser
   //    extrae la imagen de cada fila.
-  const resultado = await parsePlaneacionExcel(buffer, { nombreArchivo: file.name });
+  const resultado = await parsePlaneacionExcel(buffer, { nombreArchivo });
 
   // El título del PM siempre se guarda como "PM<NUMERO>-<AÑO>", sin importar
   // cómo venga escrito en la celda "No. PEDIDO" o en el nombre del archivo.
   if (resultado.ok) {
     resultado.metadata.numero_pedido = normalizarNumeroPM(resultado.metadata.numero_pedido, {
-      nombreArchivo: file.name,
+      nombreArchivo,
       fechaPedido: resultado.metadata.fecha_pedido,
     });
   }
@@ -141,7 +184,7 @@ export async function POST(request: Request) {
   //    Excel quedan 100% intactos — solo las imágenes se verían "rotas" si
   //    alguien abre este archivo archivado directamente en Excel.
   const bufferArchivo = await quitarImagenesDelExcel(buffer);
-  const storagePath = `${user.id}/${Date.now()}-${sanitizarNombreArchivo(file.name)}`;
+  const storagePath = `${user.id}/${Date.now()}-${sanitizarNombreArchivo(nombreArchivo)}`;
   const { error: storageError } = await supabase.storage
     .from("cargas-excel")
     .upload(storagePath, bufferArchivo, {
@@ -149,6 +192,8 @@ export async function POST(request: Request) {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       upsert: false,
     });
+
+  await limpiarEntrante();
 
   if (storageError) {
     return NextResponse.json(
@@ -161,7 +206,7 @@ export async function POST(request: Request) {
     .from("cargas_archivo")
     .insert({
       area: "planeacion",
-      nombre_archivo: file.name,
+      nombre_archivo: nombreArchivo,
       storage_path: storagePath,
       tamano_bytes: bufferArchivo.length,
       cargado_por: user.id,

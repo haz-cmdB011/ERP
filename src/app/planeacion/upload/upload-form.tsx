@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+// Mismo límite que la ruta /api/planeacion/upload.
+const MAX_FILE_BYTES = 40 * 1024 * 1024;
 
 interface FilaError {
   fila: number;
@@ -45,16 +49,52 @@ export default function UploadForm() {
     setEnviando(true);
     setResultado(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
+    if (file.size > MAX_FILE_BYTES) {
+      setResultado({ error: "El archivo excede el tamaño máximo permitido (40 MB)." });
+      setEnviando(false);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
 
     try {
+      // 1. El Excel va directo del navegador a Storage: Vercel no deja pasar
+      //    peticiones de más de 4.5 MB, y los Excel con imágenes las pasan.
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setResultado({ error: "Tu sesión expiró. Vuelve a iniciar sesión." });
+        return;
+      }
+      const storagePath = `${user.id}/entrantes/${Date.now()}.xlsx`;
+      const { error: subidaError } = await supabase.storage
+        .from("cargas-excel")
+        .upload(storagePath, file, {
+          contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          upsert: false,
+        });
+      if (subidaError) {
+        setResultado({ error: `No se pudo subir el archivo: ${subidaError.message}` });
+        return;
+      }
+
+      // 2. El servidor lo toma de Storage y lo procesa.
       const res = await fetch("/api/planeacion/upload", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storagePath, nombreArchivo: file.name }),
       });
-      const data: UploadResult = await res.json();
-      setResultado(data);
+      const data: UploadResult | null = await res.json().catch(() => null);
+      setResultado(
+        data ??
+          ({
+            error:
+              res.status === 504
+                ? "El archivo tardó demasiado en procesarse. Intenta de nuevo."
+                : `El servidor respondió con un error (${res.status}).`,
+          } satisfies UploadError)
+      );
     } catch {
       setResultado({ error: "Error de red al subir el archivo." });
     } finally {
