@@ -127,6 +127,34 @@ export async function guardarReciboEnDb(
   return { id: data as string, error: null };
 }
 
+// Reemplaza los renglones de un recibo pendiente (el maquilador lo usa para
+// corregirlo sin cancelarlo). Solo mientras nadie de Estimaciones haya
+// decidido ningún renglón; la base rechaza cualquier otro caso.
+export async function modificarReciboEnDb(
+  supabase: SupabaseClient,
+  tipo: TipoRecibo,
+  reciboId: string,
+  recibo: {
+    fechaRecibo: string;
+    obra: string;
+    ot: string;
+    prioridad: string;
+    motivoPrioridad: string;
+  },
+  renglones: RenglonParaGuardar[]
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc(`modificar_recibo_${tipo}`, {
+    p_recibo_id: reciboId,
+    p_fecha_recibo: recibo.fechaRecibo,
+    p_obra: recibo.obra || null,
+    p_ot: recibo.ot || null,
+    p_prioridad: recibo.prioridad,
+    p_motivo_prioridad: recibo.motivoPrioridad || null,
+    p_renglones: renglones,
+  });
+  return { error: error?.message ?? null };
+}
+
 interface RenglonConRecibo {
   modelo: string;
   familia: string;

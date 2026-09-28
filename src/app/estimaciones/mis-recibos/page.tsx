@@ -99,7 +99,15 @@ export default async function MisRecibosPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {r.estado === "pendiente" && sinRevisar && (
-                        <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
+                        <div className="flex flex-col items-end gap-1">
+                          <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
+                          <Link
+                            href={`/estimaciones/mis-recibos/${r.tipo}/${encodeURIComponent(r.folio)}/modificar`}
+                            className="text-xs font-medium text-slate-500 hover:text-indigo-600"
+                          >
+                            Modificar
+                          </Link>
+                        </div>
                       )}
                     </td>
                   </tr>
