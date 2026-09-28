@@ -103,6 +103,33 @@ export async function guardarReciboElectrificacionEnDb(
   return { id: data as string, error: null };
 }
 
+// Reemplaza los renglones de un recibo de Electrificación pendiente (mismo
+// candado que modificarReciboEnDb: solo mientras nadie de Estimaciones haya
+// decidido ningún renglón).
+export async function modificarReciboElectrificacionEnDb(
+  supabase: SupabaseClient,
+  reciboId: string,
+  recibo: {
+    fechaRecibo: string;
+    obra: string;
+    ot: string;
+    prioridad: string;
+    motivoPrioridad: string;
+  },
+  renglones: RenglonElectrificacionParaGuardar[]
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("modificar_recibo_electrificacion", {
+    p_recibo_id: reciboId,
+    p_fecha_recibo: recibo.fechaRecibo,
+    p_obra: recibo.obra || null,
+    p_ot: recibo.ot || null,
+    p_prioridad: recibo.prioridad,
+    p_motivo_prioridad: recibo.motivoPrioridad || null,
+    p_renglones: renglones,
+  });
+  return { error: error?.message ?? null };
+}
+
 export interface FolioElectrificacionExistente {
   folio: string;
   fecha: string;

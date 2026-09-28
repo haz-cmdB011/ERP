@@ -1,5 +1,14 @@
 import Link from "next/link";
 import LogoutButton from "./logout-button";
+import BotonRegresar from "./boton-regresar";
+
+const INICIO_AREA = {
+  planeacion: "/planeacion",
+  produccion: "/produccion",
+  calidad: "/calidad",
+  estimaciones: "/estimaciones",
+  usuarios: "/admin/usuarios",
+} as const;
 
 // Barra superior compartida entre las áreas de la app (Planeación,
 // Producción...). Dos niveles separados a propósito: la fila de arriba es
@@ -171,6 +180,12 @@ export default function AreaNav({
           {children}
         </div>
       )}
+      {/* Debajo de las áreas y los paneles, a la altura del contenido: vuelve
+          al panel anterior (oculto en el inicio del área). */}
+      <BotonRegresar
+        inicioArea={soloEstimaciones ? "/estimaciones/recibos" : INICIO_AREA[area]}
+        maquilador={soloEstimaciones}
+      />
     </div>
   );
 }

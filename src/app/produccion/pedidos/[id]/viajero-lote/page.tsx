@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/site-url";
@@ -99,11 +98,8 @@ export default async function ViajeroLotePage({
   );
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6 print:max-w-none print:p-4">
-      <div className="flex items-center justify-between print:hidden">
-        <Link href={`/produccion/pedidos/${id}`} className="text-sm text-gray-500 underline">
-          ← Volver al pedido
-        </Link>
+    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6 print:max-w-none print:p-0">
+      <div className="flex items-center justify-end print:hidden">
         <div className="flex gap-2">
           <DescargarPdfButton nombreArchivo={nombreArchivo} />
           <ImprimirButton sufijo={` (${items.length} ítems)`} />

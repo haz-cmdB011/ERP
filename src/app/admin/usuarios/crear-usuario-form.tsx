@@ -11,7 +11,9 @@ import {
   requiereContratista,
   type RolValido,
   type AreaValida,
+  type AreaMaquila,
 } from "@/lib/auth/roles";
+import AreasMaquilaSelector from "./areas-maquila-selector";
 
 export default function CrearUsuarioForm() {
   const router = useRouter();
@@ -20,6 +22,7 @@ export default function CrearUsuarioForm() {
   const [rol, setRol] = useState<RolValido>("usuario");
   const [area, setArea] = useState<AreaValida>("planeacion");
   const [contratista, setContratista] = useState("");
+  const [areasMaquila, setAreasMaquila] = useState<AreaMaquila[]>(["acabados"]);
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
 
@@ -40,6 +43,7 @@ export default function CrearUsuarioForm() {
         rol,
         area: mostrarArea ? area : null,
         contratista: mostrarContratista ? contratista : null,
+        areasMaquila: mostrarContratista ? areasMaquila : null,
       }),
     });
     const data = await res.json();
@@ -53,6 +57,7 @@ export default function CrearUsuarioForm() {
     setEmail("");
     setPassword("");
     setContratista("");
+    setAreasMaquila(["acabados"]);
     router.refresh();
   }
 
@@ -120,14 +125,19 @@ export default function CrearUsuarioForm() {
         )}
       </div>
       {mostrarContratista && (
-        <p className="text-xs text-gray-500">
-          El maquilador solo entra a Estimaciones: captura sus recibos con este contratista y ve
-          su estado (pendiente, revisado o pagado). No ve el precio sugerido ni el resto del ERP.
-        </p>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-gray-700">Área de maquila</span>
+          <AreasMaquilaSelector valor={areasMaquila} onChange={setAreasMaquila} />
+          <p className="text-xs text-gray-500">
+            El maquilador solo entra a Estimaciones y solo genera recibos de su área (normalmente
+            una; marca varias solo como excepción). Captura sus recibos con este contratista y ve
+            su estado (pendiente, revisado o pagado). No ve el precio sugerido ni el resto del ERP.
+          </p>
+        </div>
       )}
       <button
         type="submit"
-        disabled={enviando}
+        disabled={enviando || (mostrarContratista && areasMaquila.length === 0)}
         className="w-fit rounded bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {enviando ? "Creando..." : "Crear usuario"}

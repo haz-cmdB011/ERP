@@ -58,6 +58,14 @@ export default function ViajeroFicha({
     <article data-viajero-ficha className="flex flex-col gap-6 bg-white p-2">
       <header className="flex items-start justify-between gap-4 border-b border-gray-300 pb-3">
         <div>
+          {/* Logotipo arriba a la izquierda. Archivo estático (no next/image)
+              para que html2canvas lo capture de inmediato en el PDF. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- asset estático simple, no next/image */}
+          <img
+            src="/branding/mobiliarium-logo.png"
+            alt="Mobiliarium — creating lifestyle"
+            className="mb-3 h-12"
+          />
           <h1 className="text-lg font-semibold">Hoja de Viajero</h1>
           {folio && <p className="font-mono text-sm text-gray-900">Folio {folio}</p>}
           <p className="text-sm text-gray-700">

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { esMaquilador, getPerfilActual } from "@/lib/auth/get-perfil";
+import { esMaquilador, getPerfilActual, puedeCapturarTipo } from "@/lib/auth/get-perfil";
 import { listarTodosLosRecibos } from "@/lib/estimaciones/listado-recibos";
 import { NOMBRE_TIPO_CUALQUIERA } from "@/lib/estimaciones/revision-db";
 import { money, fechaCorta } from "@/lib/estimaciones/motor-precio";
@@ -99,7 +99,17 @@ export default async function MisRecibosPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {r.estado === "pendiente" && sinRevisar && (
-                        <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
+                        <div className="flex flex-col items-end gap-1">
+                          <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
+                          {puedeCapturarTipo(perfil, r.tipo) && (
+                            <Link
+                              href={`/estimaciones/mis-recibos/${r.tipo}/${encodeURIComponent(r.folio)}/modificar`}
+                              className="text-xs font-medium text-slate-500 hover:text-indigo-600"
+                            >
+                              Modificar
+                            </Link>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>

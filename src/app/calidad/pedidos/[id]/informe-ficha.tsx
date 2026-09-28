@@ -78,10 +78,6 @@ export default function InformeFicha({
         </div>
       </header>
 
-      <div className="flex flex-col items-center gap-1 border-y border-dashed border-slate-300 py-3">
-        <QrCode value={qrUrl} size={72} />
-        <p className="text-center text-[9px] text-slate-400">Escanea para rastrear este informe</p>
-      </div>
 
       <p
         className={`text-center text-sm font-bold tracking-widest ${
@@ -146,6 +142,11 @@ export default function InformeFicha({
           </div>
         </div>
       )}
+      {/* QR abajo a la izquierda, debajo de las firmas. */}
+      <div className="mt-2 flex items-end gap-3 border-t border-dashed border-slate-300 pt-3">
+        <QrCode value={qrUrl} size={120} />
+        <p className="max-w-[160px] text-[9px] text-slate-400">Escanea para rastrear este informe</p>
+      </div>
     </article>
   );
 }
