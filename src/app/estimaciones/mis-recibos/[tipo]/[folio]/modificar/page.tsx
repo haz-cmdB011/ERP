@@ -1,6 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { esMaquilador, getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
+import {
+  esMaquilador,
+  getPerfilActual,
+  puedeCapturarTipo,
+  puedeVerPrecioSugerido,
+} from "@/lib/auth/get-perfil";
 import { esTipoCualquierRecibo } from "@/lib/estimaciones/revision-db";
 import { buscarReciboPorFolio } from "@/lib/estimaciones/recibos-db";
 import { buscarReciboElectrificacionPorFolio } from "@/lib/estimaciones/recibos-electrificacion-db";
@@ -24,6 +29,11 @@ export default async function ModificarReciboPage({
   const perfil = await getPerfilActual(supabase);
   if (!esMaquilador(perfil)) {
     redirect("/estimaciones/registro");
+  }
+  // Solo recibos de su(s) área(s) de maquila: si ya no la tiene asignada, la
+  // base rechazaría los renglones nuevos.
+  if (!puedeCapturarTipo(perfil, tipo)) {
+    redirect("/estimaciones/mis-recibos");
   }
   const puedeVerSugerido = puedeVerPrecioSugerido(perfil);
   const contratistaFijo = perfil?.contratista ?? null;

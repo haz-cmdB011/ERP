@@ -23,6 +23,8 @@ function rutaSuperior(pathname: string, inicioArea: string, maquilador: boolean)
   if (/^\/estimaciones\/(recibos\/[^/]+\/recibo|revision)\//.test(pathname)) {
     return maquilador ? "/estimaciones/mis-recibos" : "/estimaciones/registro";
   }
+  // Modificar un recibo propio → Mis recibos.
+  if (/^\/estimaciones\/mis-recibos\//.test(pathname)) return "/estimaciones/mis-recibos";
   // Captura de un tipo de recibo → generador.
   if (/^\/estimaciones\/recibos\/[^/]+$/.test(pathname)) return "/estimaciones/recibos";
   return inicioArea;
