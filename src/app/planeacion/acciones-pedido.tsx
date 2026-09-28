@@ -9,7 +9,7 @@ type Accion = "logico" | "definitivo" | "restaurar";
 const MENSAJES: Record<Accion, string> = {
   logico: "¿Marcar este pedido como eliminado? Se puede restaurar después.",
   definitivo:
-    "¿Eliminar DEFINITIVAMENTE este pedido? Se borrará junto con todo su historial de versiones, items e imágenes. Esta acción no se puede deshacer.",
+    "¿Eliminar DEFINITIVAMENTE este pedido? Se borrará junto con todo su historial de versiones, items e imágenes. Si tiene folios de Calidad: el desarrollador los borra también; un administrador de Planeación lo conserva en Cancelados. Esta acción no se puede deshacer.",
   restaurar: "¿Restaurar este pedido? Volverá a aparecer como activo.",
 };
 
@@ -51,7 +51,7 @@ export default function AccionesPedido({
     // de Calidad — lo deja cancelado en vez de eliminarlo (ver Cancelados).
     if (accion === "definitivo" && data.conservadoPorFolio) {
       setAviso(
-        "Este pedido ya tenía folio(s) de Calidad: se conservó como cancelado en vez de eliminarse. Puedes verlo en Cancelados."
+        "Eliminado. Como tenía folio(s) de Calidad, su historial se conserva en Cancelados."
       );
     }
     router.refresh();

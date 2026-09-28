@@ -7,6 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 export interface CancelacionPedido {
   cancelado_en: string | null;
   motivo_cancelacion: string | null;
+  // Eliminado definitivamente (conservado por sus folios de Calidad): no se
+  // puede reactivar.
+  eliminado_definitivo_en?: string | null;
 }
 
 // Cancelar/reactivar el pedido (PM) completo — a diferencia de la
@@ -77,7 +80,13 @@ export default function CancelarPedido({
         {cancelacion.motivo_cancelacion && (
           <p className="mt-1 text-rose-700">Motivo: {cancelacion.motivo_cancelacion}</p>
         )}
-        {puedeEditar && (
+        {cancelacion.eliminado_definitivo_en && (
+          <p className="mt-1 text-xs text-rose-700">
+            Se eliminó definitivamente; se conserva solo por sus folios de Calidad y ya no se
+            puede reactivar.
+          </p>
+        )}
+        {puedeEditar && !cancelacion.eliminado_definitivo_en && (
           <div className="mt-2">
             {confirmandoReactivar ? (
               <div className="flex items-center gap-2">
