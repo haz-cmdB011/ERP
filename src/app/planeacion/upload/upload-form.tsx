@@ -67,11 +67,18 @@ export default function UploadForm() {
         setResultado({ error: "Tu sesión expiró. Vuelve a iniciar sesión." });
         return;
       }
-      const storagePath = `${user.id}/entrantes/${Date.now()}.xlsx`;
+      const conMacros = file.name.toLowerCase().endsWith(".xlsm");
+      if (!conMacros && !file.name.toLowerCase().endsWith(".xlsx")) {
+        setResultado({ error: "Solo se aceptan archivos de Excel .xlsx o .xlsm." });
+        return;
+      }
+      const storagePath = `${user.id}/entrantes/${Date.now()}.${conMacros ? "xlsm" : "xlsx"}`;
       const { error: subidaError } = await supabase.storage
         .from("cargas-excel")
         .upload(storagePath, file, {
-          contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          contentType: conMacros
+            ? "application/vnd.ms-excel.sheet.macroEnabled.12"
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           upsert: false,
         });
       if (subidaError) {
@@ -109,7 +116,7 @@ export default function UploadForm() {
         <input
           ref={inputRef}
           type="file"
-          accept=".xlsx"
+          accept=".xlsx,.xlsm"
           required
           className="text-sm"
         />

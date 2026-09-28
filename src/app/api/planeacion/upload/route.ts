@@ -16,7 +16,13 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const MAX_FILE_BYTES = 40 * 1024 * 1024; // 40 MB
-const ALLOWED_EXTENSIONS = [".xlsx"];
+// .xlsm (Excel con macros) tiene el mismo formato interno que .xlsx: se lee
+// igual y las macros simplemente se ignoran (no se ejecutan).
+const ALLOWED_EXTENSIONS = [".xlsx", ".xlsm"];
+const CONTENT_TYPE_EXCEL: Record<string, string> = {
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xlsm": "application/vnd.ms-excel.sheet.macroEnabled.12",
+};
 const BUCKET_IMAGENES_ITEMS = "planeacion-item-imagenes";
 
 type ItemParaIngesta = Omit<PlaneacionItemParsed, "imagenes"> & {
@@ -78,6 +84,10 @@ async function subirImagenesDeItems(
 // fuera de [A-Za-z0-9._-]. El nombre original se conserva tal cual en
 // cargas_archivo.nombre_archivo (columna de texto, sin esa restricción);
 // esto solo sanitiza la ruta física del objeto en el bucket.
+function extensionDe(nombre: string): string {
+  return nombre.slice(nombre.lastIndexOf(".")).toLowerCase();
+}
+
 function sanitizarNombreArchivo(nombre: string): string {
   const normalizado = nombre
     .normalize("NFD")
@@ -150,7 +160,7 @@ export async function POST(request: Request) {
   if (!extensionValida) {
     await limpiarEntrante();
     return NextResponse.json(
-      { error: "Formato de archivo no soportado. Solo se aceptan archivos .xlsx." },
+      { error: "Formato de archivo no soportado. Solo se aceptan archivos de Excel .xlsx o .xlsm." },
       { status: 400 }
     );
   }
@@ -188,8 +198,7 @@ export async function POST(request: Request) {
   const { error: storageError } = await supabase.storage
     .from("cargas-excel")
     .upload(storagePath, bufferArchivo, {
-      contentType:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      contentType: CONTENT_TYPE_EXCEL[extensionDe(nombreArchivo)] ?? CONTENT_TYPE_EXCEL[".xlsx"],
       upsert: false,
     });
 
