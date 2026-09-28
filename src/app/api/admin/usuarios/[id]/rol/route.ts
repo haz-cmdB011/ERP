@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   ROLES_VALIDOS,
   derivarArea,
+  normalizarAreasMaquila,
   requiereArea,
   requiereContratista,
 } from "@/lib/auth/roles";
@@ -22,6 +23,7 @@ export async function PATCH(
   const rol = body?.rol;
   const areaEnviada = body?.area || null;
   const contratista = typeof body?.contratista === "string" ? body.contratista.trim() : "";
+  const areasMaquila = normalizarAreasMaquila(body?.areasMaquila);
 
   if (!ROLES_VALIDOS.includes(rol)) {
     return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
@@ -39,6 +41,12 @@ export async function PATCH(
       { status: 400 }
     );
   }
+  if (requiereContratista(rol) && areasMaquila.length === 0) {
+    return NextResponse.json(
+      { error: "El maquilador necesita al menos un área de maquila." },
+      { status: 400 }
+    );
+  }
 
   // Se usa el cliente normal (no service_role): la RLS "admin_update_any_perfil"
   // ya permite esto porque quien llama es admin, validado arriba con
@@ -50,6 +58,7 @@ export async function PATCH(
       rol,
       area: derivarArea(rol, areaEnviada),
       contratista: requiereContratista(rol) ? contratista : null,
+      areas_maquila: requiereContratista(rol) ? areasMaquila : null,
     })
     .eq("id", id);
 

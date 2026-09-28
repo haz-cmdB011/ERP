@@ -11,7 +11,9 @@ import {
   requiereArea,
   requiereContratista,
   type AreaValida,
+  type AreaMaquila,
 } from "@/lib/auth/roles";
+import AreasMaquilaSelector from "./areas-maquila-selector";
 
 function ResetPasswordCell({ userId }: { userId: string }) {
   const [abierto, setAbierto] = useState(false);
@@ -95,6 +97,9 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   const [rol, setRol] = useState(usuario.rol);
   const [area, setArea] = useState<AreaValida>(usuario.area ?? "planeacion");
   const [contratista, setContratista] = useState(usuario.contratista ?? "");
+  const [areasMaquila, setAreasMaquila] = useState<AreaMaquila[]>(
+    usuario.areas_maquila ?? ["acabados"]
+  );
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,6 +116,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
         rol,
         area: mostrarArea ? area : null,
         contratista: mostrarContratista ? contratista : null,
+        areasMaquila: mostrarContratista ? areasMaquila : null,
       }),
     });
     const data = await res.json();
@@ -125,7 +131,8 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   const cambios =
     rol !== usuario.rol ||
     (mostrarArea && area !== usuario.area) ||
-    (mostrarContratista && contratista.trim() !== (usuario.contratista ?? ""));
+    (mostrarContratista && contratista.trim() !== (usuario.contratista ?? "")) ||
+    (mostrarContratista && areasMaquila.join(",") !== (usuario.areas_maquila ?? []).join(","));
 
   return (
     <tr className="border-t border-gray-100">
@@ -171,6 +178,11 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
               className="w-40 rounded border border-gray-300 px-2 py-1 text-sm"
               disabled={esYo}
             />
+            <AreasMaquilaSelector
+              valor={areasMaquila}
+              onChange={setAreasMaquila}
+              disabled={esYo}
+            />
           </div>
         ) : (
           <span className="text-gray-400">—</span>
@@ -180,7 +192,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
         {!esYo && cambios && (
           <button
             onClick={guardar}
-            disabled={guardando}
+            disabled={guardando || (mostrarContratista && areasMaquila.length === 0)}
             className="rounded bg-black px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
           >
             {guardando ? "Guardando..." : "Guardar"}

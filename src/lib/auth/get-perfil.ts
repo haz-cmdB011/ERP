@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { RolValido, AreaValida } from "./roles";
+import { normalizarAreasMaquila, type RolValido, type AreaValida, type AreaMaquila } from "./roles";
 
 export interface PerfilActual {
   userId: string;
@@ -7,6 +7,8 @@ export interface PerfilActual {
   area: AreaValida | null;
   // Solo maquiladores: su nombre de contratista, fijo en sus recibos.
   contratista: string | null;
+  // Solo maquiladores: las áreas de maquila de las que puede generar recibos.
+  areasMaquila: AreaMaquila[];
 }
 
 export async function getPerfilActual(
@@ -20,7 +22,7 @@ export async function getPerfilActual(
 
   const { data: perfil } = await supabase
     .from("perfiles")
-    .select("rol, area, contratista")
+    .select("rol, area, contratista, areas_maquila")
     .eq("id", user.id)
     .single();
 
@@ -31,6 +33,7 @@ export async function getPerfilActual(
     rol: perfil.rol as RolValido,
     area: perfil.area,
     contratista: perfil.contratista ?? null,
+    areasMaquila: normalizarAreasMaquila(perfil.areas_maquila),
   };
 }
 
@@ -70,4 +73,11 @@ export function puedeVerPrecioSugerido(perfil: PerfilActual | null): boolean {
 // sugerido. Espejo de is_maquilador() en la base.
 export function esMaquilador(perfil: PerfilActual | null): boolean {
   return perfil?.rol === "maquilador";
+}
+
+// ¿Puede generar recibos de este tipo? Todos los que capturan recibos sí,
+// salvo el maquilador fuera de sus áreas. Espejo de puede_capturar_tipo().
+export function puedeCapturarTipo(perfil: PerfilActual | null, tipo: AreaMaquila): boolean {
+  if (!esMaquilador(perfil)) return true;
+  return perfil?.areasMaquila.includes(tipo) ?? false;
 }

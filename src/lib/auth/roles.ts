@@ -45,6 +45,23 @@ export function requiereContratista(rol: string): boolean {
   return rol === "maquilador";
 }
 
+// Área(s) de maquila del maquilador: solo genera recibos de esas áreas. Lo
+// normal es una; como excepción un administrador puede asignarle varias.
+export const AREAS_MAQUILA = ["acabados", "armado", "electrificacion"] as const;
+export type AreaMaquila = (typeof AREAS_MAQUILA)[number];
+
+export const AREA_MAQUILA_LABELS: Record<AreaMaquila, string> = {
+  acabados: "Acabados",
+  armado: "Armado",
+  electrificacion: "Electrificación",
+};
+
+// Deja solo áreas válidas, sin repetir y en orden fijo.
+export function normalizarAreasMaquila(valor: unknown): AreaMaquila[] {
+  if (!Array.isArray(valor)) return [];
+  return AREAS_MAQUILA.filter((a) => valor.includes(a));
+}
+
 export function derivarArea(rol: string, areaEnviada: string | null): AreaValida | null {
   if (rol === "maquilador") return "estimaciones";
   if (!requiereArea(rol)) return null;

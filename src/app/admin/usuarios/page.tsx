@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CrearUsuarioForm from "./crear-usuario-form";
 import UsuariosTable from "./usuarios-table";
-import type { RolValido, AreaValida } from "@/lib/auth/roles";
+import type { RolValido, AreaValida, AreaMaquila } from "@/lib/auth/roles";
 
 export interface PerfilRow {
   id: string;
@@ -11,6 +11,7 @@ export interface PerfilRow {
   rol: RolValido;
   area: AreaValida | null;
   contratista: string | null;
+  areas_maquila: AreaMaquila[] | null;
   created_at: string;
 }
 
@@ -28,7 +29,7 @@ export default async function AdminUsuariosPage() {
 
   const { data: usuarios } = await supabase
     .from("perfiles")
-    .select("id, email, nombre_completo, rol, area, contratista, created_at")
+    .select("id, email, nombre_completo, rol, area, contratista, areas_maquila, created_at")
     .order("created_at", { ascending: true })
     .returns<PerfilRow[]>();
 

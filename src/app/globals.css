@@ -24,3 +24,22 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Impresión desde el navegador (botón "Imprimir"): hoja carta con márgenes
+   de 0.5" y las fichas maquetadas igual que en el PDF descargado
+   (src/lib/pdf/generar-pdf-carta.ts): 640 px de ancho ampliados para llenar
+   las 7.5" útiles, en vez de quedarse angostas como en pantalla. */
+@page {
+  size: letter;
+  margin: 0.5in;
+}
+
+@media print {
+  [data-informe],
+  [data-viajero-ficha] {
+    width: 640px;
+    max-width: none;
+    margin: 0 auto;
+    zoom: 1.125;
+  }
+}

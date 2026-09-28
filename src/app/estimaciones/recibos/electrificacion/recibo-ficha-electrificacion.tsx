@@ -50,10 +50,6 @@ export default function ReciboFichaElectrificacion({
         </div>
       </header>
 
-      <div className="flex flex-col items-center gap-1 border-y border-dashed border-slate-300 py-3">
-        <QrCode value={qrUrl} size={72} />
-        <p className="text-center text-[9px] text-slate-400">Escanea para dar seguimiento a este recibo</p>
-      </div>
 
       <div className="flex flex-col">
         <Campo label="Contratista" valor={recibo.contratista || "—"} />
@@ -156,6 +152,11 @@ export default function ReciboFichaElectrificacion({
           <div className="h-8 border-b border-slate-400" />
           <p className="mt-1 text-center text-[9px] text-slate-500">Firma del contratista / maquilador</p>
         </div>
+      </div>
+      {/* QR abajo a la izquierda, debajo de las firmas. */}
+      <div className="mt-2 flex items-end gap-3 border-t border-dashed border-slate-300 pt-3">
+        <QrCode value={qrUrl} size={120} />
+        <p className="max-w-[160px] text-[9px] text-slate-400">Escanea para dar seguimiento a este recibo</p>
       </div>
     </article>
   );

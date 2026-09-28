@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   ROLES_VALIDOS,
   derivarArea,
+  normalizarAreasMaquila,
   requiereArea,
   requiereContratista,
 } from "@/lib/auth/roles";
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
   const rol = body?.rol;
   const areaEnviada = body?.area || null;
   const contratista = typeof body?.contratista === "string" ? body.contratista.trim() : "";
+  const areasMaquila = normalizarAreasMaquila(body?.areasMaquila);
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Email inválido." }, { status: 400 });
@@ -43,6 +45,12 @@ export async function POST(request: Request) {
   if (requiereContratista(rol) && !contratista) {
     return NextResponse.json(
       { error: "El maquilador necesita su nombre de contratista." },
+      { status: 400 }
+    );
+  }
+  if (requiereContratista(rol) && areasMaquila.length === 0) {
+    return NextResponse.json(
+      { error: "El maquilador necesita al menos un área de maquila." },
       { status: 400 }
     );
   }
@@ -73,6 +81,7 @@ export async function POST(request: Request) {
       rol,
       area: derivarArea(rol, areaEnviada),
       contratista: requiereContratista(rol) ? contratista : null,
+      areas_maquila: requiereContratista(rol) ? areasMaquila : null,
     })
     .eq("id", creado.user.id);
 
