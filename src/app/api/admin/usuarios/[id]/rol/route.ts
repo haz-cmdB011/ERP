@@ -22,7 +22,11 @@ export async function PATCH(
   const body = await request.json().catch(() => null);
   const rol = body?.rol;
   const areaEnviada = body?.area || null;
-  const contratista = typeof body?.contratista === "string" ? body.contratista.trim() : "";
+  // Nombre del usuario. En el maquilador es también su contratista (lo que
+  // se imprime en sus recibos); se acepta "contratista" por compatibilidad.
+  const nombreEnviado = typeof body?.nombre === "string" ? body.nombre : body?.contratista;
+  const nombre = typeof nombreEnviado === "string" ? nombreEnviado.trim() : "";
+  const contratista = nombre;
   const areasMaquila = normalizarAreasMaquila(body?.areasMaquila);
 
   if (!ROLES_VALIDOS.includes(rol)) {
@@ -37,7 +41,7 @@ export async function PATCH(
 
   if (requiereContratista(rol) && !contratista) {
     return NextResponse.json(
-      { error: "El maquilador necesita su nombre de contratista." },
+      { error: "El maquilador necesita su nombre (es su contratista en los recibos)." },
       { status: 400 }
     );
   }
@@ -57,6 +61,7 @@ export async function PATCH(
     .update({
       rol,
       area: derivarArea(rol, areaEnviada),
+      nombre_completo: nombre || null,
       contratista: requiereContratista(rol) ? contratista : null,
       areas_maquila: requiereContratista(rol) ? areasMaquila : null,
     })

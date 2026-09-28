@@ -136,14 +136,29 @@ function normalizeCategoriaComponente(raw: string): CategoriaComponente | null {
   return null;
 }
 
+// Fechas escritas como texto en vez de fecha de Excel: "08.07.26",
+// "04/11/2025", "4-11-25" (día, mes, año).
+const PATRON_FECHA_TEXTO = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/;
+
 function cellDateISO(value: CellValue): string | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === "object" && "result" in value) {
     return cellDateISO(value.result as CellValue);
   }
-  return null;
+  const m = cellText(value)?.match(PATRON_FECHA_TEXTO);
+  if (!m) return null;
+  const [dia, mes] = [Number(m[1]), Number(m[2])];
+  if (dia < 1 || dia > 31 || mes < 1 || mes > 12) return null;
+  const anio = m[3].length === 2 ? `20${m[3]}` : m[3];
+  return `${anio}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 }
+
+// Título con el número de PM en las primeras filas cuando el archivo no
+// trae la etiqueta "No. PEDIDO" (ej. "168-25 REMODELACIÓN PH MONTERREY",
+// "PM 107-26 SMART FIT", "2PM134-26 ..."). Solo texto: una fecha de Excel
+// ("2025-11-04") no cuenta.
+const PATRON_TITULO_PM = /^\s*(?:\d{1,3}\s*)?(?:PM\s*[-_ ]?\s*)?\d{1,5}\s*-\s*(?:\d{4}|\d{2})(?!\d)/i;
 
 // Las imágenes de la columna IMAGEN no son valores de celda: Excel las
 // ancla como objetos flotantes (drawing) sobre un rango de celdas, vía
@@ -182,7 +197,9 @@ function extraerImagenesPorFila(
 }
 
 export async function parsePlaneacionExcel(
-  buffer: Buffer | ArrayBuffer
+  buffer: Buffer | ArrayBuffer,
+  // Respaldo para el número de PM si el archivo no lo trae en el encabezado.
+  opciones: { nombreArchivo?: string } = {}
 ): Promise<ParseResult> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as ExcelJS.Buffer);
@@ -238,6 +255,28 @@ export async function parsePlaneacionExcel(
     }
   }
 
+  // Sin etiqueta "No. PEDIDO": el número de PM del título de las primeras
+  // filas y, si tampoco, del nombre del archivo (lo normaliza la ruta).
+  if (!metadata.numero_pedido) {
+    for (let r = 1; r <= metadataScanLimit && !metadata.numero_pedido; r++) {
+      const row = worksheet.getRow(r);
+      for (let c = 1; c <= row.cellCount; c++) {
+        const valor = resolvedValue(row.getCell(c));
+        if (typeof valor !== "string" && !(valor && typeof valor === "object" && "richText" in valor)) {
+          continue;
+        }
+        const texto = cellText(valor);
+        if (texto && PATRON_TITULO_PM.test(texto)) {
+          metadata.numero_pedido = texto;
+          break;
+        }
+      }
+    }
+  }
+  if (!metadata.numero_pedido && opciones.nombreArchivo && /\d/.test(opciones.nombreArchivo)) {
+    metadata.numero_pedido = opciones.nombreArchivo.replace(/\.xlsx$/i, "");
+  }
+
   for (const [label, key] of Object.entries(METADATA_LABELS)) {
     if ((key === "numero_pedido" || key === "proyecto_nombre" || key === "cliente") && !metadata[key]) {
       errores.push({
@@ -256,7 +295,11 @@ export async function parsePlaneacionExcel(
     const map: Record<string, number> = {};
     for (let c = 1; c <= row.cellCount; c++) {
       const text = cellText(resolvedValue(row.getCell(c)));
-      if (text) map[normalize(text)] = c;
+      if (!text) continue;
+      const nombre = normalize(text);
+      map[nombre] = c;
+      // Variantes de encabezado vistas en archivos reales.
+      if (nombre === "ACABADOS ACTUALIZADOS" && !map["ACABADOS"]) map["ACABADOS"] = c;
     }
     if (map["ITEM"] && map["CANTIDAD TOTAL"]) {
       headerRowNumber = r;
@@ -288,6 +331,7 @@ export async function parsePlaneacionExcel(
 
   // ---- 3. Filas de datos ---------------------------------------------------
   const items: PlaneacionItemParsed[] = [];
+  const avisos: FilaError[] = [];
   let filasTotales = 0;
 
   const col = (name: (typeof REQUIRED_HEADERS)[number] | string) => columnMap[name];
@@ -325,18 +369,35 @@ export async function parsePlaneacionExcel(
       ? normalizeCategoriaComponente(componenteRaw)
       : null;
 
-    if (!descripcion) {
-      errores.push({ fila: r, mensaje: "La columna DESCRIPCION está vacía." });
+    const cantidadTotal = cellNumber(resolvedValue(row.getCell(col("CANTIDAD TOTAL"))));
+
+    // Renglón de relleno: solo trae el número de ITEM (y quizá "N/A" en
+    // otras columnas), sin modelo, descripción ni cantidad. No es un ítem.
+    if (!descripcion && !modelo && cantidadTotal === null) {
+      filasTotales--;
       continue;
     }
 
-    const cantidadTotal = cellNumber(resolvedValue(row.getCell(col("CANTIDAD TOTAL"))));
-    if (cantidadTotal === null) {
-      errores.push({
+    // Datos incompletos en archivos reales: el ítem se guarda igual y se
+    // avisa, en vez de rechazar todo el archivo por un renglón.
+    const etiquetaItem = `Ítem ${itemCode}${modelo ? ` (${modelo})` : ""}`;
+    if (!descripcion) {
+      avisos.push({
         fila: r,
-        mensaje: "La columna CANTIDAD TOTAL no contiene un número válido.",
+        mensaje: `${etiquetaItem}: sin DESCRIPCION; se guardó sin descripción.`,
       });
-      continue;
+    }
+
+    const cantidadXMueble = cellNumber(resolvedValue(row.getCell(col("CANTIDAD X MUEBLE"))));
+    let cantidadFinal = cantidadTotal;
+    if (cantidadFinal === null) {
+      cantidadFinal = cantidadXMueble ?? 0;
+      avisos.push({
+        fila: r,
+        mensaje: `${etiquetaItem}: CANTIDAD TOTAL vacía o no numérica; se guardó ${cantidadFinal}${
+          cantidadXMueble !== null ? " (la CANTIDAD X MUEBLE)" : ""
+        }. Revísala.`,
+      });
     }
 
     // Nota: item_code NO es único por fila. Es habitual que un mismo mueble
@@ -361,9 +422,9 @@ export async function parsePlaneacionExcel(
       elevacion: col("ELEVACION") ? cellText(resolvedValue(row.getCell(col("ELEVACION")))) : null,
       modelo,
       descripcion,
-      cantidad_x_mueble: cellNumber(resolvedValue(row.getCell(col("CANTIDAD X MUEBLE")))),
+      cantidad_x_mueble: cantidadXMueble,
       unidad: cellText(resolvedValue(row.getCell(col("UNIDAD")))),
-      cantidad_total: cantidadTotal,
+      cantidad_total: cantidadFinal,
       acabados: col("ACABADOS") ? cellText(resolvedValue(row.getCell(col("ACABADOS")))) : null,
       observaciones: col("OBSERVACIONES") ? cellText(resolvedValue(row.getCell(col("OBSERVACIONES")))) : null,
       fila_excel_origen: r,
@@ -392,5 +453,6 @@ export async function parsePlaneacionExcel(
     metadata: metadata as PlaneacionMetadata,
     items,
     filasTotales,
+    avisos,
   };
 }

@@ -92,11 +92,17 @@ function ResetPasswordCell({ userId }: { userId: string }) {
   );
 }
 
+// Nombre que se muestra y edita. En el maquilador es su contratista (lo
+// que se imprime en sus recibos).
+function nombreDe(usuario: PerfilRow): string {
+  return (usuario.rol === "maquilador" ? usuario.contratista : null) ?? usuario.nombre_completo ?? "";
+}
+
 function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   const router = useRouter();
+  const [nombre, setNombre] = useState(nombreDe(usuario));
   const [rol, setRol] = useState(usuario.rol);
   const [area, setArea] = useState<AreaValida>(usuario.area ?? "planeacion");
-  const [contratista, setContratista] = useState(usuario.contratista ?? "");
   const [areasMaquila, setAreasMaquila] = useState<AreaMaquila[]>(
     usuario.areas_maquila ?? ["acabados"]
   );
@@ -104,7 +110,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   const mostrarArea = requiereArea(rol);
-  const mostrarContratista = requiereContratista(rol);
+  const esMaquila = requiereContratista(rol);
 
   async function guardar() {
     setGuardando(true);
@@ -113,10 +119,10 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        nombre,
         rol,
         area: mostrarArea ? area : null,
-        contratista: mostrarContratista ? contratista : null,
-        areasMaquila: mostrarContratista ? areasMaquila : null,
+        areasMaquila: esMaquila ? areasMaquila : null,
       }),
     });
     const data = await res.json();
@@ -129,13 +135,22 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   }
 
   const cambios =
+    nombre.trim() !== nombreDe(usuario) ||
     rol !== usuario.rol ||
     (mostrarArea && area !== usuario.area) ||
-    (mostrarContratista && contratista.trim() !== (usuario.contratista ?? "")) ||
-    (mostrarContratista && areasMaquila.join(",") !== (usuario.areas_maquila ?? []).join(","));
+    (esMaquila && areasMaquila.join(",") !== (usuario.areas_maquila ?? []).join(","));
 
   return (
-    <tr className="border-t border-gray-100">
+    <tr className="border-t border-gray-100 align-top">
+      <td className="py-2 pr-4">
+        <input
+          placeholder={esMaquila ? "Nombre del contratista" : "Nombre completo"}
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          className="w-44 rounded border border-gray-300 px-2 py-1 text-sm"
+          disabled={esYo}
+        />
+      </td>
       <td className="py-2 pr-4">
         {usuario.email}
         {esYo && <span className="ml-1 text-xs text-gray-400">(tú)</span>}
@@ -168,16 +183,9 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
               </option>
             ))}
           </select>
-        ) : mostrarContratista ? (
+        ) : esMaquila ? (
           <div className="flex flex-col gap-1">
             <span className="text-xs text-gray-500">Estimaciones</span>
-            <input
-              placeholder="Contratista"
-              value={contratista}
-              onChange={(e) => setContratista(e.target.value)}
-              className="w-40 rounded border border-gray-300 px-2 py-1 text-sm"
-              disabled={esYo}
-            />
             <AreasMaquilaSelector
               valor={areasMaquila}
               onChange={setAreasMaquila}
@@ -192,7 +200,9 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
         {!esYo && cambios && (
           <button
             onClick={guardar}
-            disabled={guardando || (mostrarContratista && areasMaquila.length === 0)}
+            disabled={
+              guardando || (esMaquila && (areasMaquila.length === 0 || !nombre.trim()))
+            }
             className="rounded bg-black px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
           >
             {guardando ? "Guardando..." : "Guardar"}
@@ -207,6 +217,8 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   );
 }
 
+const SIN_AREA = "sin-area";
+
 export default function UsuariosTable({
   usuarios,
   miId,
@@ -214,22 +226,90 @@ export default function UsuariosTable({
   usuarios: PerfilRow[];
   miId: string;
 }) {
+  const [filtroRol, setFiltroRol] = useState("");
+  const [filtroArea, setFiltroArea] = useState("");
+
+  const visibles = usuarios.filter(
+    (u) =>
+      (!filtroRol || u.rol === filtroRol) &&
+      (!filtroArea || (filtroArea === SIN_AREA ? !u.area : u.area === filtroArea))
+  );
+
   return (
-    <table className="w-full text-left text-sm">
-      <thead>
-        <tr className="text-gray-500">
-          <th className="py-2 pr-4">Email</th>
-          <th className="py-2 pr-4">Rol</th>
-          <th className="py-2 pr-4">Área</th>
-          <th className="py-2 pr-4"></th>
-          <th className="py-2 pr-4">Contraseña</th>
-        </tr>
-      </thead>
-      <tbody>
-        {usuarios.map((u) => (
-          <FilaUsuario key={u.id} usuario={u} esYo={u.id === miId} />
-        ))}
-      </tbody>
-    </table>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <label className="flex items-center gap-2">
+          <span className="text-gray-500">Rol</span>
+          <select
+            value={filtroRol}
+            onChange={(e) => setFiltroRol(e.target.value)}
+            className="rounded border border-gray-300 px-2 py-1 text-sm"
+          >
+            <option value="">Todos</option>
+            {ROLES_VALIDOS.map((r) => (
+              <option key={r} value={r}>
+                {ROL_LABELS[r]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="text-gray-500">Área</span>
+          <select
+            value={filtroArea}
+            onChange={(e) => setFiltroArea(e.target.value)}
+            className="rounded border border-gray-300 px-2 py-1 text-sm"
+          >
+            <option value="">Todas</option>
+            {AREAS_VALIDAS.map((a) => (
+              <option key={a} value={a}>
+                {AREA_LABELS[a]}
+              </option>
+            ))}
+            <option value={SIN_AREA}>Sin área</option>
+          </select>
+        </label>
+        {(filtroRol || filtroArea) && (
+          <button
+            type="button"
+            onClick={() => {
+              setFiltroRol("");
+              setFiltroArea("");
+            }}
+            className="text-xs text-gray-500 underline hover:text-black"
+          >
+            Limpiar filtros
+          </button>
+        )}
+        <span className="ml-auto text-xs text-gray-500">
+          {visibles.length} de {usuarios.length} usuarios
+        </span>
+      </div>
+
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr className="text-gray-500">
+            <th className="py-2 pr-4">Nombre</th>
+            <th className="py-2 pr-4">Email</th>
+            <th className="py-2 pr-4">Rol</th>
+            <th className="py-2 pr-4">Área</th>
+            <th className="py-2 pr-4"></th>
+            <th className="py-2 pr-4">Contraseña</th>
+          </tr>
+        </thead>
+        <tbody>
+          {visibles.map((u) => (
+            <FilaUsuario key={u.id} usuario={u} esYo={u.id === miId} />
+          ))}
+          {visibles.length === 0 && (
+            <tr>
+              <td colSpan={6} className="py-6 text-center text-sm text-gray-500">
+                Ningún usuario coincide con los filtros.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }

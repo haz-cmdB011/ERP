@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizarNumeroPM } from "./numero-pm";
+import { normalizarNumeroPM, ordenDeTrabajo } from "./numero-pm";
 
 describe("normalizarNumeroPM", () => {
   it.each([
@@ -8,7 +8,6 @@ describe("normalizarNumeroPM", () => {
     ["pm-107-26", "PM107-26"],
     ["PM 107 - 26", "PM107-26"],
     ["107-26", "PM107-26"],
-    ["009-26-2", "PM009-26"],
     ["PM 9-26", "PM009-26"],
     ["PM 107/2026", "PM107-26"],
     ["PM 1234-26", "PM1234-26"],
@@ -41,5 +40,54 @@ describe("normalizarNumeroPM", () => {
 
   it("deja el valor intacto si no trae ningún número", () => {
     expect(normalizarNumeroPM("SIN NUMERO")).toBe("SIN NUMERO");
+  });
+
+  describe("varios PM en una Orden de Trabajo", () => {
+    it.each([
+      ["1PM134-26", "1PM134-26"],
+      ["2 PM 134-26", "2PM134-26"],
+      ["02-PM-134/2026", "2PM134-26"],
+      ["3pm 9-26", "3PM009-26"],
+      ["102-24-2", "2PM102-24"],
+      ["PM 102-24-2", "2PM102-24"],
+      ["009-26-2", "2PM009-26"],
+    ])("conserva el número de PM: %s → %s", (entrada, esperado) => {
+      expect(normalizarNumeroPM(entrada)).toBe(esperado);
+    });
+
+    it("toma el número de PM del nombre del archivo si la celda no lo trae", () => {
+      expect(
+        normalizarNumeroPM("PM134-26", { nombreArchivo: "2PM 134-26 SMART FIT.xlsx" })
+      ).toBe("2PM134-26");
+    });
+
+    it("toma el sufijo del nombre del archivo", () => {
+      expect(
+        normalizarNumeroPM("PM102-24", { nombreArchivo: "PM 102-24-2 REMODELACION CAMPESTRE II.xlsx" })
+      ).toBe("2PM102-24");
+    });
+
+    it("no confunde una fecha del nombre del archivo con el número de PM", () => {
+      expect(
+        normalizarNumeroPM("168-25 REMODELACIÓN PH MONTERREY REPROCESOS", {
+          nombreArchivo: "PM 168-25 REMODELACIÓN PH MONTERREY REPROCESOS 8.07.26.xlsx",
+        })
+      ).toBe("PM168-25");
+    });
+
+    it("ignora el número de PM del archivo si es de otra OT", () => {
+      expect(
+        normalizarNumeroPM("PM135-26", { nombreArchivo: "2PM 134-26 SMART FIT.xlsx" })
+      ).toBe("PM135-26");
+    });
+
+    it.each([
+      ["PM134-26", "134-26"],
+      ["1PM134-26", "134-26"],
+      ["2PM134-26", "134-26"],
+      ["009-26-2", null],
+    ])("orden de trabajo de %s → %s", (pm, ot) => {
+      expect(ordenDeTrabajo(pm)).toBe(ot);
+    });
   });
 });

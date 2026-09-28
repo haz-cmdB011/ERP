@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import IconoPapelera from "@/components/icono-papelera";
 
 type Accion = "logico" | "definitivo" | "restaurar";
 
@@ -97,9 +98,11 @@ export default function AccionesPedido({
           <button
             onClick={() => setConfirmando("logico")}
             disabled={cargando !== null}
-            className="rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
+            title="Eliminar"
+            aria-label="Eliminar pedido"
+            className="flex h-7 w-7 items-center justify-center rounded border border-amber-200 bg-amber-50 text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
           >
-            {cargando === "logico" ? "Eliminando..." : "Eliminar"}
+            {cargando === "logico" ? "…" : <IconoPapelera />}
           </button>
         )}
         <button
