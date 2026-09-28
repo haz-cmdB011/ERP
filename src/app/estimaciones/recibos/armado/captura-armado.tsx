@@ -37,6 +37,7 @@ import {
 import {
   cargarHistoricoDb,
   guardarReciboEnDb,
+  modificarReciboEnDb,
   type ReciboGuardado,
   type RenglonGuardado,
   type RenglonParaGuardar,
@@ -117,26 +118,51 @@ function aEntrada(r: Renglon): EntradaRenglon {
   };
 }
 
+function renglonDesdeGuardado(rg: RenglonGuardado): Renglon {
+  return nuevoRenglon({
+    modelo: rg.modelo,
+    familia: rg.familia,
+    tamano: rg.tamano,
+    cantidad: rg.cantidad,
+    tipoArmado: rg.tipoArmado ?? "",
+    colocacionHerrajes: rg.colocacionHerrajes ? "si" : "no",
+    tipoTrabajo: rg.tipoTrabajo,
+    causa: rg.causa,
+    propuesto: rg.propuesto,
+    nota: rg.nota,
+  });
+}
+
 // contratistaFijo: solo cuando captura un maquilador. Su contratista sale de
 // su usuario y no se edita (la base además lo fuerza al guardar).
+// reciboExistente: modo edición — el maquilador está modificando un recibo
+// pendiente que ya capturó (en vez de cancelarlo y capturarlo de nuevo). El
+// folio no se puede cambiar; los renglones se reemplazan por completo.
 export default function CapturaArmado({
   puedeVerSugerido,
   contratistaFijo = null,
+  reciboExistente = null,
 }: {
   puedeVerSugerido: boolean;
   contratistaFijo?: string | null;
+  reciboExistente?: ReciboGuardado | null;
 }) {
   // Arranca con un renglón vacío: Armado no tiene histórico ni tarifas de
-  // ejemplo (las de Acabados no aplican al armado).
-  const [renglones, setRenglones] = useState<Renglon[]>(() => [nuevoRenglon()]);
+  // ejemplo (las de Acabados no aplican al armado). En modo edición arranca
+  // con los renglones del recibo existente.
+  const [renglones, setRenglones] = useState<Renglon[]>(() =>
+    reciboExistente ? reciboExistente.renglones.map(renglonDesdeGuardado) : [nuevoRenglon()]
+  );
 
-  const [folio, setFolio] = useState("");
-  const [fecha, setFecha] = useState("");
-  const [contratista, setContratista] = useState(contratistaFijo ?? "");
-  const [obra, setObra] = useState("");
-  const [ot, setOt] = useState("");
-  const [prioridad, setPrioridad] = useState("normal");
-  const [motivo, setMotivo] = useState("");
+  const [folio, setFolio] = useState(reciboExistente?.folio ?? "");
+  const [fecha, setFecha] = useState(reciboExistente?.fecha ?? "");
+  const [contratista, setContratista] = useState(
+    contratistaFijo ?? reciboExistente?.contratista ?? ""
+  );
+  const [obra, setObra] = useState(reciboExistente?.obra ?? "");
+  const [ot, setOt] = useState(reciboExistente?.ot ?? "");
+  const [prioridad, setPrioridad] = useState(reciboExistente?.prioridad ?? "normal");
+  const [motivo, setMotivo] = useState(reciboExistente?.motivo ?? "");
   const [numeroInicial, setNumeroInicial] = useState(1);
   const [folioContinuado, setFolioContinuado] = useState(false);
 
@@ -176,10 +202,11 @@ export default function CapturaArmado({
   const recibo = { ot, prioridad };
 
   const folioPrevio = useMemo(() => {
-    const f = folio.trim();
+    // En modo edición el folio no cambia: no aplica el aviso de "ya existe".
+    const f = reciboExistente ? "" : folio.trim();
     if (!f) return [];
     return historico.filter((h) => h.folio === f);
-  }, [folio, historico]);
+  }, [folio, historico, reciboExistente]);
 
   function actualizar(id: number, cambios: Partial<Renglon>) {
     setRenglones((prev) => prev.map((r) => (r.id === id ? { ...r, ...cambios } : r)));
@@ -349,28 +376,31 @@ export default function CapturaArmado({
 
     setGuardando(true);
     const supabase = createClient();
-    const { id, error } = await guardarReciboEnDb(
-      supabase,
-      {
-        folio: folio.trim(),
-        fechaRecibo: fecha,
-        contratista,
-        obra,
-        ot,
-        prioridad,
-        motivoPrioridad: motivo,
-      },
-      renglonesParaDb,
-      "armado"
-    );
+    const datosRecibo = {
+      fechaRecibo: fecha,
+      contratista,
+      obra,
+      ot,
+      prioridad,
+      motivoPrioridad: motivo,
+    };
+    const { error } = reciboExistente
+      ? await modificarReciboEnDb(supabase, "armado", reciboExistente.id!, datosRecibo, renglonesParaDb)
+      : await guardarReciboEnDb(
+          supabase,
+          { folio: folio.trim(), ...datosRecibo },
+          renglonesParaDb,
+          "armado"
+        );
     setGuardando(false);
 
-    if (error || !id) {
-      setResultado({ ok: false, texto: [error ?? "No se pudo guardar el recibo."] });
+    if (error) {
+      setResultado({ ok: false, texto: [error] });
       return;
     }
 
     const nuevoRecibo: ReciboGuardado = {
+      id: reciboExistente?.id,
       tipo: "armado",
       folio: folio.trim(),
       fecha,
@@ -388,7 +418,9 @@ export default function CapturaArmado({
     setResultado({
       ok: true,
       texto: [
-        `Recibo ${nuevoRecibo.folio} guardado con ${renglones.length} renglones.`,
+        reciboExistente
+          ? `Recibo ${nuevoRecibo.folio} modificado con ${renglones.length} renglones.`
+          : `Recibo ${nuevoRecibo.folio} guardado con ${renglones.length} renglones.`,
         sombras ? `${sombras} con estimado de nivel 3 guardado en sombra para calibrar.` : "",
         !puedeVerSugerido
           ? "Queda pendiente de revisión: el personal de Estimaciones acepta o modifica cada precio antes del pago."
@@ -417,10 +449,12 @@ export default function CapturaArmado({
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Recibo de Armado
+            {reciboExistente ? `Modificar recibo ${reciboExistente.folio}` : "Recibo de Armado"}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Captura lo que propone el maquilador; el motor sugiere el precio y de dónde sale.
+            {reciboExistente
+              ? "Corrige lo que capturaste. Al guardar se reemplazan los renglones de este recibo."
+              : "Captura lo que propone el maquilador; el motor sugiere el precio y de dónde sale."}
           </p>
         </div>
         {puedeVerSugerido && (
@@ -436,8 +470,9 @@ export default function CapturaArmado({
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>Folio</span>
             <input
-              className={`${CONTROL} font-mono`}
+              className={`${CONTROL} font-mono ${reciboExistente ? "bg-slate-50 text-slate-600" : ""}`}
               value={folio}
+              readOnly={!!reciboExistente}
               onChange={(e) => {
                 setFolio(e.target.value);
                 setNumeroInicial(1);
@@ -894,7 +929,15 @@ export default function CapturaArmado({
               : "border-rose-200 bg-rose-50 text-rose-800"
           }`}
         >
-          <strong>{resultado.ok ? "Recibo guardado" : "No se guardó"}</strong>
+          <strong>
+            {resultado.ok
+              ? reciboExistente
+                ? "Recibo modificado"
+                : "Recibo guardado"
+              : reciboExistente
+                ? "No se modificó"
+                : "No se guardó"}
+          </strong>
           <ul className="mt-1 list-inside list-disc">
             {resultado.texto.map((t, i) => (
               <li key={i}>{t}</li>
@@ -902,6 +945,14 @@ export default function CapturaArmado({
           </ul>
           {reciboGuardado && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
+              {reciboExistente && (
+                <Link
+                  href="/estimaciones/mis-recibos"
+                  className="text-xs font-semibold text-indigo-700 hover:underline"
+                >
+                  ← Volver a Mis recibos
+                </Link>
+              )}
               <Link
                 href={`/estimaciones/recibos/armado/recibo/${encodeURIComponent(reciboGuardado.folio)}`}
                 className="text-xs font-semibold text-indigo-700 hover:underline"
@@ -1051,7 +1102,7 @@ export default function CapturaArmado({
             disabled={guardando}
             className="ml-auto rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
           >
-            {guardando ? "Guardando…" : "Guardar recibo"}
+            {guardando ? "Guardando…" : reciboExistente ? "Guardar cambios" : "Guardar recibo"}
           </button>
         </div>
       </div>

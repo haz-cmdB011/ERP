@@ -9,9 +9,27 @@ import {
   listarTodosLosRecibos,
 } from "@/lib/estimaciones/listado-recibos";
 import { NOMBRE_TIPO_CUALQUIERA } from "@/lib/estimaciones/revision-db";
-import { money, fechaCorta } from "@/lib/estimaciones/motor-precio";
+import { money } from "@/lib/estimaciones/motor-precio";
 import EstadoReciboBadge from "../estado-recibo-badge";
 import CancelarReciboBoton from "../cancelar-recibo-boton";
+
+// Fecha numérica día-mes-año (ej. "31-08-2026"), solo para esta tabla.
+function fechaNumerica(iso: string): string {
+  const [anio, mes, dia] = String(iso).split("-");
+  return `${dia}-${mes}-${anio}`;
+}
+
+const PRIORIDAD_COLOR: Record<string, string> = {
+  urgente: "bg-red-500",
+  preferente: "bg-amber-400",
+  normal: "bg-emerald-500",
+};
+
+const PRIORIDAD_NOMBRE: Record<string, string> = {
+  urgente: "Urgente",
+  preferente: "Preferente",
+  normal: "Normal",
+};
 
 // Registro de recibos: todos los recibos guardados (Acabados, Armado y
 // Electrificación), ordenados por folio de menor a mayor (numéricos
@@ -86,21 +104,16 @@ export default async function RegistroRecibosPage({
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Fecha</th>
                 <th className="px-4 py-3">Contratista</th>
-                <th className="px-4 py-3">Obra</th>
                 <th className="px-4 py-3">OT</th>
                 <th className="px-4 py-3">Prioridad</th>
                 <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3 text-right">Renglones</th>
                 <th className="px-4 py-3 text-right">Propuesto</th>
                 <th className="px-4 py-3 text-right">Aceptado</th>
-                <th className="px-4 py-3 text-right">Recorte</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {recibos.map((r) => {
-                const recorte = r.totalPropuesto - r.totalAceptado;
-                const recortePct = r.totalPropuesto > 0 ? (recorte / r.totalPropuesto) * 100 : 0;
                 const folioUrl = encodeURIComponent(r.folio);
                 return (
                   <tr key={r.id} className="transition-colors hover:bg-slate-50">
@@ -113,43 +126,25 @@ export default async function RegistroRecibosPage({
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{NOMBRE_TIPO_CUALQUIERA[r.tipo]}</td>
-                    <td className="px-4 py-3 text-slate-700">{fechaCorta(r.fecha)}</td>
+                    <td className="px-4 py-3 font-mono text-slate-700">{fechaNumerica(r.fecha)}</td>
                     <td className="px-4 py-3 text-slate-700">{r.contratista || "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{r.obra || "—"}</td>
                     <td className="px-4 py-3 font-mono text-slate-700">{r.ot || "—"}</td>
                     <td className="px-4 py-3">
-                      {r.prioridad === "normal" ? (
-                        <span className="text-slate-400">Normal</span>
-                      ) : (
-                        <span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium capitalize text-amber-700 ring-1 ring-amber-200">
-                          {r.prioridad}
-                        </span>
-                      )}
+                      <span
+                        title={PRIORIDAD_NOMBRE[r.prioridad] ?? r.prioridad}
+                        className={`inline-block h-3 w-3 rounded-full ${
+                          PRIORIDAD_COLOR[r.prioridad] ?? "bg-slate-300"
+                        }`}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <EstadoReciboBadge estado={r.estado} />
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                      {r.numRenglones}
-                      {r.numPendientes > 0 && r.estado === "pendiente" && (
-                        <span
-                          title="Renglones sin revisar"
-                          className="ml-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200"
-                        >
-                          {r.numPendientes} pend.
-                        </span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-700">
                       {money(r.totalPropuesto)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-900">
                       {r.estado === "pendiente" ? "—" : money(r.totalAceptado)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums text-emerald-700">
-                      {r.estado !== "pendiente" && recorte > 0
-                        ? `${money(recorte)} (${recortePct.toFixed(0)}%)`
-                        : "—"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-3">
