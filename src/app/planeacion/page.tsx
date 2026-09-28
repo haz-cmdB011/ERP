@@ -6,6 +6,8 @@ import AccionesPedido from "./acciones-pedido";
 interface PedidoRow {
   id: string;
   numero_pedido: string;
+  // "134-26" para 1PM134-26, 2PM134-26... (columna generada); agrupa los PM.
+  orden_trabajo: string | null;
   fecha_pedido: string | null;
   fecha_entrega: string | null;
   estado: string;
@@ -31,13 +33,38 @@ interface ResultadoModeloRow {
 
 const MAX_RESULTADOS_MODELO = 100;
 
+// Agrupa los PM por Orden de Trabajo conservando el orden de la lista (la
+// OT aparece donde está su PM más reciente). Los PM sin OT reconocible van
+// cada uno en su propio grupo sin encabezado. Dentro de una OT, por número.
+function agruparPorOrdenTrabajo(pedidos: PedidoRow[]): { ot: string | null; pedidos: PedidoRow[] }[] {
+  const grupos: { ot: string | null; pedidos: PedidoRow[] }[] = [];
+  const porOt = new Map<string, PedidoRow[]>();
+  for (const p of pedidos) {
+    if (!p.orden_trabajo) {
+      grupos.push({ ot: null, pedidos: [p] });
+      continue;
+    }
+    let lista = porOt.get(p.orden_trabajo);
+    if (!lista) {
+      lista = [];
+      porOt.set(p.orden_trabajo, lista);
+      grupos.push({ ot: p.orden_trabajo, pedidos: lista });
+    }
+    lista.push(p);
+  }
+  for (const lista of porOt.values()) {
+    lista.sort((a, b) => a.numero_pedido.localeCompare(b.numero_pedido, "es", { numeric: true }));
+  }
+  return grupos;
+}
+
 // Escapa los comodines de LIKE para que el texto buscado se tome literal.
 function escaparLike(texto: string): string {
   return texto.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 const COLUMNAS =
-  "id, numero_pedido, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )";
+  "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )";
 
 export default async function PlaneacionListPage({
   searchParams,
@@ -218,38 +245,55 @@ export default async function PlaneacionListPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {pedidos.map((p) => {
-                const activa = p.pedido_versiones.find((v) => v.es_version_activa);
-                return (
-                  <tr key={p.id} className="align-top transition-colors hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/planeacion/pedidos/${p.id}`}
-                        className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
-                      >
-                        {p.numero_pedido}
-                      </Link>
+              {agruparPorOrdenTrabajo(pedidos).map((grupo) => [
+                grupo.ot && (
+                  <tr key={`ot-${grupo.ot}`} className="bg-slate-50/70">
+                    <td colSpan={esAdmin ? 6 : 5} className="px-4 py-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Orden de trabajo
+                      </span>{" "}
+                      <span className="font-mono text-sm font-semibold text-slate-900">
+                        {grupo.ot}
+                      </span>
+                      <span className="ml-2 text-xs text-slate-500">
+                        {grupo.pedidos.length} PM
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{p.proyectos?.cliente ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {activa ? (
-                        <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                          #{activa.numero_version}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    {esAdmin && (
-                      <td className="px-4 py-3">
-                        <AccionesPedido pedidoId={p.id} eliminado={false} />
-                      </td>
-                    )}
                   </tr>
-                );
-              })}
+                ),
+                ...grupo.pedidos.map((p) => {
+                  const activa = p.pedido_versiones.find((v) => v.es_version_activa);
+                  return (
+                    <tr key={p.id} className="align-top transition-colors hover:bg-slate-50">
+                      <td className={`py-3 pr-4 ${grupo.ot ? "pl-8" : "pl-4"}`}>
+                        <Link
+                          href={`/planeacion/pedidos/${p.id}`}
+                          className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                        >
+                          {p.numero_pedido}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.cliente ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        {activa ? (
+                          <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            #{activa.numero_version}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      {esAdmin && (
+                        <td className="px-4 py-3">
+                          <AccionesPedido pedidoId={p.id} eliminado={false} />
+                        </td>
+                      )}
+                    </tr>
+                  );
+                }),
+              ])}
             </tbody>
           </table>
         </div>

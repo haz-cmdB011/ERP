@@ -2,6 +2,13 @@
 // Los archivos reales lo traen escrito de muchas formas ("PM 107-26",
 // "009-26-2", "pm-107/2026"...), así que se normaliza al ingerir para que
 // el título del pedido sea siempre el mismo sin importar cómo venga.
+//
+// Varios PM pueden pertenecer a una misma Orden de Trabajo: se distinguen
+// con un número al inicio, "<N>PM<ORDEN DE TRABAJO>-<AÑO>" (ej. "1PM134-26",
+// "2PM134-26"). Cada uno es un pedido distinto y la OT ("134-26") los agrupa
+// (columna generada pedidos.orden_trabajo). En archivos reales también
+// viene como sufijo después del año ("PM 102-24-2"): es el mismo dato y se
+// normaliza igual, "2PM102-24".
 
 const DIGITOS_NUMERO = 3;
 
@@ -10,6 +17,19 @@ const DIGITOS_NUMERO = 3;
 // ignora.
 const PATRON_NUMERO_ANIO = /(?:PM)?\s*[-_ ]?\s*(\d{1,5})\s*[-/_ ]\s*(\d{4}|\d{2})(?!\d)/i;
 const PATRON_SOLO_NUMERO = /(?:PM)?\s*[-_ ]?\s*(\d{1,5})/i;
+// Número de PM dentro de la OT: dígitos al inicio seguidos de "PM".
+const PATRON_PREFIJO = /^\s*(\d{1,3})\s*[-_ ]?\s*(?=PM)/i;
+
+// Número de PM como sufijo: "<OT>-<AÑO>-<N>" al inicio del texto.
+const PATRON_SUFIJO =
+  /^\s*(?:PM)?\s*[-_ ]?\s*\d{1,5}\s*[-/_ ]\s*(?:\d{4}|\d{2})\s*-\s*(\d{1,2})(?![\d.])/i;
+
+function extraerPrefijo(texto: string): { prefijo: string | null; resto: string } {
+  const m = texto.match(PATRON_PREFIJO);
+  if (m) return { prefijo: String(Number(m[1])), resto: texto.slice(m[0].length) };
+  const sufijo = texto.match(PATRON_SUFIJO);
+  return { prefijo: sufijo ? String(Number(sufijo[1])) : null, resto: texto };
+}
 
 function formatear(numero: string, anio: string): string {
   const num = String(Number(numero)).padStart(DIGITOS_NUMERO, "0");
@@ -34,6 +54,34 @@ export function normalizarNumeroPM(
   numeroPedido: string,
   opciones: { nombreArchivo?: string; fechaPedido?: string | null; hoy?: Date } = {}
 ): string {
+  const celda = extraerPrefijo(numeroPedido);
+  const archivo = opciones.nombreArchivo ? extraerPrefijo(opciones.nombreArchivo) : null;
+  const base = normalizarBase(celda.resto, { ...opciones, nombreArchivo: archivo?.resto });
+  if (!base) return numeroPedido; // sin número reconocible
+
+  // El número de PM dentro de la OT viene de la celda; si ahí no está, del
+  // nombre del archivo, pero solo si el archivo es de la misma OT.
+  let prefijo = celda.prefijo;
+  if (!prefijo && archivo?.prefijo) {
+    const otArchivo = extraerNumeroYAnio(archivo.resto);
+    if (otArchivo && formatear(otArchivo.numero, otArchivo.anio) === base) prefijo = archivo.prefijo;
+  }
+  return prefijo ? `${prefijo}${base}` : base;
+}
+
+/**
+ * Orden de Trabajo a la que pertenece un PM ya normalizado: "134-26" para
+ * "PM134-26", "1PM134-26" o "2PM134-26". null si no tiene el formato.
+ * Espejo de la columna generada pedidos.orden_trabajo.
+ */
+export function ordenDeTrabajo(numeroPedido: string): string | null {
+  return numeroPedido.match(/PM\s*(\d+-\d{2})/i)?.[1] ?? null;
+}
+
+function normalizarBase(
+  numeroPedido: string,
+  opciones: { nombreArchivo?: string; fechaPedido?: string | null; hoy?: Date }
+): string | null {
   const desdeCelda = extraerNumeroYAnio(numeroPedido);
   if (desdeCelda) return formatear(desdeCelda.numero, desdeCelda.anio);
 
@@ -48,7 +96,7 @@ export function normalizarNumeroPM(
     }
   }
 
-  if (!numeroCelda) return numeroPedido;
+  if (!numeroCelda) return null;
 
   const anio =
     opciones.fechaPedido?.slice(0, 4) ?? String((opciones.hoy ?? new Date()).getFullYear());

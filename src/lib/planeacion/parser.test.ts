@@ -264,24 +264,69 @@ describe("parsePlaneacionExcel", () => {
     ]);
   });
 
-  it("reporta error de fila cuando CANTIDAD TOTAL no es numérica", async () => {
+  it("guarda con aviso un ítem cuya CANTIDAD TOTAL no es numérica (usa CANTIDAD X MUEBLE o 0)", async () => {
     const buf = await construirWorkbook([
       { ITEM: 1, COMPONENTE: "MO", DESCRIPCION: "MUEBLE 1", "CANTIDAD TOTAL": "no-es-numero" },
+      { ITEM: 2, COMPONENTE: "MO", DESCRIPCION: "MUEBLE 2", "CANTIDAD X MUEBLE": 3 },
     ]);
     const resultado = await parsePlaneacionExcel(buf);
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.errores[0].mensaje).toMatch(/CANTIDAD TOTAL/);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items.map((i) => i.cantidad_total)).toEqual([0, 3]);
+    expect(resultado.avisos).toHaveLength(2);
+    expect(resultado.avisos[0].mensaje).toMatch(/CANTIDAD TOTAL/);
   });
 
-  it("reporta error de fila cuando DESCRIPCION está vacía", async () => {
+  it("guarda con aviso un ítem sin DESCRIPCION", async () => {
     const buf = await construirWorkbook([
-      { ITEM: 1, COMPONENTE: "MO", DESCRIPCION: "", "CANTIDAD TOTAL": 1 },
+      { ITEM: 1, COMPONENTE: "MO", MODELO: "FX-80", DESCRIPCION: "", "CANTIDAD TOTAL": 1 },
     ]);
     const resultado = await parsePlaneacionExcel(buf);
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.errores[0].mensaje).toMatch(/DESCRIPCION/);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items[0].descripcion).toBeNull();
+    expect(resultado.avisos[0].mensaje).toMatch(/DESCRIPCION/);
+  });
+
+  it("ignora renglones de relleno que solo traen el número de ITEM", async () => {
+    const buf = await construirWorkbook([
+      { ITEM: 1, COMPONENTE: "MO", DESCRIPCION: "MUEBLE 1", "CANTIDAD TOTAL": 1 },
+      { ITEM: 2, COMPONENTE: "", DEPARTAMENTO: "N/A", ELEVACION: "N/A" },
+    ]);
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items).toHaveLength(1);
+    expect(resultado.avisos).toHaveLength(0);
+  });
+
+  it("sin etiqueta No. PEDIDO toma el número del título o del nombre del archivo", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("MOBILIARIO");
+    ws.getCell("M1").value = "168-25 REMODELACIÓN PH MONTERREY REPROCESOS";
+    ws.getCell("L2").value = "FECHA";
+    ws.getCell("M2").value = "08.07.26";
+    ws.getCell("L3").value = "PROYECTO";
+    ws.getCell("M3").value = "REMODELACIÓN PH MONTERREY";
+    ws.getCell("L4").value = "CLIENTE";
+    ws.getCell("M4").value = "PALACIO DE HIERRO";
+    ws.getRow(7).values = HEADERS;
+    ws.getRow(8).values = [1, "MO", "METAL", null, null, null, null, "PIJ-3", "MENSULA", 1, "PZA", 16];
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const conTitulo = await parsePlaneacionExcel(buf);
+    expect(conTitulo.ok).toBe(true);
+    if (!conTitulo.ok) return;
+    expect(conTitulo.metadata.numero_pedido).toMatch(/^168-25/);
+    expect(conTitulo.metadata.fecha_pedido).toBe("2026-07-08");
+
+    ws.getCell("M1").value = null;
+    const sinTitulo = await parsePlaneacionExcel(Buffer.from(await wb.xlsx.writeBuffer()), {
+      nombreArchivo: "PM 168-25 REMODELACION.xlsx",
+    });
+    expect(sinTitulo.ok).toBe(true);
+    if (!sinTitulo.ok) return;
+    expect(sinTitulo.metadata.numero_pedido).toBe("PM 168-25 REMODELACION");
   });
 
   it("ignora filas sin ITEM ni DESCRIPCION/MODELO/COMPONENTE (ej. fila de pesos de avance)", async () => {

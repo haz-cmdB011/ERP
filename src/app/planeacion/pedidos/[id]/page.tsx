@@ -59,12 +59,13 @@ export default async function PedidoDetailPage({
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(
-      "id, numero_pedido, fecha_pedido, fecha_entrega, estado, cancelado_en, motivo_cancelacion, proyectos ( nombre, cliente )"
+      "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, estado, cancelado_en, motivo_cancelacion, proyectos ( nombre, cliente )"
     )
     .eq("id", id)
     .maybeSingle<{
       id: string;
       numero_pedido: string;
+      orden_trabajo: string | null;
       fecha_pedido: string | null;
       fecha_entrega: string | null;
       estado: string;
@@ -108,7 +109,11 @@ export default async function PedidoDetailPage({
     getImagenesPorItem(supabase, itemIds),
     getPlanosPorItem(
       supabase,
-      normalizarNumeroPM(pedido.numero_pedido, { fechaPedido: pedido.fecha_pedido }),
+      // Los planos se registran por OT ("PM134-26"), sin el número de PM
+      // dentro de la OT: 1PM134-26 y 2PM134-26 ven los mismos planos.
+      pedido.orden_trabajo
+        ? `PM${pedido.orden_trabajo}`
+        : normalizarNumeroPM(pedido.numero_pedido, { fechaPedido: pedido.fecha_pedido }),
       items ?? []
     ),
   ]);
@@ -150,6 +155,11 @@ export default async function PedidoDetailPage({
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           {pedido.numero_pedido}
         </h1>
+        {pedido.orden_trabajo && (
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Orden de trabajo <span className="font-mono">{pedido.orden_trabajo}</span>
+          </p>
+        )}
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>

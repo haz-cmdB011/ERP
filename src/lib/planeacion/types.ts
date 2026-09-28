@@ -70,6 +70,9 @@ export interface ParseResultOk {
   metadata: PlaneacionMetadata;
   items: PlaneacionItemParsed[];
   filasTotales: number;
+  // Datos incompletos que no impiden la carga (ej. un ítem sin descripción
+  // o sin cantidad): se guardan igual y se muestran para revisarlos.
+  avisos: FilaError[];
 }
 
 export interface ParseResultError {

@@ -123,7 +123,7 @@ export async function POST(request: Request) {
   // 1. Parseo y validación de estructura ANTES de tocar la base de datos.
   //    Usa el buffer ORIGINAL (con imágenes): de ahí es de donde el parser
   //    extrae la imagen de cada fila.
-  const resultado = await parsePlaneacionExcel(buffer);
+  const resultado = await parsePlaneacionExcel(buffer, { nombreArchivo: file.name });
 
   // El título del PM siempre se guarda como "PM<NUMERO>-<AÑO>", sin importar
   // cómo venga escrito en la celda "No. PEDIDO" o en el nombre del archivo.
@@ -251,6 +251,8 @@ export async function POST(request: Request) {
       estado: "exitoso",
       filas_exitosas: resultado.items.length,
       filas_error: 0,
+      // Avisos de datos incompletos (la carga fue exitosa igual).
+      errores: resultado.avisos.length > 0 ? resultado.avisos : null,
       procesado_en: new Date().toISOString(),
     })
     .eq("id", carga.id);
@@ -258,6 +260,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     cargaId: carga.id,
+    avisos: resultado.avisos,
     ...ingestData,
   });
 }

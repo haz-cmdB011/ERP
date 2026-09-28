@@ -20,7 +20,11 @@ export async function POST(request: Request) {
   const password = typeof body?.password === "string" ? body.password : "";
   const rol = body?.rol;
   const areaEnviada = body?.area || null;
-  const contratista = typeof body?.contratista === "string" ? body.contratista.trim() : "";
+  // Nombre del usuario. En el maquilador es también su contratista (lo que
+  // se imprime en sus recibos); se acepta "contratista" por compatibilidad.
+  const nombreEnviado = typeof body?.nombre === "string" ? body.nombre : body?.contratista;
+  const nombre = typeof nombreEnviado === "string" ? nombreEnviado.trim() : "";
+  const contratista = nombre;
   const areasMaquila = normalizarAreasMaquila(body?.areasMaquila);
 
   if (!email || !email.includes("@")) {
@@ -44,7 +48,7 @@ export async function POST(request: Request) {
 
   if (requiereContratista(rol) && !contratista) {
     return NextResponse.json(
-      { error: "El maquilador necesita su nombre de contratista." },
+      { error: "El maquilador necesita su nombre (es su contratista en los recibos)." },
       { status: 400 }
     );
   }
@@ -80,6 +84,7 @@ export async function POST(request: Request) {
     .update({
       rol,
       area: derivarArea(rol, areaEnviada),
+      nombre_completo: nombre || null,
       contratista: requiereContratista(rol) ? contratista : null,
       areas_maquila: requiereContratista(rol) ? areasMaquila : null,
     })

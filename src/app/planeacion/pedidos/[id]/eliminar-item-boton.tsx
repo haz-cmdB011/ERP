@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import IconoPapelera from "@/components/icono-papelera";
 
 // Lo ve quien edita en Planeación (ver page.tsx). Reutiliza el RPC de papelera
 // de Producción (solicitar_eliminacion_item), que ahora también acepta a
@@ -63,9 +64,11 @@ export default function EliminarItemBoton({ itemId }: { itemId: string }) {
     <button
       type="button"
       onClick={() => setConfirmando(true)}
-      className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100"
+      title="Eliminar"
+      aria-label="Eliminar ítem"
+      className="flex h-7 w-7 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100"
     >
-      Eliminar
+      <IconoPapelera />
     </button>
   );
 }

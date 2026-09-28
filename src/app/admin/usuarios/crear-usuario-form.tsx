@@ -21,7 +21,9 @@ export default function CrearUsuarioForm() {
   const [password, setPassword] = useState("");
   const [rol, setRol] = useState<RolValido>("usuario");
   const [area, setArea] = useState<AreaValida>("planeacion");
-  const [contratista, setContratista] = useState("");
+  // Nombre del usuario; en el maquilador es también su nombre de contratista
+  // (el que se imprime en sus recibos).
+  const [nombre, setNombre] = useState("");
   const [areasMaquila, setAreasMaquila] = useState<AreaMaquila[]>(["acabados"]);
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
@@ -42,7 +44,7 @@ export default function CrearUsuarioForm() {
         password,
         rol,
         area: mostrarArea ? area : null,
-        contratista: mostrarContratista ? contratista : null,
+        nombre,
         areasMaquila: mostrarContratista ? areasMaquila : null,
       }),
     });
@@ -56,7 +58,7 @@ export default function CrearUsuarioForm() {
     setMensaje({ tipo: "ok", texto: `Usuario ${data.email} creado.` });
     setEmail("");
     setPassword("");
-    setContratista("");
+    setNombre("");
     setAreasMaquila(["acabados"]);
     router.refresh();
   }
@@ -72,6 +74,13 @@ export default function CrearUsuarioForm() {
         correo. Los links de Supabase quedan reservados solo para que el
         usuario restablezca su contraseña por su cuenta.
       </p>
+      <input
+        required
+        placeholder={mostrarContratista ? "Nombre del contratista" : "Nombre completo"}
+        value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        className="rounded border border-gray-300 px-3 py-2 text-sm"
+      />
       <input
         type="email"
         required
@@ -114,15 +123,6 @@ export default function CrearUsuarioForm() {
             ))}
           </select>
         )}
-        {mostrarContratista && (
-          <input
-            required
-            placeholder="Nombre del contratista"
-            value={contratista}
-            onChange={(e) => setContratista(e.target.value)}
-            className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-        )}
       </div>
       {mostrarContratista && (
         <div className="flex flex-col gap-1">
@@ -130,7 +130,7 @@ export default function CrearUsuarioForm() {
           <AreasMaquilaSelector valor={areasMaquila} onChange={setAreasMaquila} />
           <p className="text-xs text-gray-500">
             El maquilador solo entra a Estimaciones y solo genera recibos de su área (normalmente
-            una; marca varias solo como excepción). Captura sus recibos con este contratista y ve
+            una; marca varias solo como excepción). Captura sus recibos con su nombre como contratista y ve
             su estado (pendiente, revisado o pagado). No ve el precio sugerido ni el resto del ERP.
           </p>
         </div>
