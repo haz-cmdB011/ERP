@@ -158,7 +158,12 @@ export default async function PedidoDetailPage({
         </h1>
         {pedido.orden_trabajo && (
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Orden de trabajo <span className="font-mono">{pedido.orden_trabajo}</span>
+            <Link
+              href={`/planeacion/ot/${encodeURIComponent(pedido.orden_trabajo)}`}
+              className="hover:text-indigo-600 hover:underline"
+            >
+              ← O.T. <span className="font-mono">{pedido.orden_trabajo}</span>
+            </Link>
           </p>
         )}
         <p className="text-sm text-slate-600">
