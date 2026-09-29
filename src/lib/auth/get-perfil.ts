@@ -69,6 +69,16 @@ export function puedeVerPrecioSugerido(perfil: PerfilActual | null): boolean {
   );
 }
 
+// Espejo de puede_decidir_discrepancias() en la base: quien acepta o rechaza el
+// motivo de un descuadre de cantidades con el PM (desarrollador o
+// administrador de Estimaciones).
+export function puedeDecidirDiscrepancias(perfil: PerfilActual | null): boolean {
+  return (
+    perfil?.rol === "desarrollador" ||
+    (perfil?.rol === "administrador" && perfil.area === "estimaciones")
+  );
+}
+
 // Usuario externo: solo captura y consulta SUS recibos, sin ver el precio
 // sugerido. Espejo de is_maquilador() en la base.
 export function esMaquilador(perfil: PerfilActual | null): boolean {

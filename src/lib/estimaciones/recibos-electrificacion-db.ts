@@ -44,10 +44,6 @@ export interface RenglonElectrificacionGuardado {
   justificacion: string;
   pendienteRevision: boolean;
   decision?: DecisionRenglon;
-  // Vínculo con el PM de Planeación (ver 20260928150000_estimaciones_electrificacion_pm.sql).
-  planeacionItemId?: string | null;
-  cantidadPm?: number | null;
-  numeroPedidoPm?: string | null;
 }
 
 export interface ReciboElectrificacionGuardado {
@@ -78,52 +74,135 @@ export interface RenglonElectrificacionParaGuardar {
   banda: Banda;
   justificacion: string;
   nota: string;
-  // Vínculo con el PM de Planeación: si no se encontró/eligió ítem, o la
-  // cantidad acumulada no cuadra con lo declarado, la base exige motivo.
-  planeacionItemId: string | null;
+  // Si el modelo no está en el PM de la OT, o la cantidad acumulada del modelo
+  // no cuadra con lo declarado, la base exige motivo.
   motivoDescuadre: string;
 }
 
-// Ítem del PM que puede coincidir con el modelo que se está capturando (ver
-// buscar_items_pm_electrificacion). Solo trae lo necesario para vincular.
-export interface ItemPm {
-  id: string;
-  modelo: string;
-  descripcion: string | null;
-  cantidadTotal: number;
+// OT (pedido) subida a Planeación. El generador solo deja elegir estas.
+export interface OtPm {
+  pedidoId: string;
   numeroPedido: string;
   proyecto: string | null;
+  numModelos: number;
+  piezas: number;
 }
 
-// Autocompletar del PM al capturar un renglón: RLS deja pasar tanto al
-// personal de Estimaciones como al maquilador (ver la función en la base).
-interface ItemPmDbRow {
-  id: string;
+// Modelo de una OT con lo que Planeación declaró (suma de todas sus filas del
+// PM) y lo ya registrado en otros recibos no cancelados.
+export interface ModeloPm {
   modelo: string;
-  descripcion: string | null;
-  cantidad_total: number;
-  numero_pedido: string;
-  proyecto: string | null;
+  cantidadPm: number;
+  cantidadRegistrada: number;
 }
 
-export async function buscarItemsPmElectrificacion(
-  supabase: SupabaseClient,
-  modelo: string,
-  ot?: string
-): Promise<ItemPm[]> {
-  const { data, error } = await supabase.rpc("buscar_items_pm_electrificacion", {
-    p_modelo: modelo,
-    p_ot: ot || null,
-  });
-  if (error || !data) return [];
-  return (data as ItemPmDbRow[]).map((r) => ({
-    id: r.id,
-    modelo: r.modelo,
-    descripcion: r.descripcion,
-    cantidadTotal: Number(r.cantidad_total),
+// Todas las OT del PM (el personal de Estimaciones y el maquilador las ven vía
+// una función security definer; nunca precios ni datos de cliente). null si la
+// consulta falla.
+export async function listarOtsPm(supabase: SupabaseClient): Promise<OtPm[] | null> {
+  const { data, error } = await supabase.rpc("listar_ots_pm_electrificacion");
+  if (error || !data) return null;
+  return (
+    data as {
+      pedido_id: string;
+      numero_pedido: string;
+      proyecto: string | null;
+      num_modelos: number;
+      piezas: number;
+    }[]
+  ).map((r) => ({
+    pedidoId: r.pedido_id,
     numeroPedido: r.numero_pedido,
     proyecto: r.proyecto,
+    numModelos: Number(r.num_modelos),
+    piezas: Number(r.piezas),
   }));
+}
+
+// excluirReciboId: al modificar un recibo, para no contar sus propios renglones
+// como "ya registrados".
+export async function listarModelosPm(
+  supabase: SupabaseClient,
+  pedidoId: string,
+  excluirReciboId?: string
+): Promise<ModeloPm[] | null> {
+  const { data, error } = await supabase.rpc("listar_modelos_pm_electrificacion", {
+    p_pedido: pedidoId,
+    p_excluir_recibo: excluirReciboId ?? null,
+  });
+  if (error || !data) return null;
+  return (
+    data as { modelo: string; cantidad_pm: number; cantidad_registrada: number }[]
+  ).map((r) => ({
+    modelo: r.modelo,
+    cantidadPm: Number(r.cantidad_pm),
+    cantidadRegistrada: Number(r.cantidad_registrada),
+  }));
+}
+
+export type EstadoDiscrepancia = "pendiente" | "aceptada" | "rechazada";
+
+export interface DiscrepanciaRecibo {
+  id: string;
+  modelo: string;
+  cantidadCapturada: number;
+  cantidadAcumulada: number | null;
+  cantidadPm: number | null;
+  motivo: string;
+  estado: EstadoDiscrepancia;
+  notaResolucion: string | null;
+}
+
+// Discrepancias de un recibo con su estado (RLS: las ve quien decide y quien
+// capturó el recibo).
+export async function listarDiscrepanciasRecibo(
+  supabase: SupabaseClient,
+  reciboId: string
+): Promise<DiscrepanciaRecibo[]> {
+  const { data, error } = await supabase
+    .from("discrepancias_electrificacion")
+    .select(
+      "id, modelo, cantidad_capturada, cantidad_acumulada, cantidad_pm, motivo, estado, nota_resolucion"
+    )
+    .eq("recibo_id", reciboId)
+    .order("creado_en", { ascending: true })
+    .returns<
+      {
+        id: string;
+        modelo: string;
+        cantidad_capturada: number;
+        cantidad_acumulada: number | null;
+        cantidad_pm: number | null;
+        motivo: string;
+        estado: EstadoDiscrepancia;
+        nota_resolucion: string | null;
+      }[]
+    >();
+  if (error || !data) return [];
+  return data.map((d) => ({
+    id: d.id,
+    modelo: d.modelo,
+    cantidadCapturada: Number(d.cantidad_capturada),
+    cantidadAcumulada: d.cantidad_acumulada == null ? null : Number(d.cantidad_acumulada),
+    cantidadPm: d.cantidad_pm == null ? null : Number(d.cantidad_pm),
+    motivo: d.motivo,
+    estado: d.estado,
+    notaResolucion: d.nota_resolucion,
+  }));
+}
+
+export async function decidirDiscrepanciaElectrificacion(
+  supabase: SupabaseClient,
+  id: string,
+  decision: "aceptada" | "rechazada",
+  nota: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("decidir_discrepancia_electrificacion", {
+    p_id: id,
+    p_decision: decision,
+    p_nota: nota,
+  });
+  return { error: error?.message ?? null };
 }
 
 export async function guardarReciboElectrificacionEnDb(
@@ -233,11 +312,6 @@ interface RenglonDbRow {
   justificacion: string | null;
   decision: DecisionRenglon;
   charolas_electrificacion: { numero: number; drivers: number; categoria: CategoriaCharola }[];
-  planeacion_item_id: string | null;
-  planeacion_items: {
-    cantidad_total: number;
-    pedido_versiones: { pedidos: { numero_pedido: string } | null } | null;
-  } | null;
 }
 
 interface ReciboDbRow {
@@ -263,9 +337,8 @@ export async function buscarReciboElectrificacionPorFolio(
     .select(
       "id, estado, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
         "renglones_electrificacion(id, numero, modelo, cantidad, metros_led, complejidad_led, nota, pu_sugerido, " +
-        "fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision, planeacion_item_id, " +
-        "charolas_electrificacion(numero, drivers, categoria), " +
-        "planeacion_items(cantidad_total, pedido_versiones(pedidos(numero_pedido))))"
+        "fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision, " +
+        "charolas_electrificacion(numero, drivers, categoria))"
     )
     .eq("folio", folio)
     .order("creado_en", { ascending: false })
@@ -305,9 +378,6 @@ export async function buscarReciboElectrificacionPorFolio(
         justificacion: r.justificacion ?? "",
         pendienteRevision: r.decision == null,
         decision: r.decision,
-        planeacionItemId: r.planeacion_item_id,
-        cantidadPm: r.planeacion_items ? Number(r.planeacion_items.cantidad_total) : null,
-        numeroPedidoPm: r.planeacion_items?.pedido_versiones?.pedidos?.numero_pedido ?? null,
       })),
   };
 }
