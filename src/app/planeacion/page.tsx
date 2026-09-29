@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
+import TablaPedidos from "./tabla-pedidos";
 
 interface PedidoRow {
   id: string;
@@ -10,6 +11,7 @@ interface PedidoRow {
   orden_trabajo: string | null;
   fecha_pedido: string | null;
   fecha_entrega: string | null;
+  created_at: string;
   estado: string;
   eliminado_en: string | null;
   proyectos: { nombre: string; cliente: string } | null;
@@ -58,21 +60,39 @@ function agruparPorOrdenTrabajo(pedidos: PedidoRow[]): { ot: string | null; pedi
   return grupos;
 }
 
+// Año de un PM: el sufijo de su O.T. ("134-26" → 2026); si no tiene O.T.,
+// el de la fecha del pedido o, en último caso, el de la carga.
+function anioDePedido(p: PedidoRow): number {
+  const sufijo = p.orden_trabajo?.match(/-(\d{2})$/);
+  if (sufijo) return 2000 + Number(sufijo[1]);
+  return Number((p.fecha_pedido ?? p.created_at).slice(0, 4));
+}
+
+// Arma el href de la lista conservando los demás filtros.
+function hrefLista(params: { modelo?: string; anio?: string }): string {
+  const qs = new URLSearchParams();
+  if (params.modelo) qs.set("modelo", params.modelo);
+  if (params.anio) qs.set("anio", params.anio);
+  const texto = qs.toString();
+  return texto ? `/planeacion?${texto}` : "/planeacion";
+}
+
 // Escapa los comodines de LIKE para que el texto buscado se tome literal.
 function escaparLike(texto: string): string {
   return texto.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 const COLUMNAS =
-  "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )";
+  "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, estado, eliminado_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )";
 
 export default async function PlaneacionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ modelo?: string }>;
+  searchParams: Promise<{ modelo?: string; anio?: string }>;
 }) {
-  const { modelo } = await searchParams;
+  const { modelo, anio } = await searchParams;
   const busqueda = modelo?.trim() ?? "";
+  const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
   const esAdmin = puedeAdministrarPlaneacion(perfil);
@@ -115,6 +135,11 @@ export default async function PlaneacionListPage({
         .returns<ResultadoModeloRow[]>()
     : { data: null, error: null };
 
+  const aniosDisponibles = [...new Set((pedidos ?? []).map(anioDePedido))].sort((a, b) => b - a);
+  const pedidosFiltrados = anioFiltro
+    ? (pedidos ?? []).filter((p) => anioDePedido(p) === anioFiltro)
+    : pedidos ?? [];
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <div className="flex items-end justify-between gap-3 border-b border-slate-200 pb-4">
@@ -129,7 +154,7 @@ export default async function PlaneacionListPage({
         <div className="flex items-center gap-3">
           {pedidos && pedidos.length > 0 && (
             <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {pedidos.length} pedido{pedidos.length === 1 ? "" : "s"}
+              {pedidosFiltrados.length} pedido{pedidosFiltrados.length === 1 ? "" : "s"}
             </span>
           )}
           <Link
@@ -142,6 +167,7 @@ export default async function PlaneacionListPage({
       </div>
 
       <form action="/planeacion" className="flex gap-2">
+        {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
         <input
           type="search"
           name="modelo"
@@ -157,7 +183,7 @@ export default async function PlaneacionListPage({
         </button>
         {busqueda && (
           <Link
-            href="/planeacion"
+            href={hrefLista({ anio: anioFiltro ? String(anioFiltro) : undefined })}
             className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:underline"
           >
             Limpiar
@@ -234,72 +260,36 @@ export default async function PlaneacionListPage({
         </p>
       )}
 
-      {pedidos && pedidos.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">Pedido</th>
-                <th className="px-4 py-3">Proyecto</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Entrega</th>
-                <th className="px-4 py-3">Versión activa</th>
-                {esAdmin && <th className="px-4 py-3"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {agruparPorOrdenTrabajo(pedidos).map((grupo) => [
-                grupo.ot && (
-                  <tr key={`ot-${grupo.ot}`} className="bg-slate-50/70">
-                    <td colSpan={esAdmin ? 6 : 5} className="px-4 py-2">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Orden de trabajo
-                      </span>{" "}
-                      <span className="font-mono text-sm font-semibold text-slate-900">
-                        {grupo.ot}
-                      </span>
-                      <span className="ml-2 text-xs text-slate-500">
-                        {grupo.pedidos.length} PM
-                      </span>
-                    </td>
-                  </tr>
-                ),
-                ...grupo.pedidos.map((p) => {
-                  const activa = p.pedido_versiones.find((v) => v.es_version_activa);
-                  return (
-                    <tr key={p.id} className="align-top transition-colors hover:bg-slate-50">
-                      <td className={`py-3 pr-4 ${grupo.ot ? "pl-8" : "pl-4"}`}>
-                        <Link
-                          href={`/planeacion/pedidos/${p.id}`}
-                          className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
-                        >
-                          {p.numero_pedido}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.cliente ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        {activa ? (
-                          <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                            #{activa.numero_version}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      {esAdmin && (
-                        <td className="px-4 py-3">
-                          <AccionesPedido pedidoId={p.id} eliminado={false} />
-                        </td>
-                      )}
-                    </tr>
-                  );
-                }),
-              ])}
-            </tbody>
-          </table>
+      {aniosDisponibles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Año</span>
+          {[null, ...aniosDisponibles].map((a) => {
+            const activo = a === anioFiltro;
+            return (
+              <Link
+                key={a ?? "todos"}
+                href={hrefLista({ modelo: busqueda || undefined, anio: a ? String(a) : undefined })}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  activo
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {a ?? "Todos"}
+              </Link>
+            );
+          })}
         </div>
+      )}
+
+      {pedidos && pedidos.length > 0 && pedidosFiltrados.length === 0 && (
+        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          No hay pedidos de {anioFiltro}.
+        </p>
+      )}
+
+      {pedidosFiltrados.length > 0 && (
+        <TablaPedidos grupos={agruparPorOrdenTrabajo(pedidosFiltrados)} esAdmin={esAdmin} />
       )}
 
       {esAdmin && pedidosEliminados && pedidosEliminados.length > 0 && (

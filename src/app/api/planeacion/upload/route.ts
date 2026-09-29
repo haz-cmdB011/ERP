@@ -12,8 +12,8 @@ import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
 import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
 
 export const runtime = "nodejs";
-// Un Excel grande (muchas imágenes que se comprimen una por una) tarda.
-export const maxDuration = 120;
+// Un Excel grande (muchas imágenes que se comprimen y suben por tandas) tarda.
+export const maxDuration = 300;
 
 const MAX_FILE_BYTES = 40 * 1024 * 1024; // 40 MB
 // .xlsm (Excel con macros) tiene el mismo formato interno que .xlsx: se lee
@@ -29,6 +29,54 @@ type ItemParaIngesta = Omit<PlaneacionItemParsed, "imagenes"> & {
   imagen_paths: string[];
 };
 
+// Cuántos ítems suben sus imágenes al mismo tiempo. Subirlas todas de golpe
+// (un Excel grande trae cientos) agota las conexiones de Storage a la base
+// de datos: "Too many connections issued to the database".
+const SUBIDAS_SIMULTANEAS = 4;
+const REINTENTOS_SUBIDA = 4;
+
+// Como Promise.all(items.map(fn)), pero con a lo más `limite` en curso.
+async function mapConLimite<T, R>(
+  items: T[],
+  limite: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const resultados = new Array<R>(items.length);
+  let siguiente = 0;
+  const trabajadores = Array.from({ length: Math.min(limite, items.length) }, async () => {
+    while (siguiente < items.length) {
+      const i = siguiente++;
+      resultados[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(trabajadores);
+  return resultados;
+}
+
+// Sube a Storage reintentando con espera creciente: la saturación de
+// conexiones es pasajera, así que un error aislado no debe tirar la carga.
+async function subirConReintentos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  path: string,
+  cuerpo: Buffer,
+  contentType: string
+): Promise<{ message: string } | null> {
+  let ultimoError: { message: string } | null = null;
+  for (let intento = 0; intento < REINTENTOS_SUBIDA; intento++) {
+    if (intento > 0) {
+      await new Promise((r) => setTimeout(r, 500 * 2 ** (intento - 1)));
+    }
+    const { error } = await supabase.storage
+      .from(BUCKET_IMAGENES_ITEMS)
+      // upsert: un intento anterior pudo haber subido el archivo aunque
+      // respondiera con error.
+      .upload(path, cuerpo, { contentType, upsert: true });
+    if (!error) return null;
+    ultimoError = error;
+  }
+  return ultimoError;
+}
+
 // Las imágenes extraídas por el parser traen el buffer binario en memoria
 // (no son jsonb-safe): se suben a Storage aquí, antes de llamar al RPC de
 // ingestión, que solo recibe las rutas resultantes.
@@ -37,47 +85,40 @@ async function subirImagenesDeItems(
   cargaId: string,
   items: PlaneacionItemParsed[]
 ): Promise<ItemParaIngesta[]> {
-  return Promise.all(
-    items.map(async ({ imagenes, ...resto }) => {
-      const imagenPaths = await Promise.all(
-        imagenes.map(async (imagenOriginal, indice) => {
-          // La miniatura (la de las tablas y el visor) se redimensiona antes de
-          // subir (ver comprimirImagenItem): el
-          // original embebido en el Excel puede pesar varios cientos de KB.
-          const imagen = await comprimirImagenItem(
-            imagenOriginal.buffer,
-            imagenOriginal.extension
-          );
-          const path = `${cargaId}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
-          const { error } = await supabase.storage
-            .from(BUCKET_IMAGENES_ITEMS)
-            .upload(path, imagen.buffer, {
-              contentType: `image/${imagen.extension === "jpg" ? "jpeg" : imagen.extension}`,
-              upsert: false,
-            });
-          if (error) {
-            throw new Error(
-              `No se pudo subir una imagen de la fila ${resto.fila_excel_origen}: ${error.message}`
-            );
-          }
-
-          // Versión grande para la vista ampliada con zoom. Es un extra: si no
-          // se pudo generar o subir, la carga sigue y se usará la miniatura.
-          const grande = await comprimirImagenGrande(imagenOriginal.buffer);
-          if (grande) {
-            await supabase.storage
-              .from(BUCKET_IMAGENES_ITEMS)
-              .upload(rutaImagenGrande(path), grande, {
-                contentType: "image/webp",
-                upsert: false,
-              });
-          }
-          return path;
-        })
+  return mapConLimite(items, SUBIDAS_SIMULTANEAS, async ({ imagenes, ...resto }) => {
+    const imagenPaths: string[] = [];
+    // Las imágenes de un mismo ítem, una tras otra.
+    for (const [indice, imagenOriginal] of imagenes.entries()) {
+      // La miniatura (la de las tablas y el visor) se redimensiona antes de
+      // subir (ver comprimirImagenItem): el
+      // original embebido en el Excel puede pesar varios cientos de KB.
+      const imagen = await comprimirImagenItem(
+        imagenOriginal.buffer,
+        imagenOriginal.extension
       );
-      return { ...resto, imagen_paths: imagenPaths };
-    })
-  );
+      const path = `${cargaId}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
+      const error = await subirConReintentos(
+        supabase,
+        path,
+        imagen.buffer,
+        `image/${imagen.extension === "jpg" ? "jpeg" : imagen.extension}`
+      );
+      if (error) {
+        throw new Error(
+          `No se pudo subir una imagen de la fila ${resto.fila_excel_origen}: ${error.message}`
+        );
+      }
+
+      // Versión grande para la vista ampliada con zoom. Es un extra: si no
+      // se pudo generar o subir, la carga sigue y se usará la miniatura.
+      const grande = await comprimirImagenGrande(imagenOriginal.buffer);
+      if (grande) {
+        await subirConReintentos(supabase, rutaImagenGrande(path), grande, "image/webp");
+      }
+      imagenPaths.push(path);
+    }
+    return { ...resto, imagen_paths: imagenPaths };
+  });
 }
 
 // Supabase Storage rechaza keys con acentos, espacios u otros caracteres
