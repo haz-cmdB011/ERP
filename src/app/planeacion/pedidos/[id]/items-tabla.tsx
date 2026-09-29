@@ -311,14 +311,14 @@ function VisorImagen({
       role="dialog"
       aria-modal="true"
       onClick={onCerrar}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 p-4"
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image */}
       <img
         src={urls[indice]}
         alt=""
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-[min(90vw,40rem)] rounded bg-white object-contain shadow-lg"
+        className="max-h-[85vh] w-[min(90vw,40rem)] rounded bg-papel object-contain shadow-lg"
       />
       <button
         type="button"
