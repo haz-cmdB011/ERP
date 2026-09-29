@@ -19,11 +19,14 @@ export default async function EstimacionesLayout({
 
   const { data: perfil } = await supabase
     .from("perfiles")
-    .select("rol")
+    .select("rol, area")
     .eq("id", user.id)
     .single();
 
   const maquilador = perfil?.rol === "maquilador";
+  const decideDiscrepancias =
+    perfil?.rol === "desarrollador" ||
+    (perfil?.rol === "administrador" && perfil.area === "estimaciones");
 
   return (
     <div className="min-h-screen">
@@ -59,6 +62,11 @@ export default async function EstimacionesLayout({
             <Link href="/estimaciones/registro" className="text-gray-600 hover:text-black">
               Registro de recibos
             </Link>
+            {decideDiscrepancias && (
+              <Link href="/estimaciones/discrepancias" className="text-gray-600 hover:text-black">
+                Discrepancias
+              </Link>
+            )}
           </>
         )}
       </AreaNav>

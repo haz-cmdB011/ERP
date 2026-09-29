@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SelectMenu from "@/components/select-menu";
 import { createClient } from "@/lib/supabase/client";
-import { OBRAS, OTS, PRIORIDAD, VOLUMEN } from "@/lib/estimaciones/datos-acabados";
+import { OBRAS, PRIORIDAD, VOLUMEN } from "@/lib/estimaciones/datos-acabados";
 import {
   BANDA_NOMBRE,
   bandaDe,
@@ -26,16 +26,23 @@ import {
   type TarifasElectrificacion,
 } from "@/lib/estimaciones/motor-electrificacion";
 import {
-  buscarItemsPmElectrificacion,
   guardarReciboElectrificacionEnDb,
   listarFoliosElectrificacion,
+  listarModelosPm,
+  listarOtsPm,
   modificarReciboElectrificacionEnDb,
   type FolioElectrificacionExistente,
-  type ItemPm,
+  type ModeloPm,
+  type OtPm,
   type ReciboElectrificacionGuardado,
   type RenglonElectrificacionGuardado,
   type RenglonElectrificacionParaGuardar,
 } from "@/lib/estimaciones/recibos-electrificacion-db";
+import {
+  cantidadPorModelo,
+  evaluarConciliacion,
+  type EstadoConciliacion,
+} from "@/lib/estimaciones/conciliacion-pm";
 import { generarPdfDesdeElemento } from "../acabados/generar-pdf";
 import DescargarPdfButton from "../acabados/descargar-pdf-button";
 import ReciboFichaElectrificacion from "./recibo-ficha-electrificacion";
@@ -57,10 +64,7 @@ interface Renglon {
   nota: string;
   tocadoAceptado: boolean;
   colapsado: boolean;
-  // Vínculo con el PM de Planeación: ver 20260928150000_estimaciones_electrificacion_pm.sql.
-  planeacionItemId: string | null;
-  numeroPedidoPm: string | null;
-  cantidadPm: number | null;
+  // Motivo que explica por qué la cantidad no concuerda con el PM (se pide al guardar).
   motivoDescuadre: string;
 }
 
@@ -80,9 +84,6 @@ function nuevoRenglon(pre: Partial<Renglon> = {}): Renglon {
     nota: "",
     tocadoAceptado: false,
     colapsado: false,
-    planeacionItemId: null,
-    numeroPedidoPm: null,
-    cantidadPm: null,
     motivoDescuadre: "",
     ...pre,
   };
@@ -119,9 +120,6 @@ function renglonDesdeGuardado(rg: RenglonElectrificacionGuardado): Renglon {
     charolas: rg.charolas.map((c) => ({ drivers: c.drivers })),
     propuesto: rg.propuesto,
     nota: rg.nota,
-    planeacionItemId: rg.planeacionItemId ?? null,
-    numeroPedidoPm: rg.numeroPedidoPm ?? null,
-    cantidadPm: rg.cantidadPm ?? null,
   });
 }
 
@@ -199,34 +197,53 @@ export default function CapturaElectrificacion({
     actualizar(r.id, { charolas });
   }
 
-  // Conciliación con el PM de Planeación: busca el modelo entre los ítems
-  // reales del pedido (por texto de OT) para vincularlo. Sin vínculo, o si
-  // la cantidad acumulada no cuadra con lo declarado, la base exige motivo
-  // al guardar.
-  const [resultadosPm, setResultadosPm] = useState<Record<number, ItemPm[]>>({});
-  const [buscandoPm, setBuscandoPm] = useState<Record<number, boolean>>({});
+  // OT y modelos vienen del PM que subió Planeación: el generador solo deja
+  // elegir OT que existan ahí. La cantidad de cada modelo se compara con lo que
+  // Planeación declaró para ese modelo en esa OT (ver conciliacion-pm.ts); si no
+  // concuerda, se avisa y se pide el motivo al guardar.
+  // undefined: cargando; null: la consulta falló.
+  const [otsPm, setOtsPm] = useState<OtPm[] | null | undefined>(undefined);
+  useEffect(() => {
+    listarOtsPm(createClient()).then(setOtsPm);
+  }, []);
+  const otPm = useMemo(
+    () => otsPm?.find((o) => o.numeroPedido === ot.trim()) ?? null,
+    [otsPm, ot]
+  );
+  const pedidoId = otPm?.pedidoId ?? null;
 
-  async function buscarPm(r: Renglon) {
-    if (r.planeacionItemId || !r.modelo.trim()) return;
-    setBuscandoPm((prev) => ({ ...prev, [r.id]: true }));
-    const resultados = await buscarItemsPmElectrificacion(createClient(), r.modelo, ot);
-    setBuscandoPm((prev) => ({ ...prev, [r.id]: false }));
-    setResultadosPm((prev) => ({ ...prev, [r.id]: resultados }));
-  }
-
-  function vincularPm(r: Renglon, item: ItemPm) {
-    actualizar(r.id, {
-      modelo: item.modelo,
-      planeacionItemId: item.id,
-      numeroPedidoPm: item.numeroPedido,
-      cantidadPm: item.cantidadTotal,
-      motivoDescuadre: "",
+  const [modelosDe, setModelosDe] = useState<{
+    pedidoId: string;
+    modelos: ModeloPm[] | null;
+  } | null>(null);
+  useEffect(() => {
+    if (!pedidoId) return;
+    let vigente = true;
+    listarModelosPm(createClient(), pedidoId, reciboExistente?.id).then((modelos) => {
+      if (vigente) setModelosDe({ pedidoId, modelos });
     });
-    setResultadosPm((prev) => ({ ...prev, [r.id]: [] }));
-  }
+    return () => {
+      vigente = false;
+    };
+  }, [pedidoId, reciboExistente?.id]);
+  const modelosPm = modelosDe && modelosDe.pedidoId === pedidoId ? modelosDe.modelos : null;
 
-  function quitarVinculoPm(r: Renglon) {
-    actualizar(r.id, { planeacionItemId: null, numeroPedidoPm: null, cantidadPm: null });
+  const modelosPorClave = useMemo(
+    () => new Map((modelosPm ?? []).map((m) => [normalizar(m.modelo), m])),
+    [modelosPm]
+  );
+  const totalesPorModelo = useMemo(() => cantidadPorModelo(renglones), [renglones]);
+
+  // null: aún no hay con qué comparar (sin OT del PM o sin modelos cargados).
+  function conciliacion(r: Renglon): EstadoConciliacion | null {
+    if (!otPm || modelosPm === null || !r.modelo.trim()) return null;
+    const clave = normalizar(r.modelo);
+    const m = modelosPorClave.get(clave);
+    return evaluarConciliacion(
+      m ? m.cantidadPm : null,
+      m?.cantidadRegistrada ?? 0,
+      totalesPorModelo.get(clave) ?? 0
+    );
   }
 
   function continuarFolio() {
@@ -276,11 +293,19 @@ export default function CapturaElectrificacion({
     }
   }
 
+  const [avisoDescuadre, setAvisoDescuadre] = useState(false);
+  const descuadres = renglones.flatMap((r, i) => {
+    const c = conciliacion(r);
+    return c && c.estado !== "cuadra" ? [{ r, num: numeroInicial + i, c }] : [];
+  });
+
   async function guardar() {
     const problemas: string[] = [];
     if (!folio.trim()) problemas.push("Falta el folio.");
     if (!fecha.trim()) problemas.push("Falta la fecha del recibo.");
     if (!contratista.trim()) problemas.push("Falta el contratista.");
+    if (!ot.trim()) problemas.push("Falta la OT: elígela de la lista del PM.");
+    else if (otsPm && !otPm) problemas.push("La OT no está en el PM de Planeación; elige una de la lista.");
     if (prioridad !== "normal" && !motivo.trim()) {
       problemas.push(`La prioridad ${prioridad} exige un motivo.`);
     }
@@ -355,13 +380,19 @@ export default function CapturaElectrificacion({
         banda: bandaFinal,
         justificacion: justificacionFinal,
         nota: r.nota,
-        planeacionItemId: r.planeacionItemId,
         motivoDescuadre: r.motivoDescuadre,
       });
     });
 
     if (problemas.length) {
       setResultado({ ok: false, texto: problemas });
+      return;
+    }
+
+    // Recién al guardar se avisa si las cantidades no concuerdan con el PM y
+    // se pide el motivo, que revisará el administrador de Estimaciones.
+    if (descuadres.some((d) => !d.r.motivoDescuadre.trim())) {
+      setAvisoDescuadre(true);
       return;
     }
 
@@ -408,6 +439,9 @@ export default function CapturaElectrificacion({
           : `Recibo ${nuevoRecibo.folio} guardado con ${renglones.length} renglones.`,
         !puedeVerSugerido
           ? "Queda pendiente de revisión: el personal de Estimaciones acepta o modifica cada precio antes del pago."
+          : "",
+        descuadres.length > 0
+          ? "⚠ Hay renglones cuya cantidad no concuerda con el PM: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
           : "",
         "Generando el PDF del recibo…",
       ].filter(Boolean),
@@ -498,15 +532,33 @@ export default function CapturaElectrificacion({
           </label>
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>OT</span>
-            <input
-              list="dl-ots"
+            <select
               className={`${CONTROL} font-mono`}
               value={ot}
-              onChange={(e) => setOt(e.target.value)}
-            />
-            <datalist id="dl-ots">
-              {OTS.map((o) => (
-                <option key={o} value={o} />
+              onChange={(e) => {
+                const elegida = otsPm?.find((o) => o.numeroPedido === e.target.value);
+                setOt(e.target.value);
+                if (elegida?.proyecto && !obra.trim()) setObra(elegida.proyecto);
+              }}
+            >
+              <option value="">
+                {otsPm === undefined
+                  ? "Cargando OT del PM…"
+                  : otsPm === null
+                    ? "No se pudo cargar la lista de OT"
+                    : "Elige la OT"}
+              </option>
+              {ot && !otPm && <option value={ot}>{ot} (no está en el PM)</option>}
+              {(otsPm ?? []).map((o) => (
+                <option key={o.pedidoId} value={o.numeroPedido}>
+                  {o.numeroPedido}
+                  {o.proyecto ? ` — ${o.proyecto}` : ""}
+                </option>
+              ))}
+            </select>
+            <datalist id="dl-modelos-pm">
+              {(modelosPm ?? []).map((m) => (
+                <option key={m.modelo} value={m.modelo} />
               ))}
             </datalist>
           </label>
@@ -642,18 +694,11 @@ export default function CapturaElectrificacion({
                       <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Modelo</span>
                         <input
+                          list="dl-modelos-pm"
+                          placeholder={otPm ? "Elige o escribe el modelo" : "Elige primero la OT"}
                           className={`${CONTROL} font-mono`}
                           value={r.modelo}
-                          onChange={(e) => {
-                            actualizar(r.id, {
-                              modelo: e.target.value,
-                              planeacionItemId: null,
-                              numeroPedidoPm: null,
-                              cantidadPm: null,
-                            });
-                            setResultadosPm((prev) => ({ ...prev, [r.id]: [] }));
-                          }}
-                          onBlur={() => void buscarPm(r)}
+                          onChange={(e) => actualizar(r.id, { modelo: e.target.value })}
                         />
                       </label>
                       <label className="flex flex-col gap-1">
@@ -669,65 +714,6 @@ export default function CapturaElectrificacion({
                               cantidad: e.target.value === "" ? "" : Number(e.target.value),
                             })
                           }
-                        />
-                      </label>
-                    </div>
-
-                    {/* Conciliación con el PM de Planeación */}
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <p className="text-xs font-semibold text-slate-700">
-                        Conciliación con el PM
-                      </p>
-                      {r.planeacionItemId ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                            ✓ Vinculado a {r.numeroPedidoPm} · declarado {r.cantidadPm} pz
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => quitarVinculoPm(r)}
-                            className="font-medium text-slate-500 hover:text-rose-600"
-                          >
-                            Quitar vínculo
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="mt-1 text-[11px] text-slate-400">
-                            {buscandoPm[r.id]
-                              ? "Buscando en el PM…"
-                              : "Sin vincular al PM. Busca el modelo saliendo del campo, o captura el motivo abajo."}
-                          </p>
-                          {!!resultadosPm[r.id]?.length && (
-                            <ul className="mt-2 flex flex-col gap-1">
-                              {resultadosPm[r.id].map((item) => (
-                                <li key={item.id}>
-                                  <button
-                                    type="button"
-                                    onClick={() => vincularPm(r, item)}
-                                    className="w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-left text-xs hover:border-indigo-300 hover:bg-indigo-50"
-                                  >
-                                    <span className="font-mono font-medium text-slate-900">
-                                      {item.modelo}
-                                    </span>{" "}
-                                    · {item.numeroPedido}
-                                    {item.proyecto ? ` · ${item.proyecto}` : ""} · declarado{" "}
-                                    {item.cantidadTotal} pz
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </>
-                      )}
-                      <label className="mt-2 flex flex-col gap-1">
-                        <span className={ETIQUETA}>Motivo si no cuadra con el PM</span>
-                        <textarea
-                          rows={2}
-                          placeholder="Requerido si no se encontró el modelo, o si la cantidad acumulada no coincide con lo declarado"
-                          className={CONTROL}
-                          value={r.motivoDescuadre}
-                          onChange={(e) => actualizar(r.id, { motivoDescuadre: e.target.value })}
                         />
                       </label>
                     </div>
@@ -1184,6 +1170,80 @@ export default function CapturaElectrificacion({
           </button>
         </div>
       </div>
+
+      {avisoDescuadre && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="titulo-descuadre"
+        >
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
+            <div>
+              <h2 id="titulo-descuadre" className="text-base font-semibold text-slate-900">
+                ⚠ Las cantidades no concuerdan con el registro del PM
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Lo que capturaste no coincide con lo que Planeación declaró. Explica el motivo de cada
+                renglón: se enviará al administrador de Estimaciones, quien lo aceptará o lo rechazará.
+              </p>
+            </div>
+
+            {descuadres.map(({ r, num, c }) => (
+              <div key={r.id} className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <p className="text-sm font-semibold text-amber-900">
+                  Renglón #{num} · <span className="font-mono">{r.modelo || "sin modelo"}</span>
+                </p>
+                <p className="mt-0.5 text-xs text-amber-900">
+                  {c.estado === "sin_modelo_en_pm" ? (
+                    `Este modelo no existe en el PM de la OT ${ot}, así que no se puede comparar la cantidad.`
+                  ) : c.estado === "no_cuadra" ? (
+                    <>
+                      Planeación declaró <b>{c.cantidadPm} pz</b>; con esta captura suman{" "}
+                      <b>{c.total} pz</b>
+                      {(modelosPorClave.get(normalizar(r.modelo))?.cantidadRegistrada ?? 0) > 0
+                        ? ` (${modelosPorClave.get(normalizar(r.modelo))?.cantidadRegistrada} ya registradas en otros recibos)`
+                        : ""}{" "}
+                      — {c.diferencia > 0 ? `sobran ${c.diferencia}` : `faltan ${-c.diferencia}`}.
+                    </>
+                  ) : null}
+                </p>
+                <label className="mt-2 flex flex-col gap-1">
+                  <span className={ETIQUETA}>Motivo</span>
+                  <textarea
+                    rows={2}
+                    placeholder="¿Por qué no coincide la cantidad con el PM?"
+                    className={CONTROL}
+                    value={r.motivoDescuadre}
+                    onChange={(e) => actualizar(r.id, { motivoDescuadre: e.target.value })}
+                  />
+                </label>
+              </div>
+            ))}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAvisoDescuadre(false)}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Volver a revisar
+              </button>
+              <button
+                type="button"
+                disabled={descuadres.some((d) => !d.r.motivoDescuadre.trim())}
+                onClick={() => {
+                  setAvisoDescuadre(false);
+                  void guardar();
+                }}
+                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                Enviar al administrador y guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

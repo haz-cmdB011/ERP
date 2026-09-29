@@ -2,7 +2,10 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
-import { buscarReciboElectrificacionPorFolio } from "@/lib/estimaciones/recibos-electrificacion-db";
+import {
+  buscarReciboElectrificacionPorFolio,
+  listarDiscrepanciasRecibo,
+} from "@/lib/estimaciones/recibos-electrificacion-db";
 import ReciboFichaElectrificacion from "../../recibo-ficha-electrificacion";
 import DescargarPdfButton from "../../../acabados/descargar-pdf-button";
 
@@ -19,6 +22,8 @@ export default async function SeguimientoReciboElectrificacionPage({
   const supabase = await createClient();
   const esPersonal = puedeVerPrecioSugerido(await getPerfilActual(supabase));
   const recibo = await buscarReciboElectrificacionPorFolio(supabase, folio);
+
+  const discrepancias = recibo?.id ? await listarDiscrepanciasRecibo(supabase, recibo.id) : [];
 
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host") ?? ""}`;
@@ -52,6 +57,41 @@ export default async function SeguimientoReciboElectrificacionPage({
           <DescargarPdfButton nombreArchivo={`recibo-electrificacion-${recibo.folio}.pdf`} />
         </div>
       </div>
+      {discrepancias.length > 0 && (
+        <section className="flex flex-col gap-2 rounded-xl border border-slate-200 p-4 text-sm">
+          <h2 className="font-semibold text-slate-900">Cantidades que no concuerdan con el PM</h2>
+          {discrepancias.map((d) => (
+            <div
+              key={d.id}
+              className={`rounded-lg px-3 py-2 ring-1 ${
+                d.estado === "rechazada"
+                  ? "bg-rose-50 text-rose-900 ring-rose-200"
+                  : d.estado === "aceptada"
+                    ? "bg-emerald-50 text-emerald-900 ring-emerald-200"
+                    : "bg-amber-50 text-amber-900 ring-amber-200"
+              }`}
+            >
+              <p className="font-medium">
+                <span className="font-mono">{d.modelo}</span> ·{" "}
+                {d.estado === "rechazada"
+                  ? "Motivo NO aceptado"
+                  : d.estado === "aceptada"
+                    ? "Motivo aceptado"
+                    : "Pendiente de revisión del administrador"}
+              </p>
+              <p className="text-xs">
+                {d.cantidadPm == null
+                  ? "El modelo no está en el PM de la OT"
+                  : `PM declara ${d.cantidadPm} pz · acumulado ${d.cantidadAcumulada ?? "—"} pz`}
+              </p>
+              <p className="mt-1 text-xs">Motivo del maquilador: {d.motivo}</p>
+              {d.notaResolucion && (
+                <p className="mt-1 text-xs">Respuesta del administrador: {d.notaResolucion}</p>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
       <div className="rounded-xl border border-slate-200 shadow-sm">
         <ReciboFichaElectrificacion recibo={recibo} qrUrl={qrUrl} mostrarInterno={esPersonal} />
       </div>
