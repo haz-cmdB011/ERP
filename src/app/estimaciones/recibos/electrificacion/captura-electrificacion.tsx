@@ -556,6 +556,11 @@ export default function CapturaElectrificacion({
                 </option>
               ))}
             </select>
+            {contratistaFijo && (
+              <span className="text-[11px] text-slate-400">
+                Solo se muestran las OT y los modelos que incluyen iluminación.
+              </span>
+            )}
             <datalist id="dl-modelos-pm">
               {(modelosPm ?? []).map((m) => (
                 <option key={m.modelo} value={m.modelo} />
@@ -1196,7 +1201,7 @@ export default function CapturaElectrificacion({
                 </p>
                 <p className="mt-0.5 text-xs text-amber-900">
                   {c.estado === "sin_modelo_en_pm" ? (
-                    `Este modelo no existe en el PM de la OT ${ot}, así que no se puede comparar la cantidad.`
+                    `Este modelo no está entre los modelos${contratistaFijo ? " con iluminación" : ""} de la OT ${ot}, así que no se puede comparar la cantidad.`
                   ) : c.estado === "no_cuadra" ? (
                     <>
                       Planeación declaró <b>{c.cantidadPm} pz</b>; con esta captura suman{" "}
