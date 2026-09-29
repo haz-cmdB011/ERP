@@ -44,3 +44,6 @@ supabase/.temp/
 *.tsbuildinfo
 next-env.d.ts
 /planos-reporte
+
+# trabajo temporal de sesiones de Claude
+/.scratch/
