@@ -2,6 +2,21 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import {
+  contarPendientes,
+  contarRechazadas,
+  listarResumenDiscrepancias,
+} from "@/lib/estimaciones/discrepancias-resumen";
+
+// Globo con un número, para los contadores del menú.
+function Globo({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span className="ml-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+      {n}
+    </span>
+  );
+}
 
 export default async function EstimacionesLayout({
   children,
@@ -28,6 +43,13 @@ export default async function EstimacionesLayout({
     perfil?.rol === "desarrollador" ||
     (perfil?.rol === "administrador" && perfil.area === "estimaciones");
 
+  // Contadores del menú. La RLS decide qué cuenta cada quien: quien decide ve
+  // todas las pendientes; el maquilador, los rechazos de sus propios recibos.
+  const resumen =
+    decideDiscrepancias || maquilador ? await listarResumenDiscrepancias(supabase) : [];
+  const pendientes = decideDiscrepancias ? contarPendientes(resumen) : 0;
+  const rechazadas = maquilador ? contarRechazadas(resumen) : 0;
+
   return (
     <div className="min-h-screen">
       <AreaNav
@@ -43,6 +65,7 @@ export default async function EstimacionesLayout({
             </Link>
             <Link href="/estimaciones/mis-recibos" className="text-gray-600 hover:text-black">
               Mis recibos
+              <Globo n={rechazadas} />
             </Link>
           </>
         ) : (
@@ -65,6 +88,7 @@ export default async function EstimacionesLayout({
             {decideDiscrepancias && (
               <Link href="/estimaciones/discrepancias" className="text-gray-600 hover:text-black">
                 Discrepancias
+                <Globo n={pendientes} />
               </Link>
             )}
           </>

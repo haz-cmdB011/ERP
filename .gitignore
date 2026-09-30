@@ -47,3 +47,5 @@ next-env.d.ts
 
 # trabajo temporal de sesiones de Claude
 /.scratch/
+# configuración personal de Claude Code (permisos locales)
+/.claude/settings.local.json

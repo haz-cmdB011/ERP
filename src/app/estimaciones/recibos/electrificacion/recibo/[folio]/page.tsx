@@ -69,7 +69,7 @@ export default async function SeguimientoReciboElectrificacionPage({
       </div>
       {discrepancias.length > 0 && (
         <section className="flex flex-col gap-2 rounded-xl border border-slate-200 p-4 text-sm">
-          <h2 className="font-semibold text-slate-900">Cantidades que no concuerdan con el PM</h2>
+          <h2 className="font-semibold text-slate-900">Cantidades que superan lo declarado en el PM</h2>
           {discrepancias.map((d) => (
             <div
               key={d.id}

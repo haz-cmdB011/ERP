@@ -22,9 +22,16 @@ npm run dev     # http://localhost:3000
 npm run build
 npm run lint
 npm test        # vitest run
+npm run test:db      # pruebas de la base de Supabase (solo lectura, usa .env.local)
+npm run db:verificar # genera la consulta que compara migraciones del repo vs la base
 ```
 
 Scripts de planos (Node con `tsx`): `scripts/planos/*.mts`.
+
+`npm run test:db` corre `tests-db/` contra la base REAL (nunca escribe): funciones
+puras, permisos que deben rechazarse y la regla de que la cantidad del PM sale solo
+de los muebles padre. Los casos con datos (FXIJ-12 = 1, DEC-313 = 139…) se omiten
+con aviso si esa OT no está cargada. No corre con `npm test`.
 
 ## Variables de entorno (`.env.local`, no se sube a Git)
 
@@ -78,3 +85,37 @@ en RLS y funciones SQL (`is_admin`, `is_admin_planeacion`, `is_admin_area`,
 - Antes de tocar Next.js, leer la guía correspondiente en
   `node_modules/next/dist/docs/` (ver AGENTS.md).
 - Correr `npm test` y `npm run lint` antes de abrir un PR.
+
+## Migraciones: cómo aplicarlas
+
+El historial de Supabase (`supabase_migrations.schema_migrations`) **no basta**
+para saber si una migración se ejecutó: ya pasó que una quedó registrada sin
+crearse (auditoría de recibos) y que otras se aplicaron en la base sin archivo
+en el repo. Por eso:
+
+1. Crear `supabase/migrations/<AAAAMMDDHHMMSS>_<nombre>.sql`. Al inicio, declarar
+   los objetos que debe dejar con comentarios `-- @verifica <tipo> <nombre>`
+   (tipos: `function`, `function-contiene`, `sin-function`, `trigger`, `column`,
+   `table`, `policy`, `constraint`; ver `scripts/db/verificar-migraciones.mjs`).
+2. Aplicarla por **una sola vía**, que registra el historial por sí misma:
+   `apply_migration` de Supabase (desde Claude, con permiso explícito) o la CLI
+   (`supabase login`, `supabase link --project-ref cydhyndflldnswzquzjx`,
+   `supabase db push`). Evitar pegar en el SQL Editor y registrar aparte con un
+   `insert`: es justo lo que dejó registros sin ejecutar.
+3. Verificar: `npm run db:verificar` (o `-- --desde=20260930` para las recientes)
+   imprime una consulta de solo lectura; ejecutarla en Supabase. Todas las filas
+   deben decir `OK`.
+4. Si sale `SOLO_EN_LA_BASE`: alguien aplicó una migración sin archivo. Buscar su
+   archivo en la rama de quien la hizo o recuperarla con
+   `select statements from supabase_migrations.schema_migrations where version = '...'`
+   y guardarla en el repo.
+
+## Contraseñas filtradas
+
+Se comprueban en la app contra Pwned Passwords (k-anonimato: solo sale el prefijo
+de 5 caracteres del hash SHA-1; ver `src/lib/auth/contrasena-filtrada.ts`) al
+crear usuarios, restablecer contraseñas, registrarse y cambiar la propia. Si el
+servicio no responde no bloquea. La protección nativa de Supabase Auth
+(*Authentication → Policies → Leaked password protection*, requiere plan Pro)
+sigue sin activarse en el panel; al activarla, esta comprobación queda redundante
+pero no estorba.

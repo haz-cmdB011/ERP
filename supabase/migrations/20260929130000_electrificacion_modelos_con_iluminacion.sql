@@ -1,3 +1,6 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function public.descripcion_incluye_iluminacion
+
 -- ============================================================================
 -- Electrificación — el maquilador solo ve (y se compara contra) los ítems
 -- PADRE cuya descripción incluye la frase "INCLUYE ILUMINACIÓN".

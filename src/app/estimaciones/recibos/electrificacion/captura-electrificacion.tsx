@@ -41,6 +41,7 @@ import {
 import {
   cantidadPorModelo,
   evaluarConciliacion,
+  exigeMotivo,
   type EstadoConciliacion,
 } from "@/lib/estimaciones/conciliacion-pm";
 import { generarPdfDesdeElemento } from "../acabados/generar-pdf";
@@ -320,7 +321,13 @@ export default function CapturaElectrificacion({
   const [avisoDescuadre, setAvisoDescuadre] = useState(false);
   const descuadres = renglones.flatMap((r, i) => {
     const c = conciliacion(r);
-    return c && c.estado !== "cuadra" ? [{ r, num: numeroInicial + i, c }] : [];
+    return c && exigeMotivo(c) ? [{ r, num: numeroInicial + i, c }] : [];
+  });
+  // Recibo parcial: lo acumulado del modelo queda por debajo de lo declarado
+  // (no es descuadre; falta cobrar el resto en otros recibos).
+  const parciales = renglones.flatMap((r) => {
+    const c = conciliacion(r);
+    return c && c.estado === "parcial" ? [{ modelo: normalizar(r.modelo), c }] : [];
   });
 
   async function guardar() {
@@ -478,8 +485,13 @@ export default function CapturaElectrificacion({
         !puedeVerSugerido
           ? "Queda pendiente de revisión: el personal de Estimaciones acepta o modifica cada precio antes del pago."
           : "",
+        parciales.length > 0
+          ? `Recibo parcial: ${Array.from(new Map(parciales.map((p) => [p.modelo, p.c])).entries())
+              .map(([modelo, c]) => `${modelo} lleva ${c.total} de ${c.cantidadPm} pz declaradas`)
+              .join("; ")}.`
+          : "",
         descuadres.length > 0
-          ? "⚠ Hay renglones cuya cantidad no concuerda con el PM: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
+          ? "⚠ Hay renglones cuya cantidad supera lo declarado en el PM: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
           : "",
         "Generando el PDF del recibo…",
         reciboExistente ? "" : "El formulario quedó listo para otro recibo (se conservan fecha, obra y OT).",
@@ -1280,10 +1292,10 @@ export default function CapturaElectrificacion({
           <div className="flex max-h-[90vh] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
             <div>
               <h2 id="titulo-descuadre" className="text-base font-semibold text-slate-900">
-                ⚠ Las cantidades no concuerdan con el registro del PM
+                ⚠ La cantidad supera lo declarado en el PM
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Lo que capturaste no coincide con lo que Planeación declaró. Explica el motivo de cada
+                Lo que capturaste supera lo que Planeación declaró (o el modelo no está en la OT). Explica el motivo de cada
                 renglón: se enviará al administrador de Estimaciones, quien lo aceptará o lo rechazará.
               </p>
             </div>
@@ -1311,7 +1323,7 @@ export default function CapturaElectrificacion({
                   <span className={ETIQUETA}>Motivo</span>
                   <textarea
                     rows={2}
-                    placeholder="¿Por qué no coincide la cantidad con el PM?"
+                    placeholder="¿Por qué la cantidad supera lo declarado en el PM?"
                     className={CONTROL}
                     value={r.motivoDescuadre}
                     onChange={(e) => actualizar(r.id, { motivoDescuadre: e.target.value })}

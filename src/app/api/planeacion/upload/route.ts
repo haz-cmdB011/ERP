@@ -10,6 +10,7 @@ import {
 } from "@/lib/planeacion/optimizar-almacenamiento";
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
 import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
+import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
 
 export const runtime = "nodejs";
 // Un Excel grande (muchas imágenes que se comprimen una por una) tarda.
@@ -298,6 +299,11 @@ export async function POST(request: Request) {
     );
   }
 
+  // Avisos del parser (datos incompletos) + avisos de datos que luego causan
+  // descuadres en el generador de recibos (cantidades negativas, en cero o con
+  // decimales, muebles sin modelo, componentes sin padre). No bloquean la carga.
+  const avisos = [...resultado.avisos, ...validarItemsParaRecibos(resultado.items)];
+
   await supabase
     .from("cargas_archivo")
     .update({
@@ -306,7 +312,7 @@ export async function POST(request: Request) {
       filas_exitosas: resultado.items.length,
       filas_error: 0,
       // Avisos de datos incompletos (la carga fue exitosa igual).
-      errores: resultado.avisos.length > 0 ? resultado.avisos : null,
+      errores: avisos.length > 0 ? avisos : null,
       procesado_en: new Date().toISOString(),
     })
     .eq("id", carga.id);
@@ -314,7 +320,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     cargaId: carga.id,
-    avisos: resultado.avisos,
+    avisos,
     ...ingestData,
   });
 }

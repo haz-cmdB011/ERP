@@ -7,8 +7,7 @@ import DecidirBotones from "./decidir-botones";
 
 interface DiscrepanciaRow {
   id: string;
-  renglon_id: string;
-  recibo_id: string;
+  area: "acabados" | "armado" | "electrificacion";
   modelo: string;
   cantidad_capturada: number;
   cantidad_acumulada: number | null;
@@ -20,7 +19,14 @@ interface DiscrepanciaRow {
   resuelta_en: string | null;
   nota_resolucion: string | null;
   recibos_electrificacion: { folio: string } | null;
+  recibos: { folio: string } | null;
 }
+
+const AREA_NOMBRE: Record<DiscrepanciaRow["area"], string> = {
+  acabados: "Acabados",
+  armado: "Armado",
+  electrificacion: "Electrificación",
+};
 
 const FILTROS: [string, string][] = [
   ["pendientes", "Pendientes"],
@@ -36,11 +42,12 @@ const ESTADO_POR_FILTRO: Record<string, string> = {
 };
 
 // Bandeja donde el administrador de Estimaciones (o un desarrollador) acepta o
-// rechaza el motivo de los descuadres con el PM. La RLS de
-// discrepancias_electrificacion y la función de decisión lo exigen también en
-// la base. Se llenan al capturar/modificar un recibo de Electrificación cuya
-// cantidad no cuadra (o no se encontró el modelo) en el PM de Planeación.
-export default async function DiscrepanciasElectrificacionPage({
+// rechaza el motivo de los descuadres con el PM. La RLS de discrepancias_pm y
+// la función de decisión (decidir_discrepancia_pm) lo exigen también en la
+// base. Se llenan solas al capturar/modificar un recibo (Acabados, Armado o
+// Electrificación) cuya cantidad acumulada supera lo declarado en el PM, o
+// cuyo modelo no existe en la OT.
+export default async function DiscrepanciasPmPage({
   searchParams,
 }: {
   searchParams: Promise<{ filtro?: string; pagina?: string }>;
@@ -54,7 +61,7 @@ export default async function DiscrepanciasElectrificacionPage({
   }
 
   let conteoQuery = supabase
-    .from("discrepancias_electrificacion")
+    .from("discrepancias_pm")
     .select("id", { count: "exact", head: true });
   if (ESTADO_POR_FILTRO[filtro]) conteoQuery = conteoQuery.eq("estado", ESTADO_POR_FILTRO[filtro]);
   const { count, error: errorConteo } = await conteoQuery;
@@ -68,11 +75,11 @@ export default async function DiscrepanciasElectrificacionPage({
   let error = errorConteo;
   if (total > 0 && !error) {
     let consulta = supabase
-      .from("discrepancias_electrificacion")
+      .from("discrepancias_pm")
       .select(
-        "id, renglon_id, recibo_id, modelo, cantidad_capturada, cantidad_acumulada, cantidad_pm, " +
+        "id, area, modelo, cantidad_capturada, cantidad_acumulada, cantidad_pm, " +
           "motivo, creado_por, creado_en, estado, resuelta_en, nota_resolucion, " +
-          "recibos_electrificacion(folio)"
+          "recibos_electrificacion(folio), recibos(folio)"
       )
       .order("creado_en", { ascending: false })
       .range((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA - 1);
@@ -106,11 +113,11 @@ export default async function DiscrepanciasElectrificacionPage({
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Discrepancias — Electrificación
+          Discrepancias con el PM
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Renglones de Electrificación cuya cantidad no concuerda con lo que Planeación declaró en el
-          PM, o cuyo modelo no se encontró. Revisa el motivo del maquilador: si es válido, acéptalo y
+          Renglones de recibos (Acabados, Armado y Electrificación) cuya cantidad acumulada SUPERA lo
+          que Planeación declaró en el PM, o cuyo modelo no se encontró. Revisa el motivo del maquilador: si es válido, acéptalo y
           el proceso sigue; si no, recházalo explicando por qué y queda el reporte de no aceptado.
         </p>
       </div>
@@ -151,6 +158,7 @@ export default async function DiscrepanciasElectrificacionPage({
             <thead>
               <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Fecha</th>
+                <th className="px-3 py-2.5">Área</th>
                 <th className="px-3 py-2.5">Recibo</th>
                 <th className="px-3 py-2.5">Modelo</th>
                 <th className="px-3 py-2.5 text-right">Capturada</th>
@@ -170,17 +178,20 @@ export default async function DiscrepanciasElectrificacionPage({
                       timeStyle: "short",
                     })}
                   </td>
+                  <td className="px-3 py-2 text-slate-700">{AREA_NOMBRE[f.area] ?? f.area}</td>
                   <td className="px-3 py-2">
-                    {f.recibos_electrificacion ? (
-                      <Link
-                        href={`/estimaciones/recibos/electrificacion/recibo/${encodeURIComponent(f.recibos_electrificacion.folio)}`}
-                        className="font-mono font-medium text-slate-900 hover:text-indigo-600 hover:underline"
-                      >
-                        {f.recibos_electrificacion.folio}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
+                    {(() => {
+                      const folio = f.recibos_electrificacion?.folio ?? f.recibos?.folio;
+                      if (!folio) return "—";
+                      return (
+                        <Link
+                          href={`/estimaciones/recibos/${f.area}/recibo/${encodeURIComponent(folio)}`}
+                          className="font-mono font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                        >
+                          {folio}
+                        </Link>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2 font-mono text-slate-700">{f.modelo}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-slate-700">

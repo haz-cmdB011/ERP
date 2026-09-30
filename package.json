@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:db": "node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.db.config.ts",
+    "db:verificar": "node scripts/db/verificar-migraciones.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

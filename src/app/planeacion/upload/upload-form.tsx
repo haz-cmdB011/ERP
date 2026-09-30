@@ -166,7 +166,8 @@ export default function UploadForm() {
       {resultado && !esError(resultado) && resultado.avisos && resultado.avisos.length > 0 && (
         <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <p className="font-medium">
-            Se cargó, pero revisa estos datos incompletos del Excel ({resultado.avisos.length}):
+            Se cargó, pero revisa estos avisos del Excel: datos incompletos o que causarán
+            descuadres en los recibos ({resultado.avisos.length}):
           </p>
           <ul className="mt-2 list-disc pl-5">
             {resultado.avisos.map((d, i) => (

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { contrasenaFiltrada, MENSAJE_CONTRASENA_FILTRADA } from "@/lib/auth/contrasena-filtrada";
 
 // Registro público (sin sesión): a diferencia de /api/admin/usuarios/crear,
 // cualquier trabajador puede llamar esta ruta para darse de alta a sí
@@ -26,6 +27,10 @@ export async function POST(request: Request) {
       { error: "La contraseña debe tener al menos 8 caracteres." },
       { status: 400 }
     );
+  }
+
+  if (await contrasenaFiltrada(password)) {
+    return NextResponse.json({ error: MENSAJE_CONTRASENA_FILTRADA }, { status: 400 });
   }
 
   // Igual que la creación de usuarios por un admin: se crea ya confirmado,

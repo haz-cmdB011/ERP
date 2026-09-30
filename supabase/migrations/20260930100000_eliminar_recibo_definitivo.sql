@@ -1,3 +1,6 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function public.eliminar_recibo_definitivo
+
 -- ============================================================================
 -- Eliminar un recibo de maquila DEFINITIVAMENTE (solo el desarrollador).
 --

@@ -162,18 +162,19 @@ export interface DiscrepanciaRecibo {
   notaResolucion: string | null;
 }
 
-// Discrepancias de un recibo con su estado (RLS: las ve quien decide y quien
-// capturó el recibo).
+// Discrepancias de un recibo de Electrificación con su estado (tabla
+// discrepancias_pm; RLS: las ve quien decide, el personal de Estimaciones y
+// quien capturó el recibo).
 export async function listarDiscrepanciasRecibo(
   supabase: SupabaseClient,
   reciboId: string
 ): Promise<DiscrepanciaRecibo[]> {
   const { data, error } = await supabase
-    .from("discrepancias_electrificacion")
+    .from("discrepancias_pm")
     .select(
       "id, modelo, cantidad_capturada, cantidad_acumulada, cantidad_pm, motivo, estado, nota_resolucion"
     )
-    .eq("recibo_id", reciboId)
+    .eq("recibo_electrificacion_id", reciboId)
     .order("creado_en", { ascending: true })
     .returns<
       {
@@ -200,13 +201,15 @@ export async function listarDiscrepanciasRecibo(
   }));
 }
 
-export async function decidirDiscrepanciaElectrificacion(
+// Acepta o rechaza el motivo de una discrepancia (de cualquier área). La base
+// valida el rol (desarrollador o administrador de Estimaciones).
+export async function decidirDiscrepanciaPm(
   supabase: SupabaseClient,
   id: string,
   decision: "aceptada" | "rechazada",
   nota: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase.rpc("decidir_discrepancia_electrificacion", {
+  const { error } = await supabase.rpc("decidir_discrepancia_pm", {
     p_id: id,
     p_decision: decision,
     p_nota: nota,

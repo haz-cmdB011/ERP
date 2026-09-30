@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { decidirDiscrepanciaElectrificacion } from "@/lib/estimaciones/recibos-electrificacion-db";
+import { decidirDiscrepanciaPm } from "@/lib/estimaciones/recibos-electrificacion-db";
 
 // Acepta o rechaza el motivo de un descuadre con el PM. Rechazar exige explicar
 // por qué (esa nota es el reporte que ve quien capturó el recibo). La base
@@ -27,7 +27,7 @@ export default function DecidirBotones({ id }: { id: string }) {
     }
     setTrabajando(true);
     setError(null);
-    const { error } = await decidirDiscrepanciaElectrificacion(createClient(), id, decision, nota);
+    const { error } = await decidirDiscrepanciaPm(createClient(), id, decision, nota);
     setTrabajando(false);
     if (error) {
       setError(error);
