@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
+import FiltroCliente from "./filtro-cliente";
 
 interface PedidoRow {
   id: string;
@@ -73,11 +74,19 @@ function ultimaEntrega(pedidos: PedidoRow[]): string | null {
   return fechas.length ? fechas.sort().at(-1)! : null;
 }
 
+// Cliente del PM tal como se compara en el filtro (sin espacios de más y
+// en mayúsculas: el mismo cliente viene escrito distinto entre archivos).
+function clienteDe(p: PedidoRow): string | null {
+  const c = p.proyectos?.cliente?.replace(/\s+/g, " ").trim().toUpperCase();
+  return c || null;
+}
+
 // Arma el href de la lista conservando los demás filtros.
-function hrefLista(params: { q?: string; anio?: string }): string {
+function hrefLista(params: { q?: string; anio?: string; cliente?: string }): string {
   const qs = new URLSearchParams();
   if (params.q) qs.set("q", params.q);
   if (params.anio) qs.set("anio", params.anio);
+  if (params.cliente) qs.set("cliente", params.cliente);
   const texto = qs.toString();
   return texto ? `/planeacion?${texto}` : "/planeacion";
 }
@@ -88,11 +97,15 @@ const COLUMNAS =
 export default async function PlaneacionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
 }) {
-  const { q, anio } = await searchParams;
+  const { q, anio, cliente } = await searchParams;
   const busqueda = q?.trim() ?? "";
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
+  const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
+  // Filtros activos como texto, para los enlaces que conservan los demás.
+  const anioParam = anioFiltro ? String(anioFiltro) : undefined;
+  const clienteParam = clienteFiltro || undefined;
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
   const esAdmin = puedeAdministrarPlaneacion(perfil);
@@ -116,8 +129,15 @@ export default async function PlaneacionListPage({
     : { data: null };
 
   const aniosDisponibles = [...new Set((pedidos ?? []).map(anioDePedido))].sort((a, b) => b - a);
+  const clientesDisponibles = [
+    ...new Set((pedidos ?? []).map(clienteDe).filter((c): c is string => !!c)),
+  ].sort((a, b) => a.localeCompare(b, "es"));
   const filas = agruparPorOrdenTrabajo(
-    anioFiltro ? (pedidos ?? []).filter((p) => anioDePedido(p) === anioFiltro) : pedidos ?? []
+    (pedidos ?? []).filter(
+      (p) =>
+        (!anioFiltro || anioDePedido(p) === anioFiltro) &&
+        (!clienteFiltro || clienteDe(p) === clienteFiltro)
+    )
   ).filter((fila) => !busqueda || coincideBusqueda(fila, busqueda));
   const totalOts = filas.filter((f) => f.ot).length;
 
@@ -149,6 +169,7 @@ export default async function PlaneacionListPage({
 
       <form action="/planeacion" className="flex gap-2">
         {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
+        {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
         <input
           type="search"
           name="q"
@@ -164,7 +185,7 @@ export default async function PlaneacionListPage({
         </button>
         {busqueda && (
           <Link
-            href={hrefLista({ anio: anioFiltro ? String(anioFiltro) : undefined })}
+            href={hrefLista({ anio: anioParam, cliente: clienteParam })}
             className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:underline"
           >
             Limpiar
@@ -185,32 +206,44 @@ export default async function PlaneacionListPage({
       )}
 
       {aniosDisponibles.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Año</span>
-          {[null, ...aniosDisponibles].map((a) => {
-            const activo = a === anioFiltro;
-            return (
-              <Link
-                key={a ?? "todos"}
-                href={hrefLista({ q: busqueda || undefined, anio: a ? String(a) : undefined })}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  activo
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {a ?? "Todos"}
-              </Link>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Año</span>
+            {[null, ...aniosDisponibles].map((a) => {
+              const activo = a === anioFiltro;
+              return (
+                <Link
+                  key={a ?? "todos"}
+                  href={hrefLista({
+                    q: busqueda || undefined,
+                    anio: a ? String(a) : undefined,
+                    cliente: clienteParam,
+                  })}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    activo
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {a ?? "Todos"}
+                </Link>
+              );
+            })}
+          </div>
+          <FiltroCliente
+            clientes={clientesDisponibles}
+            valor={clienteFiltro}
+            q={busqueda || undefined}
+            anio={anioParam}
+          />
         </div>
       )}
 
       {pedidos && pedidos.length > 0 && filas.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          {busqueda
-            ? `Ninguna O.T. coincide con “${busqueda}”${anioFiltro ? ` en ${anioFiltro}` : ""}.`
-            : `No hay pedidos de ${anioFiltro}.`}
+          {busqueda ? `Ninguna O.T. coincide con “${busqueda}”` : "No hay pedidos"}
+          {clienteFiltro ? ` de ${clienteFiltro}` : ""}
+          {anioFiltro ? ` en ${anioFiltro}` : ""}.
         </p>
       )}
 
