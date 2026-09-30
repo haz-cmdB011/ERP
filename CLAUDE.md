@@ -77,4 +77,6 @@ en RLS y funciones SQL (`is_admin`, `is_admin_planeacion`, `is_admin_area`,
 - No subir `.env*` ni `.scratch/`.
 - Antes de tocar Next.js, leer la guía correspondiente en
   `node_modules/next/dist/docs/` (ver AGENTS.md).
-- Correr `npm test` y `npm run lint` antes de abrir un PR.
+- Correr `npm test` y `npm run lint` antes de abrir un PR. GitHub Actions
+  (`.github/workflows/ci.yml`) los vuelve a correr en cada PR junto con el
+  build; no fusionar si sale en rojo.
