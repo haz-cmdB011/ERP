@@ -12,6 +12,7 @@ import { NOMBRE_TIPO_CUALQUIERA } from "@/lib/estimaciones/revision-db";
 import { money } from "@/lib/estimaciones/motor-precio";
 import EstadoReciboBadge from "../estado-recibo-badge";
 import CancelarReciboBoton from "../cancelar-recibo-boton";
+import EliminarReciboDefinitivoBoton from "../eliminar-recibo-definitivo-boton";
 
 // Fecha numérica día-mes-año (ej. "31-08-2026"), solo para esta tabla.
 function fechaNumerica(iso: string): string {
@@ -43,9 +44,12 @@ export default async function RegistroRecibosPage({
   searchParams: Promise<{ estado?: string }>;
 }) {
   const supabase = await createClient();
-  if (esMaquilador(await getPerfilActual(supabase))) {
+  const perfil = await getPerfilActual(supabase);
+  if (esMaquilador(perfil)) {
     redirect("/estimaciones/mis-recibos");
   }
+  // Solo el desarrollador elimina recibos definitivamente (la base también lo exige).
+  const esDesarrollador = perfil?.rol === "desarrollador";
 
   const { estado } = await searchParams;
   const filtro = esEstadoRecibo(estado) ? estado : null;
@@ -156,8 +160,17 @@ export default async function RegistroRecibosPage({
                             {r.estado === "pendiente" ? "Revisar" : "Pagar"}
                           </Link>
                         )}
-                        {r.estado === "pendiente" && (
-                          <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
+                        {esDesarrollador ? (
+                          <EliminarReciboDefinitivoBoton
+                            tipo={r.tipo}
+                            reciboId={r.id}
+                            folio={r.folio}
+                            variante="icono"
+                          />
+                        ) : (
+                          r.estado === "pendiente" && (
+                            <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
+                          )
                         )}
                       </div>
                     </td>
