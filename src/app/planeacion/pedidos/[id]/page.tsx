@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
@@ -39,6 +40,8 @@ interface ItemRow {
   motivo_cancelacion: string | null;
   eliminacion_solicitada_en: string | null;
 }
+
+export const generateMetadata = metadataPedido;
 
 export default async function PedidoDetailPage({
   params,

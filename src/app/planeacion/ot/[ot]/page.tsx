@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
@@ -22,6 +23,15 @@ function escaparLike(texto: string): string {
 }
 
 // Página de una O.T.: sus PM y un buscador de modelos en todos ellos.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ ot: string }>;
+}): Promise<Metadata> {
+  const { ot } = await params;
+  return { title: `O.T. ${ot}` };
+}
+
 export default async function OrdenTrabajoPage({
   params,
   searchParams,

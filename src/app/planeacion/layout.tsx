@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+
+export const metadata: Metadata = {
+  title: { default: "Planeación", template: "%s · Planeación" },
+};
 
 export default async function PlaneacionLayout({
   children,
