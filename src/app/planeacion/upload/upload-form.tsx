@@ -362,6 +362,17 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult }) {
                 versión #{p.numero_version} · {p.items_mo} muebles (MO) y {p.items_fu} componentes
                 (FU)
               </span>
+              {p.numero_version > 1 && (
+                <>
+                  {" "}
+                  <Link
+                    href={`/planeacion/pedidos/${p.pedido_id}/cambios?a=${p.numero_version}`}
+                    className="whitespace-nowrap font-medium underline"
+                  >
+                    Ver qué cambió vs v{p.numero_version - 1} →
+                  </Link>
+                </>
+              )}
             </li>
           ))}
         </ul>

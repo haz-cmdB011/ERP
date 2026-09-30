@@ -48,8 +48,18 @@ export default function TablaPedidos({
                 <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
                 <td className="px-4 py-3">
                   {activa ? (
-                    <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                      #{activa.numero_version}
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                        #{activa.numero_version}
+                      </span>
+                      {activa.numero_version > 1 && (
+                        <Link
+                          href={`/planeacion/pedidos/${p.id}/cambios?a=${activa.numero_version}`}
+                          className="text-xs text-indigo-600 hover:underline"
+                        >
+                          qué cambió
+                        </Link>
+                      )}
                     </span>
                   ) : (
                     <span className="text-slate-400">—</span>
