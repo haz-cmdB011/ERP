@@ -53,6 +53,18 @@ export default async function EstimacionesPage() {
             Consulta los recibos guardados, ordenados por folio, con sus totales y su ficha.
           </p>
         </Link>
+        <Link
+          href="/estimaciones/pm-cobrado"
+          className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-indigo-300"
+        >
+          <h2 className="text-base font-semibold text-slate-900 group-hover:text-indigo-600">
+            PM contra cobrado
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Por PM y modelo, lo que declaró Planeación contra lo cobrado en Acabados, Armado y
+            Electrificación: avance, piezas de más y modelos fuera del PM.
+          </p>
+        </Link>
       </div>
     </main>
   );

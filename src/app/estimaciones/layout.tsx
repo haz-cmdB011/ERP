@@ -67,6 +67,9 @@ export default async function EstimacionesLayout({
             <Link href="/estimaciones/registro" className="text-gray-600 hover:text-black">
               Registro de recibos
             </Link>
+            <Link href="/estimaciones/pm-cobrado" className="text-gray-600 hover:text-black">
+              PM contra cobrado
+            </Link>
             {decideDiscrepancias && (
               <Link href="/estimaciones/discrepancias" className="text-gray-600 hover:text-black">
                 Discrepancias

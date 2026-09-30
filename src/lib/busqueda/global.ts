@@ -152,6 +152,12 @@ const ATAJOS_INTERNOS: Atajo[] = [
     claves: "recibos pendientes revision",
   },
   {
+    titulo: "PM contra cobrado",
+    detalle: "Estimaciones",
+    href: "/estimaciones/pm-cobrado",
+    claves: "avance cobrado piezas saldo excedido",
+  },
+  {
     titulo: "Registro de recibos",
     detalle: "Estimaciones",
     href: "/estimaciones/registro",
