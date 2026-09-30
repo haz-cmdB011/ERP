@@ -28,7 +28,8 @@ interface UploadOk {
   pedidos: PedidoCargado[];
   // Hojas del archivo sin formato de PM (notas, cálculos): no se cargan.
   hojasIgnoradas?: string[];
-  // Filas con datos incompletos que se guardaron igual (ver parser).
+  // Datos incompletos o dudosos que se guardaron igual (ver parser), y cambios
+  // de proyecto o cliente de un PM que ya existía.
   avisos?: FilaError[];
 }
 
@@ -386,7 +387,7 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult }) {
       {resultado.avisos && resultado.avisos.length > 0 && (
         <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <p className="font-medium">
-            Se cargó, pero revisa estos datos incompletos del Excel ({resultado.avisos.length}):
+            Se cargó, pero revisa estos avisos ({resultado.avisos.length}):
           </p>
           <ul className="mt-2 list-disc pl-5">
             {resultado.avisos.map((d, i) => (

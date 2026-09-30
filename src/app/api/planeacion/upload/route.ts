@@ -40,6 +40,9 @@ interface PedidoCargado {
   numero_version: number;
   items_mo: number;
   items_fu: number;
+  // El PM ya existía con otro proyecto o cliente (ej. un error de dedo que se
+  // corrigió en el Excel): quedó con el de esta versión.
+  proyecto_anterior: { nombre: string; cliente: string } | null;
 }
 
 // Cuántos ítems suben sus imágenes al mismo tiempo. Subirlas todas de golpe
@@ -387,6 +390,17 @@ export async function POST(request: Request) {
     });
     for (const aviso of hoja.resultado.avisos) {
       avisos.push({ ...aviso, mensaje: conHoja(hoja.nombreHoja, aviso.mensaje) });
+    }
+    const anterior = (ingestData as { proyecto_anterior?: PedidoCargado["proyecto_anterior"] })
+      .proyecto_anterior;
+    if (anterior) {
+      avisos.push({
+        fila: 0,
+        mensaje: conHoja(
+          hoja.nombreHoja,
+          `El PM ${metadata.numero_pedido} ya existía con el proyecto «${anterior.nombre}» (cliente ${anterior.cliente}); ahora queda con «${metadata.proyecto_nombre}» (cliente ${metadata.cliente}).`
+        ),
+      });
     }
   }
 
