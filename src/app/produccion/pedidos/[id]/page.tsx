@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
@@ -21,6 +22,8 @@ interface VersionRow {
 }
 
 type ItemRow = Omit<ItemLiberacionRow, "folio" | "imagenUrl" | "imagenGrandeUrl">;
+
+export const generateMetadata = metadataPedido;
 
 export default async function PedidoProduccionPage({
   params,
@@ -142,21 +145,31 @@ export default async function PedidoProduccionPage({
       </div>
 
       {versiones && versiones.length > 0 && (
-        <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
-          {versiones.map((v) => (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
+            {versiones.map((v) => (
+              <Link
+                key={v.id}
+                href={`/produccion/pedidos/${id}?version=${v.numero_version}`}
+                className={`rounded px-3 py-1 font-medium transition-colors ${
+                  versionSeleccionada?.id === v.id
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-200/70"
+                }`}
+              >
+                v{v.numero_version}
+                {v.es_version_activa ? " (activa)" : ""}
+              </Link>
+            ))}
+          </div>
+          {versiones.length > 1 && versionSeleccionada && (
             <Link
-              key={v.id}
-              href={`/produccion/pedidos/${id}?version=${v.numero_version}`}
-              className={`rounded px-3 py-1 font-medium transition-colors ${
-                versionSeleccionada?.id === v.id
-                  ? "bg-slate-900 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-200/70"
-              }`}
+              href={`/produccion/pedidos/${id}/cambios?a=${versionSeleccionada.numero_version}`}
+              className="text-sm font-medium text-indigo-600 hover:underline"
             >
-              v{v.numero_version}
-              {v.es_version_activa ? " (activa)" : ""}
+              Ver qué cambió entre versiones →
             </Link>
-          ))}
+          )}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
@@ -43,6 +44,8 @@ interface InformeRow {
   elaborado_en: string;
   descripcion: string | null;
 }
+
+export const generateMetadata = metadataPedido;
 
 export default async function PedidoCalidadPage({
   params,

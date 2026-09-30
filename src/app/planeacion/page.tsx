@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
+import FiltroCliente from "./filtro-cliente";
 
 interface PedidoRow {
   id: string;
@@ -10,69 +11,101 @@ interface PedidoRow {
   orden_trabajo: string | null;
   fecha_pedido: string | null;
   fecha_entrega: string | null;
+  created_at: string;
   estado: string;
   eliminado_en: string | null;
   proyectos: { nombre: string; cliente: string } | null;
-  pedido_versiones: { id: string; numero_version: number; es_version_activa: boolean }[];
 }
 
-interface ResultadoModeloRow {
-  id: string;
-  item_code: number;
-  modelo: string | null;
-  descripcion: string | null;
-  pedido_versiones: {
-    numero_version: number;
-    pedidos: {
-      id: string;
-      numero_pedido: string;
-      proyectos: { nombre: string } | null;
-    };
-  };
+// Una fila de la lista: una O.T. con sus PM, o un PM suelto (sin O.T.
+// reconocible en su número).
+interface FilaLista {
+  ot: string | null;
+  pedidos: PedidoRow[];
 }
 
-const MAX_RESULTADOS_MODELO = 100;
-
-// Agrupa los PM por Orden de Trabajo conservando el orden de la lista (la
-// OT aparece donde está su PM más reciente). Los PM sin OT reconocible van
-// cada uno en su propio grupo sin encabezado. Dentro de una OT, por número.
-function agruparPorOrdenTrabajo(pedidos: PedidoRow[]): { ot: string | null; pedidos: PedidoRow[] }[] {
-  const grupos: { ot: string | null; pedidos: PedidoRow[] }[] = [];
+// Agrupa los PM por O.T. conservando el orden de la lista (la O.T. aparece
+// donde está su PM más reciente).
+function agruparPorOrdenTrabajo(pedidos: PedidoRow[]): FilaLista[] {
+  const filas: FilaLista[] = [];
   const porOt = new Map<string, PedidoRow[]>();
   for (const p of pedidos) {
     if (!p.orden_trabajo) {
-      grupos.push({ ot: null, pedidos: [p] });
+      filas.push({ ot: null, pedidos: [p] });
       continue;
     }
     let lista = porOt.get(p.orden_trabajo);
     if (!lista) {
       lista = [];
       porOt.set(p.orden_trabajo, lista);
-      grupos.push({ ot: p.orden_trabajo, pedidos: lista });
+      filas.push({ ot: p.orden_trabajo, pedidos: lista });
     }
     lista.push(p);
   }
-  for (const lista of porOt.values()) {
-    lista.sort((a, b) => a.numero_pedido.localeCompare(b.numero_pedido, "es", { numeric: true }));
-  }
-  return grupos;
+  return filas;
 }
 
-// Escapa los comodines de LIKE para que el texto buscado se tome literal.
-function escaparLike(texto: string): string {
-  return texto.replace(/[\\%_]/g, (c) => `\\${c}`);
+// Año de un PM: el sufijo de su O.T. ("134-26" → 2026); si no tiene O.T.,
+// el de la fecha del pedido o, en último caso, el de la carga.
+function anioDePedido(p: PedidoRow): number {
+  const sufijo = p.orden_trabajo?.match(/-(\d{2})$/);
+  if (sufijo) return 2000 + Number(sufijo[1]);
+  return Number((p.fecha_pedido ?? p.created_at).slice(0, 4));
+}
+
+// La búsqueda de O.T. compara contra el número de O.T., los números de PM,
+// el proyecto y el cliente.
+function coincideBusqueda(fila: FilaLista, texto: string): boolean {
+  const t = texto.toLowerCase();
+  return (
+    (fila.ot ?? "").toLowerCase().includes(t) ||
+    fila.pedidos.some(
+      (p) =>
+        p.numero_pedido.toLowerCase().includes(t) ||
+        (p.proyectos?.nombre ?? "").toLowerCase().includes(t) ||
+        (p.proyectos?.cliente ?? "").toLowerCase().includes(t)
+    )
+  );
+}
+
+// Última fecha de entrega entre los PM de la O.T.
+function ultimaEntrega(pedidos: PedidoRow[]): string | null {
+  const fechas = pedidos.map((p) => p.fecha_entrega).filter((f): f is string => !!f);
+  return fechas.length ? fechas.sort().at(-1)! : null;
+}
+
+// Cliente del PM tal como se compara en el filtro (sin espacios de más y
+// en mayúsculas: el mismo cliente viene escrito distinto entre archivos).
+function clienteDe(p: PedidoRow): string | null {
+  const c = p.proyectos?.cliente?.replace(/\s+/g, " ").trim().toUpperCase();
+  return c || null;
+}
+
+// Arma el href de la lista conservando los demás filtros.
+function hrefLista(params: { q?: string; anio?: string; cliente?: string }): string {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set("q", params.q);
+  if (params.anio) qs.set("anio", params.anio);
+  if (params.cliente) qs.set("cliente", params.cliente);
+  const texto = qs.toString();
+  return texto ? `/planeacion?${texto}` : "/planeacion";
 }
 
 const COLUMNAS =
-  "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )";
+  "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, estado, eliminado_en, proyectos ( nombre, cliente )";
 
 export default async function PlaneacionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ modelo?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
 }) {
-  const { modelo } = await searchParams;
-  const busqueda = modelo?.trim() ?? "";
+  const { q, anio, cliente } = await searchParams;
+  const busqueda = q?.trim() ?? "";
+  const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
+  const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
+  // Filtros activos como texto, para los enlaces que conservan los demás.
+  const anioParam = anioFiltro ? String(anioFiltro) : undefined;
+  const clienteParam = clienteFiltro || undefined;
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
   const esAdmin = puedeAdministrarPlaneacion(perfil);
@@ -95,25 +128,18 @@ export default async function PlaneacionListPage({
         .returns<PedidoRow[]>()
     : { data: null };
 
-  // Búsqueda de modelos: solo en la versión activa de pedidos no eliminados,
-  // sin ítems cancelados ni en papelera (los mismos que oculta el detalle).
-  const { data: resultadosModelo, error: errorBusqueda } = busqueda
-    ? await supabase
-        .from("planeacion_items")
-        .select(
-          "id, item_code, modelo, descripcion, pedido_versiones!inner ( numero_version, es_version_activa, pedidos!inner ( id, numero_pedido, eliminado_en, eliminado_definitivo_en, proyectos ( nombre ) ) )"
-        )
-        .ilike("modelo", `%${escaparLike(busqueda)}%`)
-        .eq("pedido_versiones.es_version_activa", true)
-        .is("pedido_versiones.pedidos.eliminado_en", null)
-        .is("pedido_versiones.pedidos.eliminado_definitivo_en", null)
-        .or("estado_revision.is.null,estado_revision.neq.cancelado")
-        .is("eliminacion_solicitada_en", null)
-        .order("modelo")
-        .order("item_code")
-        .limit(MAX_RESULTADOS_MODELO)
-        .returns<ResultadoModeloRow[]>()
-    : { data: null, error: null };
+  const aniosDisponibles = [...new Set((pedidos ?? []).map(anioDePedido))].sort((a, b) => b - a);
+  const clientesDisponibles = [
+    ...new Set((pedidos ?? []).map(clienteDe).filter((c): c is string => !!c)),
+  ].sort((a, b) => a.localeCompare(b, "es"));
+  const filas = agruparPorOrdenTrabajo(
+    (pedidos ?? []).filter(
+      (p) =>
+        (!anioFiltro || anioDePedido(p) === anioFiltro) &&
+        (!clienteFiltro || clienteDe(p) === clienteFiltro)
+    )
+  ).filter((fila) => !busqueda || coincideBusqueda(fila, busqueda));
+  const totalOts = filas.filter((f) => f.ot).length;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
@@ -123,13 +149,13 @@ export default async function PlaneacionListPage({
             Pedidos — Planeación
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Consulta los pedidos cargados, sus versiones y el estado de revisión de cada ítem.
+            Órdenes de trabajo con sus PM. Entra a una O.T. para ver sus pedidos y buscar modelos.
           </p>
         </div>
         <div className="flex items-center gap-3">
           {pedidos && pedidos.length > 0 && (
             <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {pedidos.length} pedido{pedidos.length === 1 ? "" : "s"}
+              {totalOts} O.T.
             </span>
           )}
           <Link
@@ -142,11 +168,13 @@ export default async function PlaneacionListPage({
       </div>
 
       <form action="/planeacion" className="flex gap-2">
+        {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
+        {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
         <input
           type="search"
-          name="modelo"
+          name="q"
           defaultValue={busqueda}
-          placeholder="Buscar modelo..."
+          placeholder="Buscar O.T., PM, proyecto o cliente..."
           className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-400 focus:outline-none"
         />
         <button
@@ -157,70 +185,13 @@ export default async function PlaneacionListPage({
         </button>
         {busqueda && (
           <Link
-            href="/planeacion"
+            href={hrefLista({ anio: anioParam, cliente: clienteParam })}
             className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:underline"
           >
             Limpiar
           </Link>
         )}
       </form>
-
-      {busqueda && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-slate-600">
-            Modelos que coinciden con &ldquo;{busqueda}&rdquo;
-            {resultadosModelo ? ` (${resultadosModelo.length}${resultadosModelo.length === MAX_RESULTADOS_MODELO ? "+" : ""})` : ""}
-          </h2>
-          {errorBusqueda && (
-            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              No se pudo buscar: {errorBusqueda.message}
-            </p>
-          )}
-          {resultadosModelo && resultadosModelo.length === 0 && (
-            <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-              No se encontró ningún modelo.
-            </p>
-          )}
-          {resultadosModelo && resultadosModelo.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3">Modelo</th>
-                    <th className="px-4 py-3">Item</th>
-                    <th className="px-4 py-3">Descripción</th>
-                    <th className="px-4 py-3">Pedido</th>
-                    <th className="px-4 py-3">Proyecto</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {resultadosModelo.map((r) => {
-                    const pedido = r.pedido_versiones.pedidos;
-                    return (
-                      <tr key={r.id} className="align-top transition-colors hover:bg-slate-50">
-                        <td className="px-4 py-3 font-medium text-slate-900">{r.modelo}</td>
-                        <td className="px-4 py-3 text-slate-700">{r.item_code}</td>
-                        <td className="px-4 py-3 text-slate-700">
-                          {r.descripcion?.split("\n")[0]}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Link
-                            href={`/planeacion/pedidos/${pedido.id}?modelo=${encodeURIComponent(busqueda)}`}
-                            className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
-                          >
-                            {pedido.numero_pedido}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3 text-slate-700">{pedido.proyectos?.nombre ?? "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -234,69 +205,106 @@ export default async function PlaneacionListPage({
         </p>
       )}
 
-      {pedidos && pedidos.length > 0 && (
+      {aniosDisponibles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Año</span>
+            {[null, ...aniosDisponibles].map((a) => {
+              const activo = a === anioFiltro;
+              return (
+                <Link
+                  key={a ?? "todos"}
+                  href={hrefLista({
+                    q: busqueda || undefined,
+                    anio: a ? String(a) : undefined,
+                    cliente: clienteParam,
+                  })}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    activo
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {a ?? "Todos"}
+                </Link>
+              );
+            })}
+          </div>
+          <FiltroCliente
+            clientes={clientesDisponibles}
+            valor={clienteFiltro}
+            q={busqueda || undefined}
+            anio={anioParam}
+          />
+        </div>
+      )}
+
+      {pedidos && pedidos.length > 0 && filas.length === 0 && (
+        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          {busqueda ? `Ninguna O.T. coincide con “${busqueda}”` : "No hay pedidos"}
+          {clienteFiltro ? ` de ${clienteFiltro}` : ""}
+          {anioFiltro ? ` en ${anioFiltro}` : ""}.
+        </p>
+      )}
+
+      {filas.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">Pedido</th>
+                <th className="px-4 py-3">O.T.</th>
                 <th className="px-4 py-3">Proyecto</th>
                 <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">PM</th>
                 <th className="px-4 py-3">Entrega</th>
-                <th className="px-4 py-3">Versión activa</th>
                 {esAdmin && <th className="px-4 py-3"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {agruparPorOrdenTrabajo(pedidos).map((grupo) => [
-                grupo.ot && (
-                  <tr key={`ot-${grupo.ot}`} className="bg-slate-50/70">
-                    <td colSpan={esAdmin ? 6 : 5} className="px-4 py-2">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Orden de trabajo
-                      </span>{" "}
-                      <span className="font-mono text-sm font-semibold text-slate-900">
-                        {grupo.ot}
-                      </span>
-                      <span className="ml-2 text-xs text-slate-500">
-                        {grupo.pedidos.length} PM
-                      </span>
-                    </td>
-                  </tr>
-                ),
-                ...grupo.pedidos.map((p) => {
-                  const activa = p.pedido_versiones.find((v) => v.es_version_activa);
-                  return (
-                    <tr key={p.id} className="align-top transition-colors hover:bg-slate-50">
-                      <td className={`py-3 pr-4 ${grupo.ot ? "pl-8" : "pl-4"}`}>
-                        <Link
-                          href={`/planeacion/pedidos/${p.id}`}
-                          className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
-                        >
-                          {p.numero_pedido}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.cliente ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        {activa ? (
-                          <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                            #{activa.numero_version}
+              {filas.map((fila) => {
+                const primero = fila.pedidos[0];
+                // Un PM suelto (sin O.T.) lleva directo a su detalle.
+                const href = fila.ot
+                  ? `/planeacion/ot/${encodeURIComponent(fila.ot)}`
+                  : `/planeacion/pedidos/${primero.id}`;
+                return (
+                  <tr key={fila.ot ?? primero.id} className="align-top transition-colors hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <Link href={href} className="group inline-flex items-center gap-2">
+                        {fila.ot ? (
+                          <span className="font-mono font-semibold text-slate-900 group-hover:text-indigo-600 group-hover:underline">
+                            {fila.ot}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="font-medium text-slate-900 group-hover:text-indigo-600 group-hover:underline">
+                            {primero.numero_pedido}
+                          </span>
                         )}
-                      </td>
-                      {esAdmin && (
-                        <td className="px-4 py-3">
-                          <AccionesPedido pedidoId={p.id} eliminado={false} />
-                        </td>
+                        <span className="text-slate-400 group-hover:text-indigo-600" aria-hidden>
+                          →
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{primero.proyectos?.nombre ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-700">{primero.proyectos?.cliente ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {fila.ot ? (
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                          {fila.pedidos.length} PM
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">Sin O.T.</span>
                       )}
-                    </tr>
-                  );
-                }),
-              ])}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{ultimaEntrega(fila.pedidos) ?? "—"}</td>
+                    {esAdmin && (
+                      <td className="px-4 py-3">
+                        {!fila.ot && <AccionesPedido pedidoId={primero.id} eliminado={false} />}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

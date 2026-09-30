@@ -14,6 +14,7 @@ import {
   type AreaMaquila,
 } from "@/lib/auth/roles";
 import AreasMaquilaSelector from "./areas-maquila-selector";
+import { avisar } from "@/components/avisos";
 
 function ResetPasswordCell({ userId }: { userId: string }) {
   const [abierto, setAbierto] = useState(false);
@@ -39,7 +40,7 @@ function ResetPasswordCell({ userId }: { userId: string }) {
       setMensaje({ tipo: "error", texto: data.error ?? "Error desconocido." });
       return;
     }
-    setMensaje({ tipo: "ok", texto: "Contraseña actualizada." });
+    avisar("Contraseña actualizada.");
     setPassword("");
     setAbierto(false);
   }

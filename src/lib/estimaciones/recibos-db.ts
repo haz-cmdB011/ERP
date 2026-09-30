@@ -97,6 +97,9 @@ export interface RenglonParaGuardar {
   banda: Banda;
   justificacion: string;
   nota: string;
+  // Motivo si el renglón no concuerda con el PM (la base lo exige; ver
+  // supabase/migrations/20260930191049_control_pm_recibos.sql).
+  motivoDescuadre?: string;
 }
 
 export async function guardarReciboEnDb(

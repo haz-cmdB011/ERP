@@ -20,9 +20,16 @@ const PATRON_SOLO_NUMERO = /(?:PM)?\s*[-_ ]?\s*(\d{1,5})/i;
 // Número de PM dentro de la OT: dígitos al inicio seguidos de "PM".
 const PATRON_PREFIJO = /^\s*(\d{1,3})\s*[-_ ]?\s*(?=PM)/i;
 
-// Número de PM como sufijo: "<OT>-<AÑO>-<N>" al inicio del texto.
+// Número de PM como sufijo: "<OT>-<AÑO>-<N>" al inicio del texto (puede
+// venir precedido de "PM" u "OT").
 const PATRON_SUFIJO =
-  /^\s*(?:PM)?\s*[-_ ]?\s*\d{1,5}\s*[-/_ ]\s*(?:\d{4}|\d{2})\s*-\s*(\d{1,2})(?![\d.])/i;
+  /^\s*(?:PM|O\.?\s*T\.?)?\s*[-_ ]?\s*\d{1,5}\s*[-/_ ]\s*(?:\d{4}|\d{2})\s*-\s*(\d{1,2})(?![\d.])/i;
+
+// Etiqueta de una hoja extra antes del número de la OT, ej. la solicitud de
+// cambio "SDC-1_OT 009-26-2": letras + número, y luego el número de la OT
+// (con o sin "OT"/"PM" de por medio). Se conserva en el título del PM.
+const PATRON_ETIQUETA =
+  /^\s*((?!PM|OT)[A-Z]{2,5})\s*-?\s*(\d{1,3})\s*[_\s]+(?:O\.?\s*T\.?\s*)?(?=\d|PM)/i;
 
 function extraerPrefijo(texto: string): { prefijo: string | null; resto: string } {
   const m = texto.match(PATRON_PREFIJO);
@@ -54,6 +61,14 @@ export function normalizarNumeroPM(
   numeroPedido: string,
   opciones: { nombreArchivo?: string; fechaPedido?: string | null; hoy?: Date } = {}
 ): string {
+  // "SDC-1_OT 009-26-2" -> "SDC-1 2PM009-26": un PM aparte (no una versión
+  // de 2PM009-26) que sigue perteneciendo a la OT 009-26.
+  const etiqueta = numeroPedido.match(PATRON_ETIQUETA);
+  if (etiqueta) {
+    const pm = normalizarNumeroPM(numeroPedido.slice(etiqueta[0].length), opciones);
+    return `${etiqueta[1].toUpperCase()}-${Number(etiqueta[2])} ${pm}`;
+  }
+
   const celda = extraerPrefijo(numeroPedido);
   const archivo = opciones.nombreArchivo ? extraerPrefijo(opciones.nombreArchivo) : null;
   const base = normalizarBase(celda.resto, { ...opciones, nombreArchivo: archivo?.resto });

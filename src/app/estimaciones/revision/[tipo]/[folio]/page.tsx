@@ -5,6 +5,8 @@ import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { buscarReciboPorFolio } from "@/lib/estimaciones/recibos-db";
 import { buscarReciboElectrificacionPorFolio } from "@/lib/estimaciones/recibos-electrificacion-db";
 import { esTipoCualquierRecibo } from "@/lib/estimaciones/revision-db";
+import { listarDiscrepanciasRecibo, type AreaRecibo } from "@/lib/estimaciones/discrepancias-db";
+import DiscrepanciasRecibo from "../../../discrepancias-recibo";
 import RevisionRecibo from "./revision-recibo";
 
 // Revisión de un recibo: el personal de Estimaciones (desarrollador,
@@ -27,10 +29,27 @@ export default async function RevisionReciboPage({
 
   if (tipo === "electrificacion") {
     const recibo = await buscarReciboElectrificacionPorFolio(supabase, folio);
-    return recibo ? <RevisionRecibo tipo={tipo} recibo={recibo} /> : <NoEncontrado folio={folio} />;
+    if (!recibo) return <NoEncontrado folio={folio} />;
+    const discrepancias = await avisoDiscrepancias(supabase, tipo, recibo.id, recibo.estado);
+    return <RevisionRecibo tipo={tipo} recibo={recibo} discrepancias={discrepancias} />;
   }
   const recibo = await buscarReciboPorFolio(supabase, folio, tipo);
-  return recibo ? <RevisionRecibo tipo={tipo} recibo={recibo} /> : <NoEncontrado folio={folio} />;
+  if (!recibo) return <NoEncontrado folio={folio} />;
+  const discrepancias = await avisoDiscrepancias(supabase, tipo, recibo.id, recibo.estado);
+  return <RevisionRecibo tipo={tipo} recibo={recibo} discrepancias={discrepancias} />;
+}
+
+// Diferencias con el PM del recibo; mientras no esté pagado se avisa que
+// bloquean el pago.
+async function avisoDiscrepancias(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  area: AreaRecibo,
+  reciboId: string | undefined,
+  estado: string | undefined
+) {
+  if (!reciboId) return null;
+  const discrepancias = await listarDiscrepanciasRecibo(supabase, area, reciboId);
+  return <DiscrepanciasRecibo discrepancias={discrepancias} bloqueaPago={estado !== "pagado"} />;
 }
 
 function NoEncontrado({ folio }: { folio: string }) {

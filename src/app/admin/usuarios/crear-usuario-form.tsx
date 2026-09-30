@@ -14,6 +14,7 @@ import {
   type AreaMaquila,
 } from "@/lib/auth/roles";
 import AreasMaquilaSelector from "./areas-maquila-selector";
+import { avisar } from "@/components/avisos";
 
 export default function CrearUsuarioForm() {
   const router = useRouter();
@@ -55,7 +56,7 @@ export default function CrearUsuarioForm() {
       setMensaje({ tipo: "error", texto: data.error ?? "Error desconocido." });
       return;
     }
-    setMensaje({ tipo: "ok", texto: `Usuario ${data.email} creado.` });
+    avisar(`Usuario ${data.email} creado.`);
     setEmail("");
     setPassword("");
     setNombre("");

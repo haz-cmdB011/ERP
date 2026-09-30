@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import ExcelJS from "exceljs";
-import { parsePlaneacionExcel } from "./parser";
+import { parsePlaneacionExcel, parsePlaneacionLibro } from "./parser";
 
 const MUESTRA_REAL =
   "P:/2026/107-26-2 SMART FIT PLAZA PALMIRA/PEDIDO/PM 107-26 SMART FIT PLAZA PALMIRA.xlsx";
@@ -500,5 +500,118 @@ describe("parsePlaneacionExcel", () => {
     expect("fecha_pedido" in resultado.metadata).toBe(true);
     expect("fecha_entrega" in resultado.metadata).toBe(true);
     expect(JSON.stringify(resultado.metadata)).toContain("fecha_entrega");
+  });
+});
+
+describe("avisos de números de mueble repetidos", () => {
+  it("avisa cuando un mismo ítem entero aparece en varios renglones", async () => {
+    const buf = await construirWorkbook([
+      { ITEM: 12, COMPONENTE: "MO", MODELO: "PSTA02 (105)", DESCRIPCION: "PUERTA", "CANTIDAD TOTAL": 1 },
+      { ITEM: 12.01, COMPONENTE: "FUN", MODELO: "PSTA02 (105)", DESCRIPCION: "PUERTA CON MARCO", "CANTIDAD TOTAL": 1 },
+      // Componente 12.07 capturado como "13".
+      { ITEM: 13, COMPONENTE: "FUN", MODELO: "PSTA02 (105)", DESCRIPCION: "CIERRA-PUERTAS", "CANTIDAD TOTAL": 1 },
+      { ITEM: 13, COMPONENTE: "MO", MODELO: "PSTA02 (120)", DESCRIPCION: "PUERTA", "CANTIDAD TOTAL": 1 },
+    ]);
+    const resultado = await parsePlaneacionExcel(buf);
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.avisos).toEqual([
+      expect.objectContaining({ fila: 13, mensaje: expect.stringContaining("El ítem 13 aparece como mueble en 2 renglones (filas 12, 13)") }),
+    ]);
+  });
+});
+
+// Hoja con formato de PM (metadata + encabezados + filas) dentro de un libro.
+function agregarHojaPM(
+  wb: ExcelJS.Workbook,
+  nombre: string,
+  numeroPedido: string,
+  filas: FilaTest[]
+): ExcelJS.Worksheet {
+  const ws = wb.addWorksheet(nombre);
+  ws.getCell("L2").value = "No. PEDIDO";
+  ws.getCell("N2").value = numeroPedido;
+  ws.getCell("L4").value = "PROYECTO:";
+  ws.getCell("N4").value = "PROYECTO DE PRUEBA";
+  ws.getCell("L5").value = "CLIENTE:";
+  ws.getCell("N5").value = "CLIENTE PRUEBA";
+  ws.getRow(9).values = HEADERS;
+  filas.forEach((fila, i) => {
+    const row = ws.getRow(10 + i);
+    HEADERS.forEach((h, colIdx) => {
+      row.getCell(colIdx + 1).value = (fila[h] ?? null) as ExcelJS.CellValue;
+    });
+  });
+  return ws;
+}
+
+const MUEBLE: FilaTest = {
+  ITEM: 1,
+  COMPONENTE: "MO",
+  MODELO: "M-01",
+  DESCRIPCION: "MUEBLE",
+  UNIDAD: "PZA",
+  "CANTIDAD TOTAL": 2,
+};
+
+describe("parsePlaneacionLibro (varias hojas)", () => {
+  it("lee cada hoja con formato de PM e ignora las demás", async () => {
+    const wb = new ExcelJS.Workbook();
+    agregarHojaPM(wb, "PEDIDO", "009-26-2", [MUEBLE, { ...MUEBLE, ITEM: 1.01, COMPONENTE: "FUN" }]);
+    agregarHojaPM(wb, "SDC-1", "SDC-1_OT 009-26-2", [{ ...MUEBLE, MODELO: "P-01" }]);
+    const notas = wb.addWorksheet("Hoja1");
+    notas.getCell("D2").value = "PSTA01 (90)";
+    notas.getCell("J2").value = "PUERTA PARA VANO DE 90 X 210CM";
+
+    const libro = await parsePlaneacionLibro(Buffer.from(await wb.xlsx.writeBuffer()));
+
+    expect(libro.hojasIgnoradas).toEqual(["Hoja1"]);
+    expect(libro.hojas.map((h) => [h.nombreHoja, h.indiceHoja])).toEqual([
+      ["PEDIDO", 0],
+      ["SDC-1", 1],
+    ]);
+    const [pedido, sdc] = libro.hojas.map((h) => h.resultado);
+    expect(pedido.ok && sdc.ok).toBe(true);
+    if (!pedido.ok || !sdc.ok) return;
+    expect(pedido.metadata.numero_pedido).toBe("009-26-2");
+    expect(pedido.items).toHaveLength(2);
+    expect(sdc.metadata.numero_pedido).toBe("SDC-1_OT 009-26-2");
+    expect(sdc.items.map((i) => i.modelo)).toEqual(["P-01"]);
+  });
+
+  it("ignora las hojas ocultas", async () => {
+    const wb = new ExcelJS.Workbook();
+    agregarHojaPM(wb, "PEDIDO", "PM 107-26", [MUEBLE]);
+    agregarHojaPM(wb, "ANTERIOR", "PM 107-26", [MUEBLE]).state = "hidden";
+
+    const libro = await parsePlaneacionLibro(Buffer.from(await wb.xlsx.writeBuffer()));
+
+    expect(libro.hojas.map((h) => h.nombreHoja)).toEqual(["PEDIDO"]);
+    expect(libro.hojasIgnoradas).toEqual(["ANTERIOR"]);
+  });
+
+  it("usa el nombre del archivo como respaldo del No. PEDIDO solo en la primera hoja", async () => {
+    const wb = new ExcelJS.Workbook();
+    agregarHojaPM(wb, "PEDIDO", "", [MUEBLE]);
+    agregarHojaPM(wb, "SDC-1", "", [MUEBLE]);
+
+    const libro = await parsePlaneacionLibro(Buffer.from(await wb.xlsx.writeBuffer()), {
+      nombreArchivo: "PM 107-26 SMART FIT.xlsx",
+    });
+
+    const [primera, segunda] = libro.hojas.map((h) => h.resultado);
+    expect(primera.ok && primera.metadata.numero_pedido).toBe("PM 107-26 SMART FIT");
+    expect(segunda.ok).toBe(false);
+  });
+
+  it("sin ninguna hoja con formato, reporta los errores de la primera", async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet("Hoja1").getCell("A1").value = "notas";
+
+    const libro = await parsePlaneacionLibro(Buffer.from(await wb.xlsx.writeBuffer()));
+
+    expect(libro.hojas).toHaveLength(1);
+    expect(libro.hojas[0].resultado.ok).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -6,6 +7,10 @@ import AreaNav from "@/components/area-nav";
 // Usuarios vive como panel propio (mismo peso visual que Planeación y
 // Producción en AreaNav), pero solo es accesible para desarrolladores:
 // cualquier otro rol se redirige antes de renderizar nada de /admin/*.
+export const metadata: Metadata = {
+  title: { default: "Administración", template: "%s · Administración" },
+};
+
 export default async function AdminLayout({
   children,
 }: {
@@ -39,7 +44,7 @@ export default async function AdminLayout({
         <Link href="/admin/auditoria" className="text-gray-600 hover:text-black">
           Auditoría
         </Link>
-        <Link href="/admin/discrepancias-electrificacion" className="text-gray-600 hover:text-black">
+        <Link href="/estimaciones/discrepancias" className="text-gray-600 hover:text-black">
           Discrepancias
         </Link>
       </AreaNav>

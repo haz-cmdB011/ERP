@@ -43,7 +43,7 @@ function PanelPlanos({ planos, onCerrar }: { planos: PlanoLink[]; onCerrar: () =
       role="dialog"
       aria-modal="true"
       onClick={onCerrar}
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-scrim/50 p-4 sm:p-8"
     >
       <div
         onClick={(e) => e.stopPropagation()}

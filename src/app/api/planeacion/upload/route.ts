@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parsePlaneacionExcel } from "@/lib/planeacion/parser";
-import type { PlaneacionItemParsed } from "@/lib/planeacion/types";
+import { parsePlaneacionLibro } from "@/lib/planeacion/parser";
+import type { FilaError, PlaneacionItemParsed } from "@/lib/planeacion/types";
 import {
   comprimirImagenGrande,
   comprimirImagenItem,
@@ -10,10 +10,11 @@ import {
 } from "@/lib/planeacion/optimizar-almacenamiento";
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
 import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
+import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
 
 export const runtime = "nodejs";
-// Un Excel grande (muchas imágenes que se comprimen una por una) tarda.
-export const maxDuration = 120;
+// Un Excel grande (muchas imágenes que se comprimen y suben por tandas) tarda.
+export const maxDuration = 300;
 
 const MAX_FILE_BYTES = 40 * 1024 * 1024; // 40 MB
 // .xlsm (Excel con macros) tiene el mismo formato interno que .xlsx: se lee
@@ -29,55 +30,114 @@ type ItemParaIngesta = Omit<PlaneacionItemParsed, "imagenes"> & {
   imagen_paths: string[];
 };
 
+// Un PM (una hoja del Excel) ya ingerido; los campos de la versión vienen
+// del RPC ingest_planeacion_version.
+interface PedidoCargado {
+  hoja: string;
+  numero_pedido: string;
+  filas: number;
+  pedido_id: string;
+  pedido_version_id: string;
+  numero_version: number;
+  items_mo: number;
+  items_fu: number;
+  // El PM ya existía con otro proyecto o cliente (ej. un error de dedo que se
+  // corrigió en el Excel): quedó con el de esta versión.
+  proyecto_anterior: { nombre: string; cliente: string } | null;
+}
+
+// Cuántos ítems suben sus imágenes al mismo tiempo. Subirlas todas de golpe
+// (un Excel grande trae cientos) agota las conexiones de Storage a la base
+// de datos: "Too many connections issued to the database".
+const SUBIDAS_SIMULTANEAS = 4;
+const REINTENTOS_SUBIDA = 4;
+
+// Como Promise.all(items.map(fn)), pero con a lo más `limite` en curso.
+async function mapConLimite<T, R>(
+  items: T[],
+  limite: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const resultados = new Array<R>(items.length);
+  let siguiente = 0;
+  const trabajadores = Array.from({ length: Math.min(limite, items.length) }, async () => {
+    while (siguiente < items.length) {
+      const i = siguiente++;
+      resultados[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(trabajadores);
+  return resultados;
+}
+
+// Sube a Storage reintentando con espera creciente: la saturación de
+// conexiones es pasajera, así que un error aislado no debe tirar la carga.
+async function subirConReintentos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  path: string,
+  cuerpo: Buffer,
+  contentType: string
+): Promise<{ message: string } | null> {
+  let ultimoError: { message: string } | null = null;
+  for (let intento = 0; intento < REINTENTOS_SUBIDA; intento++) {
+    if (intento > 0) {
+      await new Promise((r) => setTimeout(r, 500 * 2 ** (intento - 1)));
+    }
+    const { error } = await supabase.storage
+      .from(BUCKET_IMAGENES_ITEMS)
+      // upsert: un intento anterior pudo haber subido el archivo aunque
+      // respondiera con error.
+      .upload(path, cuerpo, { contentType, upsert: true });
+    if (!error) return null;
+    ultimoError = error;
+  }
+  return ultimoError;
+}
+
 // Las imágenes extraídas por el parser traen el buffer binario en memoria
 // (no son jsonb-safe): se suben a Storage aquí, antes de llamar al RPC de
 // ingestión, que solo recibe las rutas resultantes.
 async function subirImagenesDeItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  cargaId: string,
+  // Carpeta del bucket donde quedan las imágenes (la carga, o la carga y la
+  // hoja cuando el archivo trae varios PM).
+  carpeta: string,
   items: PlaneacionItemParsed[]
 ): Promise<ItemParaIngesta[]> {
-  return Promise.all(
-    items.map(async ({ imagenes, ...resto }) => {
-      const imagenPaths = await Promise.all(
-        imagenes.map(async (imagenOriginal, indice) => {
-          // La miniatura (la de las tablas y el visor) se redimensiona antes de
-          // subir (ver comprimirImagenItem): el
-          // original embebido en el Excel puede pesar varios cientos de KB.
-          const imagen = await comprimirImagenItem(
-            imagenOriginal.buffer,
-            imagenOriginal.extension
-          );
-          const path = `${cargaId}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
-          const { error } = await supabase.storage
-            .from(BUCKET_IMAGENES_ITEMS)
-            .upload(path, imagen.buffer, {
-              contentType: `image/${imagen.extension === "jpg" ? "jpeg" : imagen.extension}`,
-              upsert: false,
-            });
-          if (error) {
-            throw new Error(
-              `No se pudo subir una imagen de la fila ${resto.fila_excel_origen}: ${error.message}`
-            );
-          }
-
-          // Versión grande para la vista ampliada con zoom. Es un extra: si no
-          // se pudo generar o subir, la carga sigue y se usará la miniatura.
-          const grande = await comprimirImagenGrande(imagenOriginal.buffer);
-          if (grande) {
-            await supabase.storage
-              .from(BUCKET_IMAGENES_ITEMS)
-              .upload(rutaImagenGrande(path), grande, {
-                contentType: "image/webp",
-                upsert: false,
-              });
-          }
-          return path;
-        })
+  return mapConLimite(items, SUBIDAS_SIMULTANEAS, async ({ imagenes, ...resto }) => {
+    const imagenPaths: string[] = [];
+    // Las imágenes de un mismo ítem, una tras otra.
+    for (const [indice, imagenOriginal] of imagenes.entries()) {
+      // La miniatura (la de las tablas y el visor) se redimensiona antes de
+      // subir (ver comprimirImagenItem): el
+      // original embebido en el Excel puede pesar varios cientos de KB.
+      const imagen = await comprimirImagenItem(
+        imagenOriginal.buffer,
+        imagenOriginal.extension
       );
-      return { ...resto, imagen_paths: imagenPaths };
-    })
-  );
+      const path = `${carpeta}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
+      const error = await subirConReintentos(
+        supabase,
+        path,
+        imagen.buffer,
+        `image/${imagen.extension === "jpg" ? "jpeg" : imagen.extension}`
+      );
+      if (error) {
+        throw new Error(
+          `No se pudo subir una imagen de la fila ${resto.fila_excel_origen}: ${error.message}`
+        );
+      }
+
+      // Versión grande para la vista ampliada con zoom. Es un extra: si no
+      // se pudo generar o subir, la carga sigue y se usará la miniatura.
+      const grande = await comprimirImagenGrande(imagenOriginal.buffer);
+      if (grande) {
+        await subirConReintentos(supabase, rutaImagenGrande(path), grande, "image/webp");
+      }
+      imagenPaths.push(path);
+    }
+    return { ...resto, imagen_paths: imagenPaths };
+  });
 }
 
 // Supabase Storage rechaza keys con acentos, espacios u otros caracteres
@@ -175,17 +235,50 @@ export async function POST(request: Request) {
 
   // 1. Parseo y validación de estructura ANTES de tocar la base de datos.
   //    Usa el buffer ORIGINAL (con imágenes): de ahí es de donde el parser
-  //    extrae la imagen de cada fila.
-  const resultado = await parsePlaneacionExcel(buffer, { nombreArchivo });
+  //    extrae la imagen de cada fila. Se leen todas las hojas: un mismo
+  //    Excel puede traer varios PM (ej. "PEDIDO" y "SDC-1"), uno por hoja.
+  const libro = await parsePlaneacionLibro(buffer, { nombreArchivo });
 
   // El título del PM siempre se guarda como "PM<NUMERO>-<AÑO>", sin importar
   // cómo venga escrito en la celda "No. PEDIDO" o en el nombre del archivo.
-  if (resultado.ok) {
-    resultado.metadata.numero_pedido = normalizarNumeroPM(resultado.metadata.numero_pedido, {
-      nombreArchivo,
-      fechaPedido: resultado.metadata.fecha_pedido,
-    });
+  for (const hoja of libro.hojas) {
+    if (hoja.resultado.ok) {
+      hoja.resultado.metadata.numero_pedido = normalizarNumeroPM(
+        hoja.resultado.metadata.numero_pedido,
+        {
+          // El nombre del archivo solo aplica a la primera hoja (ver parser).
+          nombreArchivo: hoja === libro.hojas[0] ? nombreArchivo : undefined,
+          fechaPedido: hoja.resultado.metadata.fecha_pedido,
+        }
+      );
+    }
   }
+
+  // Todo o nada al validar: si una hoja tiene errores (o dos hojas dan el
+  // mismo PM, que se pisarían como versiones) no se carga ninguna.
+  const varias = libro.hojas.length > 1;
+  const conHoja = (nombreHoja: string, mensaje: string) =>
+    varias ? `Hoja "${nombreHoja}": ${mensaje}` : mensaje;
+  const erroresValidacion: FilaError[] = [];
+  const hojaPorPm = new Map<string, string>();
+  for (const hoja of libro.hojas) {
+    if (!hoja.resultado.ok) {
+      for (const e of hoja.resultado.errores) {
+        erroresValidacion.push({ ...e, mensaje: conHoja(hoja.nombreHoja, e.mensaje) });
+      }
+      continue;
+    }
+    const pm = hoja.resultado.metadata.numero_pedido;
+    const otraHoja = hojaPorPm.get(pm);
+    if (otraHoja) {
+      erroresValidacion.push({
+        fila: 0,
+        mensaje: `Las hojas "${otraHoja}" y "${hoja.nombreHoja}" tienen el mismo No. PEDIDO (${pm}).`,
+      });
+    }
+    hojaPorPm.set(pm, hoja.nombreHoja);
+  }
+  const filasTotales = libro.hojas.reduce((suma, h) => suma + h.resultado.filasTotales, 0);
 
   // 2. Subir a Storage, para auditoría y siempre (haya sido válido o no),
   //    una copia del archivo SIN las imágenes embebidas: son puro peso
@@ -211,6 +304,7 @@ export async function POST(request: Request) {
     );
   }
 
+  const valido = erroresValidacion.length === 0;
   const { data: carga, error: cargaError } = await supabase
     .from("cargas_archivo")
     .insert({
@@ -219,11 +313,11 @@ export async function POST(request: Request) {
       storage_path: storagePath,
       tamano_bytes: bufferArchivo.length,
       cargado_por: user.id,
-      estado: resultado.ok ? "procesando" : "error",
-      filas_totales: resultado.filasTotales,
-      filas_error: resultado.ok ? 0 : resultado.errores.length,
-      errores: resultado.ok ? null : resultado.errores,
-      procesado_en: resultado.ok ? null : new Date().toISOString(),
+      estado: valido ? "procesando" : "error",
+      filas_totales: filasTotales,
+      filas_error: valido ? 0 : erroresValidacion.length,
+      errores: valido ? null : erroresValidacion,
+      procesado_en: valido ? null : new Date().toISOString(),
     })
     .select("id")
     .single();
@@ -235,86 +329,122 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!resultado.ok) {
+  if (!valido) {
     return NextResponse.json(
       {
         error: "El archivo no cumple el formato esperado.",
-        detalles: resultado.errores,
+        detalles: erroresValidacion,
         cargaId: carga.id,
       },
       { status: 422 }
     );
   }
 
-  // 3. Subir a Storage las imágenes embebidas de cada fila, ANTES de la
-  //    ingestión: el RPC solo recibe jsonb (rutas de texto), no buffers.
-  let itemsParaIngesta: ItemParaIngesta[];
-  try {
-    itemsParaIngesta = await subirImagenesDeItems(supabase, carga.id, resultado.items);
-  } catch (err) {
-    const mensaje = err instanceof Error ? err.message : "error desconocido";
-    await supabase
-      .from("cargas_archivo")
-      .update({
-        estado: "error",
-        errores: [{ fila: 0, mensaje }],
-        procesado_en: new Date().toISOString(),
-      })
-      .eq("id", carga.id);
+  // 3 y 4. Por cada hoja: subir sus imágenes (el RPC solo recibe jsonb, no
+  //    buffers) e ingerirla como su propio PM, vía la función RPC atómica.
+  //    Una hoja tras otra; si una falla, las anteriores ya quedaron cargadas
+  //    y se reporta cuál falló.
+  const pedidos: PedidoCargado[] = [];
+  const avisos: FilaError[] = [];
+  let errorCarga: string | null = null;
 
-    return NextResponse.json({ error: mensaje, cargaId: carga.id }, { status: 500 });
-  }
+  for (const hoja of libro.hojas) {
+    if (!hoja.resultado.ok) continue; // ya validado arriba
+    const { metadata, items } = hoja.resultado;
 
-  // 4. Ingestión atómica vía función RPC (todo o nada).
-  const { data: ingestData, error: ingestError } = await supabase.rpc(
-    "ingest_planeacion_version",
-    {
-      p_proyecto_nombre: resultado.metadata.proyecto_nombre,
-      p_cliente: resultado.metadata.cliente,
-      p_numero_pedido: resultado.metadata.numero_pedido,
-      // ?? null explícito: un valor undefined desaparece al serializar el
-      // body de la llamada RPC, y Postgres responde "no encuentra la
-      // función" en vez de un error claro sobre el argumento faltante.
-      p_fecha_pedido: resultado.metadata.fecha_pedido ?? null,
-      p_fecha_entrega: resultado.metadata.fecha_entrega ?? null,
-      p_carga_id: carga.id,
-      p_items: itemsParaIngesta,
+    let itemsParaIngesta: ItemParaIngesta[];
+    try {
+      // Carpeta por hoja: los números de fila se repiten entre hojas.
+      const carpeta = varias ? `${carga.id}/hoja-${hoja.indiceHoja + 1}` : carga.id;
+      itemsParaIngesta = await subirImagenesDeItems(supabase, carpeta, items);
+    } catch (err) {
+      errorCarga = conHoja(hoja.nombreHoja, err instanceof Error ? err.message : "error desconocido");
+      break;
     }
-  );
 
-  if (ingestError) {
-    await supabase
-      .from("cargas_archivo")
-      .update({
-        estado: "error",
-        errores: [{ fila: 0, mensaje: ingestError.message }],
-        procesado_en: new Date().toISOString(),
-      })
-      .eq("id", carga.id);
-
-    return NextResponse.json(
-      { error: `No se pudo ingerir el pedido: ${ingestError.message}`, cargaId: carga.id },
-      { status: 500 }
+    const { data: ingestData, error: ingestError } = await supabase.rpc(
+      "ingest_planeacion_version",
+      {
+        p_proyecto_nombre: metadata.proyecto_nombre,
+        p_cliente: metadata.cliente,
+        p_numero_pedido: metadata.numero_pedido,
+        // ?? null explícito: un valor undefined desaparece al serializar el
+        // body de la llamada RPC, y Postgres responde "no encuentra la
+        // función" en vez de un error claro sobre el argumento faltante.
+        p_fecha_pedido: metadata.fecha_pedido ?? null,
+        p_fecha_entrega: metadata.fecha_entrega ?? null,
+        p_carga_id: carga.id,
+        p_items: itemsParaIngesta,
+      }
     );
+
+    if (ingestError) {
+      errorCarga = conHoja(hoja.nombreHoja, `No se pudo ingerir el pedido: ${ingestError.message}`);
+      break;
+    }
+
+    pedidos.push({
+      hoja: hoja.nombreHoja,
+      numero_pedido: metadata.numero_pedido,
+      filas: items.length,
+      ...ingestData,
+    });
+    for (const aviso of hoja.resultado.avisos) {
+      avisos.push({ ...aviso, mensaje: conHoja(hoja.nombreHoja, aviso.mensaje) });
+    }
+    // Datos que luego causan descuadres en el generador de recibos (cantidades
+    // negativas, en cero o con decimales, muebles sin modelo, componentes sin
+    // padre; ver validar-para-recibos.ts). No bloquean la carga.
+    for (const aviso of validarItemsParaRecibos(items)) {
+      avisos.push({ ...aviso, mensaje: conHoja(hoja.nombreHoja, aviso.mensaje) });
+    }
+    const anterior = (ingestData as { proyecto_anterior?: PedidoCargado["proyecto_anterior"] })
+      .proyecto_anterior;
+    if (anterior) {
+      avisos.push({
+        fila: 0,
+        mensaje: conHoja(
+          hoja.nombreHoja,
+          `El PM ${metadata.numero_pedido} ya existía con el proyecto «${anterior.nombre}» (cliente ${anterior.cliente}); ahora queda con «${metadata.proyecto_nombre}» (cliente ${metadata.cliente}).`
+        ),
+      });
+    }
   }
 
   await supabase
     .from("cargas_archivo")
     .update({
-      pedido_id: ingestData.pedido_id,
-      estado: "exitoso",
-      filas_exitosas: resultado.items.length,
-      filas_error: 0,
-      // Avisos de datos incompletos (la carga fue exitosa igual).
-      errores: resultado.avisos.length > 0 ? resultado.avisos : null,
+      // Con varios PM la carga queda ligada al primero (cada versión de cada
+      // PM guarda su carga_id, que es el vínculo que se consulta).
+      pedido_id: pedidos[0]?.pedido_id ?? null,
+      estado: errorCarga ? "error" : "exitoso",
+      filas_exitosas: pedidos.reduce((suma, p) => suma + p.filas, 0),
+      filas_error: errorCarga ? 1 : 0,
+      // Avisos de datos incompletos (la carga fue exitosa igual) o el error.
+      errores: errorCarga
+        ? [{ fila: 0, mensaje: errorCarga }, ...avisos]
+        : avisos.length > 0
+          ? avisos
+          : null,
       procesado_en: new Date().toISOString(),
     })
     .eq("id", carga.id);
 
+  if (errorCarga) {
+    return NextResponse.json(
+      { error: errorCarga, cargaId: carga.id, pedidos, hojasIgnoradas: libro.hojasIgnoradas },
+      { status: 500 }
+    );
+  }
+
+  const [primero] = pedidos;
   return NextResponse.json({
     ok: true,
     cargaId: carga.id,
-    avisos: resultado.avisos,
-    ...ingestData,
+    avisos,
+    hojasIgnoradas: libro.hojasIgnoradas,
+    pedidos,
+    // Campos del primer PM, como cuando el archivo traía uno solo.
+    ...primero,
   });
 }

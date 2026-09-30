@@ -196,6 +196,103 @@ function extraerImagenesPorFila(
   return porFila;
 }
 
+// Fila de encabezados de columna: la primera (en las primeras filas) que
+// tiene "ITEM" y "CANTIDAD TOTAL". Es también lo que distingue una hoja con
+// formato de PM de una hoja de notas o cálculos dentro del mismo archivo.
+function buscarEncabezados(
+  worksheet: ExcelJS.Worksheet
+): { headerRowNumber: number; columnMap: Record<string, number> } | null {
+  for (let r = 1; r <= Math.min(worksheet.rowCount, MAX_HEADER_SCAN_ROWS); r++) {
+    const row = worksheet.getRow(r);
+    const map: Record<string, number> = {};
+    for (let c = 1; c <= row.cellCount; c++) {
+      const text = cellText(resolvedValue(row.getCell(c)));
+      if (!text) continue;
+      const nombre = normalize(text);
+      map[nombre] = c;
+      // Variantes de encabezado vistas en archivos reales.
+      if (nombre === "ACABADOS ACTUALIZADOS" && !map["ACABADOS"]) map["ACABADOS"] = c;
+    }
+    if (map["ITEM"] && map["CANTIDAD TOTAL"]) {
+      return { headerRowNumber: r, columnMap: map };
+    }
+  }
+  return null;
+}
+
+/** Una hoja del archivo con formato de PM y el resultado de leerla. */
+export interface HojaPM {
+  nombreHoja: string;
+  // Posición de la hoja en el archivo (0 = primera); distingue las rutas
+  // de las imágenes de cada hoja en Storage.
+  indiceHoja: number;
+  resultado: ParseResult;
+}
+
+export interface ResultadoLibro {
+  // Hojas con formato de PM, en el orden del archivo. Si ninguna lo tiene,
+  // trae solo la primera hoja con sus errores de formato.
+  hojas: HojaPM[];
+  // Hojas sin formato de PM (notas, cálculos) u ocultas: no se cargan.
+  hojasIgnoradas: string[];
+}
+
+/**
+ * Lee TODAS las hojas del archivo: algunos PM traen más de un pedido en el
+ * mismo Excel (ej. la hoja "PEDIDO" y una hoja "SDC-1" con su propio
+ * encabezado y No. PEDIDO). Cada hoja con formato de PM se lee por separado.
+ */
+export async function parsePlaneacionLibro(
+  buffer: Buffer | ArrayBuffer,
+  opciones: { nombreArchivo?: string } = {}
+): Promise<ResultadoLibro> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as ExcelJS.Buffer);
+
+  const hojas: HojaPM[] = [];
+  const hojasIgnoradas: string[] = [];
+  workbook.worksheets.forEach((worksheet, indiceHoja) => {
+    if (worksheet.state !== "visible" || !buscarEncabezados(worksheet)) {
+      hojasIgnoradas.push(worksheet.name);
+      return;
+    }
+    hojas.push({
+      nombreHoja: worksheet.name,
+      indiceHoja,
+      resultado: parsearHoja(worksheet, workbook, {
+        // El nombre del archivo solo sirve de respaldo para el No. PEDIDO de
+        // la primera hoja: en las demás daría el mismo PM que la primera.
+        nombreArchivo: hojas.length === 0 ? opciones.nombreArchivo : undefined,
+      }),
+    });
+  });
+
+  // Ninguna hoja con formato: se reporta la primera con sus errores, igual
+  // que un archivo de una sola hoja.
+  if (hojas.length === 0) {
+    const primera = workbook.worksheets[0];
+    return {
+      hojas: [
+        {
+          nombreHoja: primera?.name ?? "",
+          indiceHoja: 0,
+          resultado: primera
+            ? parsearHoja(primera, workbook, opciones)
+            : {
+                ok: false,
+                errores: [{ fila: 0, mensaje: "El archivo no contiene ninguna hoja." }],
+                filasTotales: 0,
+              },
+        },
+      ],
+      hojasIgnoradas: [],
+    };
+  }
+
+  return { hojas, hojasIgnoradas };
+}
+
+/** Lee solo la primera hoja del archivo. */
 export async function parsePlaneacionExcel(
   buffer: Buffer | ArrayBuffer,
   // Respaldo para el número de PM si el archivo no lo trae en el encabezado.
@@ -212,7 +309,14 @@ export async function parsePlaneacionExcel(
       filasTotales: 0,
     };
   }
+  return parsearHoja(worksheet, workbook, opciones);
+}
 
+function parsearHoja(
+  worksheet: ExcelJS.Worksheet,
+  workbook: ExcelJS.Workbook,
+  opciones: { nombreArchivo?: string }
+): ParseResult {
   const errores: FilaError[] = [];
 
   // ---- 1. Metadata (pares etiqueta/valor en las primeras filas) ----------
@@ -287,28 +391,9 @@ export async function parsePlaneacionExcel(
   }
 
   // ---- 2. Fila de encabezados de columna ----------------------------------
-  let headerRowNumber: number | null = null;
-  let columnMap: Record<string, number> = {};
+  const encabezados = buscarEncabezados(worksheet);
 
-  for (let r = 1; r <= Math.min(worksheet.rowCount, MAX_HEADER_SCAN_ROWS); r++) {
-    const row = worksheet.getRow(r);
-    const map: Record<string, number> = {};
-    for (let c = 1; c <= row.cellCount; c++) {
-      const text = cellText(resolvedValue(row.getCell(c)));
-      if (!text) continue;
-      const nombre = normalize(text);
-      map[nombre] = c;
-      // Variantes de encabezado vistas en archivos reales.
-      if (nombre === "ACABADOS ACTUALIZADOS" && !map["ACABADOS"]) map["ACABADOS"] = c;
-    }
-    if (map["ITEM"] && map["CANTIDAD TOTAL"]) {
-      headerRowNumber = r;
-      columnMap = map;
-      break;
-    }
-  }
-
-  if (headerRowNumber === null) {
+  if (encabezados === null) {
     errores.push({
       fila: 0,
       mensaje:
@@ -316,6 +401,7 @@ export async function parsePlaneacionExcel(
     });
     return { ok: false, errores, filasTotales: 0 };
   }
+  const { headerRowNumber, columnMap } = encabezados;
 
   const missingHeaders = REQUIRED_HEADERS.filter((h) => !columnMap[h]);
   if (missingHeaders.length > 0) {
@@ -437,6 +523,22 @@ export async function parsePlaneacionExcel(
         ? cellFlag(resolvedValue(row.getCell(col("SUMINISTRO DE MATS"))))
         : null,
       fases_taller: fasesTaller,
+    });
+  }
+
+  // Un mismo número de mueble en varios renglones (ej. el componente 12.07
+  // capturado como "13"): la carga liga los componentes 13.xx a uno solo de
+  // ellos, sin distinguir cuál. Se guarda igual, pero se avisa.
+  const filasPorMueble = new Map<number, number[]>();
+  for (const item of items) {
+    if (item.tipo_registro !== "MO") continue;
+    filasPorMueble.set(item.item_code, [...(filasPorMueble.get(item.item_code) ?? []), item.fila_excel_origen]);
+  }
+  for (const [codigo, filas] of filasPorMueble) {
+    if (filas.length < 2) continue;
+    avisos.push({
+      fila: filas[1],
+      mensaje: `El ítem ${codigo} aparece como mueble en ${filas.length} renglones (filas ${filas.join(", ")}); sus componentes se ligarán a uno solo. Revisa si alguno es un componente con el número mal capturado.`,
     });
   }
 

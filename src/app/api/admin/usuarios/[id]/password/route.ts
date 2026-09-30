@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { contrasenaFiltrada, MENSAJE_CONTRASENA_FILTRADA } from "@/lib/auth/contrasena-filtrada";
 
 export async function PATCH(
   request: Request,
@@ -23,6 +24,10 @@ export async function PATCH(
       { error: "La contraseña debe tener al menos 8 caracteres." },
       { status: 400 }
     );
+  }
+
+  if (await contrasenaFiltrada(password)) {
+    return NextResponse.json({ error: MENSAJE_CONTRASENA_FILTRADA }, { status: 400 });
   }
 
   const adminClient = createAdminClient();

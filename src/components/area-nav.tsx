@@ -1,6 +1,8 @@
 import Link from "next/link";
 import LogoutButton from "./logout-button";
 import BotonRegresar from "./boton-regresar";
+import BuscadorGlobal from "./buscador-global";
+import SelectorTema from "./selector-tema";
 
 const INICIO_AREA = {
   planeacion: "/planeacion",
@@ -36,8 +38,10 @@ export default function AreaNav({
 }) {
   return (
     <div className="print:hidden">
-      <nav className="flex flex-wrap items-center gap-4 border-b border-gray-200 px-6 py-3 text-sm">
-        <div className="flex items-center gap-1">
+      {/* En tablet/celular las áreas se desplazan de lado en vez de partir la
+          barra en varias líneas; el correo se cambia por un ícono. */}
+      <nav className="flex items-center gap-3 border-b border-gray-200 px-4 py-2.5 text-sm sm:px-6">
+        <div className="desplazable-sin-barra -my-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap py-1">
           {!soloEstimaciones && (
             <>
               <Link
@@ -55,7 +59,7 @@ export default function AreaNav({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4"
+                  className="hidden h-4 w-4 lg:block"
                   aria-hidden="true"
                 >
                   <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
@@ -79,7 +83,7 @@ export default function AreaNav({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4"
+                  className="hidden h-4 w-4 lg:block"
                   aria-hidden="true"
                 >
                   <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
@@ -103,7 +107,7 @@ export default function AreaNav({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4"
+                  className="hidden h-4 w-4 lg:block"
                   aria-hidden="true"
                 >
                   <path d="M12 3 4 6v6c0 4.5 3.2 7.7 8 9 4.8-1.3 8-4.5 8-9V6l-8-3Z" />
@@ -128,7 +132,7 @@ export default function AreaNav({
               strokeWidth={2}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="h-4 w-4"
+              className="hidden h-4 w-4 lg:block"
               aria-hidden="true"
             >
               <rect x="5" y="2" width="14" height="20" rx="2" />
@@ -153,7 +157,7 @@ export default function AreaNav({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-4 w-4"
+                className="hidden h-4 w-4 lg:block"
                 aria-hidden="true"
               >
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -163,20 +167,36 @@ export default function AreaNav({
             </Link>
           )}
         </div>
+        <BuscadorGlobal area={area} />
+        <SelectorTema />
         {soloEstimaciones ? (
-          <span className="ml-auto text-gray-500">{email}</span>
+          <span className="hidden shrink-0 text-gray-500 lg:inline">{email}</span>
         ) : (
           <Link
             href="/planeacion/cuenta"
-            className="ml-auto text-gray-500 hover:text-black"
+            className="inline-flex shrink-0 items-center text-gray-500 hover:text-black"
+            title={`Mi cuenta (${email})`}
           >
-            {email}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5 lg:hidden"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21a8 8 0 0 1 16 0" />
+            </svg>
+            <span className="sr-only lg:not-sr-only">{email}</span>
           </Link>
         )}
         <LogoutButton />
       </nav>
       {children && (
-        <div className="flex flex-wrap items-center gap-4 border-b border-gray-100 bg-gray-50 px-6 py-2 text-sm">
+        <div className="desplazable-sin-barra flex items-center gap-5 overflow-x-auto whitespace-nowrap border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-sm sm:px-6">
           {children}
         </div>
       )}

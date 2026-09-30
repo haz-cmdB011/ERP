@@ -81,6 +81,26 @@ describe("normalizarNumeroPM", () => {
       ).toBe("PM135-26");
     });
 
+    describe("hojas extra con etiqueta (ej. solicitud de cambio)", () => {
+      it.each([
+        ["SDC-1_OT 009-26-2", "SDC-1 2PM009-26"],
+        ["SDC-1 OT 009-26-2", "SDC-1 2PM009-26"],
+        ["sdc 2_OT. 009-26", "SDC-2 PM009-26"],
+        ["SDC-1 PM 134-26", "SDC-1 PM134-26"],
+        ["SDC-1_2PM134-26", "SDC-1 2PM134-26"],
+      ])("conserva la etiqueta: %s → %s", (entrada, esperado) => {
+        expect(normalizarNumeroPM(entrada)).toBe(esperado);
+      });
+
+      it("no toma el número de OT como etiqueta", () => {
+        expect(normalizarNumeroPM("OT 009-26-2")).toBe("2PM009-26");
+      });
+
+      it("queda en la misma OT que el PM principal", () => {
+        expect(ordenDeTrabajo(normalizarNumeroPM("SDC-1_OT 009-26-2"))).toBe("009-26");
+      });
+    });
+
     it.each([
       ["PM134-26", "134-26"],
       ["1PM134-26", "134-26"],

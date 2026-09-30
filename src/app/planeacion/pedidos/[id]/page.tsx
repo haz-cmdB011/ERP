@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
@@ -39,6 +40,8 @@ interface ItemRow {
   motivo_cancelacion: string | null;
   eliminacion_solicitada_en: string | null;
 }
+
+export const generateMetadata = metadataPedido;
 
 export default async function PedidoDetailPage({
   params,
@@ -158,7 +161,12 @@ export default async function PedidoDetailPage({
         </h1>
         {pedido.orden_trabajo && (
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Orden de trabajo <span className="font-mono">{pedido.orden_trabajo}</span>
+            <Link
+              href={`/planeacion/ot/${encodeURIComponent(pedido.orden_trabajo)}`}
+              className="hover:text-indigo-600 hover:underline"
+            >
+              ← O.T. <span className="font-mono">{pedido.orden_trabajo}</span>
+            </Link>
           </p>
         )}
         <p className="text-sm text-slate-600">
@@ -180,21 +188,31 @@ export default async function PedidoDetailPage({
       />
 
       {versiones && versiones.length > 0 && (
-        <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
-          {versiones.map((v) => (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
+            {versiones.map((v) => (
+              <Link
+                key={v.id}
+                href={`/planeacion/pedidos/${id}?version=${v.numero_version}`}
+                className={`rounded px-3 py-1 font-medium transition-colors ${
+                  versionSeleccionada?.id === v.id
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-200/70"
+                }`}
+              >
+                v{v.numero_version}
+                {v.es_version_activa ? " (activa)" : ""}
+              </Link>
+            ))}
+          </div>
+          {versiones.length > 1 && versionSeleccionada && (
             <Link
-              key={v.id}
-              href={`/planeacion/pedidos/${id}?version=${v.numero_version}`}
-              className={`rounded px-3 py-1 font-medium transition-colors ${
-                versionSeleccionada?.id === v.id
-                  ? "bg-slate-900 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-200/70"
-              }`}
+              href={`/planeacion/pedidos/${id}/cambios?a=${versionSeleccionada.numero_version}`}
+              className="text-sm font-medium text-indigo-600 hover:underline"
             >
-              v{v.numero_version}
-              {v.es_version_activa ? " (activa)" : ""}
+              Ver qué cambió entre versiones →
             </Link>
-          ))}
+          )}
         </div>
       )}
 

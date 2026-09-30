@@ -14,6 +14,13 @@ interface AuditoriaRow {
     item_code?: number;
     modelo?: string | null;
     motivo?: string | null;
+    // Recibos de maquila (ver 20260930120000_auditoria_recibos.sql).
+    folio?: string | null;
+    tipo?: string | null;
+    contratista?: string | null;
+    ot?: string | null;
+    renglones?: number;
+    total?: number;
   } | null;
 }
 
@@ -50,6 +57,14 @@ function describirAccion(accion: string): { etiqueta: string; tono: Tono } {
       return { etiqueta: "Enviado a producción", tono: "emerald" };
     case "liberacion_pendiente":
       return { etiqueta: "Revertido a pendiente", tono: "sky" };
+    case "estado_cancelado":
+      return { etiqueta: "Recibo cancelado", tono: "slate" };
+    case "estado_revisado":
+      return { etiqueta: "Recibo revisado", tono: "sky" };
+    case "estado_pagado":
+      return { etiqueta: "Recibo pagado", tono: "emerald" };
+    case "estado_pendiente":
+      return { etiqueta: "Recibo vuelto a pendiente", tono: "amber" };
     default:
       return { etiqueta: accion, tono: "slate" };
   }
@@ -59,7 +74,15 @@ const FILTROS: [string, string][] = [
   ["todos", "Todos"],
   ["pedidos", "Pedidos"],
   ["planeacion_items", "Ítems"],
+  ["recibos", "Recibos"],
 ];
+
+const TABLAS_RECIBOS = ["recibos", "recibos_electrificacion"];
+const TIPO_RECIBO: Record<string, string> = {
+  acabados: "Acabados",
+  armado: "Armado",
+  electrificacion: "Electrificación",
+};
 
 // El acceso (solo desarrollador) ya lo valida admin/layout.tsx; además la RLS
 // de public.auditoria solo deja leer a desarrolladores y administradores de área.
@@ -74,7 +97,8 @@ export default async function AuditoriaPage({
   const supabase = await createClient();
 
   let conteoQuery = supabase.from("auditoria").select("id", { count: "exact", head: true });
-  if (filtro !== "todos") conteoQuery = conteoQuery.eq("tabla", filtro);
+  if (filtro === "recibos") conteoQuery = conteoQuery.in("tabla", TABLAS_RECIBOS);
+  else if (filtro !== "todos") conteoQuery = conteoQuery.eq("tabla", filtro);
   const { count, error: errorConteo } = await conteoQuery;
   const total = count ?? 0;
 
@@ -91,7 +115,8 @@ export default async function AuditoriaPage({
       .order("en", { ascending: false })
       .order("id", { ascending: false })
       .range((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA - 1);
-    if (filtro !== "todos") consulta = consulta.eq("tabla", filtro);
+    if (filtro === "recibos") consulta = consulta.in("tabla", TABLAS_RECIBOS);
+    else if (filtro !== "todos") consulta = consulta.eq("tabla", filtro);
     const { data, error: errorFilas } = await consulta.returns<AuditoriaRow[]>();
     error = errorFilas;
     filas = data ?? [];
@@ -196,6 +221,12 @@ export default async function AuditoriaPage({
                     <td className="px-3 py-2 text-slate-700">
                       {f.tabla === "pedidos" ? (
                         <>Pedido {d.numero_pedido ?? "—"}</>
+                      ) : TABLAS_RECIBOS.includes(f.tabla) ? (
+                        <>
+                          Recibo {d.folio ?? "—"} · {TIPO_RECIBO[d.tipo ?? ""] ?? d.tipo ?? "—"}
+                          {d.contratista ? ` · ${d.contratista}` : ""}
+                          {d.ot ? ` · OT ${d.ot}` : ""}
+                        </>
                       ) : (
                         <>
                           Ítem {d.item_code ?? "—"}
@@ -203,7 +234,11 @@ export default async function AuditoriaPage({
                         </>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">{d.motivo ?? "—"}</td>
+                    <td className="px-3 py-2 text-slate-700">
+                      {TABLAS_RECIBOS.includes(f.tabla) && f.accion === "eliminado_definitivo"
+                        ? `${d.renglones ?? 0} renglón${d.renglones === 1 ? "" : "es"} · $${Number(d.total ?? 0).toFixed(2)}`
+                        : (d.motivo ?? "—")}
+                    </td>
                   </tr>
                 );
               })}

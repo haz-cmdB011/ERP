@@ -39,10 +39,15 @@ import {
   type TipoCualquierRecibo,
 } from "@/lib/estimaciones/revision-db";
 import EstadoReciboBadge from "../../../estado-recibo-badge";
+import { avisar } from "@/components/avisos";
 
-type Props =
+type Props = (
   | { tipo: TipoRecibo; recibo: ReciboGuardado }
-  | { tipo: "electrificacion"; recibo: ReciboElectrificacionGuardado };
+  | { tipo: "electrificacion"; recibo: ReciboElectrificacionGuardado }
+) & {
+  // Diferencias con el PM (se arman en el servidor, ver discrepancias-recibo.tsx).
+  discrepancias?: React.ReactNode;
+};
 
 // Lo que el motor sugiere para un renglón al momento de revisarlo.
 interface Sugerencia {
@@ -255,6 +260,7 @@ export default function RevisionRecibo(props: Props) {
       setErrorPago(error);
       return;
     }
+    avisar(`Recibo ${recibo.folio} marcado como pagado.`);
     router.refresh();
   }
 
@@ -294,6 +300,8 @@ export default function RevisionRecibo(props: Props) {
           Este recibo fue cancelado.
         </div>
       )}
+
+      {props.discrepancias}
 
       <div className="flex flex-col gap-4">
         {renglones.map((r) => (
@@ -393,6 +401,7 @@ function RenglonRevisionCard({
       return;
     }
     setEditando(false);
+    avisar(`Renglón ${r.numero}: precio guardado.`);
     router.refresh();
   }
 

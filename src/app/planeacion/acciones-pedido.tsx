@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import IconoPapelera from "@/components/icono-papelera";
+import { avisar } from "@/components/avisos";
 
 type Accion = "logico" | "definitivo" | "restaurar";
 
@@ -24,13 +25,11 @@ export default function AccionesPedido({
   const [confirmando, setConfirmando] = useState<Accion | null>(null);
   const [cargando, setCargando] = useState<Accion | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
 
   async function ejecutar(accion: Accion) {
     setConfirmando(null);
     setCargando(accion);
     setError(null);
-    setAviso(null);
 
     const res =
       accion === "definitivo"
@@ -49,9 +48,16 @@ export default function AccionesPedido({
     }
     // eliminar_pedido_definitivo no borra un pedido que ya tiene folio(s)
     // de Calidad — lo deja cancelado en vez de eliminarlo (ver Cancelados).
+    // La fila desaparece de la lista, así que el resultado va en un aviso.
     if (accion === "definitivo" && data.conservadoPorFolio) {
-      setAviso(
-        "Eliminado. Como tenía folio(s) de Calidad, su historial se conserva en Cancelados."
+      avisar("Eliminado. Como tenía folio(s) de Calidad, su historial se conserva en Cancelados.");
+    } else {
+      avisar(
+        accion === "logico"
+          ? "Pedido enviado a la papelera. Se puede restaurar."
+          : accion === "restaurar"
+            ? "Pedido restaurado."
+            : "Pedido eliminado definitivamente."
       );
     }
     router.refresh();
@@ -114,7 +120,6 @@ export default function AccionesPedido({
         </button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
-      {aviso && <p className="max-w-xs text-xs text-amber-700">{aviso}</p>}
     </div>
   );
 }

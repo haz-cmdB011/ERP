@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { avisar } from "@/components/avisos";
 
 // Botón con confirmación en línea (sin window.confirm, que puede quedar
 // bloqueado según navegador/contexto). Se usa en los paneles Cancelados de
@@ -13,10 +14,13 @@ function BotonConfirmado({
   etiqueta,
   pregunta,
   ejecutar,
+  exito,
 }: {
   etiqueta: string;
   pregunta: string;
   ejecutar: () => Promise<string | null>;
+  // Aviso breve al terminar bien (la fila suele desaparecer del panel).
+  exito: string;
 }) {
   const router = useRouter();
   const [confirmando, setConfirmando] = useState(false);
@@ -33,6 +37,7 @@ function BotonConfirmado({
       return;
     }
     setConfirmando(false);
+    avisar(exito);
     router.refresh();
   }
 
@@ -90,6 +95,7 @@ export function RevertirPedidoBoton({
     <BotonConfirmado
       etiqueta={etiqueta}
       pregunta="¿Revertir? El pedido y todos sus ítems cancelados volverán a estar activos."
+      exito="Pedido reactivado con sus ítems."
       ejecutar={async () => {
         const supabase = createClient();
         const { error } = await supabase.rpc("reactivar_pedido", { p_pedido_id: pedidoId });
@@ -105,6 +111,7 @@ export function RestaurarItemBoton({ itemId }: { itemId: string }) {
     <BotonConfirmado
       etiqueta="Restaurar"
       pregunta="¿Restaurar este ítem? Volverá a la lista normal."
+      exito="Ítem restaurado."
       ejecutar={async () => {
         const supabase = createClient();
         const { error } = await supabase.rpc("cancelar_solicitud_eliminacion_item", {
@@ -122,6 +129,7 @@ export function RestaurarPedidoBoton({ pedidoId }: { pedidoId: string }) {
     <BotonConfirmado
       etiqueta="Restaurar pedido"
       pregunta="¿Restaurar este pedido? Volverá a aparecer como pedido normal."
+      exito="Pedido restaurado."
       ejecutar={async () => {
         const supabase = createClient();
         const { error } = await supabase.rpc("restore_pedido", { p_pedido_id: pedidoId });
@@ -138,6 +146,7 @@ export function RevertirItemBoton({ itemId }: { itemId: string }) {
     <BotonConfirmado
       etiqueta="Revertir"
       pregunta="¿Revertir este ítem a Normal?"
+      exito="Ítem revertido a Normal."
       ejecutar={async () => {
         const res = await fetch(`/api/planeacion/items/${itemId}`, {
           method: "PATCH",

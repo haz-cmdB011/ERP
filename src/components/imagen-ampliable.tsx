@@ -138,7 +138,7 @@ export default function ImagenAmpliable({
         }}
         title="Clic para ampliar"
         aria-label="Ampliar imagen"
-        className={`block shrink-0 cursor-zoom-in overflow-hidden rounded border border-slate-200 bg-white transition hover:border-slate-400 hover:shadow ${className}`}
+        className={`block shrink-0 cursor-zoom-in overflow-hidden rounded border border-slate-200 bg-papel transition hover:border-slate-400 hover:shadow ${className}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image */}
         <img src={url} alt={alt} className="h-full w-full object-cover" />
@@ -154,7 +154,7 @@ export default function ImagenAmpliable({
             e.stopPropagation();
             cerrar();
           }}
-          className="fixed inset-0 z-[100] flex touch-none select-none items-center justify-center overflow-hidden bg-black/85 p-3"
+          className="fixed inset-0 z-[100] flex touch-none select-none items-center justify-center overflow-hidden bg-scrim/85 p-3"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image */}
           <img
@@ -170,7 +170,7 @@ export default function ImagenAmpliable({
             onPointerCancel={alSoltarImagen}
             // Ocupa casi toda la pantalla al 100% (se escala hacia arriba si la
             // original es pequeña) sin deformarse; el zoom parte de ahí.
-            className={`h-[94vh] w-[96vw] rounded-lg bg-white object-contain shadow-2xl ${
+            className={`h-[94vh] w-[96vw] rounded-lg bg-papel object-contain shadow-2xl ${
               arrastrando ? "cursor-grabbing" : "cursor-grab"
             }`}
             style={{
@@ -192,7 +192,7 @@ export default function ImagenAmpliable({
             >
               −
             </button>
-            <span className="min-w-12 rounded bg-black/50 px-2 py-1 text-center text-xs font-medium text-white">
+            <span className="min-w-12 rounded bg-scrim/50 px-2 py-1 text-center text-xs font-medium text-on-scrim">
               {Math.round(vista.escala * 100)}%
             </span>
             <button
@@ -224,7 +224,7 @@ export default function ImagenAmpliable({
             </button>
           </div>
 
-          <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/55 px-3 py-1 text-xs text-white/90">
+          <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-scrim/55 px-3 py-1 text-xs text-on-scrim/90">
             Rueda del mouse: zoom · Arrastra: mover · Doble clic: acercar · Esc: cerrar
           </p>
         </div>

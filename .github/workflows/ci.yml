@@ -1,0 +1,50 @@
+# Revisión automática: en cada Pull Request (y en cada push a main) corre
+# lint, pruebas y el build de producción. Si algo falla, el PR lo muestra en
+# rojo antes de fusionarlo, y el error no llega a Vercel.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Un push nuevo al mismo PR cancela la revisión anterior que siga corriendo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  revisar:
+    name: Lint, pruebas y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Pruebas
+        run: npm test
+
+      # El build no se conecta a Supabase (todas las páginas con datos se
+      # generan al pedirlas), así que basta con valores de relleno: las claves
+      # reales no se guardan en GitHub.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_placeholder
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
+          NEXT_TELEMETRY_DISABLED: 1

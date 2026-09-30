@@ -319,14 +319,14 @@ export default async function BuscarFolioPage({
             <thead>
               <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Folio</th>
-                <th className="px-3 py-2.5">Estado</th>
+                <th className="hidden px-3 py-2.5 lg:table-cell">Estado</th>
                 <th className="px-3 py-2.5">Pedido</th>
-                <th className="px-3 py-2.5">Ítem</th>
-                <th className="px-3 py-2.5">Material</th>
-                <th className="px-3 py-2.5">Descripción</th>
-                <th className="px-3 py-2.5">Cant.</th>
-                <th className="px-3 py-2.5">Calidad</th>
-                <th className="px-3 py-2.5">Generado</th>
+                <th className="hidden px-3 py-2.5 lg:table-cell">Ítem</th>
+                <th className="hidden px-3 py-2.5 lg:table-cell">Material</th>
+                <th className="hidden px-3 py-2.5 lg:table-cell">Descripción</th>
+                <th className="hidden px-3 py-2.5 lg:table-cell">Cant.</th>
+                <th className="hidden px-3 py-2.5 lg:table-cell">Calidad</th>
+                <th className="hidden px-3 py-2.5 lg:table-cell">Generado</th>
                 {puedeEditar && <th className="px-3 py-2.5"></th>}
               </tr>
             </thead>
@@ -340,22 +340,61 @@ export default async function BuscarFolioPage({
                 const descripcion = item?.descripcion ?? f.descripcion;
                 const cantidad = item?.cantidad_total ?? f.cantidad_total;
                 const unidad = item?.unidad ?? f.unidad;
+                const estadoFolio = (
+                  <>
+                    <span
+                      className={`inline-flex items-center rounded border px-2.5 py-1 font-medium ${TONOS[est.tono]}`}
+                    >
+                      {est.etiqueta}
+                    </span>
+                    {est.detalle && (
+                      <p className="mt-1 max-w-[180px] text-[11px] text-slate-500">{est.detalle}</p>
+                    )}
+                  </>
+                );
+                const informes = item ? (informesPorItem.get(item.id) ?? []) : [];
+                const ultimo = informes[0];
+                const calidad = !ultimo ? (
+                  <span className="text-slate-400">Sin evaluar</span>
+                ) : (
+                  <>
+                    <span
+                      className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${
+                        ultimo.aprobado ? TONOS.emerald : TONOS.rose
+                      }`}
+                    >
+                      {ultimo.aprobado ? "Aprobado" : "No aprobado"}
+                    </span>
+                    <p className="mt-1 font-mono text-[11px] text-slate-500">
+                      {ultimo.folio}
+                      {informes.length > 1 ? ` (+${informes.length - 1})` : ""}
+                    </p>
+                  </>
+                );
                 return (
                   <tr key={f.id} className="align-top transition-colors hover:bg-slate-50">
-                    <td className="px-3 py-2 font-mono text-sm text-slate-900">
-                      {f.folio}
+                    <td className="px-3 py-3 lg:py-2">
+                      <span className="font-mono text-sm text-slate-900">{f.folio}</span>
+                      {/* Tablet y celular: las demás columnas apiladas aquí. */}
+                      <div className="mt-2 flex flex-col gap-1.5 text-sm text-slate-700 lg:hidden">
+                        <div>{estadoFolio}</div>
+                        <p className="font-medium text-slate-900">
+                          {codigo ?? "—"}
+                          {modelo ? ` — ${modelo}` : ""}
+                        </p>
+                        {descripcion && <p className="line-clamp-3">{descripcion}</p>}
+                        <p className="flex flex-wrap gap-x-3 text-xs text-slate-500">
+                          <span className="font-medium text-slate-700">
+                            {cantidad ?? "—"} {unidad}
+                          </span>
+                          {material && <span>{material}</span>}
+                          <span>Generado el {new Date(f.generado_en).toLocaleDateString("es-MX")}</span>
+                        </p>
+                        <div className="text-xs">{calidad}</div>
+                      </div>
                     </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`inline-flex items-center rounded border px-2.5 py-1 font-medium ${TONOS[est.tono]}`}
-                      >
-                        {est.etiqueta}
-                      </span>
-                      {est.detalle && (
-                        <p className="mt-1 max-w-[180px] text-[11px] text-slate-500">{est.detalle}</p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
+                    <td className="hidden px-3 py-2 lg:table-cell">{estadoFolio}</td>
+                    <td className="px-3 py-3 lg:py-2">
                       {pedido && !pedido.eliminado_en ? (
                         <Link
                           href={`/produccion/pedidos/${pedido.id}`}
@@ -370,42 +409,21 @@ export default async function BuscarFolioPage({
                         {f.proyecto ?? "—"} — {f.cliente ?? "—"}
                       </p>
                     </td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className="hidden px-3 py-2 text-slate-700 lg:table-cell">
                       {codigo ?? "—"}
                       {modelo ? ` — ${modelo}` : ""}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">{material ?? "—"}</td>
-                    <td className="px-3 py-2 text-slate-700">{descripcion ?? "—"}</td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className="hidden px-3 py-2 text-slate-700 lg:table-cell">{material ?? "—"}</td>
+                    <td className="hidden px-3 py-2 text-slate-700 lg:table-cell">{descripcion ?? "—"}</td>
+                    <td className="hidden px-3 py-2 text-slate-700 lg:table-cell">
                       {cantidad ?? "—"} {unidad}
                     </td>
-                    <td className="px-3 py-2">
-                      {(() => {
-                        const lista = item ? (informesPorItem.get(item.id) ?? []) : [];
-                        const ultimo = lista[0];
-                        if (!ultimo) return <span className="text-slate-400">Sin evaluar</span>;
-                        return (
-                          <>
-                            <span
-                              className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${
-                                ultimo.aprobado ? TONOS.emerald : TONOS.rose
-                              }`}
-                            >
-                              {ultimo.aprobado ? "Aprobado" : "No aprobado"}
-                            </span>
-                            <p className="mt-1 font-mono text-[11px] text-slate-500">
-                              {ultimo.folio}
-                              {lista.length > 1 ? ` (+${lista.length - 1})` : ""}
-                            </p>
-                          </>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-3 py-2 text-slate-500">
+                    <td className="hidden px-3 py-2 lg:table-cell">{calidad}</td>
+                    <td className="hidden px-3 py-2 text-slate-500 lg:table-cell">
                       {new Date(f.generado_en).toLocaleDateString("es-MX")}
                     </td>
                     {puedeEditar && (
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-3 lg:py-2">
                         {item && pedido?.eliminado_en ? (
                           puedeRestaurarPedido ? (
                             <RestaurarPedidoBoton pedidoId={pedido.id} />

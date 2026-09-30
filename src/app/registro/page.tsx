@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import RegistroForm from "./registro-form";
+
+export const metadata: Metadata = { title: "Crear cuenta" };
 
 export default function RegistroPage() {
   return (
