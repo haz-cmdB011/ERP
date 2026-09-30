@@ -526,6 +526,22 @@ function parsearHoja(
     });
   }
 
+  // Un mismo número de mueble en varios renglones (ej. el componente 12.07
+  // capturado como "13"): la carga liga los componentes 13.xx a uno solo de
+  // ellos, sin distinguir cuál. Se guarda igual, pero se avisa.
+  const filasPorMueble = new Map<number, number[]>();
+  for (const item of items) {
+    if (item.tipo_registro !== "MO") continue;
+    filasPorMueble.set(item.item_code, [...(filasPorMueble.get(item.item_code) ?? []), item.fila_excel_origen]);
+  }
+  for (const [codigo, filas] of filasPorMueble) {
+    if (filas.length < 2) continue;
+    avisos.push({
+      fila: filas[1],
+      mensaje: `El ítem ${codigo} aparece como mueble en ${filas.length} renglones (filas ${filas.join(", ")}); sus componentes se ligarán a uno solo. Revisa si alguno es un componente con el número mal capturado.`,
+    });
+  }
+
   if (errores.length === 0 && items.length === 0) {
     errores.push({ fila: 0, mensaje: "El archivo no contiene filas de datos." });
   }

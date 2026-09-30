@@ -503,6 +503,25 @@ describe("parsePlaneacionExcel", () => {
   });
 });
 
+describe("avisos de números de mueble repetidos", () => {
+  it("avisa cuando un mismo ítem entero aparece en varios renglones", async () => {
+    const buf = await construirWorkbook([
+      { ITEM: 12, COMPONENTE: "MO", MODELO: "PSTA02 (105)", DESCRIPCION: "PUERTA", "CANTIDAD TOTAL": 1 },
+      { ITEM: 12.01, COMPONENTE: "FUN", MODELO: "PSTA02 (105)", DESCRIPCION: "PUERTA CON MARCO", "CANTIDAD TOTAL": 1 },
+      // Componente 12.07 capturado como "13".
+      { ITEM: 13, COMPONENTE: "FUN", MODELO: "PSTA02 (105)", DESCRIPCION: "CIERRA-PUERTAS", "CANTIDAD TOTAL": 1 },
+      { ITEM: 13, COMPONENTE: "MO", MODELO: "PSTA02 (120)", DESCRIPCION: "PUERTA", "CANTIDAD TOTAL": 1 },
+    ]);
+    const resultado = await parsePlaneacionExcel(buf);
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.avisos).toEqual([
+      expect.objectContaining({ fila: 13, mensaje: expect.stringContaining("El ítem 13 aparece como mueble en 2 renglones (filas 12, 13)") }),
+    ]);
+  });
+});
+
 // Hoja con formato de PM (metadata + encabezados + filas) dentro de un libro.
 function agregarHojaPM(
   wb: ExcelJS.Workbook,
