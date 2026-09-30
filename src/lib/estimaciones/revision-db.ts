@@ -61,6 +61,19 @@ export async function marcarReciboPagado(
   return { error: error?.message ?? null };
 }
 
+// Borra el recibo de la base (solo el desarrollador: la función valida el rol).
+export async function eliminarReciboDefinitivo(
+  supabase: SupabaseClient,
+  tipo: TipoCualquierRecibo,
+  reciboId: string
+): Promise<Resultado> {
+  const { error } = await supabase.rpc("eliminar_recibo_definitivo", {
+    p_tipo: tipo,
+    p_recibo_id: reciboId,
+  });
+  return { error: error?.message ?? null };
+}
+
 export async function cancelarRecibo(
   supabase: SupabaseClient,
   tipo: TipoCualquierRecibo,

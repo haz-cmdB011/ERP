@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import EliminarReciboDefinitivoBoton from "../../../../eliminar-recibo-definitivo-boton";
 import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { buscarReciboPorFolio } from "@/lib/estimaciones/recibos-db";
 import ReciboFichaArmado from "../../recibo-ficha-armado";
@@ -19,7 +20,9 @@ export default async function SeguimientoReciboArmadoPage({
   const folio = decodeURIComponent(folioParam);
 
   const supabase = await createClient();
-  const esPersonal = puedeVerPrecioSugerido(await getPerfilActual(supabase));
+  const perfil = await getPerfilActual(supabase);
+  const esPersonal = puedeVerPrecioSugerido(perfil);
+  const esDesarrollador = perfil?.rol === "desarrollador";
   const recibo = await buscarReciboPorFolio(supabase, folio, "armado");
 
   const h = await headers();
@@ -50,6 +53,13 @@ export default async function SeguimientoReciboArmadoPage({
             >
               {recibo.estado === "pendiente" ? "Revisar" : "Pagar"}
             </Link>
+          )}
+          {esDesarrollador && recibo.id && (
+            <EliminarReciboDefinitivoBoton
+              tipo="armado"
+              reciboId={recibo.id}
+              folio={recibo.folio}
+            />
           )}
           <DescargarPdfButton nombreArchivo={`recibo-armado-${recibo.folio}.pdf`} />
         </div>

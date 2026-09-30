@@ -94,6 +94,9 @@ export interface ModeloPm {
   modelo: string;
   cantidadPm: number;
   cantidadRegistrada: number;
+  // Algún padre de ese modelo en la OT menciona iluminación. null: la base aún
+  // no informa la marca.
+  conIluminacion: boolean | null;
 }
 
 // Todas las OT del PM (el personal de Estimaciones y el maquilador las ven vía
@@ -132,11 +135,17 @@ export async function listarModelosPm(
   });
   if (error || !data) return null;
   return (
-    data as { modelo: string; cantidad_pm: number; cantidad_registrada: number }[]
+    data as {
+      modelo: string;
+      cantidad_pm: number;
+      cantidad_registrada: number;
+      con_iluminacion?: boolean | null;
+    }[]
   ).map((r) => ({
     modelo: r.modelo,
     cantidadPm: Number(r.cantidad_pm),
     cantidadRegistrada: Number(r.cantidad_registrada),
+    conIluminacion: r.con_iluminacion ?? null,
   }));
 }
 
