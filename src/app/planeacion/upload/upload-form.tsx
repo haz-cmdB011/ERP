@@ -12,14 +12,22 @@ interface FilaError {
   mensaje: string;
 }
 
-interface UploadOk {
-  ok: true;
-  cargaId: string;
+// Un PM cargado: cada hoja del Excel con formato de PM es uno.
+interface PedidoCargado {
+  hoja: string;
+  numero_pedido: string;
   pedido_id: string;
-  pedido_version_id: string;
   numero_version: number;
   items_mo: number;
   items_fu: number;
+}
+
+interface UploadOk {
+  ok: true;
+  cargaId: string;
+  pedidos: PedidoCargado[];
+  // Hojas del archivo sin formato de PM (notas, cálculos): no se cargan.
+  hojasIgnoradas?: string[];
   // Filas con datos incompletos que se guardaron igual (ver parser).
   avisos?: FilaError[];
 }
@@ -339,17 +347,30 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult }) {
     <>
       <div className="mt-2 rounded border border-green-300 bg-green-50 p-3 text-sm text-green-800">
         <p className="font-medium">
-          Pedido ingerido correctamente (versión #{resultado.numero_version}).
+          {resultado.pedidos.length === 1
+            ? "Pedido ingerido correctamente."
+            : `${resultado.pedidos.length} pedidos ingeridos correctamente (uno por hoja).`}
         </p>
-        <p>
-          {resultado.items_mo} muebles (MO) y {resultado.items_fu} componentes (FU) registrados.
-        </p>
-        <Link
-          href={`/planeacion/pedidos/${resultado.pedido_id}`}
-          className="mt-2 inline-block underline"
-        >
-          Ver pedido →
-        </Link>
+        <ul className="mt-2 flex flex-col gap-2">
+          {resultado.pedidos.map((p) => (
+            <li key={p.pedido_id}>
+              <Link href={`/planeacion/pedidos/${p.pedido_id}`} className="font-medium underline">
+                {p.numero_pedido} →
+              </Link>{" "}
+              <span className="text-green-700">
+                {resultado.pedidos.length > 1 && <>hoja &ldquo;{p.hoja}&rdquo; · </>}
+                versión #{p.numero_version} · {p.items_mo} muebles (MO) y {p.items_fu} componentes
+                (FU)
+              </span>
+            </li>
+          ))}
+        </ul>
+        {resultado.hojasIgnoradas && resultado.hojasIgnoradas.length > 0 && (
+          <p className="mt-2 text-xs text-green-700">
+            Hojas sin formato de PM que no se cargaron:{" "}
+            {resultado.hojasIgnoradas.map((h) => `“${h}”`).join(", ")}.
+          </p>
+        )}
       </div>
       {resultado.avisos && resultado.avisos.length > 0 && (
         <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">

@@ -18,6 +18,11 @@ export default function PlaneacionUploadPage() {
           PM distinto y en Pedidos aparecen agrupados en la OT{" "}
           <span className="font-mono">134-26</span>.
         </p>
+        <p className="mt-2 text-sm text-gray-600">
+          Si el Excel trae varias hojas con formato de PM (ej. <span className="font-mono">PEDIDO</span>{" "}
+          y <span className="font-mono">SDC-1</span>), cada hoja se carga como su propio PM con sus
+          ítems e imágenes; las hojas sin ese formato se ignoran.
+        </p>
       </div>
       <UploadForm />
     </main>
