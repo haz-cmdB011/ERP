@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SelectMenu from "@/components/select-menu";
 import { createClient } from "@/lib/supabase/client";
+import { CampoModeloPm, SelectorOtPm, usePmRecibo } from "../selector-pm";
 import {
   ACABADOS,
   CATALOGO,
@@ -11,9 +12,7 @@ import {
   FAMILIAS,
   FASES,
   HISTORICO,
-  MODELOS,
   OBRAS,
-  OTS,
   PRIORIDAD,
   TARIFAS_BASE,
   TARIFAS_FIJAS,
@@ -169,6 +168,8 @@ export default function CapturaAcabados({
   );
   const [obra, setObra] = useState(reciboExistente?.obra ?? "");
   const [ot, setOt] = useState(reciboExistente?.ot ?? "");
+  // OT y modelos vienen del PM que subió Planeación (ver selector-pm.tsx).
+  const seleccionPm = usePmRecibo(ot);
   const [prioridad, setPrioridad] = useState(reciboExistente?.prioridad ?? "normal");
   const [motivo, setMotivo] = useState(reciboExistente?.motivo ?? "");
   const [numeroInicial, setNumeroInicial] = useState(1);
@@ -288,6 +289,10 @@ export default function CapturaAcabados({
     if (!folio.trim()) problemas.push("Falta el folio.");
     if (!fecha.trim()) problemas.push("Falta la fecha del recibo.");
     if (!contratista.trim()) problemas.push("Falta el contratista.");
+    if (!ot.trim()) problemas.push("Falta la OT: elígela de la lista del PM.");
+    else if (seleccionPm.pms && !seleccionPm.pm) {
+      problemas.push("La OT no está en el PM de Planeación; elige una de la lista.");
+    }
     if (prioridad !== "normal" && !motivo.trim()) {
       problemas.push(`La prioridad ${prioridad} exige un motivo.`);
     }
@@ -510,17 +515,15 @@ export default function CapturaAcabados({
           </label>
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>OT</span>
-            <input
-              list="dl-ots"
-              className={`${CONTROL} font-mono`}
-              value={ot}
-              onChange={(e) => setOt(e.target.value)}
+            <SelectorOtPm
+              ot={ot}
+              seleccion={seleccionPm}
+              className={CONTROL}
+              onChange={(nueva, pm) => {
+                setOt(nueva);
+                if (pm?.proyecto && !obra.trim()) setObra(pm.proyecto);
+              }}
             />
-            <datalist id="dl-ots">
-              {OTS.map((o) => (
-                <option key={o} value={o} />
-              ))}
-            </datalist>
           </label>
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>Prioridad</span>
@@ -653,11 +656,11 @@ export default function CapturaAcabados({
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Modelo</span>
-                        <input
-                          list="dl-modelos"
-                          className={`${CONTROL} font-mono`}
+                        <CampoModeloPm
+                          seleccion={seleccionPm}
+                          className={CONTROL}
                           value={r.modelo}
-                          onChange={(e) => actualizar(r.id, { modelo: e.target.value })}
+                          onChange={(modelo) => actualizar(r.id, { modelo })}
                           onBlur={() => {
                             const fams = CATALOGO.filter((c) => c.modelo === normalizar(r.modelo));
                             if (fams.length === 1 && !r.familia) {
@@ -923,12 +926,6 @@ export default function CapturaAcabados({
           );
         })}
       </div>
-
-      <datalist id="dl-modelos">
-        {MODELOS.map((m) => (
-          <option key={m} value={m} />
-        ))}
-      </datalist>
 
       <div>
         <button
