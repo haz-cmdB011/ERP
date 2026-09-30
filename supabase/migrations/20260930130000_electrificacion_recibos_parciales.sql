@@ -1,0 +1,390 @@
+-- RECONSTRUIDA. Esta migración se aplicó en producción el 2026-09-30 pero su
+-- archivo nunca se subió al repo (y Supabase no guardó su SQL). Se rehízo
+-- comparando la base de producción contra lo que producen las demás
+-- migraciones del repo: lo que está aquí deja una base nueva igual a
+-- producción. El reparto exacto entre esta y 20260930120000 es una
+-- suposición por el nombre de cada una.
+--
+-- Recibos parciales de Electrificación: un modelo se puede cobrar en varios
+-- recibos (entregas parciales). La conciliación con el PM ya no exige que la
+-- cantidad acumulada sea igual a la del PM: solo hay descuadre (y se pide
+-- motivo) si la acumulada SUPERA lo declarado en el PM o si el modelo no
+-- está en la OT. Antes cualquier diferencia (<>) contaba como descuadre.
+
+create or replace function public.guardar_recibo_electrificacion(
+  p_folio text, p_fecha_recibo date, p_contratista text, p_obra text, p_ot text,
+  p_prioridad public.est_prioridad, p_motivo_prioridad text, p_renglones jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_maq boolean := public.is_maquilador();
+  v_contratista text := p_contratista;
+  v_recibo_id uuid;
+  v_renglon_id uuid;
+  v_estado text;
+  v_siguiente_numero integer;
+  v_num_charola integer;
+  v_aceptado numeric;
+  v_propuesto numeric;
+  v_pedido_id uuid;
+  v_cantidad_pm numeric;
+  v_cantidad_acumulada numeric;
+  v_motivo_descuadre text;
+  r jsonb;
+  c jsonb;
+begin
+  if not (public.is_estimaciones() or v_maq) then
+    raise exception 'No tienes permiso para capturar recibos de Estimaciones.';
+  end if;
+  if p_renglones is null or jsonb_array_length(p_renglones) = 0 then
+    raise exception 'El recibo no tiene renglones.';
+  end if;
+  if v_maq then
+    v_contratista := public.mi_contratista();
+  end if;
+  v_pedido_id := public.pedido_id_por_ot(p_ot);
+
+  select id, estado into v_recibo_id, v_estado
+    from public.recibos_electrificacion where folio = p_folio and estado <> 'cancelado';
+
+  if v_recibo_id is null then
+    begin
+      insert into public.recibos_electrificacion (
+        folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, capturado_por
+      ) values (
+        p_folio, p_fecha_recibo, v_contratista, nullif(p_obra, ''), btrim(p_ot),
+        p_prioridad, nullif(p_motivo_prioridad, ''), auth.uid()
+      )
+      returning id into v_recibo_id;
+    exception when unique_violation then
+      raise exception 'El folio % ya está registrado.', p_folio;
+    end;
+    v_siguiente_numero := 1;
+  else
+    if v_estado in ('pagado') or (v_maq and v_estado <> 'pendiente') then
+      raise exception 'El folio % ya fue %; no se le pueden agregar renglones.', p_folio, v_estado;
+    end if;
+    select coalesce(max(numero), 0) + 1 into v_siguiente_numero
+      from public.renglones_electrificacion where recibo_id = v_recibo_id;
+  end if;
+
+  for r in select * from jsonb_array_elements(p_renglones)
+  loop
+    v_propuesto := (r->>'propuesto')::numeric;
+    v_aceptado := case when v_maq then 0 else (r->>'aceptado')::numeric end;
+
+    insert into public.renglones_electrificacion (
+      recibo_id, numero, modelo, cantidad, metros_led, complejidad_led, pu_sugerido,
+      fuente_sugerido, pu_propuesto, pu_aceptado, banda, justificacion, nota, decision,
+      pedido_id
+    ) values (
+      v_recibo_id,
+      v_siguiente_numero,
+      r->>'modelo',
+      coalesce((r->>'cantidad')::numeric, 1),
+      coalesce((r->>'metrosLed')::numeric, 0),
+      nullif(r->>'complejidadLed', '')::public.est_complejidad_led,
+      case when v_maq then null else nullif(r->>'puSugerido', '')::numeric end,
+      case when v_maq then 'manual' else r->>'fuente' end,
+      v_propuesto,
+      v_aceptado,
+      case when v_maq then null else (r->>'banda')::public.est_banda end,
+      case when v_maq then null else nullif(r->>'justificacion', '') end,
+      nullif(r->>'nota', ''),
+      case
+        when v_maq or (v_aceptado = 0 and v_propuesto > 0) then null
+        when v_aceptado = v_propuesto then 'aceptado'
+        else 'modificado'
+      end,
+      v_pedido_id
+    )
+    returning id into v_renglon_id;
+
+    v_num_charola := 1;
+    for c in select * from jsonb_array_elements(coalesce(r->'charolas', '[]'::jsonb))
+    loop
+      insert into public.charolas_electrificacion (renglon_id, numero, drivers)
+      values (v_renglon_id, v_num_charola, (c->>'drivers')::integer);
+      v_num_charola := v_num_charola + 1;
+    end loop;
+
+    -- Conciliación por OT + modelo: solo es descuadre si se pasa de lo
+    -- declarado o si el modelo no existe en la OT (ver comentario inicial).
+    v_cantidad_pm := public.cantidad_pm_modelo(v_pedido_id, r->>'modelo');
+    v_cantidad_acumulada := public.cantidad_registrada_modelo(v_pedido_id, r->>'modelo');
+
+    v_motivo_descuadre := nullif(btrim(coalesce(r->>'motivoDescuadre', '')), '');
+    if v_cantidad_pm is null or v_cantidad_acumulada > v_cantidad_pm then
+      if v_motivo_descuadre is null then
+        raise exception
+          'Renglón %: la cantidad supera lo declarado en el PM (o el modelo no está en la OT); captura el motivo.',
+          v_siguiente_numero;
+      end if;
+      insert into public.discrepancias_electrificacion (
+        renglon_id, recibo_id, planeacion_item_id, modelo, cantidad_capturada,
+        cantidad_acumulada, cantidad_pm, motivo, creado_por
+      ) values (
+        v_renglon_id, v_recibo_id, null, r->>'modelo',
+        coalesce((r->>'cantidad')::numeric, 1), v_cantidad_acumulada, v_cantidad_pm,
+        v_motivo_descuadre, auth.uid()
+      );
+    end if;
+
+    v_siguiente_numero := v_siguiente_numero + 1;
+  end loop;
+
+  perform public.est_actualizar_estado_recibo('electrificacion', v_recibo_id);
+  return v_recibo_id;
+end;
+$function$;
+
+revoke execute on function public.guardar_recibo_electrificacion(
+  text, date, text, text, text, public.est_prioridad, text, jsonb) from public, anon;
+grant execute on function public.guardar_recibo_electrificacion(
+  text, date, text, text, text, public.est_prioridad, text, jsonb) to authenticated;
+
+create or replace function public.modificar_recibo_electrificacion(
+  p_recibo_id uuid,
+  p_fecha_recibo date,
+  p_obra text,
+  p_ot text,
+  p_prioridad public.est_prioridad,
+  p_motivo_prioridad text,
+  p_renglones jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_capturado_por uuid;
+  v_estado text;
+  v_decididos integer;
+  v_numero integer := 1;
+  v_num_charola integer;
+  v_renglon_id uuid;
+  v_pedido_id uuid;
+  v_cantidad_pm numeric;
+  v_cantidad_acumulada numeric;
+  v_motivo_descuadre text;
+  r jsonb;
+  c jsonb;
+begin
+  if not public.is_maquilador() then
+    raise exception 'Solo el maquilador que capturó el recibo puede modificarlo.';
+  end if;
+  if p_renglones is null or jsonb_array_length(p_renglones) = 0 then
+    raise exception 'El recibo no tiene renglones.';
+  end if;
+
+  select capturado_por, estado into v_capturado_por, v_estado
+    from public.recibos_electrificacion where id = p_recibo_id;
+  if v_estado is null or v_capturado_por is distinct from auth.uid() then
+    raise exception 'Recibo no encontrado.';
+  end if;
+  if v_estado <> 'pendiente' then
+    raise exception 'Solo se puede modificar un recibo pendiente de revisión.';
+  end if;
+
+  select count(*) into v_decididos from public.renglones_electrificacion
+    where recibo_id = p_recibo_id and decision is not null;
+  if v_decididos > 0 then
+    raise exception 'Este recibo ya está en revisión; pide al personal de Estimaciones que lo corrija.';
+  end if;
+
+  v_pedido_id := public.pedido_id_por_ot(p_ot);
+
+  update public.recibos_electrificacion set
+    fecha_recibo = p_fecha_recibo,
+    obra = nullif(p_obra, ''),
+    ot = btrim(p_ot),
+    prioridad = p_prioridad,
+    motivo_prioridad = nullif(p_motivo_prioridad, '')
+  where id = p_recibo_id;
+
+  -- Borra también las discrepancias del recibo (cascade): se vuelven a evaluar
+  -- con lo que se guarda ahora.
+  delete from public.renglones_electrificacion where recibo_id = p_recibo_id;
+
+  for r in select * from jsonb_array_elements(p_renglones)
+  loop
+    insert into public.renglones_electrificacion (
+      recibo_id, numero, modelo, cantidad, metros_led, complejidad_led, pu_sugerido,
+      fuente_sugerido, pu_propuesto, pu_aceptado, banda, justificacion, nota, decision,
+      pedido_id
+    ) values (
+      p_recibo_id,
+      v_numero,
+      r->>'modelo',
+      coalesce((r->>'cantidad')::numeric, 1),
+      coalesce((r->>'metrosLed')::numeric, 0),
+      nullif(r->>'complejidadLed', '')::public.est_complejidad_led,
+      null,
+      'manual',
+      (r->>'propuesto')::numeric,
+      0,
+      null,
+      null,
+      nullif(r->>'nota', ''),
+      null,
+      v_pedido_id
+    )
+    returning id into v_renglon_id;
+
+    v_num_charola := 1;
+    for c in select * from jsonb_array_elements(coalesce(r->'charolas', '[]'::jsonb))
+    loop
+      insert into public.charolas_electrificacion (renglon_id, numero, drivers)
+      values (v_renglon_id, v_num_charola, (c->>'drivers')::integer);
+      v_num_charola := v_num_charola + 1;
+    end loop;
+
+    v_cantidad_pm := public.cantidad_pm_modelo(v_pedido_id, r->>'modelo');
+    v_cantidad_acumulada := public.cantidad_registrada_modelo(v_pedido_id, r->>'modelo');
+
+    v_motivo_descuadre := nullif(btrim(coalesce(r->>'motivoDescuadre', '')), '');
+    if v_cantidad_pm is null or v_cantidad_acumulada > v_cantidad_pm then
+      if v_motivo_descuadre is null then
+        raise exception
+          'Renglón %: la cantidad supera lo declarado en el PM (o el modelo no está en la OT); captura el motivo.',
+          v_numero;
+      end if;
+      insert into public.discrepancias_electrificacion (
+        renglon_id, recibo_id, planeacion_item_id, modelo, cantidad_capturada,
+        cantidad_acumulada, cantidad_pm, motivo, creado_por
+      ) values (
+        v_renglon_id, p_recibo_id, null, r->>'modelo',
+        coalesce((r->>'cantidad')::numeric, 1), v_cantidad_acumulada, v_cantidad_pm,
+        v_motivo_descuadre, auth.uid()
+      );
+    end if;
+
+    v_numero := v_numero + 1;
+  end loop;
+end;
+$function$;
+
+revoke execute on function public.modificar_recibo_electrificacion(
+  uuid, date, text, text, public.est_prioridad, text, jsonb) from public, anon;
+grant execute on function public.modificar_recibo_electrificacion(
+  uuid, date, text, text, public.est_prioridad, text, jsonb) to authenticated;
+
+-- eliminar_item_definitivo y eliminar_pedido_definitivo se volvieron a crear
+-- sin cambios de lógica (solo sin comentarios); se dejan igual a producción.
+create or replace function public.eliminar_item_definitivo(p_item_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_tiene_informes boolean;
+begin
+  if not public.is_admin_area('produccion') then
+    raise exception 'Solo un administrador de Producción o desarrollador puede eliminar definitivamente.';
+  end if;
+
+  if not exists (
+    select 1 from public.planeacion_items where id = p_item_id and eliminacion_solicitada_en is not null
+  ) then
+    raise exception 'El ítem no existe o no tiene una solicitud de eliminación pendiente.';
+  end if;
+
+  select exists(
+    select 1 from public.informes_calidad where planeacion_item_id = p_item_id
+  ) into v_tiene_informes;
+
+  if v_tiene_informes and not public.is_admin() then
+    update public.planeacion_items
+      set estado_revision = 'cancelado',
+          motivo_cancelacion = coalesce(
+            motivo_cancelacion,
+            'Eliminado desde Producción/Planeación — folio de Calidad conservado'
+          ),
+          eliminacion_solicitada_en = null,
+          eliminacion_solicitada_por = null
+      where id = p_item_id;
+    return true;
+  end if;
+
+  if public.is_admin() then
+    perform public.limpiar_dependencias_items(array[p_item_id]);
+  else
+    update public.renglones_electrificacion set planeacion_item_id = null
+      where planeacion_item_id = p_item_id;
+  end if;
+
+  delete from public.planeacion_items where id = p_item_id;
+  return false;
+end;
+$function$;
+
+create or replace function public.eliminar_pedido_definitivo(p_pedido_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_tiene_informes boolean;
+  v_items uuid[];
+begin
+  if not (public.is_admin() or public.is_admin_planeacion()) then
+    raise exception 'Solo un administrador de Planeación o desarrollador puede eliminar definitivamente.';
+  end if;
+
+  select array_agg(pi.id) into v_items
+    from public.planeacion_items pi
+    join public.pedido_versiones pv on pv.id = pi.pedido_version_id
+    where pv.pedido_id = p_pedido_id;
+
+  select exists (
+    select 1 from public.informes_calidad where planeacion_item_id = any(coalesce(v_items, '{}'))
+  ) into v_tiene_informes;
+
+  if v_tiene_informes and not public.is_admin() then
+    update public.pedidos
+      set cancelado_en = coalesce(cancelado_en, now()),
+          cancelado_por = coalesce(cancelado_por, auth.uid()),
+          motivo_cancelacion = 'Eliminado — folio(s) de Calidad conservados',
+          eliminado_definitivo_en = now(),
+          eliminado_en = null,
+          eliminado_por = null
+      where id = p_pedido_id;
+
+    update public.planeacion_items pi
+      set estado_revision = 'cancelado',
+          motivo_cancelacion = coalesce(pi.motivo_cancelacion, 'Eliminado — folio de Calidad conservado')
+      from public.pedido_versiones pv
+      where pi.pedido_version_id = pv.id
+        and pv.pedido_id = p_pedido_id;
+
+    return true;
+  end if;
+
+  if v_items is not null and public.is_admin() then
+    perform public.limpiar_dependencias_items(v_items);
+  elsif v_items is not null then
+    update public.renglones_electrificacion set planeacion_item_id = null
+      where planeacion_item_id = any(v_items);
+  end if;
+
+  delete from public.pedidos where id = p_pedido_id;
+
+  if not found then
+    raise exception 'El pedido no existe.';
+  end if;
+
+  return false;
+end;
+$function$;
+
+revoke execute on function public.eliminar_item_definitivo(uuid) from public, anon;
+grant execute on function public.eliminar_item_definitivo(uuid) to authenticated;
+revoke execute on function public.eliminar_pedido_definitivo(uuid) from public, anon;
+grant execute on function public.eliminar_pedido_definitivo(uuid) to authenticated;
