@@ -37,41 +37,6 @@ Functions son suficientes.
    (magic link por correo vía Supabase Auth); tras iniciar sesión, lleva a
    `/planeacion/upload`.
 
-## Base de pruebas
-
-El `.env.local` normal apunta a la base de **producción**: lo que se carga o
-borra en local afecta los datos reales del equipo. Para probar sin ese riesgo
-se usa un proyecto de Supabase aparte (`erp-becario-pruebas`, plan gratuito)
-con el mismo esquema:
-
-1. Crear el proyecto en el panel de Supabase (misma organización, región
-   `us-east-1`). El plan gratuito permite dos proyectos activos por
-   administrador de la organización; si no deja, pausar uno que no se use.
-2. Aplicarle el esquema del repo. Las migraciones de `supabase/migrations/`
-   reproducen producción completa (incluidos los buckets de Storage):
-
-   ```bash
-   npx supabase login
-   npx supabase link --project-ref <ref-del-proyecto-de-pruebas>
-   npx supabase db push
-   ```
-
-3. En Authentication → URL Configuration del proyecto de pruebas, agregar
-   `http://localhost:3000/**` y la URL de los previews de Vercel a las
-   Redirect URLs (el inicio de sesión es con enlace por correo).
-4. Crear en Authentication → Users los usuarios de prueba (uno por rol que se
-   quiera probar) y asignarles rol y área en la tabla `perfiles`.
-5. Guardar las claves del proyecto de pruebas en un `.env.pruebas.local`
-   (mismo formato que `.env.example`, no se sube a Git) y copiarlo sobre
-   `.env.local` cuando se quiera trabajar contra pruebas; reiniciar
-   `npm run dev`.
-6. En Vercel → Settings → Environment Variables, poner las claves del
-   proyecto de pruebas solo en el entorno **Preview**: así cada Pull Request
-   se prueba contra la base de pruebas y solo `main` usa producción.
-
-Las migraciones nuevas se aplican primero en pruebas y, ya revisadas, en
-producción.
-
 ## Estructura de datos
 
 El esquema vive en `supabase/migrations/`:
