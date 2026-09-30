@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Avisos from "@/components/avisos";
+import { SCRIPT_TEMA } from "@/lib/tema";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,10 +28,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // suppressHydrationWarning: el script de abajo pone data-tema en <html>
+    // antes de que React hidrate (el servidor no conoce la preferencia).
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Aplica el tema elegido antes de pintar, para que no parpadee en
+            claro al cargar una página en modo oscuro (o al revés). */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <Avisos />

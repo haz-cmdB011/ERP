@@ -2,6 +2,7 @@ import Link from "next/link";
 import LogoutButton from "./logout-button";
 import BotonRegresar from "./boton-regresar";
 import BuscadorGlobal from "./buscador-global";
+import SelectorTema from "./selector-tema";
 
 const INICIO_AREA = {
   planeacion: "/planeacion",
@@ -167,6 +168,7 @@ export default function AreaNav({
           )}
         </div>
         <BuscadorGlobal area={area} />
+        <SelectorTema />
         {soloEstimaciones ? (
           <span className="hidden shrink-0 text-gray-500 lg:inline">{email}</span>
         ) : (

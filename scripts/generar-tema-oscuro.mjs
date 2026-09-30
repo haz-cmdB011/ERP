@@ -33,16 +33,25 @@ for (const f of familias) {
   });
 }
 
-const css = `/* ARCHIVO GENERADO por scripts/generar-tema-oscuro.mjs — no editar a mano. */
-
-/* Modo oscuro según la preferencia del sistema/navegador del usuario. Solo en
-   pantalla: al imprimir se usa siempre la paleta clara. */
-@media screen and (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
+const variablesOscuras = `    color-scheme: dark;
     --color-white: ${BLANCO_OSCURO};
     --color-black: ${NEGRO_CLARO};
-${oscuro.join("\n")}
+${oscuro.join("\n")}`;
+
+const css = `/* ARCHIVO GENERADO por scripts/generar-tema-oscuro.mjs — no editar a mano. */
+
+/* Modo oscuro. Solo en pantalla: al imprimir se usa siempre la paleta clara.
+   <html data-tema="claro|oscuro"> es la elección del usuario en el botón de
+   tema (src/components/selector-tema.tsx); sin ese atributo se sigue la
+   preferencia del sistema/navegador. */
+@media screen and (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+${variablesOscuras}
+  }
+}
+@media screen {
+  :root[data-tema="oscuro"] {
+${variablesOscuras}
   }
 }
 

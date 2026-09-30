@@ -19,11 +19,17 @@
   --color-papel: #fff;
 }
 
+/* Mismas reglas que tema-oscuro.css: el sistema decide salvo que el usuario
+   haya elegido tema (data-tema en <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-tema="claro"]) {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+}
+:root[data-tema="oscuro"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
