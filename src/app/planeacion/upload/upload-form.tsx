@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { avisar } from "@/components/avisos";
 
 // Mismo límite que la ruta /api/planeacion/upload.
 const MAX_FILE_BYTES = 40 * 1024 * 1024;
@@ -168,12 +169,28 @@ export default function UploadForm() {
     setEnviando(true);
     // Uno por uno: cada archivo ya sube muchas imágenes en paralelo, y dos
     // versiones del mismo PM deben quedar en el orden en que se eligieron.
+    let conError = 0;
     for (const carga of pendientes) {
       actualizar(carga.id, { estado: "procesando" });
       const resultado = await subirArchivo(carga.file);
+      if (esError(resultado)) conError++;
       actualizar(carga.id, { estado: "terminado", resultado });
     }
     setEnviando(false);
+    // Resumen breve: el detalle (PM, versiones, avisos) queda en cada archivo.
+    const cargados = pendientes.length - conError;
+    if (conError === 0) {
+      avisar(cargados === 1 ? "Archivo cargado." : `${cargados} archivos cargados.`);
+    } else {
+      avisar(
+        cargados
+          ? `${cargados} de ${pendientes.length} archivos cargados; revisa los que marcaron error.`
+          : pendientes.length === 1
+            ? "El archivo no se cargó; revisa el error."
+            : "Ningún archivo se cargó; revisa los errores.",
+        "error"
+      );
+    }
   }
 
   const pendientes = cargas.filter((c) => c.estado === "pendiente").length;

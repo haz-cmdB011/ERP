@@ -46,6 +46,7 @@ import {
 import { generarPdfDesdeElemento } from "../acabados/generar-pdf";
 import DescargarPdfButton from "../acabados/descargar-pdf-button";
 import ReciboFichaElectrificacion from "./recibo-ficha-electrificacion";
+import { avisar } from "@/components/avisos";
 
 interface Charola {
   drivers: number | "";
@@ -466,6 +467,11 @@ export default function CapturaElectrificacion({
       renglones: renglonesGuardados,
     };
     setReciboGuardado(nuevoRecibo);
+    avisar(
+      reciboExistente
+        ? `Recibo ${nuevoRecibo.folio} modificado.`
+        : `Recibo ${nuevoRecibo.folio} guardado.`
+    );
     listarFoliosElectrificacion(supabase).then(setFoliosDb);
     recargarModelos();
 

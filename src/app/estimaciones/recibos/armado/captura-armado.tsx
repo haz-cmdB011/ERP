@@ -44,6 +44,7 @@ import {
 import { generarPdfDesdeElemento } from "../acabados/generar-pdf";
 import DescargarPdfButton from "../acabados/descargar-pdf-button";
 import ReciboFichaArmado from "./recibo-ficha-armado";
+import { avisar } from "@/components/avisos";
 
 interface Renglon {
   id: number;
@@ -418,6 +419,11 @@ export default function CapturaArmado({
       renglones: renglonesGuardados,
     };
     setReciboGuardado(nuevoRecibo);
+    avisar(
+      reciboExistente
+        ? `Recibo ${nuevoRecibo.folio} modificado.`
+        : `Recibo ${nuevoRecibo.folio} guardado.`
+    );
     cargarHistoricoDb(supabase, "armado").then(setHistoricoDb);
 
     setResultado({

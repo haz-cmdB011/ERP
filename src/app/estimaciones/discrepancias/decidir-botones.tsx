@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { decidirDiscrepanciaElectrificacion } from "@/lib/estimaciones/recibos-electrificacion-db";
+import { avisar } from "@/components/avisos";
 
 // Acepta o rechaza el motivo de un descuadre con el PM. Rechazar exige explicar
 // por qué (esa nota es el reporte que ve quien capturó el recibo). La base
@@ -33,6 +34,7 @@ export default function DecidirBotones({ id }: { id: string }) {
       setError(error);
       return;
     }
+    avisar(decision === "aceptada" ? "Discrepancia aceptada." : "Discrepancia rechazada.");
     router.refresh();
   }
 

@@ -43,6 +43,7 @@ import {
 import { generarPdfDesdeElemento } from "./generar-pdf";
 import ReciboFicha from "./recibo-ficha";
 import DescargarPdfButton from "./descargar-pdf-button";
+import { avisar } from "@/components/avisos";
 
 interface Renglon {
   id: number;
@@ -414,6 +415,11 @@ export default function CapturaAcabados({
       renglones: renglonesGuardados,
     };
     setReciboGuardado(nuevoRecibo);
+    avisar(
+      reciboExistente
+        ? `Recibo ${nuevoRecibo.folio} modificado.`
+        : `Recibo ${nuevoRecibo.folio} guardado.`
+    );
     cargarHistoricoDb(supabase).then(setHistoricoDb);
 
     setResultado({

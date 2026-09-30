@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import IconoPapelera from "@/components/icono-papelera";
+import { avisar } from "@/components/avisos";
 
 // Lo ve quien edita en Planeación (ver page.tsx). Reutiliza el RPC de papelera
 // de Producción (solicitar_eliminacion_item), que ahora también acepta a
@@ -29,6 +30,7 @@ export default function EliminarItemBoton({ itemId }: { itemId: string }) {
       return;
     }
     setConfirmando(false);
+    avisar("Ítem enviado a la papelera.");
     router.refresh();
   }
 

@@ -50,3 +50,48 @@ body {
     zoom: 1.125;
   }
 }
+
+/* Entrada de los avisos breves (src/components/avisos.tsx). */
+@keyframes aviso-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.aviso-entrada {
+  animation: aviso-entrada 160ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .aviso-entrada {
+    animation: none;
+  }
+}
+
+/* Pantallas táctiles (tablets del taller): casillas y opciones más grandes
+   para atinarles con el dedo, y sin el zoom automático de iOS al enfocar un
+   campo (se activa con letra menor a 16 px). */
+@media (pointer: coarse) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Filas que se desplazan de lado en pantallas angostas (barra de áreas): se
+   deslizan con el dedo o la rueda, sin mostrar la barra de desplazamiento. */
+.desplazable-sin-barra {
+  scrollbar-width: none;
+}
+.desplazable-sin-barra::-webkit-scrollbar {
+  display: none;
+}

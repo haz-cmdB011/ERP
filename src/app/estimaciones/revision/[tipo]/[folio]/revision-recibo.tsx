@@ -39,6 +39,7 @@ import {
   type TipoCualquierRecibo,
 } from "@/lib/estimaciones/revision-db";
 import EstadoReciboBadge from "../../../estado-recibo-badge";
+import { avisar } from "@/components/avisos";
 
 type Props =
   | { tipo: TipoRecibo; recibo: ReciboGuardado }
@@ -255,6 +256,7 @@ export default function RevisionRecibo(props: Props) {
       setErrorPago(error);
       return;
     }
+    avisar(`Recibo ${recibo.folio} marcado como pagado.`);
     router.refresh();
   }
 
@@ -393,6 +395,7 @@ function RenglonRevisionCard({
       return;
     }
     setEditando(false);
+    avisar(`Renglón ${r.numero}: precio guardado.`);
     router.refresh();
   }
 

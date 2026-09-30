@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { avisar } from "@/components/avisos";
 
 export interface CancelacionPedido {
   cancelado_en: string | null;
@@ -52,6 +53,7 @@ export default function CancelarPedido({
     }
     setPidiendoMotivo(false);
     setMotivo("");
+    avisar("Pedido cancelado.");
     router.refresh();
   }
 
@@ -68,6 +70,7 @@ export default function CancelarPedido({
       return;
     }
     setConfirmandoReactivar(false);
+    avisar("Pedido reactivado.");
     router.refresh();
   }
 

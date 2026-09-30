@@ -8,6 +8,7 @@ import ConfirmDialog from "@/components/confirm-dialog";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
+import { avisar } from "@/components/avisos";
 
 export interface ItemLiberacionRow {
   id: string;
@@ -243,7 +244,7 @@ export default function ItemsLiberacionTable({
         setMensaje({ tipo: "error", texto: data.error ?? "No se pudo liberar la selección." });
         return;
       }
-      setMensaje({ tipo: "ok", texto: `${data.liberados} ítem(s) liberado(s) a producción.` });
+      avisar(`${data.liberados} ítem(s) liberado(s) a producción.`);
       setSeleccionados(new Set());
       router.refresh();
     } catch {
@@ -268,7 +269,7 @@ export default function ItemsLiberacionTable({
         setMensaje({ tipo: "error", texto: data.error ?? "No se pudo revertir la selección." });
         return;
       }
-      setMensaje({ tipo: "ok", texto: `${data.revertidos} ítem(s) revertido(s) a pendiente.` });
+      avisar(`${data.revertidos} ítem(s) revertido(s) a pendiente.`);
       setSeleccionados(new Set());
       router.refresh();
     } catch {
@@ -288,10 +289,7 @@ export default function ItemsLiberacionTable({
       setMensaje({ tipo: "error", texto: error.message });
       return;
     }
-    setMensaje({
-      tipo: "ok",
-      texto: `Ítem ${item.item_code} movido a la papelera. Puedes restaurarlo desde ahí.`,
-    });
+    avisar(`Ítem ${item.item_code} movido a la papelera. Puedes restaurarlo desde ahí.`);
     setSeleccionados((prev) => {
       const next = new Set(prev);
       next.delete(item.id);
@@ -312,7 +310,7 @@ export default function ItemsLiberacionTable({
       setMensaje({ tipo: "error", texto: error.message });
       return;
     }
-    setMensaje({ tipo: "ok", texto: `Ítem ${item.item_code} restaurado.` });
+    avisar(`Ítem ${item.item_code} restaurado.`);
     router.refresh();
   }
 
@@ -330,13 +328,10 @@ export default function ItemsLiberacionTable({
     }
     // El RPC no borra un ítem que ya tiene folio(s) de Calidad — lo deja
     // cancelado para no perder ese historial (ver Cancelados).
-    setMensaje(
+    avisar(
       conservadoPorFolio
-        ? {
-            tipo: "ok",
-            texto: `Ítem ${item.item_code} ya tenía folio(s) de Calidad: se conservó como cancelado en vez de eliminarse. Puedes verlo en Cancelados.`,
-          }
-        : { tipo: "ok", texto: `Ítem ${item.item_code} eliminado definitivamente.` }
+        ? `Ítem ${item.item_code} ya tenía folio(s) de Calidad: se conservó como cancelado en vez de eliminarse. Puedes verlo en Cancelados.`
+        : `Ítem ${item.item_code} eliminado definitivamente.`
     );
     router.refresh();
   }

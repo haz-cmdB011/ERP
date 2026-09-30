@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cancelarRecibo, type TipoCualquierRecibo } from "@/lib/estimaciones/revision-db";
+import { avisar } from "@/components/avisos";
 
 // Cancela un recibo pendiente. Para el maquilador es la forma de corregirlo:
 // cancela y vuelve a capturarlo con el mismo folio (el folio cancelado deja
@@ -37,6 +38,7 @@ export default function CancelarReciboBoton({
       setError(error);
       return;
     }
+    avisar(`Recibo ${folio} cancelado.`);
     router.refresh();
   }
 

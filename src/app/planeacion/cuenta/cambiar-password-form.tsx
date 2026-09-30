@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { avisar } from "@/components/avisos";
 
 export default function CambiarPasswordForm() {
   const [password, setPassword] = useState("");
@@ -31,7 +32,7 @@ export default function CambiarPasswordForm() {
       setMensaje({ tipo: "error", texto: error.message });
       return;
     }
-    setMensaje({ tipo: "ok", texto: "Contraseña actualizada." });
+    avisar("Contraseña actualizada.");
     setPassword("");
     setConfirmar("");
   }

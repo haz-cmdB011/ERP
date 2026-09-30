@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { eliminarReciboDefinitivo, type TipoCualquierRecibo } from "@/lib/estimaciones/revision-db";
+import { avisar } from "@/components/avisos";
 
 // Elimina el recibo de la base de datos para siempre. Solo se muestra al
 // desarrollador; la base además lo exige (eliminar_recibo_definitivo).
@@ -36,6 +37,7 @@ export default function EliminarReciboDefinitivoBoton({
       setError(error);
       return;
     }
+    avisar(`Recibo ${folio} eliminado definitivamente.`);
     router.push("/estimaciones/registro");
     router.refresh();
   }
