@@ -10,7 +10,11 @@ import DialogoDescuadres, {
   esErrorDeDescuadre,
   type Descuadre,
 } from "../dialogo-descuadres";
-import { conciliarRenglones, requiereMotivo } from "@/lib/estimaciones/conciliacion-pm";
+import {
+  claveModelo,
+  conciliarRenglones,
+  requiereMotivo,
+} from "@/lib/estimaciones/conciliacion-pm";
 import {
   ACABADOS,
   CATALOGO,
@@ -292,7 +296,7 @@ export default function CapturaAcabados({
     if (!pmElegido || modelosPm === null) return renglones.map(() => null);
     const saldo = new Map(
       modelosPm.map((m) => [
-        normalizar(m.modelo),
+        claveModelo(m.modelo),
         { cantidadPm: m.cantidadPm, cantidadRegistrada: m.cantidadRegistrada },
       ])
     );
@@ -315,7 +319,7 @@ export default function CapturaAcabados({
             modelo: r.modelo,
             conciliacion: c,
             registrada:
-              modelosPm?.find((m) => normalizar(m.modelo) === normalizar(r.modelo))
+              modelosPm?.find((m) => claveModelo(m.modelo) === claveModelo(r.modelo))
                 ?.cantidadRegistrada ?? 0,
             motivo: r.motivoDescuadre,
           },

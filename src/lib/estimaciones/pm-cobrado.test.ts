@@ -55,9 +55,9 @@ describe("baseArea", () => {
     expect(baseArea(f, "electrificacion")).toBe(4);
   });
 
-  it("un mueble sin iluminación no aplica en Electrificación, salvo que se haya capturado", () => {
+  it("un mueble sin iluminación no aplica en Electrificación; si se electrificó, es de más", () => {
     expect(estadoCelda(fila({}), "electrificacion")).toBe("no_aplica");
-    expect(baseArea(fila({ electrificacion: 2 }), "electrificacion")).toBe(10);
+    expect(estadoCelda(fila({ electrificacion: 2 }), "electrificacion")).toBe("excedido");
   });
 });
 

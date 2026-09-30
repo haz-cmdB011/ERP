@@ -39,14 +39,12 @@ export type EstadoCobro =
   // Se cobró un modelo que no está en el PM.
   | "fuera_del_pm";
 
-// Contra qué cantidad se compara cada área. Electrificación solo se hace en
-// los muebles con iluminación; si alguien capturó electrificación de un mueble
-// sin iluminación, se compara contra todo el PM de ese modelo.
+// Contra qué cantidad se compara cada área. Electrificación, para todos, solo
+// contra los muebles con iluminación (misma regla que el control al guardar):
+// electrificar un mueble sin iluminación cuenta como cobrado de más.
 export function baseArea(fila: FilaPmCobrado, area: AreaCobro): number | null {
   if (fila.cantidadPm == null) return null;
-  if (area !== "electrificacion") return fila.cantidadPm;
-  if (fila.cantidadPmIluminacion > 0) return fila.cantidadPmIluminacion;
-  return fila.electrificacion > 0 ? fila.cantidadPm : 0;
+  return area === "electrificacion" ? fila.cantidadPmIluminacion : fila.cantidadPm;
 }
 
 export function estadoCobro(cobrado: number, base: number | null): EstadoCobro {

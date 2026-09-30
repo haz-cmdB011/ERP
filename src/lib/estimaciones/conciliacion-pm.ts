@@ -8,7 +8,19 @@
 // no cuentan. Esto solo adelanta el aviso para pedir el motivo antes de
 // guardar; la base sigue siendo quien lo exige.
 
-import { normalizar } from "./motor-precio";
+const CON_ACENTO = "áéíóúüÁÉÍÓÚÜ";
+const SIN_ACENTO = "aeiouuAEIOUU";
+
+// Clave con la que se compara un modelo contra el PM: sin acentos, en
+// mayúsculas y sin espacios, guiones, puntos ni otros signos ("MS-01",
+// "MS 01" y "ms01" son el mismo). Espejo de norm_modelo en la base
+// (supabase/migrations/20260930194232_reglas_modelo_iluminacion.sql).
+export function claveModelo(modelo: string | null | undefined): string {
+  return String(modelo ?? "")
+    .replace(/[áéíóúüÁÉÍÓÚÜ]/g, (c) => SIN_ACENTO[CON_ACENTO.indexOf(c)])
+    .toUpperCase()
+    .replace(/[^A-Z0-9Ñ]/g, "");
+}
 
 export type EstadoConciliacion =
   // El modelo no está entre los del PM de la OT: no hay con qué comparar.
@@ -30,15 +42,15 @@ export interface RenglonConciliable {
 }
 
 // Un resultado por renglón (mismo orden); null en los renglones que no se
-// concilian (sin modelo o reproceso). La clave de saldoPorModelo es el modelo
-// normalizado (normalizar()).
+// concilian (sin modelo o reproceso). La clave de saldoPorModelo es
+// claveModelo(modelo).
 export function conciliarRenglones(
   renglones: RenglonConciliable[],
   saldoPorModelo: Map<string, SaldoModeloPm>
 ): (EstadoConciliacion | null)[] {
   const capturadoHasta = new Map<string, number>();
   return renglones.map((r) => {
-    const clave = normalizar(r.modelo);
+    const clave = claveModelo(r.modelo);
     if (!clave || r.cuentaParaPm === false) return null;
     const previo = capturadoHasta.get(clave) ?? 0;
     const conEste = previo + (Number(r.cantidad) || 0);

@@ -38,7 +38,11 @@ import {
   type RenglonElectrificacionGuardado,
   type RenglonElectrificacionParaGuardar,
 } from "@/lib/estimaciones/recibos-electrificacion-db";
-import { conciliarRenglones, requiereMotivo } from "@/lib/estimaciones/conciliacion-pm";
+import {
+  claveModelo,
+  conciliarRenglones,
+  requiereMotivo,
+} from "@/lib/estimaciones/conciliacion-pm";
 import DialogoDescuadres, {
   AVISO_DESCUADRE_CAMBIO,
   esErrorDeDescuadre,
@@ -231,21 +235,18 @@ export default function CapturaElectrificacion({
   const modelosPm = modelosDe && modelosDe.pedidoId === pedidoId ? modelosDe.modelos : null;
 
   const modelosPorClave = useMemo(
-    () => new Map((modelosPm ?? []).map((m) => [normalizar(m.modelo), m])),
+    () => new Map((modelosPm ?? []).map((m) => [claveModelo(m.modelo), m])),
     [modelosPm]
   );
 
-  // Selector de modelo: se abre al enfocar el campo de un renglón y marca cuáles
-  // modelos llevan iluminación. El personal de Estimaciones ve todos los padres
-  // de la OT y puede filtrar; el maquilador ya recibe solo los de iluminación.
+  // Selector de modelo: se abre al enfocar el campo de un renglón. Para todos
+  // (personal y maquilador) solo trae los muebles con iluminación de la OT: es
+  // contra lo que se mide Electrificación.
   const [modeloAbierto, setModeloAbierto] = useState<number | null>(null);
-  const [soloIluminacion, setSoloIluminacion] = useState(false);
-  const totalConIluminacion = (modelosPm ?? []).filter((m) => m.conIluminacion).length;
   function opcionesModelo(texto: string): ModeloPm[] {
-    const q = normalizar(texto);
+    const q = claveModelo(texto);
     return (modelosPm ?? [])
-      .filter((m) => !soloIluminacion || m.conIluminacion)
-      .filter((m) => !q || normalizar(m.modelo).includes(q))
+      .filter((m) => !q || claveModelo(m.modelo).includes(q))
       .slice(0, 60);
   }
 
@@ -266,7 +267,7 @@ export default function CapturaElectrificacion({
     if (!otPm || modelosPm === null) return renglones.map(() => null);
     const saldo = new Map(
       modelosPm.map((m) => [
-        normalizar(m.modelo),
+        claveModelo(m.modelo),
         { cantidadPm: m.cantidadPm, cantidadRegistrada: m.cantidadRegistrada },
       ])
     );
@@ -330,7 +331,7 @@ export default function CapturaElectrificacion({
             num: numeroInicial + i,
             modelo: r.modelo,
             conciliacion: c,
-            registrada: modelosPorClave.get(normalizar(r.modelo))?.cantidadRegistrada ?? 0,
+            registrada: modelosPorClave.get(claveModelo(r.modelo))?.cantidadRegistrada ?? 0,
             motivo: r.motivoDescuadre,
           },
         ]
@@ -621,24 +622,9 @@ export default function CapturaElectrificacion({
                 </option>
               ))}
             </select>
-            {contratistaFijo && (
-              <span className="text-[11px] text-slate-400">
-                Solo se muestran las OT y los modelos que incluyen iluminación.
-              </span>
-            )}
-            {!contratistaFijo && modelosPm && modelosPm.some((m) => m.conIluminacion !== null) && (
-              <span className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                {modelosPm.length} modelos en esta OT, {totalConIluminacion} con iluminación.
-                <label className="flex items-center gap-1 font-medium text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={soloIluminacion}
-                    onChange={(e) => setSoloIluminacion(e.target.checked)}
-                  />
-                  Solo con iluminación
-                </label>
-              </span>
-            )}
+            <span className="text-[11px] text-slate-400">
+              Solo se muestran las OT y los modelos que incluyen iluminación.
+            </span>
           </label>
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>Prioridad</span>
@@ -798,17 +784,21 @@ export default function CapturaElectrificacion({
                                     className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-sm hover:bg-indigo-50"
                                   >
                                     <span className="font-mono text-slate-900">{m.modelo}</span>
-                                    {m.conIluminacion != null && (
-                                      <span
-                                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
-                                          m.conIluminacion
-                                            ? "bg-amber-50 text-amber-800 ring-amber-200"
-                                            : "bg-slate-100 text-slate-500 ring-slate-200"
-                                        }`}
-                                      >
-                                        {m.conIluminacion ? "💡 Con iluminación" : "Sin iluminación"}
-                                      </span>
-                                    )}
+                                    <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
+                                      {m.cantidadPm} en el PM
+                                      {m.cantidadRegistrada > 0 && (
+                                        <span
+                                          className={
+                                            m.cantidadRegistrada >= m.cantidadPm
+                                              ? "font-semibold text-amber-700"
+                                              : ""
+                                          }
+                                        >
+                                          {" · "}
+                                          {m.cantidadRegistrada} ya cobradas
+                                        </span>
+                                      )}
+                                    </span>
                                   </button>
                                 </li>
                               ))}
@@ -1290,7 +1280,7 @@ export default function CapturaElectrificacion({
         <DialogoDescuadres
           descuadres={descuadres}
           ot={ot}
-          detalleModelos={contratistaFijo ? " con iluminación" : ""}
+          detalleModelos=" con iluminación"
           onMotivo={(id, motivo) => actualizar(id, { motivoDescuadre: motivo })}
           onCerrar={() => setAvisoDescuadre(false)}
           onConfirmar={() => {

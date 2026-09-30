@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { normalizar } from "@/lib/estimaciones/motor-precio";
+import { claveModelo } from "@/lib/estimaciones/conciliacion-pm";
 import {
   listarModelosPmRecibo,
   listarPmRecibos,
@@ -116,9 +116,9 @@ export function CampoModeloPm({
   className: string;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const q = normalizar(value);
+  const q = claveModelo(value);
   const opciones = (seleccion.modelos ?? [])
-    .filter((m) => !q || normalizar(m.modelo).includes(q))
+    .filter((m) => !q || claveModelo(m.modelo).includes(q))
     .slice(0, 60);
 
   return (
