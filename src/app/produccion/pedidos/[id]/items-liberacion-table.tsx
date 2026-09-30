@@ -390,7 +390,7 @@ export default function ItemsLiberacionTable({
           desplegable ? "cursor-pointer" : ""
         }`}
       >
-        <td className="px-3 py-2" onClick={sinToggle}>
+        <td className="px-3 py-3 lg:py-2" onClick={sinToggle}>
           <input
             type="checkbox"
             checked={seleccionados.has(item.id)}
@@ -398,24 +398,24 @@ export default function ItemsLiberacionTable({
             aria-label={`Seleccionar ítem ${item.item_code}`}
           />
         </td>
-        <td className="px-3 py-2">
+        <td className="py-3 pr-1 lg:px-3 lg:py-2">
           {item.imagenUrl ? (
             <ImagenAmpliable
               url={item.imagenUrl}
               urlGrande={item.imagenGrandeUrl}
               alt={`Ítem ${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`}
-              className={indentado ? "h-9 w-9" : "h-11 w-11"}
+              className={indentado ? "h-12 w-12 lg:h-9 lg:w-9" : "h-16 w-16 lg:h-11 lg:w-11"}
             />
           ) : (
             <span
               className={`block rounded border border-dashed border-slate-200 ${
-                indentado ? "h-9 w-9" : "h-11 w-11"
+                indentado ? "h-12 w-12 lg:h-9 lg:w-9" : "h-16 w-16 lg:h-11 lg:w-11"
               }`}
               title="Sin imagen"
             />
           )}
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-3 lg:py-2">
           <span className="inline-flex items-center gap-1.5">
             {desplegable && (
               <svg
@@ -434,6 +434,8 @@ export default function ItemsLiberacionTable({
               </svg>
             )}
             {item.item_code}
+            {/* Tablet: el modelo va junto al número, como título de la ficha. */}
+            {item.modelo && <span className="lg:hidden">· {item.modelo}</span>}
           </span>
           {desplegable && grupo && (
             <span className="mt-0.5 block text-[11px] font-normal text-slate-500">
@@ -441,16 +443,40 @@ export default function ItemsLiberacionTable({
               {grupo.hijos.length !== grupo.totalHijos ? ` (${grupo.hijos.length} coinciden)` : ""}
             </span>
           )}
+          {/* Tablet y celular: el resto de las columnas, apiladas en la misma
+              celda (en escritorio cada dato tiene su columna). */}
+          <div className="mt-1 flex flex-col gap-1 text-sm font-normal text-slate-700 lg:hidden">
+            {item.descripcion && (
+              <p className={indentado ? "line-clamp-2" : "line-clamp-3"}>
+                {indentado ? item.descripcion.split("\n")[0] : item.descripcion}
+              </p>
+            )}
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+              <span className="font-medium text-slate-700">
+                {item.cantidad_total} {item.unidad}
+              </span>
+              {item.tipo_material && <span>{item.tipo_material}</span>}
+              {item.folio && <span className="font-mono text-slate-800">{item.folio}</span>}
+            </p>
+            <div>
+              <EstadoBadge item={item} />
+              {item.estado_revision && (
+                <span className="mt-1 block text-xs font-semibold">
+                  {ESTADO_REVISION_LABELS[item.estado_revision]} (Planeación)
+                </span>
+              )}
+            </div>
+          </div>
         </td>
-        <td className="px-3 py-2">{item.modelo}</td>
-        <td className="px-3 py-2">{item.tipo_material}</td>
-        <td className="px-3 py-2">
+        <td className="hidden px-3 py-2 lg:table-cell">{item.modelo}</td>
+        <td className="hidden px-3 py-2 lg:table-cell">{item.tipo_material}</td>
+        <td className="hidden px-3 py-2 lg:table-cell">
           {indentado ? item.descripcion?.split("\n")[0] : item.descripcion}
         </td>
-        <td className="px-3 py-2">
+        <td className="hidden px-3 py-2 lg:table-cell">
           {item.cantidad_total} {item.unidad}
         </td>
-        <td className="px-3 py-2">
+        <td className="hidden px-3 py-2 lg:table-cell">
           <EstadoBadge item={item} />
           {item.estado_revision && (
             <span className="mt-1 block text-xs font-semibold">
@@ -458,7 +484,7 @@ export default function ItemsLiberacionTable({
             </span>
           )}
         </td>
-        <td className="px-3 py-2">
+        <td className="hidden px-3 py-2 lg:table-cell">
           {item.folio ? (
             <span
               className="whitespace-nowrap font-mono text-xs text-slate-800"
@@ -472,12 +498,13 @@ export default function ItemsLiberacionTable({
             </span>
           )}
         </td>
-        <td className="flex flex-wrap items-center gap-2 px-3 py-2" onClick={sinToggle}>
+        <td className="px-3 py-3 lg:py-2" onClick={sinToggle}>
+          <div className="flex flex-col items-center gap-2 lg:flex-row lg:flex-wrap">
           <Link
             href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
             title="Viajero"
             aria-label={`Viajero del ítem ${item.item_code}`}
-            className="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
+            className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
           >
             {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
             <svg
@@ -501,7 +528,7 @@ export default function ItemsLiberacionTable({
               disabled={procesando}
               title="Enviar a la papelera"
               aria-label={`Enviar el ítem ${item.item_code} a la papelera`}
-              className="flex h-8 w-8 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+              className="flex h-11 w-11 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 lg:h-8 lg:w-8"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -520,6 +547,7 @@ export default function ItemsLiberacionTable({
               </svg>
             </button>
           )}
+          </div>
         </td>
       </tr>
     );
@@ -548,7 +576,7 @@ export default function ItemsLiberacionTable({
               setVistaPapelera(false);
               setFiltroEstado(valor);
             }}
-            className={`rounded border px-3 py-1 font-medium transition-colors ${
+            className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
               !vistaPapelera && filtroEstado === valor
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -561,7 +589,7 @@ export default function ItemsLiberacionTable({
           <button
             type="button"
             onClick={() => setVistaPapelera((v) => !v)}
-            className={`ml-auto rounded border px-3 py-1 font-medium transition-colors ${
+            className={`ml-auto rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
               vistaPapelera
                 ? "border-rose-600 bg-rose-600 text-white"
                 : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
@@ -600,11 +628,11 @@ export default function ItemsLiberacionTable({
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2">Item</th>
-                    <th className="px-3 py-2">Modelo</th>
-                    <th className="px-3 py-2">Material</th>
-                    <th className="px-3 py-2">Descripción</th>
-                    <th className="px-3 py-2">Cant.</th>
-                    <th className="px-3 py-2">Eliminado</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Modelo</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Material</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Descripción</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Cant.</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Eliminado</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -613,23 +641,43 @@ export default function ItemsLiberacionTable({
                     const procesando = procesandoId === item.id;
                     return (
                       <tr key={item.id} className="align-top text-slate-700 transition-colors hover:bg-slate-50">
-                        <td className="px-3 py-2">{item.item_code}</td>
-                        <td className="px-3 py-2">{item.modelo}</td>
-                        <td className="px-3 py-2">{item.tipo_material}</td>
-                        <td className="px-3 py-2">{item.descripcion}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-3 lg:py-2">
+                          <span className="font-medium text-slate-900 lg:font-normal lg:text-slate-700">
+                            {item.item_code}
+                            {item.modelo && <span className="lg:hidden"> · {item.modelo}</span>}
+                          </span>
+                          {/* Tablet y celular: datos apilados en la misma celda. */}
+                          <div className="mt-1 flex flex-col gap-1 text-sm lg:hidden">
+                            {item.descripcion && <p className="line-clamp-3">{item.descripcion}</p>}
+                            <p className="flex flex-wrap gap-x-3 text-xs text-slate-500">
+                              <span className="font-medium text-slate-700">
+                                {item.cantidad_total} {item.unidad}
+                              </span>
+                              {item.tipo_material && <span>{item.tipo_material}</span>}
+                              <span>
+                                Eliminado el{" "}
+                                {new Date(item.eliminacion_solicitada_en as string).toLocaleDateString("es-MX")}
+                              </span>
+                            </p>
+                          </div>
+                        </td>
+                        <td className="hidden px-3 py-2 lg:table-cell">{item.modelo}</td>
+                        <td className="hidden px-3 py-2 lg:table-cell">{item.tipo_material}</td>
+                        <td className="hidden px-3 py-2 lg:table-cell">{item.descripcion}</td>
+                        <td className="hidden px-3 py-2 lg:table-cell">
                           {item.cantidad_total} {item.unidad}
                         </td>
-                        <td className="px-3 py-2 text-slate-500">
-                          {new Date(item.eliminacion_solicitada_en as string).toLocaleDateString()}
+                        <td className="hidden px-3 py-2 text-slate-500 lg:table-cell">
+                          {new Date(item.eliminacion_solicitada_en as string).toLocaleDateString("es-MX")}
                         </td>
-                        <td className="flex flex-wrap items-center gap-2 px-3 py-2">
+                        <td className="px-3 py-3 lg:py-2">
+                          <div className="flex flex-col items-stretch gap-2 lg:flex-row lg:flex-wrap lg:items-center">
                           {puedeSolicitarEliminacion && (
                             <button
                               type="button"
                               onClick={() => cancelarSolicitud(item)}
                               disabled={procesando}
-                              className="rounded border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50"
+                              className="rounded border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50 lg:px-2.5 lg:py-1 lg:text-xs"
                             >
                               Restaurar
                             </button>
@@ -639,11 +687,12 @@ export default function ItemsLiberacionTable({
                               type="button"
                               onClick={() => setConfirmacion({ tipo: "definitivo", item })}
                               disabled={procesando}
-                              className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                              className="rounded border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 lg:px-2.5 lg:py-1 lg:text-xs"
                             >
                               Eliminar definitivamente
                             </button>
                           )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -711,7 +760,7 @@ export default function ItemsLiberacionTable({
             <button
               type="button"
               onClick={() => setFiltroMaterial(null)}
-              className={`rounded border px-3 py-1 font-medium transition-colors ${
+              className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
                 filtroMaterial === null
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -724,7 +773,7 @@ export default function ItemsLiberacionTable({
                 key={mat}
                 type="button"
                 onClick={() => setFiltroMaterial(mat)}
-                className={`rounded border px-3 py-1 font-medium transition-colors ${
+                className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
                   filtroMaterial === mat
                     ? "border-slate-900 bg-slate-900 text-white"
                     : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -797,14 +846,14 @@ export default function ItemsLiberacionTable({
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2"></th>
-                    <th className="px-3 py-2">Imagen</th>
+                    <th className="py-2 pr-1 lg:px-3">Imagen</th>
                     <th className="px-3 py-2">Item</th>
-                    <th className="px-3 py-2">Modelo</th>
-                    <th className="px-3 py-2">Material</th>
-                    <th className="px-3 py-2">Descripción</th>
-                    <th className="px-3 py-2">Cant.</th>
-                    <th className="px-3 py-2">Estado</th>
-                    <th className="px-3 py-2">Folio</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Modelo</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Material</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Descripción</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Cant.</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Estado</th>
+                    <th className="hidden px-3 py-2 lg:table-cell">Folio</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
