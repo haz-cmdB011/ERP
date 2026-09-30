@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeDecidirDiscrepancias } from "@/lib/auth/get-perfil";
 import Paginacion, { TAMANO_PAGINA } from "@/components/paginacion";
+import { AREA_RECIBO_LABELS, type AreaRecibo } from "@/lib/estimaciones/discrepancias-db";
 import DecidirBotones from "./decidir-botones";
 
 interface DiscrepanciaRow {
   id: string;
-  renglon_id: string;
-  recibo_id: string;
+  area: AreaRecibo;
   modelo: string;
   cantidad_capturada: number;
   cantidad_acumulada: number | null;
@@ -19,8 +19,11 @@ interface DiscrepanciaRow {
   estado: "pendiente" | "aceptada" | "rechazada";
   resuelta_en: string | null;
   nota_resolucion: string | null;
+  recibos: { folio: string } | null;
   recibos_electrificacion: { folio: string } | null;
 }
+
+const AREAS = Object.keys(AREA_RECIBO_LABELS) as AreaRecibo[];
 
 const FILTROS: [string, string][] = [
   ["pendientes", "Pendientes"],
@@ -36,17 +39,18 @@ const ESTADO_POR_FILTRO: Record<string, string> = {
 };
 
 // Bandeja donde el administrador de Estimaciones (o un desarrollador) acepta o
-// rechaza el motivo de los descuadres con el PM. La RLS de
-// discrepancias_electrificacion y la función de decisión lo exigen también en
-// la base. Se llenan al capturar/modificar un recibo de Electrificación cuya
-// cantidad no cuadra (o no se encontró el modelo) en el PM de Planeación.
-export default async function DiscrepanciasElectrificacionPage({
+// rechaza el motivo de las diferencias con el PM de los recibos de Acabados,
+// Armado y Electrificación. La función de decisión lo exige también en la
+// base. Se llenan al guardar un renglón cuyo modelo no está en el PM de la OT
+// o cuya cantidad acumulada supera lo que declaró Planeación.
+export default async function DiscrepanciasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtro?: string; pagina?: string }>;
+  searchParams: Promise<{ filtro?: string; area?: string; pagina?: string }>;
 }) {
-  const { filtro: filtroParam, pagina: paginaParam } = await searchParams;
+  const { filtro: filtroParam, area: areaParam, pagina: paginaParam } = await searchParams;
   const filtro = FILTROS.some(([v]) => v === filtroParam) ? (filtroParam as string) : "pendientes";
+  const area = AREAS.includes(areaParam as AreaRecibo) ? (areaParam as AreaRecibo) : null;
 
   const supabase = await createClient();
   if (!puedeDecidirDiscrepancias(await getPerfilActual(supabase))) {
@@ -54,9 +58,10 @@ export default async function DiscrepanciasElectrificacionPage({
   }
 
   let conteoQuery = supabase
-    .from("discrepancias_electrificacion")
+    .from("discrepancias_pm")
     .select("id", { count: "exact", head: true });
   if (ESTADO_POR_FILTRO[filtro]) conteoQuery = conteoQuery.eq("estado", ESTADO_POR_FILTRO[filtro]);
+  if (area) conteoQuery = conteoQuery.eq("area", area);
   const { count, error: errorConteo } = await conteoQuery;
   const total = count ?? 0;
 
@@ -68,15 +73,16 @@ export default async function DiscrepanciasElectrificacionPage({
   let error = errorConteo;
   if (total > 0 && !error) {
     let consulta = supabase
-      .from("discrepancias_electrificacion")
+      .from("discrepancias_pm")
       .select(
-        "id, renglon_id, recibo_id, modelo, cantidad_capturada, cantidad_acumulada, cantidad_pm, " +
+        "id, area, modelo, cantidad_capturada, cantidad_acumulada, cantidad_pm, " +
           "motivo, creado_por, creado_en, estado, resuelta_en, nota_resolucion, " +
-          "recibos_electrificacion(folio)"
+          "recibos(folio), recibos_electrificacion(folio)"
       )
       .order("creado_en", { ascending: false })
       .range((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA - 1);
     if (ESTADO_POR_FILTRO[filtro]) consulta = consulta.eq("estado", ESTADO_POR_FILTRO[filtro]);
+    if (area) consulta = consulta.eq("area", area);
     const { data, error: errorFilas } = await consulta.returns<DiscrepanciaRow[]>();
     error = errorFilas;
     filas = data ?? [];
@@ -94,9 +100,10 @@ export default async function DiscrepanciasElectrificacionPage({
     (perfiles ?? []).map((p) => [p.id, p.contratista || p.nombre_completo || p.email || null])
   );
 
-  const hrefPagina = (valor: string, numeroPagina = 1) => {
+  const hrefPagina = (valor: string, numeroPagina = 1, areaHref: AreaRecibo | null = area) => {
     const params = new URLSearchParams();
     if (valor !== "pendientes") params.set("filtro", valor);
+    if (areaHref) params.set("area", areaHref);
     if (numeroPagina > 1) params.set("pagina", String(numeroPagina));
     const cadena = params.toString();
     return cadena ? `/estimaciones/discrepancias?${cadena}` : "/estimaciones/discrepancias";
@@ -106,12 +113,13 @@ export default async function DiscrepanciasElectrificacionPage({
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Discrepancias — Electrificación
+          Discrepancias con el PM
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Renglones de Electrificación cuya cantidad no concuerda con lo que Planeación declaró en el
-          PM, o cuyo modelo no se encontró. Revisa el motivo del maquilador: si es válido, acéptalo y
-          el proceso sigue; si no, recházalo explicando por qué y queda el reporte de no aceptado.
+          Renglones de Acabados, Armado y Electrificación cuyo modelo no está en el PM de la OT o
+          cuya cantidad acumulada supera lo que declaró Planeación. Revisa el motivo: si es válido,
+          acéptalo y el recibo se puede pagar; si no, recházalo explicando por qué (ese renglón solo
+          se paga con precio aceptado en 0).
         </p>
       </div>
 
@@ -127,6 +135,20 @@ export default async function DiscrepanciasElectrificacionPage({
             }`}
           >
             {etiqueta}
+          </Link>
+        ))}
+        <span className="ml-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Área</span>
+        {[null, ...AREAS].map((a) => (
+          <Link
+            key={a ?? "todas"}
+            href={hrefPagina(filtro, 1, a)}
+            className={`rounded border px-3 py-1 font-medium transition-colors ${
+              area === a
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {a ? AREA_RECIBO_LABELS[a] : "Todas"}
           </Link>
         ))}
       </div>
@@ -152,6 +174,7 @@ export default async function DiscrepanciasElectrificacionPage({
               <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Fecha</th>
                 <th className="px-3 py-2.5">Recibo</th>
+                <th className="px-3 py-2.5">Área</th>
                 <th className="px-3 py-2.5">Modelo</th>
                 <th className="px-3 py-2.5 text-right">Capturada</th>
                 <th className="px-3 py-2.5 text-right">Acumulada</th>
@@ -162,7 +185,9 @@ export default async function DiscrepanciasElectrificacionPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filas.map((f) => (
+              {filas.map((f) => {
+                const folio = f.recibos?.folio ?? f.recibos_electrificacion?.folio ?? null;
+                return (
                 <tr key={f.id} className="align-top transition-colors hover:bg-slate-50">
                   <td className="whitespace-nowrap px-3 py-2 text-slate-500">
                     {new Date(f.creado_en).toLocaleString("es-MX", {
@@ -171,16 +196,19 @@ export default async function DiscrepanciasElectrificacionPage({
                     })}
                   </td>
                   <td className="px-3 py-2">
-                    {f.recibos_electrificacion ? (
+                    {folio ? (
                       <Link
-                        href={`/estimaciones/recibos/electrificacion/recibo/${encodeURIComponent(f.recibos_electrificacion.folio)}`}
+                        href={`/estimaciones/revision/${f.area}/${encodeURIComponent(folio)}`}
                         className="font-mono font-medium text-slate-900 hover:text-indigo-600 hover:underline"
                       >
-                        {f.recibos_electrificacion.folio}
+                        {folio}
                       </Link>
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                    {AREA_RECIBO_LABELS[f.area]}
                   </td>
                   <td className="px-3 py-2 font-mono text-slate-700">{f.modelo}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-slate-700">
@@ -219,7 +247,8 @@ export default async function DiscrepanciasElectrificacionPage({
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

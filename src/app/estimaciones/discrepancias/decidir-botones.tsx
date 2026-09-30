@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { decidirDiscrepanciaElectrificacion } from "@/lib/estimaciones/recibos-electrificacion-db";
+import { decidirDiscrepancia } from "@/lib/estimaciones/discrepancias-db";
 import { avisar } from "@/components/avisos";
 
 // Acepta o rechaza el motivo de un descuadre con el PM. Rechazar exige explicar
@@ -28,7 +28,7 @@ export default function DecidirBotones({ id }: { id: string }) {
     }
     setTrabajando(true);
     setError(null);
-    const { error } = await decidirDiscrepanciaElectrificacion(createClient(), id, decision, nota);
+    const { error } = await decidirDiscrepancia(createClient(), id, decision, nota);
     setTrabajando(false);
     if (error) {
       setError(error);

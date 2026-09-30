@@ -38,11 +38,12 @@ import {
   type RenglonElectrificacionGuardado,
   type RenglonElectrificacionParaGuardar,
 } from "@/lib/estimaciones/recibos-electrificacion-db";
-import {
-  cantidadPorModelo,
-  evaluarConciliacion,
-  type EstadoConciliacion,
-} from "@/lib/estimaciones/conciliacion-pm";
+import { conciliarRenglones, requiereMotivo } from "@/lib/estimaciones/conciliacion-pm";
+import DialogoDescuadres, {
+  AVISO_DESCUADRE_CAMBIO,
+  esErrorDeDescuadre,
+  type Descuadre,
+} from "../dialogo-descuadres";
 import { generarPdfDesdeElemento } from "../acabados/generar-pdf";
 import DescargarPdfButton from "../acabados/descargar-pdf-button";
 import ReciboFichaElectrificacion from "./recibo-ficha-electrificacion";
@@ -233,7 +234,6 @@ export default function CapturaElectrificacion({
     () => new Map((modelosPm ?? []).map((m) => [normalizar(m.modelo), m])),
     [modelosPm]
   );
-  const totalesPorModelo = useMemo(() => cantidadPorModelo(renglones), [renglones]);
 
   // Selector de modelo: se abre al enfocar el campo de un renglón y marca cuáles
   // modelos llevan iluminación. El personal de Estimaciones ve todos los padres
@@ -259,17 +259,19 @@ export default function CapturaElectrificacion({
     });
   }
 
-  // null: aún no hay con qué comparar (sin OT del PM o sin modelos cargados).
-  function conciliacion(r: Renglon): EstadoConciliacion | null {
-    if (!otPm || modelosPm === null || !r.modelo.trim()) return null;
-    const clave = normalizar(r.modelo);
-    const m = modelosPorClave.get(clave);
-    return evaluarConciliacion(
-      m ? m.cantidadPm : null,
-      m?.cantidadRegistrada ?? 0,
-      totalesPorModelo.get(clave) ?? 0
+  // Conciliación de cada renglón contra el PM (misma regla que la base, ver
+  // conciliacion-pm.ts); null donde aún no hay con qué comparar (sin OT del PM
+  // o sin modelos cargados).
+  const conciliaciones = useMemo(() => {
+    if (!otPm || modelosPm === null) return renglones.map(() => null);
+    const saldo = new Map(
+      modelosPm.map((m) => [
+        normalizar(m.modelo),
+        { cantidadPm: m.cantidadPm, cantidadRegistrada: m.cantidadRegistrada },
+      ])
     );
-  }
+    return conciliarRenglones(renglones, saldo);
+  }, [otPm, modelosPm, renglones]);
 
   function continuarFolio() {
     if (!folioPrevio) return;
@@ -319,9 +321,20 @@ export default function CapturaElectrificacion({
   }
 
   const [avisoDescuadre, setAvisoDescuadre] = useState(false);
-  const descuadres = renglones.flatMap((r, i) => {
-    const c = conciliacion(r);
-    return c && c.estado !== "cuadra" ? [{ r, num: numeroInicial + i, c }] : [];
+  const descuadres: Descuadre[] = renglones.flatMap((r, i) => {
+    const c = conciliaciones[i];
+    return c && requiereMotivo(c)
+      ? [
+          {
+            id: r.id,
+            num: numeroInicial + i,
+            modelo: r.modelo,
+            conciliacion: c,
+            registrada: modelosPorClave.get(normalizar(r.modelo))?.cantidadRegistrada ?? 0,
+            motivo: r.motivoDescuadre,
+          },
+        ]
+      : [];
   });
 
   async function guardar() {
@@ -405,7 +418,9 @@ export default function CapturaElectrificacion({
         banda: bandaFinal,
         justificacion: justificacionFinal,
         nota: r.nota,
-        motivoDescuadre: r.motivoDescuadre,
+        // Solo viaja en los renglones que lo necesitan (uno que ya cuadra no
+        // debe dejar un motivo viejo).
+        motivoDescuadre: requiereMotivo(conciliaciones[i]) ? r.motivoDescuadre : "",
       });
     });
 
@@ -416,7 +431,7 @@ export default function CapturaElectrificacion({
 
     // Recién al guardar se avisa si las cantidades no concuerdan con el PM y
     // se pide el motivo, que revisará el administrador de Estimaciones.
-    if (descuadres.some((d) => !d.r.motivoDescuadre.trim())) {
+    if (descuadres.some((d) => !d.motivo.trim())) {
       setAvisoDescuadre(true);
       return;
     }
@@ -440,14 +455,9 @@ export default function CapturaElectrificacion({
       // La base vio un descuadre que la pantalla no: lo registrado del modelo
       // cambió desde que se abrió el formulario. Se refresca para que el
       // siguiente Guardar muestre el aviso y pida el motivo.
-      if (error.includes("captura el motivo")) {
+      if (esErrorDeDescuadre(error)) {
         recargarModelos();
-        setResultado({
-          ok: false,
-          texto: [
-            "Las cantidades ya registradas de un modelo cambiaron desde que abriste el formulario. Vuelve a pulsar Guardar para revisar el descuadre y capturar el motivo.",
-          ],
-        });
+        setResultado({ ok: false, texto: [AVISO_DESCUADRE_CAMBIO] });
         return;
       }
       setResultado({ ok: false, texto: [error] });
@@ -1277,77 +1287,17 @@ export default function CapturaElectrificacion({
       </div>
 
       {avisoDescuadre && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="titulo-descuadre"
-        >
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
-            <div>
-              <h2 id="titulo-descuadre" className="text-base font-semibold text-slate-900">
-                ⚠ Las cantidades no concuerdan con el registro del PM
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Lo que capturaste no coincide con lo que Planeación declaró. Explica el motivo de cada
-                renglón: se enviará al administrador de Estimaciones, quien lo aceptará o lo rechazará.
-              </p>
-            </div>
-
-            {descuadres.map(({ r, num, c }) => (
-              <div key={r.id} className="rounded-lg border border-amber-300 bg-amber-50 p-3">
-                <p className="text-sm font-semibold text-amber-900">
-                  Renglón #{num} · <span className="font-mono">{r.modelo || "sin modelo"}</span>
-                </p>
-                <p className="mt-0.5 text-xs text-amber-900">
-                  {c.estado === "sin_modelo_en_pm" ? (
-                    `Este modelo no está entre los modelos${contratistaFijo ? " con iluminación" : ""} de la OT ${ot}, así que no se puede comparar la cantidad.`
-                  ) : c.estado === "no_cuadra" ? (
-                    <>
-                      Planeación declaró <b>{c.cantidadPm} pz</b>; con esta captura suman{" "}
-                      <b>{c.total} pz</b>
-                      {(modelosPorClave.get(normalizar(r.modelo))?.cantidadRegistrada ?? 0) > 0
-                        ? ` (${modelosPorClave.get(normalizar(r.modelo))?.cantidadRegistrada} ya registradas en otros recibos)`
-                        : ""}{" "}
-                      — {c.diferencia > 0 ? `sobran ${c.diferencia}` : `faltan ${-c.diferencia}`}.
-                    </>
-                  ) : null}
-                </p>
-                <label className="mt-2 flex flex-col gap-1">
-                  <span className={ETIQUETA}>Motivo</span>
-                  <textarea
-                    rows={2}
-                    placeholder="¿Por qué no coincide la cantidad con el PM?"
-                    className={CONTROL}
-                    value={r.motivoDescuadre}
-                    onChange={(e) => actualizar(r.id, { motivoDescuadre: e.target.value })}
-                  />
-                </label>
-              </div>
-            ))}
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAvisoDescuadre(false)}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Volver a revisar
-              </button>
-              <button
-                type="button"
-                disabled={descuadres.some((d) => !d.r.motivoDescuadre.trim())}
-                onClick={() => {
-                  setAvisoDescuadre(false);
-                  void guardar();
-                }}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-              >
-                Enviar al administrador y guardar
-              </button>
-            </div>
-          </div>
-        </div>
+        <DialogoDescuadres
+          descuadres={descuadres}
+          ot={ot}
+          detalleModelos={contratistaFijo ? " con iluminación" : ""}
+          onMotivo={(id, motivo) => actualizar(id, { motivoDescuadre: motivo })}
+          onCerrar={() => setAvisoDescuadre(false)}
+          onConfirmar={() => {
+            setAvisoDescuadre(false);
+            void guardar();
+          }}
+        />
       )}
     </main>
   );

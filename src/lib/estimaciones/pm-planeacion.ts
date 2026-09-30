@@ -1,6 +1,7 @@
 // OT/PM y modelos que subió Planeación, para los generadores de recibos de
 // Acabados y Armado (RPC listar_ots_pm_recibos / listar_modelos_pm_recibos,
-// ver supabase/migrations/20260930170000_recibos_modelos_pm.sql).
+// ver supabase/migrations/20260930170558_recibos_modelos_pm.sql y
+// 20260930191049_control_pm_recibos.sql).
 // Electrificación usa sus propias funciones, que además marcan y filtran los
 // modelos con iluminación (ver recibos-electrificacion-db.ts).
 
@@ -19,6 +20,9 @@ export interface ModeloPmRecibo {
   cantidadPm: number;
   // Primera línea de la descripción, para reconocer el modelo en la lista.
   descripcion: string | null;
+  // Lo ya capturado de ese modelo en recibos vigentes del área (sin
+  // reprocesos ni el recibo que se está modificando).
+  cantidadRegistrada: number;
 }
 
 // null si la consulta falla.
@@ -38,13 +42,27 @@ export async function listarPmRecibos(supabase: SupabaseClient): Promise<PmRecib
 // null si la consulta falla.
 export async function listarModelosPmRecibo(
   supabase: SupabaseClient,
-  pedidoId: string
+  pedidoId: string,
+  tipo: "acabados" | "armado",
+  excluirReciboId?: string
 ): Promise<ModeloPmRecibo[] | null> {
-  const { data, error } = await supabase.rpc("listar_modelos_pm_recibos", { p_pedido: pedidoId });
+  const { data, error } = await supabase.rpc("listar_modelos_pm_recibos", {
+    p_pedido: pedidoId,
+    p_tipo: tipo,
+    p_excluir_recibo: excluirReciboId ?? null,
+  });
   if (error || !data) return null;
-  return (data as { modelo: string; cantidad_pm: number; descripcion: string | null }[]).map((r) => ({
+  return (
+    data as {
+      modelo: string;
+      cantidad_pm: number;
+      descripcion: string | null;
+      cantidad_registrada: number;
+    }[]
+  ).map((r) => ({
     modelo: r.modelo,
     cantidadPm: Number(r.cantidad_pm),
     descripcion: r.descripcion || null,
+    cantidadRegistrada: Number(r.cantidad_registrada),
   }));
 }

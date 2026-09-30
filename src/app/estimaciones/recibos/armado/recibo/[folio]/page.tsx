@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import EliminarReciboDefinitivoBoton from "../../../../eliminar-recibo-definitivo-boton";
 import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { buscarReciboPorFolio } from "@/lib/estimaciones/recibos-db";
+import { listarDiscrepanciasRecibo } from "@/lib/estimaciones/discrepancias-db";
+import DiscrepanciasRecibo from "../../../../discrepancias-recibo";
 import ReciboFichaArmado from "../../recibo-ficha-armado";
 import DescargarPdfButton from "../../../acabados/descargar-pdf-button";
 
@@ -24,6 +26,9 @@ export default async function SeguimientoReciboArmadoPage({
   const esPersonal = puedeVerPrecioSugerido(perfil);
   const esDesarrollador = perfil?.rol === "desarrollador";
   const recibo = await buscarReciboPorFolio(supabase, folio, "armado");
+  const discrepancias = recibo?.id
+    ? await listarDiscrepanciasRecibo(supabase, "armado", recibo.id)
+    : [];
 
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host") ?? ""}`;
@@ -64,6 +69,7 @@ export default async function SeguimientoReciboArmadoPage({
           <DescargarPdfButton nombreArchivo={`recibo-armado-${recibo.folio}.pdf`} />
         </div>
       </div>
+      <DiscrepanciasRecibo discrepancias={discrepancias} />
       <div className="rounded-xl border border-slate-200 shadow-sm">
         <ReciboFichaArmado recibo={recibo} qrUrl={qrUrl} mostrarInterno={esPersonal} />
       </div>

@@ -5,6 +5,12 @@ import Link from "next/link";
 import SelectMenu from "@/components/select-menu";
 import { createClient } from "@/lib/supabase/client";
 import { CampoModeloPm, SelectorOtPm, usePmRecibo } from "../selector-pm";
+import DialogoDescuadres, {
+  AVISO_DESCUADRE_CAMBIO,
+  esErrorDeDescuadre,
+  type Descuadre,
+} from "../dialogo-descuadres";
+import { conciliarRenglones, requiereMotivo } from "@/lib/estimaciones/conciliacion-pm";
 import {
   CATALOGO,
   CAUSAS_REPROCESO,
@@ -61,6 +67,8 @@ interface Renglon {
   aceptado: number | "";
   justificacion: string;
   nota: string;
+  // Por qué no concuerda con el PM; solo se pide (y se envía) si no concuerda.
+  motivoDescuadre: string;
   tocadoAceptado: boolean;
   colapsado: boolean;
 }
@@ -82,6 +90,7 @@ function nuevoRenglon(pre: Partial<Renglon> = {}): Renglon {
     aceptado: 0,
     justificacion: "",
     nota: "",
+    motivoDescuadre: "",
     tocadoAceptado: false,
     colapsado: false,
     ...pre,
@@ -162,7 +171,7 @@ export default function CapturaArmado({
   const [obra, setObra] = useState(reciboExistente?.obra ?? "");
   const [ot, setOt] = useState(reciboExistente?.ot ?? "");
   // OT y modelos vienen del PM que subió Planeación (ver selector-pm.tsx).
-  const seleccionPm = usePmRecibo(ot);
+  const seleccionPm = usePmRecibo(ot, "armado", reciboExistente?.id);
   const [prioridad, setPrioridad] = useState(reciboExistente?.prioridad ?? "normal");
   const [motivo, setMotivo] = useState(reciboExistente?.motivo ?? "");
   const [numeroInicial, setNumeroInicial] = useState(1);
@@ -268,6 +277,46 @@ export default function CapturaArmado({
   const recorte = totales.propuesto - totales.aceptado;
   const recortePct = totales.propuesto > 0 ? (recorte / totales.propuesto) * 100 : 0;
 
+  // Piezas contra el PM de la OT, con la misma regla que aplica la base al
+  // guardar (ver conciliacion-pm.ts): los reprocesos no cuentan. Los renglones
+  // que no concuerdan piden motivo antes de guardar.
+  const [avisoDescuadre, setAvisoDescuadre] = useState(false);
+  const { pm: pmElegido, modelos: modelosPm } = seleccionPm;
+  const conciliaciones = useMemo(() => {
+    if (!pmElegido || modelosPm === null) return renglones.map(() => null);
+    const saldo = new Map(
+      modelosPm.map((m) => [
+        normalizar(m.modelo),
+        { cantidadPm: m.cantidadPm, cantidadRegistrada: m.cantidadRegistrada },
+      ])
+    );
+    return conciliarRenglones(
+      renglones.map((r) => ({
+        modelo: r.modelo,
+        cantidad: r.cantidad,
+        cuentaParaPm: r.tipoTrabajo !== "reproceso",
+      })),
+      saldo
+    );
+  }, [pmElegido, modelosPm, renglones]);
+  const descuadres: Descuadre[] = renglones.flatMap((r, i) => {
+    const c = conciliaciones[i];
+    return c && requiereMotivo(c)
+      ? [
+          {
+            id: r.id,
+            num: numeroInicial + i,
+            modelo: r.modelo,
+            conciliacion: c,
+            registrada:
+              modelosPm?.find((m) => normalizar(m.modelo) === normalizar(r.modelo))
+                ?.cantidadRegistrada ?? 0,
+            motivo: r.motivoDescuadre,
+          },
+        ]
+      : [];
+  });
+
   async function generarPdfAutomatico(nombreArchivo: string) {
     setGenerandoPdf(true);
     try {
@@ -372,11 +421,20 @@ export default function CapturaArmado({
         banda: bandaFinal,
         justificacion: justificacionFinal,
         nota: r.nota,
+        // Solo en los renglones que no concuerdan con el PM.
+        motivoDescuadre: requiereMotivo(conciliaciones[i]) ? r.motivoDescuadre : "",
       });
     });
 
     if (problemas.length) {
       setResultado({ ok: false, texto: problemas });
+      return;
+    }
+
+    // Recién al guardar se avisa si hay piezas que no concuerdan con el PM y
+    // se pide el motivo, que revisará el administrador de Estimaciones.
+    if (descuadres.some((d) => !d.motivo.trim())) {
+      setAvisoDescuadre(true);
       return;
     }
 
@@ -401,6 +459,13 @@ export default function CapturaArmado({
     setGuardando(false);
 
     if (error) {
+      // La base vio piezas de más que la pantalla no (otro recibo se guardó
+      // mientras tanto): se recarga lo registrado para pedir el motivo.
+      if (esErrorDeDescuadre(error)) {
+        seleccionPm.recargar();
+        setResultado({ ok: false, texto: [AVISO_DESCUADRE_CAMBIO] });
+        return;
+      }
       setResultado({ ok: false, texto: [error] });
       return;
     }
@@ -425,6 +490,7 @@ export default function CapturaArmado({
         : `Recibo ${nuevoRecibo.folio} guardado.`
     );
     cargarHistoricoDb(supabase, "armado").then(setHistoricoDb);
+    seleccionPm.recargar();
 
     setResultado({
       ok: true,
@@ -435,6 +501,9 @@ export default function CapturaArmado({
         sombras ? `${sombras} con estimado de nivel 3 guardado en sombra para calibrar.` : "",
         !puedeVerSugerido
           ? "Queda pendiente de revisión: el personal de Estimaciones acepta o modifica cada precio antes del pago."
+          : "",
+        descuadres.length > 0
+          ? "⚠ Hay piezas que no concuerdan con el PM: se envió el motivo al administrador de Estimaciones, y el recibo no se puede pagar hasta que lo decida."
           : "",
         "Generando el PDF del recibo…",
       ].filter(Boolean),
@@ -1109,6 +1178,19 @@ export default function CapturaArmado({
           </button>
         </div>
       </div>
+
+      {avisoDescuadre && (
+        <DialogoDescuadres
+          descuadres={descuadres}
+          ot={ot}
+          onMotivo={(id, texto) => actualizar(id, { motivoDescuadre: texto })}
+          onCerrar={() => setAvisoDescuadre(false)}
+          onConfirmar={() => {
+            setAvisoDescuadre(false);
+            void guardar();
+          }}
+        />
+      )}
     </main>
   );
 }

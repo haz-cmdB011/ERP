@@ -20,9 +20,18 @@ export interface PmSeleccion {
   pm: PmRecibo | null;
   // Modelos del PM elegido; null mientras no hay PM o si la consulta falla.
   modelos: ModeloPmRecibo[] | null;
+  // Vuelve a leer lo ya registrado por modelo (tras guardar, o si la base
+  // avisó que cambió mientras se capturaba).
+  recargar: () => void;
 }
 
-export function usePmRecibo(ot: string): PmSeleccion {
+// excluirReciboId: al modificar un recibo, sus propias piezas no cuentan como
+// "ya registradas" (se van a reemplazar).
+export function usePmRecibo(
+  ot: string,
+  tipo: "acabados" | "armado",
+  excluirReciboId?: string
+): PmSeleccion {
   const [pms, setPms] = useState<PmRecibo[] | null | undefined>(undefined);
   useEffect(() => {
     listarPmRecibos(createClient()).then(setPms);
@@ -33,20 +42,21 @@ export function usePmRecibo(ot: string): PmSeleccion {
     pedidoId: string;
     modelos: ModeloPmRecibo[] | null;
   } | null>(null);
+  const [version, setVersion] = useState(0);
   const pedidoId = pm?.pedidoId ?? null;
   useEffect(() => {
     if (!pedidoId) return;
     let vigente = true;
-    listarModelosPmRecibo(createClient(), pedidoId).then((modelos) => {
+    listarModelosPmRecibo(createClient(), pedidoId, tipo, excluirReciboId).then((modelos) => {
       if (vigente) setModelosDe({ pedidoId, modelos });
     });
     return () => {
       vigente = false;
     };
-  }, [pedidoId]);
+  }, [pedidoId, tipo, excluirReciboId, version]);
   const modelos = modelosDe && modelosDe.pedidoId === pedidoId ? modelosDe.modelos : null;
 
-  return { pms, pm, modelos };
+  return { pms, pm, modelos, recargar: () => setVersion((v) => v + 1) };
 }
 
 // Lista de OT/PM de Planeación. Una OT capturada antes que ya no esté en la
@@ -146,6 +156,18 @@ export function CampoModeloPm({
                   <span className="font-mono text-slate-900">{m.modelo}</span>
                   <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
                     {m.cantidadPm} en el PM
+                    {m.cantidadRegistrada > 0 && (
+                      <>
+                        {" · "}
+                        <span
+                          className={
+                            m.cantidadRegistrada >= m.cantidadPm ? "font-semibold text-amber-700" : ""
+                          }
+                        >
+                          {m.cantidadRegistrada} ya cobradas
+                        </span>
+                      </>
+                    )}
                   </span>
                 </span>
                 {m.descripcion && (

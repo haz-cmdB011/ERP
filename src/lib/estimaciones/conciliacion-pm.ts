@@ -1,39 +1,65 @@
-// Conciliación de la cantidad capturada en Electrificación contra lo que
-// Planeación declaró en el PM. Misma regla que aplica la base al guardar
-// (guardar_recibo_electrificacion): por OT + modelo, lo ya registrado en otros
-// recibos más lo que se captura ahora debe igualar la suma de cantidad_total de
-// las filas del PM con ese modelo en esa OT. Esto solo adelanta el aviso en
-// pantalla; la base sigue siendo quien exige el motivo.
+// Conciliación de lo capturado en un recibo (Acabados, Armado o
+// Electrificación) contra lo que Planeación declaró en el PM. Es el espejo en
+// pantalla del trigger est_conciliar_renglon_pm
+// (supabase/migrations/20260930191049_control_pm_recibos.sql): renglón por
+// renglón, en orden, por modelo de la OT, lo ya registrado en otros recibos
+// vigentes del área más lo capturado hasta ese renglón no debe superar lo
+// declarado. Capturar de menos está bien (entregas parciales). Los reprocesos
+// no cuentan. Esto solo adelanta el aviso para pedir el motivo antes de
+// guardar; la base sigue siendo quien lo exige.
 
 import { normalizar } from "./motor-precio";
 
 export type EstadoConciliacion =
+  // El modelo no está entre los del PM de la OT: no hay con qué comparar.
   | { estado: "sin_modelo_en_pm" }
-  | { estado: "cuadra"; cantidadPm: number; total: number }
-  | { estado: "no_cuadra"; cantidadPm: number; total: number; diferencia: number };
+  | { estado: "dentro"; cantidadPm: number; acumulada: number }
+  | { estado: "excede"; cantidadPm: number; acumulada: number; excedente: number };
 
-// cantidadPm null: el modelo no existe en el PM de esa OT.
-export function evaluarConciliacion(
-  cantidadPm: number | null,
-  cantidadRegistrada: number,
-  cantidadEnFormulario: number
-): EstadoConciliacion {
-  if (cantidadPm == null) return { estado: "sin_modelo_en_pm" };
-  const total = cantidadRegistrada + cantidadEnFormulario;
-  if (total === cantidadPm) return { estado: "cuadra", cantidadPm, total };
-  return { estado: "no_cuadra", cantidadPm, total, diferencia: total - cantidadPm };
+export interface SaldoModeloPm {
+  cantidadPm: number;
+  // Lo ya capturado en otros recibos vigentes del área (sin el que se edita).
+  cantidadRegistrada: number;
 }
 
-// Suma lo capturado en el formulario por modelo (un mismo modelo puede
-// aparecer en varios renglones). La clave es el modelo normalizado.
-export function cantidadPorModelo(
-  renglones: { modelo: string; cantidad: number | "" }[]
-): Map<string, number> {
-  const mapa = new Map<string, number>();
-  for (const r of renglones) {
+export interface RenglonConciliable {
+  modelo: string;
+  cantidad: number | "";
+  // false para un reproceso: no gasta saldo del PM ni se concilia.
+  cuentaParaPm?: boolean;
+}
+
+// Un resultado por renglón (mismo orden); null en los renglones que no se
+// concilian (sin modelo o reproceso). La clave de saldoPorModelo es el modelo
+// normalizado (normalizar()).
+export function conciliarRenglones(
+  renglones: RenglonConciliable[],
+  saldoPorModelo: Map<string, SaldoModeloPm>
+): (EstadoConciliacion | null)[] {
+  const capturadoHasta = new Map<string, number>();
+  return renglones.map((r) => {
     const clave = normalizar(r.modelo);
-    if (!clave) continue;
-    mapa.set(clave, (mapa.get(clave) ?? 0) + (Number(r.cantidad) || 0));
-  }
-  return mapa;
+    if (!clave || r.cuentaParaPm === false) return null;
+    const previo = capturadoHasta.get(clave) ?? 0;
+    const conEste = previo + (Number(r.cantidad) || 0);
+    capturadoHasta.set(clave, conEste);
+
+    const saldo = saldoPorModelo.get(clave);
+    if (!saldo) return { estado: "sin_modelo_en_pm" };
+    const acumulada = saldo.cantidadRegistrada + conEste;
+    if (acumulada > saldo.cantidadPm) {
+      return {
+        estado: "excede",
+        cantidadPm: saldo.cantidadPm,
+        acumulada,
+        excedente: acumulada - saldo.cantidadPm,
+      };
+    }
+    return { estado: "dentro", cantidadPm: saldo.cantidadPm, acumulada };
+  });
+}
+
+// ¿Este resultado exige motivo? (lo mismo que hace fallar al trigger).
+export function requiereMotivo(c: EstadoConciliacion | null): boolean {
+  return c !== null && c.estado !== "dentro";
 }
