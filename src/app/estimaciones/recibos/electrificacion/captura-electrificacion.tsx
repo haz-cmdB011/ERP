@@ -234,6 +234,30 @@ export default function CapturaElectrificacion({
   );
   const totalesPorModelo = useMemo(() => cantidadPorModelo(renglones), [renglones]);
 
+  // Selector de modelo: se abre al enfocar el campo de un renglón y marca cuáles
+  // modelos llevan iluminación. El personal de Estimaciones ve todos los padres
+  // de la OT y puede filtrar; el maquilador ya recibe solo los de iluminación.
+  const [modeloAbierto, setModeloAbierto] = useState<number | null>(null);
+  const [soloIluminacion, setSoloIluminacion] = useState(false);
+  const totalConIluminacion = (modelosPm ?? []).filter((m) => m.conIluminacion).length;
+  function opcionesModelo(texto: string): ModeloPm[] {
+    const q = normalizar(texto);
+    return (modelosPm ?? [])
+      .filter((m) => !soloIluminacion || m.conIluminacion)
+      .filter((m) => !q || normalizar(m.modelo).includes(q))
+      .slice(0, 60);
+  }
+
+  // Vuelve a leer del PM lo ya registrado por modelo: tras guardar un recibo, la
+  // cantidad registrada cambia y la comparación del siguiente debe usarla.
+  function recargarModelos() {
+    if (!pedidoId) return;
+    const id = pedidoId;
+    listarModelosPm(createClient(), id, reciboExistente?.id).then((modelos) => {
+      setModelosDe({ pedidoId: id, modelos });
+    });
+  }
+
   // null: aún no hay con qué comparar (sin OT del PM o sin modelos cargados).
   function conciliacion(r: Renglon): EstadoConciliacion | null {
     if (!otPm || modelosPm === null || !r.modelo.trim()) return null;
@@ -412,6 +436,19 @@ export default function CapturaElectrificacion({
     setGuardando(false);
 
     if (error) {
+      // La base vio un descuadre que la pantalla no: lo registrado del modelo
+      // cambió desde que se abrió el formulario. Se refresca para que el
+      // siguiente Guardar muestre el aviso y pida el motivo.
+      if (error.includes("captura el motivo")) {
+        recargarModelos();
+        setResultado({
+          ok: false,
+          texto: [
+            "Las cantidades ya registradas de un modelo cambiaron desde que abriste el formulario. Vuelve a pulsar Guardar para revisar el descuadre y capturar el motivo.",
+          ],
+        });
+        return;
+      }
       setResultado({ ok: false, texto: [error] });
       return;
     }
@@ -430,6 +467,7 @@ export default function CapturaElectrificacion({
     };
     setReciboGuardado(nuevoRecibo);
     listarFoliosElectrificacion(supabase).then(setFoliosDb);
+    recargarModelos();
 
     setResultado({
       ok: true,
@@ -444,8 +482,19 @@ export default function CapturaElectrificacion({
           ? "⚠ Hay renglones cuya cantidad no concuerda con el PM: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
           : "",
         "Generando el PDF del recibo…",
+        reciboExistente ? "" : "El formulario quedó listo para otro recibo (se conservan fecha, obra y OT).",
       ].filter(Boolean),
     });
+
+    // Recibo nuevo: se deja el formulario limpio para capturar el siguiente.
+    if (!reciboExistente) {
+      setFolio("");
+      setRenglones([nuevoRenglon()]);
+      setPrioridad("normal");
+      setMotivo("");
+      setNumeroInicial(1);
+      setFolioContinuado(false);
+    }
 
     window.setTimeout(() => {
       void generarPdfAutomatico(`recibo-electrificacion-${nuevoRecibo.folio}.pdf`);
@@ -556,11 +605,24 @@ export default function CapturaElectrificacion({
                 </option>
               ))}
             </select>
-            <datalist id="dl-modelos-pm">
-              {(modelosPm ?? []).map((m) => (
-                <option key={m.modelo} value={m.modelo} />
-              ))}
-            </datalist>
+            {contratistaFijo && (
+              <span className="text-[11px] text-slate-400">
+                Solo se muestran las OT y los modelos que incluyen iluminación.
+              </span>
+            )}
+            {!contratistaFijo && modelosPm && modelosPm.some((m) => m.conIluminacion !== null) && (
+              <span className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                {modelosPm.length} modelos en esta OT, {totalConIluminacion} con iluminación.
+                <label className="flex items-center gap-1 font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={soloIluminacion}
+                    onChange={(e) => setSoloIluminacion(e.target.checked)}
+                  />
+                  Solo con iluminación
+                </label>
+              </span>
+            )}
           </label>
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>Prioridad</span>
@@ -693,20 +755,57 @@ export default function CapturaElectrificacion({
                     <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
                       <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Modelo</span>
-                        <input
-                          list="dl-modelos-pm"
-                          placeholder={otPm ? "Elige o escribe el modelo" : "Elige primero la OT"}
-                          className={`${CONTROL} font-mono`}
-                          value={r.modelo}
-                          onChange={(e) => actualizar(r.id, { modelo: e.target.value })}
-                        />
+                        <div className="relative">
+                          <input
+                            autoComplete="off"
+                            placeholder={otPm ? "Elige o escribe el modelo" : "Elige primero la OT"}
+                            className={`${CONTROL} font-mono`}
+                            value={r.modelo}
+                            onFocus={() => setModeloAbierto(r.id)}
+                            onBlur={() => setModeloAbierto(null)}
+                            onChange={(e) => {
+                              actualizar(r.id, { modelo: e.target.value });
+                              setModeloAbierto(r.id);
+                            }}
+                          />
+                          {modeloAbierto === r.id && opcionesModelo(r.modelo).length > 0 && (
+                            <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                              {opcionesModelo(r.modelo).map((m) => (
+                                <li key={m.modelo}>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      actualizar(r.id, { modelo: m.modelo });
+                                      setModeloAbierto(null);
+                                    }}
+                                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-sm hover:bg-indigo-50"
+                                  >
+                                    <span className="font-mono text-slate-900">{m.modelo}</span>
+                                    {m.conIluminacion != null && (
+                                      <span
+                                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
+                                          m.conIluminacion
+                                            ? "bg-amber-50 text-amber-800 ring-amber-200"
+                                            : "bg-slate-100 text-slate-500 ring-slate-200"
+                                        }`}
+                                      >
+                                        {m.conIluminacion ? "💡 Con iluminación" : "Sin iluminación"}
+                                      </span>
+                                    )}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       </label>
                       <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Cantidad de piezas</span>
                         <input
                           type="number"
-                          min={1}
-                          step={1}
+                          min={0}
+                          step="any"
                           className={`${CONTROL} tabular-nums`}
                           value={r.cantidad}
                           onChange={(e) =>
@@ -727,7 +826,7 @@ export default function CapturaElectrificacion({
                           <input
                             type="number"
                             min={0}
-                            step={0.5}
+                            step="any"
                             className={`${CONTROL} tabular-nums`}
                             value={r.metrosLed}
                             onChange={(e) =>
@@ -1196,7 +1295,7 @@ export default function CapturaElectrificacion({
                 </p>
                 <p className="mt-0.5 text-xs text-amber-900">
                   {c.estado === "sin_modelo_en_pm" ? (
-                    `Este modelo no existe en el PM de la OT ${ot}, así que no se puede comparar la cantidad.`
+                    `Este modelo no está entre los modelos${contratistaFijo ? " con iluminación" : ""} de la OT ${ot}, así que no se puede comparar la cantidad.`
                   ) : c.estado === "no_cuadra" ? (
                     <>
                       Planeación declaró <b>{c.cantidadPm} pz</b>; con esta captura suman{" "}
