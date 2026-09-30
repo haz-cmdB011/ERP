@@ -1,3 +1,7 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function-contiene public.norm_modelo A-Z0-9Ñ
+-- @verifica function-contiene public.cantidad_pm_modelo and public.descripcion_incluye_iluminacion(pi.descripcion)
+
 -- Dos reglas únicas para comparar recibos contra el PM.
 --
 -- 1. Modelos: norm_modelo ahora ignora mayúsculas, acentos, espacios, guiones,

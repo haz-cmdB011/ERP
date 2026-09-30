@@ -337,6 +337,24 @@ export default function CapturaElectrificacion({
         ]
       : [];
   });
+  // Recibo parcial: lo acumulado del modelo queda por debajo de lo declarado
+  // (no es descuadre; falta cobrar el resto en otros recibos). Cuenta el último
+  // renglón de cada modelo, que ya lleva el acumulado completo.
+  const ultimoPorModelo = new Map<string, { modelo: string; acumulada: number; cantidadPm: number } | null>();
+  renglones.forEach((r, i) => {
+    const c = conciliaciones[i];
+    if (!c) return;
+    ultimoPorModelo.set(
+      claveModelo(r.modelo),
+      c.estado === "dentro"
+        ? { modelo: normalizar(r.modelo), acumulada: c.acumulada, cantidadPm: c.cantidadPm }
+        : null
+    );
+  });
+  const parciales = [...ultimoPorModelo.values()].filter(
+    (p): p is { modelo: string; acumulada: number; cantidadPm: number } =>
+      p !== null && p.acumulada < p.cantidadPm
+  );
 
   async function guardar() {
     const problemas: string[] = [];
@@ -495,8 +513,13 @@ export default function CapturaElectrificacion({
         !puedeVerSugerido
           ? "Queda pendiente de revisión: el personal de Estimaciones acepta o modifica cada precio antes del pago."
           : "",
+        parciales.length > 0
+          ? `Recibo parcial: ${parciales
+              .map((p) => `${p.modelo} lleva ${p.acumulada} de ${p.cantidadPm} pz declaradas`)
+              .join("; ")}.`
+          : "",
         descuadres.length > 0
-          ? "⚠ Hay renglones cuya cantidad no concuerda con el PM: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
+          ? "⚠ Hay renglones cuya cantidad supera lo declarado en el PM: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
           : "",
         "Generando el PDF del recibo…",
         reciboExistente ? "" : "El formulario quedó listo para otro recibo (se conservan fecha, obra y OT).",

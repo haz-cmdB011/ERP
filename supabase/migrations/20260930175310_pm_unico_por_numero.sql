@@ -1,3 +1,7 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica index public.pedidos_numero_pedido_key
+-- @verifica function-contiene public.ingest_planeacion_version proyecto_anterior
+
 -- ============================================================================
 -- Planeación — un PM se identifica solo por su número.
 --

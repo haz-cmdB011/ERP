@@ -1,15 +1,23 @@
--- RECONSTRUIDA. Esta migración se aplicó en producción el 2026-09-30 pero su
--- archivo nunca se subió al repo (y Supabase no guardó su SQL). Se rehízo
--- comparando la base de producción contra lo que producen las demás
--- migraciones del repo: lo que está aquí deja una base nueva igual a
--- producción. El reparto exacto entre esta y 20260930120000 es una
--- suposición por el nombre de cada una.
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- (La regla de parciales pasó al trigger est_conciliar_renglon_pm en
+--  20260930191049_control_pm_recibos; las funciones de guardado ya no la contienen.)
+-- @verifica function public.guardar_recibo_electrificacion
+-- @verifica function public.modificar_recibo_electrificacion
+
+-- ============================================================================
+-- Electrificación — recibos parciales: el motivo se exige solo si se PASA.
 --
--- Recibos parciales de Electrificación: un modelo se puede cobrar en varios
--- recibos (entregas parciales). La conciliación con el PM ya no exige que la
--- cantidad acumulada sea igual a la del PM: solo hay descuadre (y se pide
--- motivo) si la acumulada SUPERA lo declarado en el PM o si el modelo no
--- está en la OT. Antes cualquier diferencia (<>) contaba como descuadre.
+-- Antes, cada recibo de un modelo pedía motivo hasta que la suma acumulada
+-- (OT + modelo) igualara exactamente lo declarado en el PM; un recibo parcial
+-- (menos piezas de las declaradas) siempre generaba discrepancia. Ahora:
+--   * acumulado <= declarado  -> sin discrepancia (menor = parcial: falta
+--                                cobrar el resto en otros recibos);
+--   * acumulado >  declarado  -> discrepancia, se exige motivo;
+--   * el modelo no existe en la OT (declarado nulo) -> discrepancia, motivo.
+--
+-- Solo cambia esa condición (y el texto del error) en las dos funciones de
+-- guardado; el resto es idéntico a 20260929120000.
+-- ============================================================================
 
 create or replace function public.guardar_recibo_electrificacion(
   p_folio text, p_fecha_recibo date, p_contratista text, p_obra text, p_ot text,
@@ -19,7 +27,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = ''
-as $function$
+as $$
 declare
   v_maq boolean := public.is_maquilador();
   v_contratista text := p_contratista;
@@ -140,8 +148,7 @@ begin
   perform public.est_actualizar_estado_recibo('electrificacion', v_recibo_id);
   return v_recibo_id;
 end;
-$function$;
-
+$$;
 revoke execute on function public.guardar_recibo_electrificacion(
   text, date, text, text, text, public.est_prioridad, text, jsonb) from public, anon;
 grant execute on function public.guardar_recibo_electrificacion(
@@ -160,7 +167,7 @@ returns void
 language plpgsql
 security definer
 set search_path = ''
-as $function$
+as $$
 declare
   v_capturado_por uuid;
   v_estado text;
@@ -267,124 +274,4 @@ begin
     v_numero := v_numero + 1;
   end loop;
 end;
-$function$;
-
-revoke execute on function public.modificar_recibo_electrificacion(
-  uuid, date, text, text, public.est_prioridad, text, jsonb) from public, anon;
-grant execute on function public.modificar_recibo_electrificacion(
-  uuid, date, text, text, public.est_prioridad, text, jsonb) to authenticated;
-
--- eliminar_item_definitivo y eliminar_pedido_definitivo se volvieron a crear
--- sin cambios de lógica (solo sin comentarios); se dejan igual a producción.
-create or replace function public.eliminar_item_definitivo(p_item_id uuid)
-returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_tiene_informes boolean;
-begin
-  if not public.is_admin_area('produccion') then
-    raise exception 'Solo un administrador de Producción o desarrollador puede eliminar definitivamente.';
-  end if;
-
-  if not exists (
-    select 1 from public.planeacion_items where id = p_item_id and eliminacion_solicitada_en is not null
-  ) then
-    raise exception 'El ítem no existe o no tiene una solicitud de eliminación pendiente.';
-  end if;
-
-  select exists(
-    select 1 from public.informes_calidad where planeacion_item_id = p_item_id
-  ) into v_tiene_informes;
-
-  if v_tiene_informes and not public.is_admin() then
-    update public.planeacion_items
-      set estado_revision = 'cancelado',
-          motivo_cancelacion = coalesce(
-            motivo_cancelacion,
-            'Eliminado desde Producción/Planeación — folio de Calidad conservado'
-          ),
-          eliminacion_solicitada_en = null,
-          eliminacion_solicitada_por = null
-      where id = p_item_id;
-    return true;
-  end if;
-
-  if public.is_admin() then
-    perform public.limpiar_dependencias_items(array[p_item_id]);
-  else
-    update public.renglones_electrificacion set planeacion_item_id = null
-      where planeacion_item_id = p_item_id;
-  end if;
-
-  delete from public.planeacion_items where id = p_item_id;
-  return false;
-end;
-$function$;
-
-create or replace function public.eliminar_pedido_definitivo(p_pedido_id uuid)
-returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_tiene_informes boolean;
-  v_items uuid[];
-begin
-  if not (public.is_admin() or public.is_admin_planeacion()) then
-    raise exception 'Solo un administrador de Planeación o desarrollador puede eliminar definitivamente.';
-  end if;
-
-  select array_agg(pi.id) into v_items
-    from public.planeacion_items pi
-    join public.pedido_versiones pv on pv.id = pi.pedido_version_id
-    where pv.pedido_id = p_pedido_id;
-
-  select exists (
-    select 1 from public.informes_calidad where planeacion_item_id = any(coalesce(v_items, '{}'))
-  ) into v_tiene_informes;
-
-  if v_tiene_informes and not public.is_admin() then
-    update public.pedidos
-      set cancelado_en = coalesce(cancelado_en, now()),
-          cancelado_por = coalesce(cancelado_por, auth.uid()),
-          motivo_cancelacion = 'Eliminado — folio(s) de Calidad conservados',
-          eliminado_definitivo_en = now(),
-          eliminado_en = null,
-          eliminado_por = null
-      where id = p_pedido_id;
-
-    update public.planeacion_items pi
-      set estado_revision = 'cancelado',
-          motivo_cancelacion = coalesce(pi.motivo_cancelacion, 'Eliminado — folio de Calidad conservado')
-      from public.pedido_versiones pv
-      where pi.pedido_version_id = pv.id
-        and pv.pedido_id = p_pedido_id;
-
-    return true;
-  end if;
-
-  if v_items is not null and public.is_admin() then
-    perform public.limpiar_dependencias_items(v_items);
-  elsif v_items is not null then
-    update public.renglones_electrificacion set planeacion_item_id = null
-      where planeacion_item_id = any(v_items);
-  end if;
-
-  delete from public.pedidos where id = p_pedido_id;
-
-  if not found then
-    raise exception 'El pedido no existe.';
-  end if;
-
-  return false;
-end;
-$function$;
-
-revoke execute on function public.eliminar_item_definitivo(uuid) from public, anon;
-grant execute on function public.eliminar_item_definitivo(uuid) to authenticated;
-revoke execute on function public.eliminar_pedido_definitivo(uuid) from public, anon;
-grant execute on function public.eliminar_pedido_definitivo(uuid) to authenticated;
+$$;

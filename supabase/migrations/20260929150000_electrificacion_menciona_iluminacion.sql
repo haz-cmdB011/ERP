@@ -1,3 +1,6 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function-contiene public.descripcion_incluye_iluminacion like '%ilumina%'
+
 -- ============================================================================
 -- Electrificación — un padre entra al filtro del maquilador si su descripción
 -- MENCIONA iluminación (iluminación, iluminado, etc.), salvo que lo niegue

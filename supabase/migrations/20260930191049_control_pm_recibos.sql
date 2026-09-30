@@ -1,3 +1,16 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica table public.discrepancias_pm
+-- @verifica policy public.discrepancias_pm.select_discrepancias_pm
+-- @verifica column public.recibos.pedido_id
+-- @verifica column public.renglones.motivo_descuadre
+-- @verifica column public.renglones_electrificacion.motivo_descuadre
+-- @verifica function public.est_conciliar_renglon_pm
+-- @verifica trigger public.renglones.trg_conciliar_renglon_pm
+-- @verifica trigger public.renglones_electrificacion.trg_conciliar_renglon_electrificacion_pm
+-- @verifica function public.decidir_discrepancia_pm
+-- @verifica sin-function public.decidir_discrepancia_electrificacion
+-- @verifica function-contiene public.marcar_recibo_pagado discrepancias_pm
+
 -- Control único de piezas contra el PM para los recibos de Acabados, Armado y
 -- Electrificación.
 --

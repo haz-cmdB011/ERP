@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
+import { contrasenaFiltrada, MENSAJE_CONTRASENA_FILTRADA } from "@/lib/auth/contrasena-filtrada";
 
 export default function CambiarPasswordForm() {
   const [password, setPassword] = useState("");
@@ -24,6 +25,11 @@ export default function CambiarPasswordForm() {
     }
 
     setGuardando(true);
+    if (await contrasenaFiltrada(password)) {
+      setGuardando(false);
+      setMensaje({ tipo: "error", texto: MENSAJE_CONTRASENA_FILTRADA });
+      return;
+    }
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
     setGuardando(false);

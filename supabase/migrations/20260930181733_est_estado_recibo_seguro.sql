@@ -1,3 +1,6 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function-contiene public.est_actualizar_estado_recibo v_total > 0
+
 -- est_actualizar_estado_recibo es de uso interno (la llaman guardar_recibo_*,
 -- modificar/decidir_renglon), pero como guardar_recibo_acabados/armado y
 -- decidir_renglon son SECURITY INVOKER necesita EXECUTE para authenticated, así

@@ -10,6 +10,7 @@ import {
 } from "@/lib/planeacion/optimizar-almacenamiento";
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
 import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
+import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
 
 export const runtime = "nodejs";
 // Un Excel grande (muchas imágenes que se comprimen y suben por tandas) tarda.
@@ -389,6 +390,12 @@ export async function POST(request: Request) {
       ...ingestData,
     });
     for (const aviso of hoja.resultado.avisos) {
+      avisos.push({ ...aviso, mensaje: conHoja(hoja.nombreHoja, aviso.mensaje) });
+    }
+    // Datos que luego causan descuadres en el generador de recibos (cantidades
+    // negativas, en cero o con decimales, muebles sin modelo, componentes sin
+    // padre; ver validar-para-recibos.ts). No bloquean la carga.
+    for (const aviso of validarItemsParaRecibos(items)) {
       avisos.push({ ...aviso, mensaje: conHoja(hoja.nombreHoja, aviso.mensaje) });
     }
     const anterior = (ingestData as { proyecto_anterior?: PedidoCargado["proyecto_anterior"] })

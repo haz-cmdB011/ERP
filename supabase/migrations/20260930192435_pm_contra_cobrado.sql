@@ -1,3 +1,6 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function public.pm_contra_cobrado
+
 -- PM contra cobrado: por PM y modelo, lo que Planeación declaró contra lo
 -- capturado en recibos vigentes de Acabados, Armado y Electrificación. Usa las
 -- mismas reglas que el control de 20260930191049_control_pm_recibos.sql:

@@ -1,3 +1,6 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function-contiene public.pedido_id_por_ot eliminado_definitivo_en is null
+
 -- Un PM eliminado definitivamente que se conserva por sus folios de Calidad
 -- queda con eliminado_en = null y eliminado_definitivo_en con fecha. Desde
 -- 20260930175310 (el PM se identifica solo por su número) ese número se puede

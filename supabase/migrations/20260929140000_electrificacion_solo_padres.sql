@@ -1,3 +1,8 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function-contiene public.cantidad_pm_modelo parent_item_id is null
+-- @verifica function-contiene public.listar_ots_pm_electrificacion parent_item_id is null
+-- @verifica function-contiene public.listar_modelos_pm_electrificacion parent_item_id is null
+
 -- ============================================================================
 -- Electrificación — la cantidad de referencia del PM sale SOLO de los ítems
 -- PADRE (tipo_registro 'MO' sin parent_item_id), para todos los roles.

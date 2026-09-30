@@ -3,6 +3,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esMaquilador, getPerfilActual, puedeCapturarTipo } from "@/lib/auth/get-perfil";
 import { listarTodosLosRecibos } from "@/lib/estimaciones/listado-recibos";
+import {
+  agruparPorRecibo,
+  contarRechazadas,
+  listarResumenDiscrepancias,
+} from "@/lib/estimaciones/discrepancias-resumen";
 import { NOMBRE_TIPO_CUALQUIERA } from "@/lib/estimaciones/revision-db";
 import { money, fechaCorta } from "@/lib/estimaciones/motor-precio";
 import EstadoReciboBadge from "../estado-recibo-badge";
@@ -20,6 +25,13 @@ export default async function MisRecibosPage() {
   }
 
   const recibos = await listarTodosLosRecibos(supabase);
+  // Cantidades que no concuerdan con el PM: pendientes de decisión y rechazadas.
+  const resumen = await listarResumenDiscrepancias(supabase);
+  const discrepanciasPorRecibo = agruparPorRecibo(resumen);
+  const rechazos = contarRechazadas(resumen);
+  const foliosRechazados = recibos
+    .filter((r) => (discrepanciasPorRecibo.get(r.id)?.rechazadas ?? 0) > 0 && r.estado !== "cancelado")
+    .map((r) => r.folio);
   const porCobrar = recibos
     .filter((r) => r.estado === "revisado")
     .reduce((s, r) => s + r.totalAceptado, 0);
@@ -39,6 +51,22 @@ export default async function MisRecibosPage() {
           </span>
         )}
       </div>
+
+      {rechazos > 0 && (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"
+        >
+          <strong>
+            {rechazos === 1
+              ? "El administrador no aceptó un motivo de descuadre"
+              : `El administrador no aceptó ${rechazos} motivos de descuadre`}
+          </strong>{" "}
+          en {foliosRechazados.length === 1 ? "el recibo" : "los recibos"}{" "}
+          <span className="font-mono font-medium">{foliosRechazados.join(", ")}</span>. Abre el
+          recibo para ver la respuesta; puedes modificarlo o cancelarlo.
+        </div>
+      )}
 
       {recibos.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
@@ -84,7 +112,21 @@ export default async function MisRecibosPage() {
                     <td className="px-4 py-3 text-slate-700">{r.obra || "—"}</td>
                     <td className="px-4 py-3 font-mono text-slate-700">{r.ot || "—"}</td>
                     <td className="px-4 py-3">
-                      <EstadoReciboBadge estado={r.estado} />
+                      <div className="flex flex-col items-start gap-1">
+                        <EstadoReciboBadge estado={r.estado} />
+                        {(discrepanciasPorRecibo.get(r.id)?.rechazadas ?? 0) > 0 &&
+                          r.estado !== "cancelado" && (
+                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200">
+                              Motivo no aceptado
+                            </span>
+                          )}
+                        {(discrepanciasPorRecibo.get(r.id)?.pendientes ?? 0) > 0 &&
+                          r.estado !== "cancelado" && (
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                              Descuadre en revisión
+                            </span>
+                          )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-slate-700">
                       {r.numRenglones}

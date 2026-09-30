@@ -1,3 +1,6 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica constraint public.renglones_electrificacion.renglones_electrificacion_pedido_id_fkey
+
 -- ============================================================================
 -- Electrificación — borrar un pedido con recibos.
 --

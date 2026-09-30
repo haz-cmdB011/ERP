@@ -1,3 +1,20 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica column public.renglones_electrificacion.pedido_id
+-- @verifica function public.norm_modelo
+-- @verifica function public.cantidad_pm_modelo
+-- @verifica function public.cantidad_registrada_modelo
+-- @verifica function public.pedido_id_por_ot
+-- @verifica function public.listar_ots_pm_electrificacion
+-- @verifica function public.listar_modelos_pm_electrificacion
+-- @verifica function public.puede_decidir_discrepancias
+-- @verifica function public.guardar_recibo_electrificacion
+-- @verifica function public.modificar_recibo_electrificacion
+-- @verifica sin-function public.buscar_items_pm_electrificacion
+-- @verifica sin-function public.resolver_discrepancia_electrificacion
+-- (La tabla discrepancias_electrificacion y decidir_discrepancia_electrificacion de esta
+--  migración fueron reemplazadas por discrepancias_pm / decidir_discrepancia_pm en
+--  20260930191049_control_pm_recibos; ya no se comprueban aquí.)
+
 -- ============================================================================
 -- Electrificación — conciliación por OT + modelo contra el PM, y decisión del
 -- administrador sobre los descuadres.

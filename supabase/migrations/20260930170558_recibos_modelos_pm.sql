@@ -1,3 +1,7 @@
+-- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
+-- @verifica function public.listar_ots_pm_recibos
+-- @verifica function public.listar_modelos_pm_recibos
+
 -- ============================================================================
 -- Estimaciones — OT/PM y modelos de Planeación en los generadores de recibos
 -- de Acabados y Armado.
