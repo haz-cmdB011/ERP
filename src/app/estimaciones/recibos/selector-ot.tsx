@@ -2,24 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { claveModelo } from "@/lib/estimaciones/conciliacion-pm";
+import { claveModelo, claveOt } from "@/lib/estimaciones/conciliacion-pm";
 import {
-  listarModelosPmRecibo,
-  listarPmRecibos,
-  type ModeloPmRecibo,
-  type PmRecibo,
+  listarModelosOtRecibo,
+  listarOtsRecibos,
+  type ModeloOtRecibo,
+  type OtRecibo,
 } from "@/lib/estimaciones/pm-planeacion";
 
-// OT/PM y modelos de Planeación para los generadores de Acabados y Armado
-// (Electrificación tiene su propia versión, con la marca de iluminación).
+// OT y modelos de Planeación para los generadores de Acabados y Armado
+// (Electrificación tiene su propia versión, solo con muebles con iluminación).
+// Se elige la OT; los modelos son los de todos sus PM, con la cantidad sumada.
 
-export interface PmSeleccion {
+export interface OtSeleccion {
   // undefined: cargando; null: la consulta falló.
-  pms: PmRecibo[] | null | undefined;
-  // PM elegido, si la OT capturada está en la lista.
-  pm: PmRecibo | null;
-  // Modelos del PM elegido; null mientras no hay PM o si la consulta falla.
-  modelos: ModeloPmRecibo[] | null;
+  ots: OtRecibo[] | null | undefined;
+  // OT elegida, si la del recibo está en la lista. Un recibo anterior que
+  // guardó el número de PM ("2PM193-24") cae en su OT ("193-24").
+  otElegida: OtRecibo | null;
+  // Modelos de la OT elegida; null mientras no hay OT o si la consulta falla.
+  modelos: ModeloOtRecibo[] | null;
   // Vuelve a leer lo ya registrado por modelo (tras guardar, o si la base
   // avisó que cambió mientras se capturaba).
   recargar: () => void;
@@ -27,82 +29,84 @@ export interface PmSeleccion {
 
 // excluirReciboId: al modificar un recibo, sus propias piezas no cuentan como
 // "ya registradas" (se van a reemplazar).
-export function usePmRecibo(
+export function useOtRecibo(
   ot: string,
   tipo: "acabados" | "armado",
   excluirReciboId?: string
-): PmSeleccion {
-  const [pms, setPms] = useState<PmRecibo[] | null | undefined>(undefined);
+): OtSeleccion {
+  const [ots, setOts] = useState<OtRecibo[] | null | undefined>(undefined);
   useEffect(() => {
-    listarPmRecibos(createClient()).then(setPms);
+    listarOtsRecibos(createClient()).then(setOts);
   }, []);
-  const pm = useMemo(() => pms?.find((p) => p.numeroPedido === ot.trim()) ?? null, [pms, ot]);
+  const otElegida = useMemo(() => {
+    const clave = claveOt(ot);
+    return (clave && ots?.find((o) => o.ot === clave)) || null;
+  }, [ots, ot]);
 
   const [modelosDe, setModelosDe] = useState<{
-    pedidoId: string;
-    modelos: ModeloPmRecibo[] | null;
+    ot: string;
+    modelos: ModeloOtRecibo[] | null;
   } | null>(null);
   const [version, setVersion] = useState(0);
-  const pedidoId = pm?.pedidoId ?? null;
+  const claveElegida = otElegida?.ot ?? null;
   useEffect(() => {
-    if (!pedidoId) return;
+    if (!claveElegida) return;
     let vigente = true;
-    listarModelosPmRecibo(createClient(), pedidoId, tipo, excluirReciboId).then((modelos) => {
-      if (vigente) setModelosDe({ pedidoId, modelos });
+    listarModelosOtRecibo(createClient(), claveElegida, tipo, excluirReciboId).then((modelos) => {
+      if (vigente) setModelosDe({ ot: claveElegida, modelos });
     });
     return () => {
       vigente = false;
     };
-  }, [pedidoId, tipo, excluirReciboId, version]);
-  const modelos = modelosDe && modelosDe.pedidoId === pedidoId ? modelosDe.modelos : null;
+  }, [claveElegida, tipo, excluirReciboId, version]);
+  const modelos = modelosDe && modelosDe.ot === claveElegida ? modelosDe.modelos : null;
 
-  return { pms, pm, modelos, recargar: () => setVersion((v) => v + 1) };
+  return { ots, otElegida, modelos, recargar: () => setVersion((v) => v + 1) };
 }
 
-// Lista de OT/PM de Planeación. Una OT capturada antes que ya no esté en la
-// lista se conserva como opción para no perderla al editar.
-export function SelectorOtPm({
+// Lista de OT de Planeación. Una OT capturada antes que ya no esté en la lista
+// se conserva como opción para no perderla al editar.
+export function SelectorOt({
   ot,
   seleccion,
   onChange,
   className,
 }: {
   ot: string;
-  seleccion: PmSeleccion;
-  onChange: (ot: string, pm: PmRecibo | null) => void;
+  seleccion: OtSeleccion;
+  onChange: (ot: string, elegida: OtRecibo | null) => void;
   className: string;
 }) {
-  const { pms, pm } = seleccion;
+  const { ots, otElegida } = seleccion;
   return (
     <select
       className={`${className} font-mono`}
-      value={ot}
-      onChange={(e) =>
-        onChange(e.target.value, pms?.find((p) => p.numeroPedido === e.target.value) ?? null)
-      }
+      value={otElegida?.ot ?? ot}
+      onChange={(e) => onChange(e.target.value, ots?.find((o) => o.ot === e.target.value) ?? null)}
     >
       <option value="">
-        {pms === undefined
-          ? "Cargando OT del PM…"
-          : pms === null
+        {ots === undefined
+          ? "Cargando OT…"
+          : ots === null
             ? "No se pudo cargar la lista de OT"
             : "Elige la OT"}
       </option>
-      {ot && !pm && <option value={ot}>{ot} (no está en el PM)</option>}
-      {(pms ?? []).map((p) => (
-        <option key={p.pedidoId} value={p.numeroPedido}>
-          {p.numeroPedido}
-          {p.proyecto ? ` — ${p.proyecto}` : ""}
+      {ot && !otElegida && <option value={ot}>{ot} (no está en Planeación)</option>}
+      {(ots ?? []).map((o) => (
+        <option key={o.ot} value={o.ot}>
+          {o.ot}
+          {o.proyecto ? ` — ${o.proyecto}` : ""}
+          {o.numPms > 1 ? ` (${o.numPms} PM)` : ""}
         </option>
       ))}
     </select>
   );
 }
 
-// Campo de modelo con la lista de modelos del PM elegido: se abre al
-// enfocarlo y filtra mientras se escribe. Se puede escribir un modelo que no
-// esté en la lista.
-export function CampoModeloPm({
+// Campo de modelo con la lista de modelos de la OT elegida (todos sus PM): se
+// abre al enfocarlo y filtra mientras se escribe. Se puede escribir un modelo
+// que no esté en la lista.
+export function CampoModeloOt({
   value,
   onChange,
   onBlur,
@@ -112,7 +116,7 @@ export function CampoModeloPm({
   value: string;
   onChange: (modelo: string) => void;
   onBlur?: () => void;
-  seleccion: PmSeleccion;
+  seleccion: OtSeleccion;
   className: string;
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -120,12 +124,13 @@ export function CampoModeloPm({
   const opciones = (seleccion.modelos ?? [])
     .filter((m) => !q || claveModelo(m.modelo).includes(q))
     .slice(0, 60);
+  const variosPm = (seleccion.otElegida?.numPms ?? 0) > 1;
 
   return (
     <div className="relative">
       <input
         autoComplete="off"
-        placeholder={seleccion.pm ? "Elige o escribe el modelo" : "Elige primero la OT"}
+        placeholder={seleccion.otElegida ? "Elige o escribe el modelo" : "Elige primero la OT"}
         className={`${className} font-mono`}
         value={value}
         onFocus={() => setAbierto(true)}
@@ -155,7 +160,7 @@ export function CampoModeloPm({
                 <span className="flex items-center justify-between gap-2">
                   <span className="font-mono text-slate-900">{m.modelo}</span>
                   <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
-                    {m.cantidadPm} en el PM
+                    {m.cantidadPm} en la OT
                     {m.cantidadRegistrada > 0 && (
                       <>
                         {" · "}
@@ -172,6 +177,9 @@ export function CampoModeloPm({
                 </span>
                 {m.descripcion && (
                   <span className="truncate text-[11px] text-slate-500">{m.descripcion}</span>
+                )}
+                {variosPm && m.pms && (
+                  <span className="truncate font-mono text-[10px] text-slate-400">{m.pms}</span>
                 )}
               </button>
             </li>

@@ -1,9 +1,9 @@
-// PM contra cobrado: por PM y modelo, lo que Planeación declaró contra lo que
-// se ha capturado en recibos vigentes de Acabados, Armado y Electrificación
-// (función pm_contra_cobrado, ver
-// supabase/migrations/20260930192435_pm_contra_cobrado.sql, con las mismas
-// reglas que el control al guardar). Aquí se clasifica cada celda y se resume
-// el avance por PM.
+// PM contra cobrado, por OT: por OT y modelo, lo que Planeación declaró en todos
+// los PM de la OT contra lo que se ha capturado en recibos vigentes de
+// Acabados, Armado y Electrificación (función ot_contra_cobrado, ver
+// supabase/migrations/20261001190000_recibos_por_ot.sql, con las mismas reglas
+// que el control al guardar). Aquí se clasifica cada celda y se resume el
+// avance por OT.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -11,13 +11,15 @@ export type AreaCobro = "acabados" | "armado" | "electrificacion";
 export const AREAS_COBRO: AreaCobro[] = ["acabados", "armado", "electrificacion"];
 
 export interface FilaPmCobrado {
-  pedidoId: string;
-  numeroPedido: string;
-  ordenTrabajo: string | null;
+  // Clave de la OT ("193-24").
+  ot: string;
   proyecto: string | null;
+  numPms: number;
+  // Los PM de la OT ("2PM193-24, 7PM193-24").
+  pms: string;
   modelo: string;
   descripcion: string | null;
-  // null: el modelo se cobró pero no está en el PM.
+  // null: el modelo se cobró pero no está en ningún PM de la OT.
   cantidadPm: number | null;
   // Parte del PM con iluminación (lo que se electrifica).
   cantidadPmIluminacion: number;
@@ -81,11 +83,11 @@ export interface AvanceArea {
   base: number;
 }
 
-export interface ResumenPm {
-  pedidoId: string;
-  numeroPedido: string;
-  ordenTrabajo: string | null;
+export interface ResumenOt {
+  ot: string;
   proyecto: string | null;
+  numPms: number;
+  pms: string;
   modelos: number;
   piezasPm: number;
   avance: Record<AreaCobro, AvanceArea>;
@@ -95,17 +97,17 @@ export interface ResumenPm {
   discrepanciasPendientes: number;
 }
 
-// Resumen por PM, en el orden en que llegan las filas.
-export function resumirPorPm(filas: FilaPmCobrado[]): ResumenPm[] {
-  const porPm = new Map<string, ResumenPm>();
+// Resumen por OT, en el orden en que llegan las filas.
+export function resumirPorOt(filas: FilaPmCobrado[]): ResumenOt[] {
+  const porOt = new Map<string, ResumenOt>();
   for (const f of filas) {
-    let r = porPm.get(f.pedidoId);
+    let r = porOt.get(f.ot);
     if (!r) {
       r = {
-        pedidoId: f.pedidoId,
-        numeroPedido: f.numeroPedido,
-        ordenTrabajo: f.ordenTrabajo,
+        ot: f.ot,
         proyecto: f.proyecto,
+        numPms: f.numPms,
+        pms: f.pms,
         modelos: 0,
         piezasPm: 0,
         avance: {
@@ -117,7 +119,7 @@ export function resumirPorPm(filas: FilaPmCobrado[]): ResumenPm[] {
         fueraDelPm: 0,
         discrepanciasPendientes: 0,
       };
-      porPm.set(f.pedidoId, r);
+      porOt.set(f.ot, r);
     }
     r.discrepanciasPendientes += f.discrepanciasPendientes;
     if (f.cantidadPm == null) {
@@ -135,7 +137,7 @@ export function resumirPorPm(filas: FilaPmCobrado[]): ResumenPm[] {
     }
     if (excedido) r.excedidos += 1;
   }
-  return [...porPm.values()];
+  return [...porOt.values()];
 }
 
 export function porcentaje({ cobrado, base }: AvanceArea): number | null {
@@ -143,10 +145,10 @@ export function porcentaje({ cobrado, base }: AvanceArea): number | null {
 }
 
 interface FilaRpc {
-  pedido_id: string;
-  numero_pedido: string;
-  orden_trabajo: string | null;
+  orden_trabajo: string;
   proyecto: string | null;
+  num_pms: number;
+  pms: string | null;
   modelo: string;
   descripcion: string | null;
   cantidad_pm: number | null;
@@ -160,24 +162,24 @@ interface FilaRpc {
 
 const PAGINA = 1000;
 
-// Todas las filas (la API corta cada respuesta en 1000). pedidoId: solo ese PM.
-export async function cargarPmContraCobrado(
+// Todas las filas (la API corta cada respuesta en 1000). ot: solo esa OT.
+export async function cargarOtContraCobrado(
   supabase: SupabaseClient,
-  pedidoId?: string
+  ot?: string
 ): Promise<{ filas: FilaPmCobrado[]; error: string | null }> {
   const filas: FilaPmCobrado[] = [];
   for (let desde = 0; ; desde += PAGINA) {
     const { data, error } = await supabase
-      .rpc("pm_contra_cobrado", { p_pedido: pedidoId ?? null })
+      .rpc("ot_contra_cobrado", { p_ot: ot ?? null })
       .range(desde, desde + PAGINA - 1);
     if (error) return { filas, error: error.message };
     const pagina = (data ?? []) as FilaRpc[];
     for (const r of pagina) {
       filas.push({
-        pedidoId: r.pedido_id,
-        numeroPedido: r.numero_pedido,
-        ordenTrabajo: r.orden_trabajo,
+        ot: r.orden_trabajo,
         proyecto: r.proyecto,
+        numPms: Number(r.num_pms),
+        pms: r.pms ?? "",
         modelo: r.modelo,
         descripcion: r.descripcion || null,
         cantidadPm: r.cantidad_pm == null ? null : Number(r.cantidad_pm),

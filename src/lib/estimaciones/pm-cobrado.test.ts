@@ -4,7 +4,7 @@ import {
   estadoCelda,
   estadoCobro,
   porcentaje,
-  resumirPorPm,
+  resumirPorOt,
   tieneDiferencias,
   tienePendienteDeCobro,
   type FilaPmCobrado,
@@ -12,10 +12,10 @@ import {
 
 function fila(parcial: Partial<FilaPmCobrado>): FilaPmCobrado {
   return {
-    pedidoId: "p1",
-    numeroPedido: "2PM009-26",
-    ordenTrabajo: "009-26",
+    ot: "009-26",
     proyecto: "Azotea",
+    numPms: 2,
+    pms: "1PM009-26, 2PM009-26",
     modelo: "MS-01",
     descripcion: null,
     cantidadPm: 10,
@@ -71,9 +71,9 @@ describe("filtros", () => {
   });
 });
 
-describe("resumirPorPm", () => {
+describe("resumirPorOt", () => {
   it("suma el avance sin contar lo excedido y cuenta modelos con diferencias", () => {
-    const [r] = resumirPorPm([
+    const [r] = resumirPorOt([
       fila({ modelo: "MS-01", cantidadPm: 10, acabados: 6, armado: 12 }),
       fila({ modelo: "LAMP-1", cantidadPm: 6, cantidadPmIluminacion: 4, electrificacion: 3 }),
       fila({ modelo: "XX-9", cantidadPm: null, acabados: 1, discrepanciasPendientes: 1 }),
@@ -91,8 +91,8 @@ describe("resumirPorPm", () => {
     expect(porcentaje({ cobrado: 0, base: 0 })).toBeNull();
   });
 
-  it("agrupa por PM conservando el orden", () => {
-    const r = resumirPorPm([fila({ pedidoId: "b" }), fila({ pedidoId: "a" }), fila({ pedidoId: "b" })]);
-    expect(r.map((x) => x.pedidoId)).toEqual(["b", "a"]);
+  it("agrupa por OT conservando el orden", () => {
+    const r = resumirPorOt([fila({ ot: "193-24" }), fila({ ot: "009-26" }), fila({ ot: "193-24" })]);
+    expect(r.map((x) => x.ot)).toEqual(["193-24", "009-26"]);
   });
 });

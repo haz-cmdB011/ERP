@@ -79,43 +79,48 @@ export interface RenglonElectrificacionParaGuardar {
   motivoDescuadre: string;
 }
 
-// OT (pedido) subida a Planeación. El generador solo deja elegir estas.
-export interface OtPm {
-  pedidoId: string;
-  numeroPedido: string;
+// OT de Planeación con muebles con iluminación (todos sus PM vigentes). El
+// generador solo deja elegir estas. `ot` es la clave ("193-24"), que es lo
+// que se guarda en el recibo.
+export interface OtElectrificacion {
+  ot: string;
+  // El proyecto más frecuente entre sus PM.
   proyecto: string | null;
+  numPms: number;
   numModelos: number;
   piezas: number;
 }
 
-// Modelo de una OT con lo que Planeación declaró (suma de todas sus filas del
-// PM) y lo ya registrado en otros recibos no cancelados.
-export interface ModeloPm {
+// Modelo con iluminación de una OT: lo que declararon todos sus PM (suma de los
+// muebles con iluminación) y lo ya registrado en otros recibos no cancelados.
+export interface ModeloOtElectrificacion {
   modelo: string;
   cantidadPm: number;
   cantidadRegistrada: number;
-  // Algún padre de ese modelo en la OT menciona iluminación. null: la base aún
-  // no informa la marca.
+  // En qué PM de la OT viene ("2PM193-24, 7PM193-24").
+  pms: string;
 }
 
-// Todas las OT del PM (el personal de Estimaciones y el maquilador las ven vía
-// una función security definer; nunca precios ni datos de cliente). null si la
-// consulta falla.
-export async function listarOtsPm(supabase: SupabaseClient): Promise<OtPm[] | null> {
-  const { data, error } = await supabase.rpc("listar_ots_pm_electrificacion");
+// Todas las OT con iluminación (el personal de Estimaciones y el maquilador las
+// ven vía una función security definer; nunca precios ni datos de cliente).
+// null si la consulta falla.
+export async function listarOtsElectrificacion(
+  supabase: SupabaseClient
+): Promise<OtElectrificacion[] | null> {
+  const { data, error } = await supabase.rpc("listar_ots_electrificacion");
   if (error || !data) return null;
   return (
     data as {
-      pedido_id: string;
-      numero_pedido: string;
+      orden_trabajo: string;
       proyecto: string | null;
+      num_pms: number;
       num_modelos: number;
       piezas: number;
     }[]
   ).map((r) => ({
-    pedidoId: r.pedido_id,
-    numeroPedido: r.numero_pedido,
+    ot: r.orden_trabajo,
     proyecto: r.proyecto,
+    numPms: Number(r.num_pms),
     numModelos: Number(r.num_modelos),
     piezas: Number(r.piezas),
   }));
@@ -123,13 +128,13 @@ export async function listarOtsPm(supabase: SupabaseClient): Promise<OtPm[] | nu
 
 // excluirReciboId: al modificar un recibo, para no contar sus propios renglones
 // como "ya registrados".
-export async function listarModelosPm(
+export async function listarModelosOtElectrificacion(
   supabase: SupabaseClient,
-  pedidoId: string,
+  ot: string,
   excluirReciboId?: string
-): Promise<ModeloPm[] | null> {
-  const { data, error } = await supabase.rpc("listar_modelos_pm_electrificacion", {
-    p_pedido: pedidoId,
+): Promise<ModeloOtElectrificacion[] | null> {
+  const { data, error } = await supabase.rpc("listar_modelos_ot_electrificacion", {
+    p_ot: ot,
     p_excluir_recibo: excluirReciboId ?? null,
   });
   if (error || !data) return null;
@@ -138,12 +143,13 @@ export async function listarModelosPm(
       modelo: string;
       cantidad_pm: number;
       cantidad_registrada: number;
-      con_iluminacion?: boolean | null;
+      pms: string | null;
     }[]
   ).map((r) => ({
     modelo: r.modelo,
     cantidadPm: Number(r.cantidad_pm),
     cantidadRegistrada: Number(r.cantidad_registrada),
+    pms: r.pms ?? "",
   }));
 }
 

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SelectMenu from "@/components/select-menu";
 import { createClient } from "@/lib/supabase/client";
-import { CampoModeloPm, SelectorOtPm, usePmRecibo } from "../selector-pm";
+import { CampoModeloOt, SelectorOt, useOtRecibo } from "../selector-ot";
 import DialogoDescuadres, {
   AVISO_DESCUADRE_CAMBIO,
   esErrorDeDescuadre,
@@ -182,8 +182,9 @@ export default function CapturaAcabados({
   );
   const [obra, setObra] = useState(reciboExistente?.obra ?? "");
   const [ot, setOt] = useState(reciboExistente?.ot ?? "");
-  // OT y modelos vienen del PM que subió Planeación (ver selector-pm.tsx).
-  const seleccionPm = usePmRecibo(ot, "acabados", reciboExistente?.id);
+  // OT y modelos vienen de los PM que subió Planeación: los modelos de todos
+  // los PM de la OT, con la cantidad sumada (ver selector-ot.tsx).
+  const seleccionOt = useOtRecibo(ot, "acabados", reciboExistente?.id);
   const [prioridad, setPrioridad] = useState(reciboExistente?.prioridad ?? "normal");
   const [motivo, setMotivo] = useState(reciboExistente?.motivo ?? "");
   const [numeroInicial, setNumeroInicial] = useState(1);
@@ -287,15 +288,15 @@ export default function CapturaAcabados({
   const recorte = totales.propuesto - totales.aceptado;
   const recortePct = totales.propuesto > 0 ? (recorte / totales.propuesto) * 100 : 0;
 
-  // Piezas contra el PM de la OT, con la misma regla que aplica la base al
+  // Piezas contra los PM de la OT, con la misma regla que aplica la base al
   // guardar (ver conciliacion-pm.ts): los reprocesos no cuentan. Los renglones
   // que no concuerdan piden motivo antes de guardar.
   const [avisoDescuadre, setAvisoDescuadre] = useState(false);
-  const { pm: pmElegido, modelos: modelosPm } = seleccionPm;
+  const { otElegida, modelos: modelosOt } = seleccionOt;
   const conciliaciones = useMemo(() => {
-    if (!pmElegido || modelosPm === null) return renglones.map(() => null);
+    if (!otElegida || modelosOt === null) return renglones.map(() => null);
     const saldo = new Map(
-      modelosPm.map((m) => [
+      modelosOt.map((m) => [
         claveModelo(m.modelo),
         { cantidadPm: m.cantidadPm, cantidadRegistrada: m.cantidadRegistrada },
       ])
@@ -308,7 +309,7 @@ export default function CapturaAcabados({
       })),
       saldo
     );
-  }, [pmElegido, modelosPm, renglones]);
+  }, [otElegida, modelosOt, renglones]);
   const descuadres: Descuadre[] = renglones.flatMap((r, i) => {
     const c = conciliaciones[i];
     return c && requiereMotivo(c)
@@ -319,7 +320,7 @@ export default function CapturaAcabados({
             modelo: r.modelo,
             conciliacion: c,
             registrada:
-              modelosPm?.find((m) => claveModelo(m.modelo) === claveModelo(r.modelo))
+              modelosOt?.find((m) => claveModelo(m.modelo) === claveModelo(r.modelo))
                 ?.cantidadRegistrada ?? 0,
             motivo: r.motivoDescuadre,
           },
@@ -343,9 +344,9 @@ export default function CapturaAcabados({
     if (!folio.trim()) problemas.push("Falta el folio.");
     if (!fecha.trim()) problemas.push("Falta la fecha del recibo.");
     if (!contratista.trim()) problemas.push("Falta el contratista.");
-    if (!ot.trim()) problemas.push("Falta la OT: elígela de la lista del PM.");
-    else if (seleccionPm.pms && !seleccionPm.pm) {
-      problemas.push("La OT no está en el PM de Planeación; elige una de la lista.");
+    if (!ot.trim()) problemas.push("Falta la OT: elígela de la lista.");
+    else if (seleccionOt.ots && !seleccionOt.otElegida) {
+      problemas.push("La OT no está en Planeación; elige una de la lista.");
     }
     if (prioridad !== "normal" && !motivo.trim()) {
       problemas.push(`La prioridad ${prioridad} exige un motivo.`);
@@ -462,7 +463,7 @@ export default function CapturaAcabados({
       // La base vio piezas de más que la pantalla no (otro recibo se guardó
       // mientras tanto): se recarga lo registrado para pedir el motivo.
       if (esErrorDeDescuadre(error)) {
-        seleccionPm.recargar();
+        seleccionOt.recargar();
         setResultado({ ok: false, texto: [AVISO_DESCUADRE_CAMBIO] });
         return;
       }
@@ -490,7 +491,7 @@ export default function CapturaAcabados({
         : `Recibo ${nuevoRecibo.folio} guardado.`
     );
     cargarHistoricoDb(supabase).then(setHistoricoDb);
-    seleccionPm.recargar();
+    seleccionOt.recargar();
 
     setResultado({
       ok: true,
@@ -594,13 +595,13 @@ export default function CapturaAcabados({
           </label>
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>OT</span>
-            <SelectorOtPm
+            <SelectorOt
               ot={ot}
-              seleccion={seleccionPm}
+              seleccion={seleccionOt}
               className={CONTROL}
-              onChange={(nueva, pm) => {
+              onChange={(nueva, elegida) => {
                 setOt(nueva);
-                if (pm?.proyecto && !obra.trim()) setObra(pm.proyecto);
+                if (elegida?.proyecto && !obra.trim()) setObra(elegida.proyecto);
               }}
             />
           </label>
@@ -735,8 +736,8 @@ export default function CapturaAcabados({
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <label className="flex flex-col gap-1">
                         <span className={ETIQUETA}>Modelo</span>
-                        <CampoModeloPm
-                          seleccion={seleccionPm}
+                        <CampoModeloOt
+                          seleccion={seleccionOt}
                           className={CONTROL}
                           value={r.modelo}
                           onChange={(modelo) => actualizar(r.id, { modelo })}

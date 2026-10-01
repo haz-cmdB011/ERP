@@ -61,8 +61,8 @@ export default async function EstimacionesPage() {
             PM contra cobrado
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Por PM y modelo, lo que declaró Planeación contra lo cobrado en Acabados, Armado y
-            Electrificación: avance, piezas de más y modelos fuera del PM.
+            Por O.T. (todos sus PM) y modelo, lo que declaró Planeación contra lo cobrado en
+            Acabados, Armado y Electrificación: avance, piezas de más y modelos fuera de la O.T.
           </p>
         </Link>
         <Link

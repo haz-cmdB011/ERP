@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   claveModelo,
+  claveOt,
   conciliarRenglones,
   requiereMotivo,
   type SaldoModeloPm,
@@ -93,5 +94,25 @@ describe("claveModelo", () => {
     );
     expect(r[0]).toEqual({ estado: "dentro", cantidadPm: 10, acumulada: 6 });
     expect(r[1]).toMatchObject({ estado: "excede", acumulada: 11 });
+  });
+});
+
+describe("claveOt", () => {
+  it.each([
+    ["193-24", "193-24"],
+    ["2PM193-24", "193-24"],
+    ["SDC-1 2PM009-26", "009-26"],
+    ["PM193-24 SOTANO 1", "193-24"],
+    ["2PM102-24 PEDIDO (2)", "102-24"],
+    ["OT 193-24", "193-24"],
+    ["193-24-2 SDC17 PH MONTERREY", "193-24"],
+    [" sin numero ", "SIN NUMERO"],
+  ])("%s → %s", (texto, esperado) => {
+    expect(claveOt(texto)).toBe(esperado);
+  });
+
+  it("vacío no es una OT", () => {
+    expect(claveOt("  ")).toBeNull();
+    expect(claveOt(null)).toBeNull();
   });
 });

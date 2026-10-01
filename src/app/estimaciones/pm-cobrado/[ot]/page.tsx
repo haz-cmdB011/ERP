@@ -6,9 +6,9 @@ import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import {
   AREAS_COBRO,
   baseArea,
-  cargarPmContraCobrado,
+  cargarOtContraCobrado,
   estadoCelda,
-  resumirPorPm,
+  resumirPorOt,
   tieneDiferencias,
   tienePendienteDeCobro,
   type AreaCobro,
@@ -19,8 +19,6 @@ import { AREA_RECIBO_LABELS } from "@/lib/estimaciones/discrepancias-db";
 import BarraAvance from "../barra-avance";
 
 export const metadata: Metadata = { title: "PM contra cobrado" };
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const FILTROS: [string, string][] = [
   ["todos", "Todos"],
@@ -57,16 +55,17 @@ function Celda({ fila, area }: { fila: FilaPmCobrado; area: AreaCobro }) {
   );
 }
 
-// Detalle de un PM: por modelo, lo declarado contra lo cobrado en cada área.
+// Detalle de una O.T.: por modelo, lo declarado en todos sus PM contra lo
+// cobrado en cada área.
 export default async function PmCobradoDetallePage({
   params,
   searchParams,
 }: {
-  params: Promise<{ pedidoId: string }>;
+  params: Promise<{ ot: string }>;
   searchParams: Promise<{ ver?: string }>;
 }) {
-  const { pedidoId } = await params;
-  if (!UUID.test(pedidoId)) notFound();
+  const ot = decodeURIComponent((await params).ot).trim();
+  if (!ot) notFound();
   const { ver } = await searchParams;
   const filtro = FILTROS.some(([v]) => v === ver) ? (ver as string) : "todos";
 
@@ -75,9 +74,10 @@ export default async function PmCobradoDetallePage({
     redirect("/estimaciones");
   }
 
-  const { filas, error } = await cargarPmContraCobrado(supabase, pedidoId);
+  const { filas, error } = await cargarOtContraCobrado(supabase, ot);
   if (!error && filas.length === 0) notFound();
-  const [resumen] = resumirPorPm(filas);
+  const [resumen] = resumirPorOt(filas);
+  const base = `/estimaciones/pm-cobrado/${encodeURIComponent(resumen?.ot ?? ot)}`;
 
   const visibles = filas.filter((f) =>
     filtro === "diferencias"
@@ -97,9 +97,14 @@ export default async function PmCobradoDetallePage({
           ← PM contra cobrado
         </Link>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-          <span className="font-mono">{resumen?.numeroPedido ?? "PM"}</span>
+          <span className="font-mono">O.T. {resumen?.ot ?? ot}</span>
         </h1>
         {resumen?.proyecto && <p className="text-sm text-slate-600">{resumen.proyecto}</p>}
+        {resumen?.pms && (
+          <p className="mt-1 font-mono text-xs text-slate-500">
+            {resumen.numPms} PM: {resumen.pms}
+          </p>
+        )}
       </div>
 
       {error && (
@@ -117,7 +122,7 @@ export default async function PmCobradoDetallePage({
             <p className="text-xs text-amber-800 sm:col-span-3">
               {resumen.discrepanciasPendientes}{" "}
               {resumen.discrepanciasPendientes === 1 ? "discrepancia" : "discrepancias"} sin decidir
-              en este PM.{" "}
+              en esta O.T.{" "}
               <Link href="/estimaciones/discrepancias" className="font-medium underline">
                 Ir a la bandeja
               </Link>
@@ -131,9 +136,7 @@ export default async function PmCobradoDetallePage({
           <Link
             key={valor}
             href={
-              valor === "todos"
-                ? `/estimaciones/pm-cobrado/${pedidoId}`
-                : `/estimaciones/pm-cobrado/${pedidoId}?ver=${valor}`
+              valor === "todos" ? base : `${base}?ver=${valor}`
             }
             className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
               filtro === valor
@@ -150,7 +153,7 @@ export default async function PmCobradoDetallePage({
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           {filtro === "diferencias"
             ? "Ningún modelo tiene diferencias con lo cobrado."
-            : "No queda nada por cobrar en este PM."}
+            : "No queda nada por cobrar en esta O.T."}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -158,7 +161,7 @@ export default async function PmCobradoDetallePage({
             <thead>
               <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Modelo</th>
-                <th className="px-3 py-2.5 text-right">PM</th>
+                <th className="px-3 py-2.5 text-right">PM (O.T.)</th>
                 {AREAS_COBRO.map((a) => (
                   <th key={a} className="px-3 py-2.5 text-right">
                     {AREA_RECIBO_LABELS[a]}
@@ -187,7 +190,7 @@ export default async function PmCobradoDetallePage({
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-slate-700">
                     {f.cantidadPm == null ? (
-                      <span className="text-xs font-medium text-rose-700">no está en el PM</span>
+                      <span className="text-xs font-medium text-rose-700">no está en la O.T.</span>
                     ) : (
                       <>
                         {f.cantidadPm}
