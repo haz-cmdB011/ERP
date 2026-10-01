@@ -93,6 +93,9 @@ export default async function EstimacionesLayout({
             <Link href="/estimaciones/pm-cobrado" className="text-gray-600 hover:text-black">
               PM contra cobrado
             </Link>
+            <Link href="/estimaciones/reportes" className="text-gray-600 hover:text-black">
+              Reporte semanal
+            </Link>
             {decideDiscrepancias && (
               <Link href="/estimaciones/discrepancias" className="text-gray-600 hover:text-black">
                 Discrepancias
