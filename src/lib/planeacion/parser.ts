@@ -47,6 +47,16 @@ const METADATA_LABELS: Record<string, keyof PlaneacionMetadata> = {
 
 const MAX_HEADER_SCAN_ROWS = 15;
 
+// Encabezados con otro nombre en archivos reales -> nombre que espera el
+// parser (ya normalizados: sin acentos, espacios simples, mayúsculas).
+const ALIAS_ENCABEZADOS: Record<string, string> = {
+  "ACABADOS ACTUALIZADOS": "ACABADOS",
+  // "CANT" y "TOTAL" en dos renglones de la misma celda (PM 051-24-3).
+  "CANT TOTAL": "CANTIDAD TOTAL",
+  // PM 033-25-2: CANTIDAD X MUEBLE × muebles = este total.
+  "CANTIDAD DE MUEBLES EN PLANTA": "CANTIDAD TOTAL",
+};
+
 function normalize(text: string): string {
   return text
     .normalize("NFD")
@@ -205,13 +215,22 @@ function buscarEncabezados(
   for (let r = 1; r <= Math.min(worksheet.rowCount, MAX_HEADER_SCAN_ROWS); r++) {
     const row = worksheet.getRow(r);
     const map: Record<string, number> = {};
+    const columnasTipo: number[] = [];
     for (let c = 1; c <= row.cellCount; c++) {
       const text = cellText(resolvedValue(row.getCell(c)));
       if (!text) continue;
       const nombre = normalize(text);
       map[nombre] = c;
+      if (nombre === "TIPO") columnasTipo.push(c);
       // Variantes de encabezado vistas en archivos reales.
-      if (nombre === "ACABADOS ACTUALIZADOS" && !map["ACABADOS"]) map["ACABADOS"] = c;
+      const alias = ALIAS_ENCABEZADOS[nombre];
+      if (alias && !map[alias]) map[alias] = c;
+    }
+    // Sin columna COMPONENTE, algunos PM traen dos "TIPO": la primera es el
+    // componente (MO/FUN) y la segunda el material (MADERA/METAL/HIBRIDO).
+    if (!map["COMPONENTE"] && columnasTipo.length === 2) {
+      map["COMPONENTE"] = columnasTipo[0];
+      map["TIPO"] = columnasTipo[1];
     }
     if (map["ITEM"] && map["CANTIDAD TOTAL"]) {
       return { headerRowNumber: r, columnMap: map };

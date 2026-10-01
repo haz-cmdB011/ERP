@@ -21,10 +21,10 @@ const PATRON_SOLO_NUMERO = /(?:PM)?\s*[-_ ]?\s*(\d{1,5})/i;
 // después de otra palabra ("ERICK 11 PM 193-24 ..." en archivos de trabajo).
 const PATRON_PREFIJO = /(?:^|\s)(\d{1,3})\s*[-_ ]?\s*(?=PM)/i;
 
-// Número de PM como sufijo: "<OT>-<AÑO>-<N>" al inicio del texto (puede
-// venir precedido de "PM" u "OT").
-const PATRON_SUFIJO =
-  /^\s*(?:PM|O\.?\s*T\.?)?\s*[-_ ]?\s*\d{1,5}\s*[-/_ ]\s*(?:\d{4}|\d{2})\s*-\s*(\d{1,2})(?![\d.])/i;
+// Número de PM como sufijo: "<OT>-<AÑO>-<N>", justo después de la primera
+// OT del texto (puede ir precedida de "PM", "OT" u otras palabras, como en
+// "REVISION PM 033-25-2 ..."). Solo ahí: una fecha más adelante no cuenta.
+const PATRON_SUFIJO_TRAS_OT = /^\s*-\s*(\d{1,2})(?![\d.])/;
 
 // Etiqueta de una hoja extra antes del número de la OT, ej. la solicitud de
 // cambio "SDC-1_OT 009-26-2": letras + número, y luego el número de la OT
@@ -45,7 +45,9 @@ function extraerPrefijo(texto: string): {
   if (m?.index != null) {
     return { prefijo: String(Number(m[1])), explicito: true, resto: texto.slice(m.index + m[0].length) };
   }
-  const sufijo = texto.match(PATRON_SUFIJO);
+  const ot = texto.match(PATRON_NUMERO_ANIO);
+  const sufijo =
+    ot?.index != null ? texto.slice(ot.index + ot[0].length).match(PATRON_SUFIJO_TRAS_OT) : null;
   return { prefijo: sufijo ? String(Number(sufijo[1])) : null, explicito: false, resto: texto };
 }
 
