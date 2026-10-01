@@ -17,8 +17,9 @@ const DIGITOS_NUMERO = 3;
 // ignora.
 const PATRON_NUMERO_ANIO = /(?:PM)?\s*[-_ ]?\s*(\d{1,5})\s*[-/_ ]\s*(\d{4}|\d{2})(?!\d)/i;
 const PATRON_SOLO_NUMERO = /(?:PM)?\s*[-_ ]?\s*(\d{1,5})/i;
-// Número de PM dentro de la OT: dígitos al inicio seguidos de "PM".
-const PATRON_PREFIJO = /^\s*(\d{1,3})\s*[-_ ]?\s*(?=PM)/i;
+// Número de PM dentro de la OT: dígitos seguidos de "PM", al inicio o
+// después de otra palabra ("ERICK 11 PM 193-24 ..." en archivos de trabajo).
+const PATRON_PREFIJO = /(?:^|\s)(\d{1,3})\s*[-_ ]?\s*(?=PM)/i;
 
 // Número de PM como sufijo: "<OT>-<AÑO>-<N>" al inicio del texto (puede
 // venir precedido de "PM" u "OT").
@@ -41,7 +42,9 @@ function extraerPrefijo(texto: string): {
   resto: string;
 } {
   const m = texto.match(PATRON_PREFIJO);
-  if (m) return { prefijo: String(Number(m[1])), explicito: true, resto: texto.slice(m[0].length) };
+  if (m?.index != null) {
+    return { prefijo: String(Number(m[1])), explicito: true, resto: texto.slice(m.index + m[0].length) };
+  }
   const sufijo = texto.match(PATRON_SUFIJO);
   return { prefijo: sufijo ? String(Number(sufijo[1])) : null, explicito: false, resto: texto };
 }
@@ -64,10 +67,21 @@ function extraerNumeroYAnio(texto: string): { numero: string; anio: string } | n
  * busca en el nombre del archivo; si tampoco, se usa el año de la fecha del
  * pedido (o el año actual). Si no se encuentra ningún número, se devuelve
  * el valor original sin tocar.
+ *
+ * Si el PM no trae su número dentro de la OT ni en la celda ni en el nombre
+ * del archivo, lo distingue el nombre del archivo: "PM 193-24 - PH MONTERREY
+ * SOTANO 1 10.1.25.xlsx" queda "PM193-24 SOTANO 1" (ver etiquetaDelArchivo;
+ * requiere `proyecto`).
  */
 export function normalizarNumeroPM(
   numeroPedido: string,
-  opciones: { nombreArchivo?: string; fechaPedido?: string | null; hoy?: Date } = {}
+  opciones: {
+    nombreArchivo?: string;
+    fechaPedido?: string | null;
+    // Proyecto de la celda "PROYECTO:", para quitarlo de la etiqueta.
+    proyecto?: string;
+    hoy?: Date;
+  } = {}
 ): string {
   // "SDC-1_OT 009-26-2" -> "SDC-1 2PM009-26": un PM aparte (no una versión
   // de 2PM009-26) que sigue perteneciendo a la OT 009-26.
@@ -84,20 +98,73 @@ export function normalizarNumeroPM(
 
   // Número de PM dentro de la OT. El del nombre del archivo solo cuenta si
   // el archivo es de la misma OT. Orden: explícito de la celda, explícito
-  // del archivo, sufijo de la celda, sufijo del archivo.
+  // del archivo, sufijo del archivo; luego la etiqueta del nombre del
+  // archivo y, al último, el sufijo de la celda (en la OT 193-24 la celda
+  // dice "193-24-2 ..." en todos los PM: ese "-2" es de la OT).
   const otArchivo = archivo?.prefijo ? extraerNumeroYAnio(archivo.resto) : null;
   const archivoValido =
     archivo?.prefijo && otArchivo && formatear(otArchivo.numero, otArchivo.anio) === base
       ? archivo
       : null;
-  const candidatos = [
-    celda.explicito ? celda.prefijo : null,
-    archivoValido?.explicito ? archivoValido.prefijo : null,
-    celda.prefijo,
-    archivoValido?.prefijo ?? null,
-  ];
-  const prefijo = candidatos.find((p) => p != null) ?? null;
-  return prefijo ? `${prefijo}${base}` : base;
+  const prefijo =
+    (celda.explicito ? celda.prefijo : null) ?? archivoValido?.prefijo ?? null;
+  if (prefijo) return `${prefijo}${base}`;
+
+  if (opciones.nombreArchivo && opciones.proyecto != null) {
+    const nombre = etiquetaDelArchivo(opciones.nombreArchivo, base, opciones.proyecto);
+    if (nombre) return `${base} ${nombre}`;
+  }
+  return celda.prefijo ? `${celda.prefijo}${base}` : base;
+}
+
+// Palabras que solo marcan otra versión del mismo archivo.
+const PALABRAS_REVISION = new Set(["MODIF", "MODIFICADO", "REV", "VREV", "REVISION", "COPIA", "FINAL", "CORREGIDO"]);
+// Fecha en el nombre del archivo ("10.1.25", "20-12-2024"): todo lo que
+// sigue (revisiones, "(002)") no distingue al PM.
+const PATRON_FECHA = /(?<!\d)\d{1,2}[./-]\d{1,2}[./-]\d{2,4}(?!\d)/;
+
+const palabras = (texto: string) =>
+  texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .split(/[^A-Z0-9]+/)
+    .filter(Boolean);
+
+/**
+ * Lo que distingue a un PM sin número dentro de su OT, tomado del nombre del
+ * archivo: el texto después de la OT y antes de la fecha, sin el nombre del
+ * proyecto. "PM 193-24 - PH MONTERREY SOTANO 1 10.1.25_.xlsx" con proyecto
+ * "SOTANO-PH MONTERREY" da "SOTANO 1". null si no queda nada (el caso de
+ * una OT con un solo PM: "PM 107-26 SMART FIT.xlsx" con proyecto
+ * "SMART FIT") o si el archivo es de otra OT.
+ */
+export function etiquetaDelArchivo(
+  nombreArchivo: string,
+  base: string,
+  proyecto: string
+): string | null {
+  const sinExtension = nombreArchivo.replace(/\.[a-z0-9]{3,4}$/i, "");
+  const m = sinExtension.match(PATRON_NUMERO_ANIO);
+  if (!m || m.index == null || formatear(m[1], m[2]) !== base) return null;
+
+  let resto = sinExtension.slice(m.index + m[0].length);
+  const fecha = resto.match(PATRON_FECHA);
+  if (fecha?.index != null) resto = resto.slice(0, fecha.index);
+
+  let tokens = palabras(resto).filter((t) => !PALABRAS_REVISION.has(t));
+  // Quita el nombre del proyecto al inicio: el final de la celda PROYECTO
+  // ("SOTANO - PH MONTERREY" -> "PH MONTERREY"), la parte más larga que
+  // coincida.
+  const tokensProyecto = palabras(proyecto);
+  for (let k = Math.min(tokensProyecto.length, tokens.length); k > 0; k--) {
+    const cola = tokensProyecto.slice(-k);
+    if (cola.every((t, i) => tokens[i] === t)) {
+      tokens = tokens.slice(k);
+      break;
+    }
+  }
+  return tokens.length > 0 ? tokens.join(" ") : null;
 }
 
 /**

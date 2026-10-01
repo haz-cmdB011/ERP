@@ -94,7 +94,7 @@ describe("normalizarNumeroPM", () => {
         expect(normalizarNumeroPM(celda, { nombreArchivo: archivo })).toBe(esperado);
       });
 
-      it("sin número explícito en ningún lado se queda con el sufijo de la celda", () => {
+      it("sin proyecto ni número explícito se queda con el sufijo de la celda", () => {
         expect(
           normalizarNumeroPM("193-24-2 SDC 5", {
             nombreArchivo: "PM 193-24 - PH MONTERREY SDC 5 - 30.04.25.xlsx",
@@ -102,10 +102,62 @@ describe("normalizarNumeroPM", () => {
         ).toBe("2PM193-24");
       });
 
+      // Los PM sin número se distinguen por el nombre del archivo; sus
+      // versiones anteriores (carpeta "anterior") caen en el mismo PM.
+      it.each([
+        ["193-24", "SOTANO-PH MONTERREY", "PM 193-24 - PH MONTERREY SOTANO 1 10.1.25_.xlsx", "PM193-24 SOTANO 1"],
+        ["193-24", "SOTANO-PH MONTERREY", "PM 193-24 - PH MONTERREY SOTANO 1 20.12.24_vrev.xlsx", "PM193-24 SOTANO 1"],
+        ["193-24", "SOTANO-PH MONTERREY", "erick de PM 193-24 - PH MONTERREY SOTANO 1 20.12.24. MODIF.xlsx", "PM193-24 SOTANO 1"],
+        ["193-24", "SOTANO  - PH MONTERREY", "PM 193-24 - PH MONTERREY SOTANO 3 14.02.25.xlsx", "PM193-24 SOTANO 3"],
+        ["193-24", "SOTANO  - PH MONTERREY", "PM 193-24 - PH MONTERREY SOTANO 4 15.04.25.xlsx", "PM193-24 SOTANO 4"],
+        ["193-24", "PB, PN, SN Y AZOTEA  - PH MONTERREY", "PM 193-24 - PH MONTERREY PB-PN-SN- AZ- 2 31.01.25.xlsx", "PM193-24 PB PN SN AZ 2"],
+        ["193-24-2-SDC2, 3 Y 4", "SDC2, SDC, 3, SDC3 - PH MONTERREY", "PM 193-24 - PH MONTERREY SDC 2, 3 Y 4 - 25.04.25.xlsx", "PM193-24 SDC 2 3 Y 4"],
+        ["193-24-2-SDC2, 3 Y 4", "SDC2, SDC, 3, SDC3 - PH MONTERREY", "erick  PM 193-24 - PH MONTERREY SDC 2 3 Y 4 - 22.04.25 (002).xlsx", "PM193-24 SDC 2 3 Y 4"],
+        ["193-24-2 SDC 5", "SDC 5 - PH MONTERREY", "PM 193-24 - PH MONTERREY SDC 5 - 30.04.25.xlsx", "PM193-24 SDC 5"],
+      ])("celda %s, proyecto %s, archivo %s → %s", (celda, proyecto, archivo, esperado) => {
+        expect(normalizarNumeroPM(celda, { nombreArchivo: archivo, proyecto })).toBe(esperado);
+      });
+
+      it.each([
+        "ERICK 11 PM 193-24 - PH MONTERREY PLANTA BAJA SDC 12 17.07.25.xlsx",
+        "anterior 11 PM 193-24 - PH MONTERREY PLANTA BAJA SDC 12 18.06.25.xlsx",
+      ])("reconoce el número de PM después de otra palabra: %s", (archivo) => {
+        expect(
+          normalizarNumeroPM("193-24-2 SDC12 PH MONTERREY", {
+            nombreArchivo: archivo,
+            proyecto: "PLANTA BAJA  - PH MONTERREY",
+          })
+        ).toBe("11PM193-24");
+      });
+
+      it("con número en el nombre del archivo no agrega etiqueta", () => {
+        expect(
+          normalizarNumeroPM("193-24-2 SDC17 PH MONTERREY", {
+            nombreArchivo: "17 PM 193-24 - PH MONTERREY AZ SDC 17 - 13.10.25.xlsx",
+            proyecto: "PH MONTERREY",
+          })
+        ).toBe("17PM193-24");
+      });
+
+      it("la etiqueta sigue en la misma OT", () => {
+        expect(ordenDeTrabajo("PM193-24 SOTANO 1")).toBe("193-24");
+      });
+
       it("el número explícito de la celda sigue mandando sobre el del archivo", () => {
         expect(
           normalizarNumeroPM("3PM134-26", { nombreArchivo: "2PM 134-26 SMART FIT.xlsx" })
         ).toBe("3PM134-26");
+      });
+    });
+
+    describe("OT con un solo PM", () => {
+      it.each([
+        ["PM 107-26", "SMART FIT PLAZA PALMIRA", "PM 107-26 SMART FIT PLAZA PALMIRA.xlsx"],
+        ["PM 107-26", "SMART FIT PLAZA PALMIRA", "PM 107-26 - SMART FIT PLAZA PALMIRA 10.02.26 MODIF.xlsx"],
+        ["PM 107-26", "SMART FIT PLAZA PALMIRA", "PM 107-26.xlsx"],
+        ["PM 107-26", "SMART FIT PLAZA PALMIRA", "PM 107-26 REV.xlsx"],
+      ])("sin texto propio en el archivo queda igual: %s / %s / %s", (celda, proyecto, archivo) => {
+        expect(normalizarNumeroPM(celda, { nombreArchivo: archivo, proyecto })).toBe("PM107-26");
       });
     });
 

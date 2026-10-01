@@ -250,6 +250,8 @@ export async function POST(request: Request) {
         // El nombre del archivo solo aplica a la primera hoja (ver parser).
         nombreArchivo: hoja === libro.hojas[0] ? nombreArchivo : undefined,
         fechaPedido: hoja.resultado.metadata.fecha_pedido,
+        // Distingue a los PM sin número por el nombre del archivo.
+        proyecto: hoja.resultado.metadata.proyecto_nombre,
       };
       const celda = hoja.resultado.metadata.numero_pedido;
       const pm = normalizarNumeroPM(celda, opciones);
