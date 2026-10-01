@@ -65,6 +65,18 @@ export default async function EstimacionesPage() {
             Electrificación: avance, piezas de más y modelos fuera del PM.
           </p>
         </Link>
+        <Link
+          href="/estimaciones/reportes"
+          className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-indigo-300"
+        >
+          <h2 className="text-base font-semibold text-slate-900 group-hover:text-indigo-600">
+            Reporte semanal
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Recibos pagados de la semana, por maquilador y folio: importe, seguro social y total
+            a pagar. Se descarga en Excel con el formato de maquila para Finanzas.
+          </p>
+        </Link>
       </div>
     </main>
   );
