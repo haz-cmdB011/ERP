@@ -9,7 +9,7 @@ import {
   quitarImagenesDelExcel,
 } from "@/lib/planeacion/optimizar-almacenamiento";
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
-import { avisoNumeroPM, normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
+import { avisoNumeroPM, normalizarNumeroPM, pmDeHojaRepetida } from "@/lib/planeacion/numero-pm";
 import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
 
 export const runtime = "nodejs";
@@ -244,6 +244,7 @@ export async function POST(request: Request) {
   // Si la celda y el nombre del archivo no coinciden en el número de PM, se
   // avisa al terminar la carga (ver avisoNumeroPM).
   const avisoPmPorHoja = new Map<string, string>();
+  const pmsUsados = new Set<string>();
   for (const hoja of libro.hojas) {
     if (hoja.resultado.ok) {
       const opciones = {
@@ -254,15 +255,25 @@ export async function POST(request: Request) {
         proyecto: hoja.resultado.metadata.proyecto_nombre,
       };
       const celda = hoja.resultado.metadata.numero_pedido;
-      const pm = normalizarNumeroPM(celda, opciones);
-      const aviso = avisoNumeroPM(celda, pm, opciones);
+      let pm = normalizarNumeroPM(celda, opciones);
+      let aviso = avisoNumeroPM(celda, pm, opciones);
+      // Otra hoja del archivo (a veces oculta, ej. "PEDIDO (2)") con el
+      // mismo No. PEDIDO: es un PM aparte de la misma OT, con el nombre de
+      // la hoja, no una versión que pisaría a la primera.
+      if (pmsUsados.has(pm)) {
+        const anterior = pm;
+        pm = pmDeHojaRepetida(pm, hoja.nombreHoja);
+        aviso = `Tiene el mismo No. PEDIDO que otra hoja (${anterior}); se cargó como el PM ${pm}.`;
+      }
+      pmsUsados.add(pm);
       if (aviso) avisoPmPorHoja.set(hoja.nombreHoja, aviso);
       hoja.resultado.metadata.numero_pedido = pm;
     }
   }
 
   // Todo o nada al validar: si una hoja tiene errores (o dos hojas dan el
-  // mismo PM, que se pisarían como versiones) no se carga ninguna.
+  // mismo PM aun con el nombre de la hoja, que se pisarían como versiones)
+  // no se carga ninguna.
   const varias = libro.hojas.length > 1;
   const conHoja = (nombreHoja: string, mensaje: string) =>
     varias ? `Hoja "${nombreHoja}": ${mensaje}` : mensaje;

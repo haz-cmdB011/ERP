@@ -246,6 +246,29 @@ describe("parsePlaneacionExcel", () => {
     expect(fun.categoria_componente).toBe("FUNCION");
   });
 
+  it("un ITEM con decimales marcado MO sin su entero en la hoja es un mueble suelto", async () => {
+    // Caso real (PM 102-24-2): "TIRAS DE ROSA MORADO" 8.1–8.4 marcadas MO,
+    // sin ITEM 8. Con su entero presente siguen siendo componentes.
+    const buf = await construirWorkbook([
+      { ITEM: 8.1, COMPONENTE: "MO", MODELO: "TIRAS", DESCRIPCION: "DUELA", "CANTIDAD TOTAL": 11 },
+      { ITEM: 8.2, COMPONENTE: "MO", MODELO: "TIRAS", DESCRIPCION: "DUELA", "CANTIDAD TOTAL": 10 },
+      { ITEM: 9, COMPONENTE: "MO", MODELO: "MUEBLE", DESCRIPCION: "MUEBLE", "CANTIDAD TOTAL": 1 },
+      { ITEM: 9.01, COMPONENTE: "MO", MODELO: "MUEBLE", DESCRIPCION: "PARTE", "CANTIDAD TOTAL": 1 },
+      { ITEM: 10.01, COMPONENTE: "FUN", MODELO: "OTRO", DESCRIPCION: "SUELTO", "CANTIDAD TOTAL": 1 },
+    ]);
+
+    const resultado = await parsePlaneacionExcel(buf);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.items.map((i) => [i.item_code, i.tipo_registro])).toEqual([
+      [8.1, "MO"],
+      [8.2, "MO"],
+      [9, "MO"],
+      [9.01, "FU"],
+      [10.01, "FU"],
+    ]);
+  });
+
   it("acepta variaciones de COMPONENTE por prefijo (MO/MOB, FU/FUN, PER...)", async () => {
     const buf = await construirWorkbook([
       { ITEM: 1, COMPONENTE: "mo", DESCRIPCION: "A", "CANTIDAD TOTAL": 1 },
@@ -580,15 +603,16 @@ describe("parsePlaneacionLibro (varias hojas)", () => {
     expect(sdc.items.map((i) => i.modelo)).toEqual(["P-01"]);
   });
 
-  it("ignora las hojas ocultas", async () => {
+  it("lee también las hojas ocultas con formato de PM (ej. \"PEDIDO (2)\" del 102-24-2)", async () => {
     const wb = new ExcelJS.Workbook();
     agregarHojaPM(wb, "PEDIDO", "PM 107-26", [MUEBLE]);
-    agregarHojaPM(wb, "ANTERIOR", "PM 107-26", [MUEBLE]).state = "hidden";
+    agregarHojaPM(wb, "PEDIDO (2)", "PM 107-26", [MUEBLE]).state = "hidden";
+    wb.addWorksheet("NOTAS").state = "hidden";
 
     const libro = await parsePlaneacionLibro(Buffer.from(await wb.xlsx.writeBuffer()));
 
-    expect(libro.hojas.map((h) => h.nombreHoja)).toEqual(["PEDIDO"]);
-    expect(libro.hojasIgnoradas).toEqual(["ANTERIOR"]);
+    expect(libro.hojas.map((h) => h.nombreHoja)).toEqual(["PEDIDO", "PEDIDO (2)"]);
+    expect(libro.hojasIgnoradas).toEqual(["NOTAS"]);
   });
 
   it("usa el nombre del archivo como respaldo del No. PEDIDO solo en la primera hoja", async () => {

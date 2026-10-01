@@ -23,7 +23,10 @@ import type {
  * - La columna COMPONENTE (MOB/MO, FUN/FU, PER...) es una CATEGORÍA
  *   independiente del rol padre/hijo: un PER puede aparecer como padre
  *   (ITEM entero) y su despiece puede venir etiquetado MOB o FUN — el rol
- *   padre/hijo lo decide siempre la forma del ITEM, nunca este texto.
+ *   padre/hijo lo decide la forma del ITEM. Única excepción: un ITEM con
+ *   decimales marcado MO cuyo entero no existe en la hoja es un mueble
+ *   suelto (MO), no un componente huérfano.
+ * - Se leen todas las hojas con ese formato, también las ocultas.
  */
 
 const REQUIRED_HEADERS = [
@@ -252,7 +255,7 @@ export interface ResultadoLibro {
   // Hojas con formato de PM, en el orden del archivo. Si ninguna lo tiene,
   // trae solo la primera hoja con sus errores de formato.
   hojas: HojaPM[];
-  // Hojas sin formato de PM (notas, cálculos) u ocultas: no se cargan.
+  // Hojas sin formato de PM (notas, cálculos): no se cargan.
   hojasIgnoradas: string[];
 }
 
@@ -271,7 +274,9 @@ export async function parsePlaneacionLibro(
   const hojas: HojaPM[] = [];
   const hojasIgnoradas: string[] = [];
   workbook.worksheets.forEach((worksheet, indiceHoja) => {
-    if (worksheet.state !== "visible" || !buscarEncabezados(worksheet)) {
+    // Las hojas ocultas también se leen si tienen formato de PM (ej. "PEDIDO
+    // (2)" en el PM 102-24-2): su contenido cuenta igual que el visible.
+    if (!buscarEncabezados(worksheet)) {
       hojasIgnoradas.push(worksheet.name);
       return;
     }
@@ -543,6 +548,20 @@ function parsearHoja(
         : null,
       fases_taller: fasesTaller,
     });
+  }
+
+  // ITEM con decimales sin mueble padre en la hoja pero marcado como mueble
+  // en COMPONENTE (ej. 8.1–8.4 "MO" sin ITEM 8 en el PM 102-24-2): son
+  // muebles por sí mismos, no componentes sueltos, y cuentan en el PM.
+  const muebles = new Set(items.filter((i) => i.tipo_registro === "MO").map((i) => i.item_code));
+  for (const item of items) {
+    if (
+      item.tipo_registro === "FU" &&
+      item.categoria_componente === "MOBILIARIO" &&
+      !muebles.has(Math.floor(item.item_code))
+    ) {
+      item.tipo_registro = "MO";
+    }
   }
 
   // Un mismo número de mueble en varios renglones (ej. el componente 12.07

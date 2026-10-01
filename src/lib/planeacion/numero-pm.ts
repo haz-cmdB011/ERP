@@ -222,3 +222,13 @@ function normalizarBase(
     opciones.fechaPedido?.slice(0, 4) ?? String((opciones.hoy ?? new Date()).getFullYear());
   return formatear(numeroCelda, anio);
 }
+
+/**
+ * PM de una hoja que repite el No. PEDIDO de otra hoja del mismo archivo
+ * (ej. la hoja oculta "PEDIDO (2)" del PM 102-24-2): un PM aparte de la
+ * misma OT, con el nombre de la hoja. "2PM102-24" + "PEDIDO (2)" da
+ * "2PM102-24 PEDIDO (2)".
+ */
+export function pmDeHojaRepetida(pm: string, nombreHoja: string): string {
+  return `${pm} ${nombreHoja.replace(/\s+/g, " ").trim().toUpperCase()}`;
+}
