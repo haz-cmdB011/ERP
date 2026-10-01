@@ -63,10 +63,9 @@ function existe(tipo, nombre, resto) {
 // (por ejemplo --desde=20260929), para una consulta más corta.
 const desde = (process.argv.find((a) => a.startsWith("--desde=")) ?? "").slice("--desde=".length);
 
-const migraciones = readdirSync(DIR)
+const todas = readdirSync(DIR)
   .filter((f) => f.endsWith(".sql"))
   .sort()
-  .filter((f) => !desde || f >= desde)
   .map((archivo) => {
     const m = archivo.match(/^(\d+)_(.+)\.sql$/);
     if (!m) throw new Error(`Nombre de migración no válido: ${archivo}`);
@@ -74,8 +73,28 @@ const migraciones = readdirSync(DIR)
     const objetos = [...texto.matchAll(/^--\s*@verifica\s+(\S+)\s+(\S+)(?:[ \t]+(.+))?$/gm)].map(
       (x) => ({ tipo: x[1], nombre: x[2], resto: (x[3] ?? "").trim().replace(/\r$/, "") })
     );
-    return { version: m[1], nombre: m[2], objetos };
+    return { archivo, version: m[1], nombre: m[2], objetos };
   });
+
+// Una función que una migración posterior borra (`sin-function`) ya no se
+// comprueba en las anteriores: lo que dejaron quedó reemplazado. Se calcula con
+// todas las migraciones, aunque se pida --desde.
+const migraciones = todas
+  .map((mig, i) => {
+    const borradasDespues = new Set(
+      todas
+        .slice(i + 1)
+        .flatMap((posterior) => posterior.objetos)
+        .filter((o) => o.tipo === "sin-function")
+        .map((o) => o.nombre)
+    );
+    const objetos = mig.objetos.filter(
+      (o) =>
+        !((o.tipo === "function" || o.tipo === "function-contiene") && borradasDespues.has(o.nombre))
+    );
+    return { ...mig, objetos };
+  })
+  .filter((mig) => !desde || mig.archivo >= desde);
 
 const filas = migraciones.map(({ version, nombre, objetos }) => {
   const faltantes = objetos.length
