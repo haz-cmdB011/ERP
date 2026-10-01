@@ -1,6 +1,6 @@
 // OT y modelos que subió Planeación, para los generadores de recibos de
 // Acabados y Armado (RPC listar_ots_recibos / listar_modelos_ot_recibos, ver
-// supabase/migrations/20261001190000_recibos_por_ot.sql). Una OT junta todos
+// supabase/migrations/20261001194636_recibos_por_ot.sql). Una OT junta todos
 // sus PM vigentes: los modelos traen la cantidad sumada de todos.
 // Electrificación usa sus propias funciones, que solo cuentan los muebles con
 // iluminación (ver recibos-electrificacion-db.ts).

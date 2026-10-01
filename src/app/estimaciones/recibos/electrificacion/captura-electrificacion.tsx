@@ -250,9 +250,8 @@ export default function CapturaElectrificacion({
   const [modeloAbierto, setModeloAbierto] = useState<number | null>(null);
   function opcionesModelo(texto: string): ModeloOtElectrificacion[] {
     const q = claveModelo(texto);
-    return (modelosOt ?? [])
-      .filter((m) => !q || claveModelo(m.modelo).includes(q))
-      .slice(0, 60);
+    // Todos los modelos de la OT (la lista se desplaza y se filtra al escribir).
+    return (modelosOt ?? []).filter((m) => !q || claveModelo(m.modelo).includes(q));
   }
 
   // Vuelve a leer lo ya registrado por modelo en la OT: tras guardar un recibo,

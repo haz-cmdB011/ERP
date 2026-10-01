@@ -121,9 +121,8 @@ export function CampoModeloOt({
 }) {
   const [abierto, setAbierto] = useState(false);
   const q = claveModelo(value);
-  const opciones = (seleccion.modelos ?? [])
-    .filter((m) => !q || claveModelo(m.modelo).includes(q))
-    .slice(0, 60);
+  // Todos los modelos de la OT (la lista se desplaza y se filtra al escribir).
+  const opciones = (seleccion.modelos ?? []).filter((m) => !q || claveModelo(m.modelo).includes(q));
   const variosPm = (seleccion.otElegida?.numPms ?? 0) > 1;
 
   return (

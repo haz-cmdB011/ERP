@@ -1,7 +1,7 @@
 // Conciliación de lo capturado en un recibo (Acabados, Armado o
 // Electrificación) contra lo que Planeación declaró en los PM de su OT. Es el
 // espejo en pantalla del trigger est_conciliar_renglon_pm
-// (supabase/migrations/20261001190000_recibos_por_ot.sql): renglón por
+// (supabase/migrations/20261001194636_recibos_por_ot.sql): renglón por
 // renglón, en orden, por modelo de la OT, lo ya registrado en otros recibos
 // vigentes del área más lo capturado hasta ese renglón no debe superar lo
 // declarado. Capturar de menos está bien (entregas parciales). Los reprocesos
@@ -25,7 +25,7 @@ export function claveModelo(modelo: string | null | undefined): string {
 // OT con la que se agrupan recibos y PM: "2PM193-24", "PM193-24 SOTANO 1",
 // "193-24", "OT 193-24" y "193-24-2 ..." son la OT "193-24"; cualquier otro
 // texto queda tal cual en mayúsculas. Espejo de ot_clave en la base
-// (supabase/migrations/20261001190000_recibos_por_ot.sql).
+// (supabase/migrations/20261001194636_recibos_por_ot.sql).
 export function claveOt(texto: string | null | undefined): string | null {
   const t = String(texto ?? "");
   const deCodigo =
