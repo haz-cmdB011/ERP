@@ -18,7 +18,8 @@ export type EstadoLiberacion = "pendiente" | "enviado_a_produccion";
 export interface PlaneacionItemParsed {
   item_code: number;
   // MO (padre) / FU (hijo) se determina por la forma del ITEM (entero vs
-  // decimal), no por el texto de la columna COMPONENTE.
+  // decimal), no por el texto de la columna COMPONENTE. Excepción: un
+  // decimal marcado MO sin su entero en la hoja es MO (ver parser).
   tipo_registro: TipoRegistroItem;
   // Categoría real de la columna COMPONENTE (MOB/MO, FUN/FU, PER...),
   // independiente de si la fila es padre o hijo: un PER puede ser padre,

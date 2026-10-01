@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avisoNumeroPM, normalizarNumeroPM, ordenDeTrabajo } from "./numero-pm";
+import { avisoNumeroPM, normalizarNumeroPM, ordenDeTrabajo, pmDeHojaRepetida } from "./numero-pm";
 
 describe("normalizarNumeroPM", () => {
   it.each([
@@ -213,5 +213,13 @@ describe("avisoNumeroPM", () => {
     expect(avisoNumeroPM("193-24", "12PM193-24", opciones)).toBeNull();
     expect(avisoNumeroPM("2PM134-26", "2PM134-26", { nombreArchivo: "2PM 134-26.xlsx" })).toBeNull();
     expect(avisoNumeroPM("193-24-2", "2PM193-24", {})).toBeNull();
+  });
+});
+
+describe("pmDeHojaRepetida", () => {
+  it("distingue con el nombre de la hoja y sigue en la misma OT", () => {
+    const pm = pmDeHojaRepetida("2PM102-24", " PEDIDO  (2) ");
+    expect(pm).toBe("2PM102-24 PEDIDO (2)");
+    expect(ordenDeTrabajo(pm)).toBe("102-24");
   });
 });
