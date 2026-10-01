@@ -615,3 +615,48 @@ describe("parsePlaneacionLibro (varias hojas)", () => {
     expect(libro.hojas[0].resultado.ok).toBe(false);
   });
 });
+
+describe("variantes de encabezado de archivos reales", () => {
+  // Encabezados como los de "PM 051-24-3 Mobiliario Varios" y "REVISION PM
+  // 033-25-2 ...": dos columnas TIPO (componente y material), sin
+  // COMPONENTE, y la cantidad total con otro nombre.
+  async function libroConEncabezados(cantidadTotal: string): Promise<Buffer> {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("PEDIDO");
+    ws.getCell("L3").value = "No. PEDIDO";
+    ws.getCell("N3").value = "051-24-2";
+    ws.getCell("L5").value = "PROYECTO:";
+    ws.getCell("M5").value = "MOBILIARIO VARIOS";
+    ws.getCell("L6").value = "CLIENTE:";
+    ws.getCell("M6").value = "CLIENTE";
+    ws.getRow(10).values = [
+      "ITEM", "TIPO", "ETAPA", "NIVEL", "DEPARTAMENTO", "ELEVACION", "MODELO", "DESCRIPCION",
+      "TIPO", "CANTIDAD X MUEBLE", "UNIDAD", cantidadTotal, "ACABADOS",
+    ];
+    ws.getRow(11).values = [1, "MO", "NA", null, null, null, "SAL.DESC", "SOFA 3 PLAZAS", "HIBRIDO", null, "PZA", 2];
+    ws.getRow(12).values = [1.01, "FUN", "NA", null, null, null, "SAL.DESC", "CASCO", "MADERA", 3, "PZA", 6];
+    return Buffer.from(await wb.xlsx.writeBuffer());
+  }
+
+  it.each(["CANT\nTOTAL", "CANTIDAD DE MUEBLES EN PLANTA "])(
+    "acepta %j como CANTIDAD TOTAL y la primera TIPO como COMPONENTE",
+    async (encabezado) => {
+      const resultado = await parsePlaneacionExcel(await libroConEncabezados(encabezado));
+      expect(resultado.ok).toBe(true);
+      if (!resultado.ok) return;
+      expect(
+        resultado.items.map((i) => [i.item_code, i.tipo_registro, i.categoria_componente, i.tipo_material, i.cantidad_total])
+      ).toEqual([
+        [1, "MO", "MOBILIARIO", "HIBRIDO", 2],
+        [1.01, "FU", "FUNCION", "MADERA", 6],
+      ]);
+    }
+  );
+
+  it("no toma por CANTIDAD TOTAL la cantidad de herrajes de la hoja de resumen", async () => {
+    const resultado = await parsePlaneacionExcel(
+      await libroConEncabezados("CANTIDAD DE  HERRAJE X EL TOTAL DE MUEBLES")
+    );
+    expect(resultado.ok).toBe(false);
+  });
+});
