@@ -9,7 +9,7 @@ import {
   quitarImagenesDelExcel,
 } from "@/lib/planeacion/optimizar-almacenamiento";
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
-import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
+import { avisoNumeroPM, normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
 import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
 
 export const runtime = "nodejs";
@@ -241,16 +241,23 @@ export async function POST(request: Request) {
 
   // El título del PM siempre se guarda como "PM<NUMERO>-<AÑO>", sin importar
   // cómo venga escrito en la celda "No. PEDIDO" o en el nombre del archivo.
+  // Si la celda y el nombre del archivo no coinciden en el número de PM, se
+  // avisa al terminar la carga (ver avisoNumeroPM).
+  const avisoPmPorHoja = new Map<string, string>();
   for (const hoja of libro.hojas) {
     if (hoja.resultado.ok) {
-      hoja.resultado.metadata.numero_pedido = normalizarNumeroPM(
-        hoja.resultado.metadata.numero_pedido,
-        {
-          // El nombre del archivo solo aplica a la primera hoja (ver parser).
-          nombreArchivo: hoja === libro.hojas[0] ? nombreArchivo : undefined,
-          fechaPedido: hoja.resultado.metadata.fecha_pedido,
-        }
-      );
+      const opciones = {
+        // El nombre del archivo solo aplica a la primera hoja (ver parser).
+        nombreArchivo: hoja === libro.hojas[0] ? nombreArchivo : undefined,
+        fechaPedido: hoja.resultado.metadata.fecha_pedido,
+        // Distingue a los PM sin número por el nombre del archivo.
+        proyecto: hoja.resultado.metadata.proyecto_nombre,
+      };
+      const celda = hoja.resultado.metadata.numero_pedido;
+      const pm = normalizarNumeroPM(celda, opciones);
+      const aviso = avisoNumeroPM(celda, pm, opciones);
+      if (aviso) avisoPmPorHoja.set(hoja.nombreHoja, aviso);
+      hoja.resultado.metadata.numero_pedido = pm;
     }
   }
 
@@ -389,6 +396,8 @@ export async function POST(request: Request) {
       filas: items.length,
       ...ingestData,
     });
+    const avisoPm = avisoPmPorHoja.get(hoja.nombreHoja);
+    if (avisoPm) avisos.push({ fila: 0, mensaje: conHoja(hoja.nombreHoja, avisoPm) });
     for (const aviso of hoja.resultado.avisos) {
       avisos.push({ ...aviso, mensaje: conHoja(hoja.nombreHoja, aviso.mensaje) });
     }
