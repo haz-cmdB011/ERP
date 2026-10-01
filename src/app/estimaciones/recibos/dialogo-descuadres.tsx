@@ -64,7 +64,7 @@ export default function DialogoDescuadres({
                 `Este modelo no está entre los modelos${detalleModelos} de la OT ${ot}.`
               ) : d.conciliacion.estado === "excede" ? (
                 <>
-                  Planeación declaró <b>{d.conciliacion.cantidadPm} pz</b>; con este renglón van{" "}
+                  Planeación declaró <b>{d.conciliacion.cantidadPm} pz</b> en la OT; con este renglón van{" "}
                   <b>{d.conciliacion.acumulada} pz</b>
                   {d.registrada > 0 ? ` (${d.registrada} ya registradas en otros recibos)` : ""} —{" "}
                   sobran {d.conciliacion.excedente}.

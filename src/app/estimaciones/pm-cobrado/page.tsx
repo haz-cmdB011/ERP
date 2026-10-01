@@ -5,27 +5,27 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import {
   AREAS_COBRO,
-  cargarPmContraCobrado,
-  resumirPorPm,
-  type ResumenPm,
+  cargarOtContraCobrado,
+  resumirPorOt,
+  type ResumenOt,
 } from "@/lib/estimaciones/pm-cobrado";
 import BarraAvance from "./barra-avance";
 import { AREA_RECIBO_LABELS } from "@/lib/estimaciones/discrepancias-db";
 
 export const metadata: Metadata = { title: "PM contra cobrado" };
 
-function coincide(r: ResumenPm, texto: string): boolean {
+function coincide(r: ResumenOt, texto: string): boolean {
   const t = texto.toLowerCase();
-  return [r.numeroPedido, r.ordenTrabajo, r.proyecto].some((v) => (v ?? "").toLowerCase().includes(t));
+  return [r.ot, r.pms, r.proyecto].some((v) => (v ?? "").toLowerCase().includes(t));
 }
 
-function conDiferencias(r: ResumenPm): boolean {
+function conDiferencias(r: ResumenOt): boolean {
   return r.excedidos > 0 || r.fueraDelPm > 0 || r.discrepanciasPendientes > 0;
 }
 
-// Por PM: cuánto de lo que declaró Planeación ya se cobró en cada área, y qué
-// hay que revisar (modelos cobrados de más, fuera del PM, discrepancias sin
-// decidir).
+// Por OT (todos sus PM juntos, igual que el generador de recibos): cuánto de lo
+// que declaró Planeación ya se cobró en cada área, y qué hay que revisar
+// (modelos cobrados de más, fuera de la OT, discrepancias sin decidir).
 export default async function PmCobradoPage({
   searchParams,
 }: {
@@ -40,8 +40,8 @@ export default async function PmCobradoPage({
     redirect("/estimaciones");
   }
 
-  const { filas, error } = await cargarPmContraCobrado(supabase);
-  const todos = resumirPorPm(filas);
+  const { filas, error } = await cargarOtContraCobrado(supabase);
+  const todos = resumirPorOt(filas);
   const visibles = todos
     .filter((r) => !busqueda || coincide(r, busqueda))
     .filter((r) => !soloDiferencias || conDiferencias(r));
@@ -60,9 +60,9 @@ export default async function PmCobradoPage({
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">PM contra cobrado</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Lo que Planeación declaró en cada PM contra lo que ya se capturó en recibos vigentes. Cada
-          área tiene su propio saldo; los reprocesos se pagan aparte y no cuentan. Electrificación
-          se mide contra los muebles con iluminación.
+          Por O.T., lo que Planeación declaró en todos sus PM contra lo que ya se capturó en recibos
+          vigentes. Cada área tiene su propio saldo; los reprocesos se pagan aparte y no cuentan.
+          Electrificación se mide contra los muebles con iluminación.
         </p>
       </div>
 
@@ -72,7 +72,7 @@ export default async function PmCobradoPage({
             type="search"
             name="q"
             defaultValue={busqueda}
-            placeholder="Buscar PM, O.T. o proyecto"
+            placeholder="Buscar O.T., PM o proyecto"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
           />
           {soloDiferencias && <input type="hidden" name="ver" value="diferencias" />}
@@ -118,27 +118,28 @@ export default async function PmCobradoPage({
           {todos.length === 0
             ? "Todavía no hay PM cargados."
             : soloDiferencias
-              ? "Ningún PM tiene diferencias con lo cobrado."
-              : `Ningún PM coincide con «${busqueda}».`}
+              ? "Ninguna O.T. tiene diferencias con lo cobrado."
+              : `Ninguna O.T. coincide con «${busqueda}».`}
         </p>
       )}
 
       <div className="flex flex-col gap-3">
         {visibles.map((r) => (
           <Link
-            key={r.pedidoId}
-            href={`/estimaciones/pm-cobrado/${r.pedidoId}`}
+            key={r.ot}
+            href={`/estimaciones/pm-cobrado/${encodeURIComponent(r.ot)}`}
             className="group flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-indigo-300"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <div className="min-w-0">
                 <span className="font-mono text-base font-semibold text-slate-900 group-hover:text-indigo-600">
-                  {r.numeroPedido}
+                  O.T. {r.ot}
                 </span>
                 {r.proyecto && <span className="ml-2 text-sm text-slate-500">{r.proyecto}</span>}
               </div>
               <span className="text-xs text-slate-500">
-                {r.modelos} modelos · {r.piezasPm} piezas en el PM
+                {r.numPms} PM · {r.modelos} modelos · {r.piezasPm}{" "}
+                piezas
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -155,7 +156,7 @@ export default async function PmCobradoPage({
                 )}
                 {r.fueraDelPm > 0 && (
                   <span className="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 ring-1 ring-rose-200">
-                    {r.fueraDelPm} {r.fueraDelPm === 1 ? "modelo" : "modelos"} fuera del PM
+                    {r.fueraDelPm} {r.fueraDelPm === 1 ? "modelo" : "modelos"} fuera de la O.T.
                   </span>
                 )}
                 {r.discrepanciasPendientes > 0 && (

@@ -29,9 +29,10 @@ npm run db:verificar # genera la consulta que compara migraciones del repo vs la
 Scripts de planos (Node con `tsx`): `scripts/planos/*.mts`.
 
 `npm run test:db` corre `tests-db/` contra la base REAL (nunca escribe): funciones
-puras, permisos que deben rechazarse y la regla de que la cantidad del PM sale solo
-de los muebles padre. Los casos con datos (FXIJ-12 = 1, DEC-313 = 139…) se omiten
-con aviso si esa OT no está cargada. No corre con `npm test`.
+puras, permisos que deben rechazarse y la regla de que la cantidad de una OT (todos
+sus PM) sale solo de los muebles padre. Los casos con datos (TIRAS DE ROSA MORADO
+en la OT 102-24 = 119…) se omiten con aviso si esa OT no está cargada. No corre con
+`npm test`.
 
 ## Variables de entorno (`.env.local`, no se sube a Git)
 

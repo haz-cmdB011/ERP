@@ -28,18 +28,19 @@ import {
 import {
   guardarReciboElectrificacionEnDb,
   listarFoliosElectrificacion,
-  listarModelosPm,
-  listarOtsPm,
+  listarModelosOtElectrificacion,
+  listarOtsElectrificacion,
   modificarReciboElectrificacionEnDb,
   type FolioElectrificacionExistente,
-  type ModeloPm,
-  type OtPm,
+  type ModeloOtElectrificacion,
+  type OtElectrificacion,
   type ReciboElectrificacionGuardado,
   type RenglonElectrificacionGuardado,
   type RenglonElectrificacionParaGuardar,
 } from "@/lib/estimaciones/recibos-electrificacion-db";
 import {
   claveModelo,
+  claveOt,
   conciliarRenglones,
   requiereMotivo,
 } from "@/lib/estimaciones/conciliacion-pm";
@@ -203,76 +204,79 @@ export default function CapturaElectrificacion({
     actualizar(r.id, { charolas });
   }
 
-  // OT y modelos vienen del PM que subió Planeación: el generador solo deja
-  // elegir OT que existan ahí. La cantidad de cada modelo se compara con lo que
-  // Planeación declaró para ese modelo en esa OT (ver conciliacion-pm.ts); si no
-  // concuerda, se avisa y se pide el motivo al guardar.
+  // OT y modelos vienen de los PM que subió Planeación: el generador solo deja
+  // elegir OT que existan ahí, y los modelos son los de todos sus PM. La
+  // cantidad de cada modelo se compara con lo que Planeación declaró para ese
+  // modelo en la OT (ver conciliacion-pm.ts); si no concuerda, se avisa y se
+  // pide el motivo al guardar.
   // undefined: cargando; null: la consulta falló.
-  const [otsPm, setOtsPm] = useState<OtPm[] | null | undefined>(undefined);
+  const [ots, setOts] = useState<OtElectrificacion[] | null | undefined>(undefined);
   useEffect(() => {
-    listarOtsPm(createClient()).then(setOtsPm);
+    listarOtsElectrificacion(createClient()).then(setOts);
   }, []);
-  const otPm = useMemo(
-    () => otsPm?.find((o) => o.numeroPedido === ot.trim()) ?? null,
-    [otsPm, ot]
-  );
-  const pedidoId = otPm?.pedidoId ?? null;
+  // Un recibo anterior que guardó el número de PM ("2PM193-24") cae en su OT.
+  const otElegida = useMemo(() => {
+    const clave = claveOt(ot);
+    return (clave && ots?.find((o) => o.ot === clave)) || null;
+  }, [ots, ot]);
+  const claveElegida = otElegida?.ot ?? null;
 
   const [modelosDe, setModelosDe] = useState<{
-    pedidoId: string;
-    modelos: ModeloPm[] | null;
+    ot: string;
+    modelos: ModeloOtElectrificacion[] | null;
   } | null>(null);
   useEffect(() => {
-    if (!pedidoId) return;
+    if (!claveElegida) return;
     let vigente = true;
-    listarModelosPm(createClient(), pedidoId, reciboExistente?.id).then((modelos) => {
-      if (vigente) setModelosDe({ pedidoId, modelos });
-    });
+    listarModelosOtElectrificacion(createClient(), claveElegida, reciboExistente?.id).then(
+      (modelos) => {
+        if (vigente) setModelosDe({ ot: claveElegida, modelos });
+      }
+    );
     return () => {
       vigente = false;
     };
-  }, [pedidoId, reciboExistente?.id]);
-  const modelosPm = modelosDe && modelosDe.pedidoId === pedidoId ? modelosDe.modelos : null;
+  }, [claveElegida, reciboExistente?.id]);
+  const modelosOt = modelosDe && modelosDe.ot === claveElegida ? modelosDe.modelos : null;
 
   const modelosPorClave = useMemo(
-    () => new Map((modelosPm ?? []).map((m) => [claveModelo(m.modelo), m])),
-    [modelosPm]
+    () => new Map((modelosOt ?? []).map((m) => [claveModelo(m.modelo), m])),
+    [modelosOt]
   );
 
   // Selector de modelo: se abre al enfocar el campo de un renglón. Para todos
   // (personal y maquilador) solo trae los muebles con iluminación de la OT: es
   // contra lo que se mide Electrificación.
   const [modeloAbierto, setModeloAbierto] = useState<number | null>(null);
-  function opcionesModelo(texto: string): ModeloPm[] {
+  function opcionesModelo(texto: string): ModeloOtElectrificacion[] {
     const q = claveModelo(texto);
-    return (modelosPm ?? [])
-      .filter((m) => !q || claveModelo(m.modelo).includes(q))
-      .slice(0, 60);
+    // Todos los modelos de la OT (la lista se desplaza y se filtra al escribir).
+    return (modelosOt ?? []).filter((m) => !q || claveModelo(m.modelo).includes(q));
   }
 
-  // Vuelve a leer del PM lo ya registrado por modelo: tras guardar un recibo, la
-  // cantidad registrada cambia y la comparación del siguiente debe usarla.
+  // Vuelve a leer lo ya registrado por modelo en la OT: tras guardar un recibo,
+  // la cantidad registrada cambia y la comparación del siguiente debe usarla.
   function recargarModelos() {
-    if (!pedidoId) return;
-    const id = pedidoId;
-    listarModelosPm(createClient(), id, reciboExistente?.id).then((modelos) => {
-      setModelosDe({ pedidoId: id, modelos });
+    if (!claveElegida) return;
+    const clave = claveElegida;
+    listarModelosOtElectrificacion(createClient(), clave, reciboExistente?.id).then((modelos) => {
+      setModelosDe({ ot: clave, modelos });
     });
   }
 
-  // Conciliación de cada renglón contra el PM (misma regla que la base, ver
-  // conciliacion-pm.ts); null donde aún no hay con qué comparar (sin OT del PM
-  // o sin modelos cargados).
+  // Conciliación de cada renglón contra los PM de la OT (misma regla que la
+  // base, ver conciliacion-pm.ts); null donde aún no hay con qué comparar (sin
+  // OT de Planeación o sin modelos cargados).
   const conciliaciones = useMemo(() => {
-    if (!otPm || modelosPm === null) return renglones.map(() => null);
+    if (!otElegida || modelosOt === null) return renglones.map(() => null);
     const saldo = new Map(
-      modelosPm.map((m) => [
+      modelosOt.map((m) => [
         claveModelo(m.modelo),
         { cantidadPm: m.cantidadPm, cantidadRegistrada: m.cantidadRegistrada },
       ])
     );
     return conciliarRenglones(renglones, saldo);
-  }, [otPm, modelosPm, renglones]);
+  }, [otElegida, modelosOt, renglones]);
 
   function continuarFolio() {
     if (!folioPrevio) return;
@@ -361,8 +365,8 @@ export default function CapturaElectrificacion({
     if (!folio.trim()) problemas.push("Falta el folio.");
     if (!fecha.trim()) problemas.push("Falta la fecha del recibo.");
     if (!contratista.trim()) problemas.push("Falta el contratista.");
-    if (!ot.trim()) problemas.push("Falta la OT: elígela de la lista del PM.");
-    else if (otsPm && !otPm) problemas.push("La OT no está en el PM de Planeación; elige una de la lista.");
+    if (!ot.trim()) problemas.push("Falta la OT: elígela de la lista.");
+    else if (ots && !otElegida) problemas.push("La OT no está en Planeación; elige una de la lista.");
     if (prioridad !== "normal" && !motivo.trim()) {
       problemas.push(`La prioridad ${prioridad} exige un motivo.`);
     }
@@ -519,7 +523,7 @@ export default function CapturaElectrificacion({
               .join("; ")}.`
           : "",
         descuadres.length > 0
-          ? "⚠ Hay renglones cuya cantidad supera lo declarado en el PM: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
+          ? "⚠ Hay renglones cuya cantidad supera lo declarado en los PM de la OT: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
           : "",
         "Generando el PDF del recibo…",
         reciboExistente ? "" : "El formulario quedó listo para otro recibo (se conservan fecha, obra y OT).",
@@ -623,25 +627,26 @@ export default function CapturaElectrificacion({
             <span className={ETIQUETA}>OT</span>
             <select
               className={`${CONTROL} font-mono`}
-              value={ot}
+              value={otElegida?.ot ?? ot}
               onChange={(e) => {
-                const elegida = otsPm?.find((o) => o.numeroPedido === e.target.value);
+                const elegida = ots?.find((o) => o.ot === e.target.value);
                 setOt(e.target.value);
                 if (elegida?.proyecto && !obra.trim()) setObra(elegida.proyecto);
               }}
             >
               <option value="">
-                {otsPm === undefined
-                  ? "Cargando OT del PM…"
-                  : otsPm === null
+                {ots === undefined
+                  ? "Cargando OT…"
+                  : ots === null
                     ? "No se pudo cargar la lista de OT"
                     : "Elige la OT"}
               </option>
-              {ot && !otPm && <option value={ot}>{ot} (no está en el PM)</option>}
-              {(otsPm ?? []).map((o) => (
-                <option key={o.pedidoId} value={o.numeroPedido}>
-                  {o.numeroPedido}
+              {ot && !otElegida && <option value={ot}>{ot} (no está en Planeación)</option>}
+              {(ots ?? []).map((o) => (
+                <option key={o.ot} value={o.ot}>
+                  {o.ot}
                   {o.proyecto ? ` — ${o.proyecto}` : ""}
+                  {o.numPms > 1 ? ` (${o.numPms} PM)` : ""}
                 </option>
               ))}
             </select>
@@ -783,7 +788,7 @@ export default function CapturaElectrificacion({
                         <div className="relative">
                           <input
                             autoComplete="off"
-                            placeholder={otPm ? "Elige o escribe el modelo" : "Elige primero la OT"}
+                            placeholder={otElegida ? "Elige o escribe el modelo" : "Elige primero la OT"}
                             className={`${CONTROL} font-mono`}
                             value={r.modelo}
                             onFocus={() => setModeloAbierto(r.id)}
@@ -804,24 +809,31 @@ export default function CapturaElectrificacion({
                                       actualizar(r.id, { modelo: m.modelo });
                                       setModeloAbierto(null);
                                     }}
-                                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-sm hover:bg-indigo-50"
+                                    className="flex w-full flex-col px-2.5 py-1.5 text-left text-sm hover:bg-indigo-50"
                                   >
-                                    <span className="font-mono text-slate-900">{m.modelo}</span>
-                                    <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
-                                      {m.cantidadPm} en el PM
-                                      {m.cantidadRegistrada > 0 && (
-                                        <span
-                                          className={
-                                            m.cantidadRegistrada >= m.cantidadPm
-                                              ? "font-semibold text-amber-700"
-                                              : ""
-                                          }
-                                        >
-                                          {" · "}
-                                          {m.cantidadRegistrada} ya cobradas
-                                        </span>
-                                      )}
+                                    <span className="flex items-center justify-between gap-2">
+                                      <span className="font-mono text-slate-900">{m.modelo}</span>
+                                      <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
+                                        {m.cantidadPm} en la OT
+                                        {m.cantidadRegistrada > 0 && (
+                                          <span
+                                            className={
+                                              m.cantidadRegistrada >= m.cantidadPm
+                                                ? "font-semibold text-amber-700"
+                                                : ""
+                                            }
+                                          >
+                                            {" · "}
+                                            {m.cantidadRegistrada} ya cobradas
+                                          </span>
+                                        )}
+                                      </span>
                                     </span>
+                                    {(otElegida?.numPms ?? 0) > 1 && m.pms && (
+                                      <span className="truncate font-mono text-[10px] text-slate-400">
+                                        {m.pms}
+                                      </span>
+                                    )}
                                   </button>
                                 </li>
                               ))}

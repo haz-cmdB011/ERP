@@ -6,16 +6,16 @@
 // Tres grupos:
 //   1. Funciones puras (norm_modelo, descripcion_incluye_iluminacion): casos fijos.
 //   2. Permisos: lo que un usuario sin sesión o sin rol NO debe poder ejecutar.
-//   3. Datos del PM: (a) invariante "solo cuentan los padres", que se comprueba
-//      contra las propias tablas y por eso aguanta que cambien los datos; (b)
-//      casos conocidos (FXIJ-12 = 1, DEC-313 = 139...), que se OMITEN con aviso
-//      si la OT no está cargada (por ejemplo tras limpiar la base).
+//   3. Datos del PM: (a) invariante "solo cuentan los padres, de todos los PM de
+//      la OT", que se comprueba contra las propias tablas y por eso aguanta que
+//      cambien los datos; (b) casos conocidos (TIRAS DE ROSA MORADO en la OT
+//      102-24 = 119), que se OMITEN con aviso si la OT no está cargada.
 //
 // No escribe nada: usa la clave de servicio solo para leer y para llamar
 // funciones que rechazan sin rol.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { claveModelo } from "../src/lib/estimaciones/conciliacion-pm";
+import { claveModelo, claveOt } from "../src/lib/estimaciones/conciliacion-pm";
 import { describe, expect, it } from "vitest";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -73,10 +73,13 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
     const privilegiadas: [string, Record<string, unknown>][] = [
       ["eliminar_recibo_definitivo", { p_tipo: "electrificacion", p_recibo_id: UUID_NULO }],
       ["decidir_discrepancia_pm", { p_id: UUID_NULO, p_decision: "aceptada", p_nota: "" }],
-      ["listar_ots_pm_electrificacion", {}],
-      ["listar_modelos_pm_electrificacion", { p_pedido: UUID_NULO }],
-      ["cantidad_pm_modelo", { p_pedido: UUID_NULO, p_modelo: "X" }],
-      ["cantidad_registrada_modelo", { p_pedido: UUID_NULO, p_modelo: "X" }],
+      ["listar_ots_recibos", {}],
+      ["listar_modelos_ot_recibos", { p_ot: "X" }],
+      ["listar_ots_electrificacion", {}],
+      ["listar_modelos_ot_electrificacion", { p_ot: "X" }],
+      ["cantidad_pm_ot", { p_ot: "X", p_modelo: "X", p_solo_iluminacion: false }],
+      ["cantidad_registrada_ot", { p_ot: "X", p_modelo: "X", p_area: "acabados" }],
+      ["ot_contra_cobrado", {}],
       ["pedido_id_por_ot", { p_ot: "X" }],
       ["auditar_recibos", {}],
     ];
@@ -108,10 +111,15 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
     });
 
     it("el catálogo de OT y modelos exige rol de Estimaciones o maquilador", async () => {
-      const ots = await servicio.rpc("listar_ots_pm_electrificacion");
-      expect(ots.error?.message).toContain("No tienes permiso");
-      const modelos = await servicio.rpc("listar_modelos_pm_electrificacion", { p_pedido: UUID_NULO });
-      expect(modelos.error?.message).toContain("No tienes permiso");
+      for (const [funcion, args] of [
+        ["listar_ots_recibos", {}],
+        ["listar_modelos_ot_recibos", { p_ot: "X" }],
+        ["listar_ots_electrificacion", {}],
+        ["listar_modelos_ot_electrificacion", { p_ot: "X" }],
+      ] as const) {
+        const { error } = await servicio.rpc(funcion, args);
+        expect(error?.message, funcion).toContain("No tienes permiso");
+      }
     });
 
     it("la bitácora de auditoría no se puede leer sin sesión", async () => {
@@ -121,86 +129,95 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
   });
 
   describe("datos del PM", () => {
-    async function pedidoIdPorOt(ot: string): Promise<string | null> {
+    // Lo que declaran todos los PM vigentes de la OT para un modelo, contando
+    // todos sus muebles (base de Acabados y Armado) o solo los que tienen
+    // iluminación (base de Electrificación).
+    async function cantidadOt(ot: string, modelo: string, soloIluminacion = false): Promise<number | null> {
+      const { data, error } = await servicio.rpc("cantidad_pm_ot", {
+        p_ot: ot,
+        p_modelo: modelo,
+        p_solo_iluminacion: soloIluminacion,
+      });
+      expect(error).toBeNull();
+      return data == null ? null : Number(data);
+    }
+
+    // PM vigentes con su OT (la clave que calcula la base para cada PM).
+    async function pmsVigentes(): Promise<{ id: string; ot: string | null }[]> {
       const { data } = await servicio
         .from("pedidos")
-        .select("id")
-        .eq("numero_pedido", ot)
+        .select("id, orden_trabajo, numero_pedido")
         .is("eliminado_en", null)
-        .maybeSingle();
-      return (data as { id: string } | null)?.id ?? null;
+        .is("eliminado_definitivo_en", null)
+        .limit(500);
+      return ((data ?? []) as { id: string; orden_trabajo: string | null; numero_pedido: string }[]).map(
+        (p) => ({ id: p.id, ot: claveOt(p.orden_trabajo ?? p.numero_pedido) })
+      );
     }
 
-    // Lo que declara el PM de un modelo contando todos sus muebles (base de
-    // Acabados y Armado). La de Electrificación (cantidad_pm_modelo) cuenta
-    // solo los muebles con iluminación.
-    async function cantidadPm(pedidoId: string, modelo: string): Promise<number | null> {
-      const { data, error } = await servicio.rpc("cantidad_pm_modelo_recibos", {
-        p_pedido: pedidoId,
-        p_modelo: modelo,
-      });
-      expect(error).toBeNull();
-      return data == null ? null : Number(data);
-    }
-
-    async function cantidadPmIluminacion(pedidoId: string, modelo: string): Promise<number | null> {
-      const { data, error } = await servicio.rpc("cantidad_pm_modelo", {
-        p_pedido: pedidoId,
-        p_modelo: modelo,
-      });
-      expect(error).toBeNull();
-      return data == null ? null : Number(data);
-    }
-
-    it("invariante: la cantidad del PM por modelo es la suma de los padres, no de los hijos", async (ctx) => {
-      const { data: versiones } = await servicio
-        .from("pedido_versiones")
-        .select("id, pedido_id")
-        .eq("es_version_activa", true)
-        .limit(40);
-      if (!versiones?.length) {
+    it("invariante: la cantidad de la OT por modelo es la suma de los padres de todos sus PM", async (ctx) => {
+      const pms = await pmsVigentes();
+      if (!pms.length) {
         console.warn("[test:db] Sin pedidos cargados: se omite el invariante de padres.");
         return ctx.skip();
       }
 
-      // Busca una versión con componentes (hijos) que comparten modelo con su padre.
+      // Suma, por OT y modelo, los padres vigentes de la versión activa de cada PM.
+      const pmsPorOt = new Map<string, string[]>();
+      for (const p of pms) {
+        if (p.ot) pmsPorOt.set(p.ot, [...(pmsPorOt.get(p.ot) ?? []), p.id]);
+      }
       let comprobados = 0;
-      for (const v of versiones as { id: string; pedido_id: string }[]) {
-        const { data: items } = await servicio
-          .from("planeacion_items")
-          .select("modelo, cantidad_total, tipo_registro, parent_item_id, estado_revision, eliminacion_solicitada_en")
-          .eq("pedido_version_id", v.id)
-          .limit(2000);
-        const vigentes = (items ?? []).filter(
-          (i) =>
-            i.modelo?.trim() &&
-            i.estado_revision !== "cancelado" &&
-            i.eliminacion_solicitada_en == null
-        );
+      for (const [ot, ids] of [...pmsPorOt].slice(0, 6)) {
+        const { data: versiones } = await servicio
+          .from("pedido_versiones")
+          .select("id")
+          .eq("es_version_activa", true)
+          .in("pedido_id", ids);
         const sumaPadres = new Map<string, number>();
-        for (const i of vigentes) {
-          if (i.tipo_registro !== "MO" || i.parent_item_id != null) continue;
-          const clave = claveModelo(i.modelo);
-          sumaPadres.set(clave, (sumaPadres.get(clave) ?? 0) + Number(i.cantidad_total));
+        for (const v of (versiones ?? []) as { id: string }[]) {
+          const { data: items } = await servicio
+            .from("planeacion_items")
+            .select("modelo, cantidad_total, tipo_registro, parent_item_id, estado_revision, eliminacion_solicitada_en")
+            .eq("pedido_version_id", v.id)
+            .limit(2000);
+          for (const i of items ?? []) {
+            if (!i.modelo?.trim() || i.estado_revision === "cancelado" || i.eliminacion_solicitada_en != null) continue;
+            if (i.tipo_registro !== "MO" || i.parent_item_id != null) continue;
+            const clave = claveModelo(i.modelo);
+            sumaPadres.set(clave, (sumaPadres.get(clave) ?? 0) + Number(i.cantidad_total));
+          }
         }
-        for (const [modelo, esperado] of [...sumaPadres].slice(0, 5)) {
-          const real = await cantidadPm(v.pedido_id, modelo);
-          expect(real, `${modelo} en la versión ${v.id}`).toBeCloseTo(esperado, 2);
+        for (const [modelo, esperado] of [...sumaPadres].slice(0, 4)) {
+          const real = await cantidadOt(ot, modelo);
+          expect(real, `${modelo} en la OT ${ot}`).toBeCloseTo(esperado, 2);
           // Electrificación: solo la parte con iluminación, nunca más que el total.
-          const iluminacion = (await cantidadPmIluminacion(v.pedido_id, modelo)) ?? 0;
+          const iluminacion = (await cantidadOt(ot, modelo, true)) ?? 0;
           expect(iluminacion, `${modelo} con iluminación`).toBeLessThanOrEqual(esperado + 1e-9);
           comprobados++;
         }
-        if (comprobados >= 15) break;
       }
       expect(comprobados).toBeGreaterThan(0);
     });
 
     it("un modelo que no existe en la OT no tiene cantidad (es descuadre)", async (ctx) => {
-      const { data } = await servicio.from("pedidos").select("id").is("eliminado_en", null).limit(1).maybeSingle();
-      const id = (data as { id: string } | null)?.id;
-      if (!id) return ctx.skip();
-      expect(await cantidadPm(id, "MODELO-QUE-NO-EXISTE-XYZ")).toBeNull();
+      const [p] = (await pmsVigentes()).filter((x) => x.ot);
+      if (!p) return ctx.skip();
+      expect(await cantidadOt(p.ot!, "MODELO-QUE-NO-EXISTE-XYZ")).toBeNull();
+    });
+
+    it("ot_clave agrupa el número de PM, la OT y sus variantes", async () => {
+      for (const [entrada, esperado] of [
+        ["2PM193-24", "193-24"],
+        ["PM193-24 SOTANO 1", "193-24"],
+        ["193-24", "193-24"],
+        ["193-24-2 SDC17", "193-24"],
+      ]) {
+        const { data, error } = await servicio.rpc("ot_clave", { p_texto: entrada });
+        expect(error).toBeNull();
+        expect(data, entrada).toBe(esperado);
+        expect(claveOt(entrada), `espejo de ${entrada}`).toBe(esperado);
+      }
     });
 
     it("pedido_id_por_ot rechaza una OT que no está en el PM", async () => {
@@ -212,18 +229,16 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
     // PM). Se omiten con aviso si la OT no está. Actualizar si Planeación corrige
     // las cantidades de esos pedidos.
     const conocidos: [string, string, number][] = [
-      ["1PM168-25", "FXIJ-12", 1], // el padre declara 1; sus hijos sumaban 13 más
-      ["6PM168-25", "DEC-313", 139], // 417 contando hijos
-      ["5PM168-25", "FX-306", 23], // seis filas padre
+      ["102-24", "TIRAS DE ROSA MORADO", 119], // 94 en 2PM102-24 + 25 en su hoja "PEDIDO (2)"
     ];
     for (const [ot, modelo, esperado] of conocidos) {
-      it(`caso conocido: ${modelo} en ${ot} = ${esperado}`, async (ctx) => {
-        const id = await pedidoIdPorOt(ot);
-        if (!id) {
+      it(`caso conocido: ${modelo} en la OT ${ot} = ${esperado}`, async (ctx) => {
+        const cantidad = await cantidadOt(ot, modelo);
+        if (cantidad == null) {
           console.warn(`[test:db] La OT ${ot} no está cargada: se omite ${modelo}.`);
           return ctx.skip();
         }
-        expect(await cantidadPm(id, modelo)).toBe(esperado);
+        expect(cantidad).toBe(esperado);
       });
     }
   });
