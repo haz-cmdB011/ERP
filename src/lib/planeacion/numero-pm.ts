@@ -31,11 +31,19 @@ const PATRON_SUFIJO =
 const PATRON_ETIQUETA =
   /^\s*((?!PM|OT)[A-Z]{2,5})\s*-?\s*(\d{1,3})\s*[_\s]+(?:O\.?\s*T\.?\s*)?(?=\d|PM)/i;
 
-function extraerPrefijo(texto: string): { prefijo: string | null; resto: string } {
+// `explicito`: el número viene antes de "PM" ("17 PM 193-24"), sin duda el
+// número de PM. El sufijo ("193-24-2") es ambiguo: hay OT cuyo nombre lleva
+// ese "-2" (la carpeta "193-24-2 PH MONTERREY" y todos sus PM dicen
+// "193-24-2 ..." en la celda), así que un número explícito le gana.
+function extraerPrefijo(texto: string): {
+  prefijo: string | null;
+  explicito: boolean;
+  resto: string;
+} {
   const m = texto.match(PATRON_PREFIJO);
-  if (m) return { prefijo: String(Number(m[1])), resto: texto.slice(m[0].length) };
+  if (m) return { prefijo: String(Number(m[1])), explicito: true, resto: texto.slice(m[0].length) };
   const sufijo = texto.match(PATRON_SUFIJO);
-  return { prefijo: sufijo ? String(Number(sufijo[1])) : null, resto: texto };
+  return { prefijo: sufijo ? String(Number(sufijo[1])) : null, explicito: false, resto: texto };
 }
 
 function formatear(numero: string, anio: string): string {
@@ -74,14 +82,42 @@ export function normalizarNumeroPM(
   const base = normalizarBase(celda.resto, { ...opciones, nombreArchivo: archivo?.resto });
   if (!base) return numeroPedido; // sin número reconocible
 
-  // El número de PM dentro de la OT viene de la celda; si ahí no está, del
-  // nombre del archivo, pero solo si el archivo es de la misma OT.
-  let prefijo = celda.prefijo;
-  if (!prefijo && archivo?.prefijo) {
-    const otArchivo = extraerNumeroYAnio(archivo.resto);
-    if (otArchivo && formatear(otArchivo.numero, otArchivo.anio) === base) prefijo = archivo.prefijo;
-  }
+  // Número de PM dentro de la OT. El del nombre del archivo solo cuenta si
+  // el archivo es de la misma OT. Orden: explícito de la celda, explícito
+  // del archivo, sufijo de la celda, sufijo del archivo.
+  const otArchivo = archivo?.prefijo ? extraerNumeroYAnio(archivo.resto) : null;
+  const archivoValido =
+    archivo?.prefijo && otArchivo && formatear(otArchivo.numero, otArchivo.anio) === base
+      ? archivo
+      : null;
+  const candidatos = [
+    celda.explicito ? celda.prefijo : null,
+    archivoValido?.explicito ? archivoValido.prefijo : null,
+    celda.prefijo,
+    archivoValido?.prefijo ?? null,
+  ];
+  const prefijo = candidatos.find((p) => p != null) ?? null;
   return prefijo ? `${prefijo}${base}` : base;
+}
+
+/**
+ * Aviso para la carga cuando la celda "No. PEDIDO" y el nombre del archivo
+ * dan números de PM distintos dentro de la misma OT (se usó `pmFinal`).
+ * null si coinciden o si alguno de los dos no trae número de PM.
+ */
+export function avisoNumeroPM(
+  numeroPedido: string,
+  pmFinal: string,
+  opciones: { nombreArchivo?: string; fechaPedido?: string | null }
+): string | null {
+  if (!opciones.nombreArchivo) return null;
+  const soloCelda = normalizarNumeroPM(numeroPedido, { fechaPedido: opciones.fechaPedido });
+  const prefijoDe = (pm: string) => pm.match(/^(\d+)PM/i)?.[1] ?? null;
+  const deCelda = prefijoDe(soloCelda);
+  if (!deCelda || soloCelda === pmFinal || ordenDeTrabajo(soloCelda) !== ordenDeTrabajo(pmFinal)) {
+    return null;
+  }
+  return `La celda "No. PEDIDO" dice «${numeroPedido}» (PM ${deCelda}), pero el nombre del archivo indica ${pmFinal}; se cargó como ${pmFinal}.`;
 }
 
 /**

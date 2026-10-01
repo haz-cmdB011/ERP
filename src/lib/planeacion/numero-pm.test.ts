@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizarNumeroPM, ordenDeTrabajo } from "./numero-pm";
+import { avisoNumeroPM, normalizarNumeroPM, ordenDeTrabajo } from "./numero-pm";
 
 describe("normalizarNumeroPM", () => {
   it.each([
@@ -75,6 +75,40 @@ describe("normalizarNumeroPM", () => {
       ).toBe("PM168-25");
     });
 
+    describe("OT cuyo nombre lleva sufijo (193-24-2 PH MONTERREY)", () => {
+      // Celda "No. PEDIDO" y nombre de archivo reales de la carpeta
+      // P:\2024\193-24-2 PH MONTERREY\PEDIDO: el "-2" de la celda es de la OT
+      // y se repite en todos los PM; el número de PM va en el nombre.
+      it.each([
+        ["193-24-2-SDC 6, 8, 9", "7 PM 193-24 - PH MONTERREY SDC 6 8 9 - 13.05.25.xlsx", "7PM193-24"],
+        ["193-24-2-SDC2", "8 PM 193-24 - PH MONTERREY SDC 10 - 19.05.25.xlsx", "8PM193-24"],
+        ["193-24 SDC 11", "10 PM 193-24 - PH MONTERREY SDC 11 29.05.25.xlsx", "10PM193-24"],
+        ["193-24-2 SDC12 PH MONTERREY", "11 PM 193-24 - PH MONTERREY P.B. SDC 12 17.07.25.xlsx", "11PM193-24"],
+        ["193-24", "12 PM 193-24 - PH MONTERREY 24.06.25.xlsx", "12PM193-24"],
+        ["193-24", "13 PM 193-24 - PH MONTERREY 04.07.25.xlsx", "13PM193-24"],
+        ["193-24-2-SDC2", "14 PM 193-24 - PH MONTERREY SDC 15 18.07.25.xlsx", "14PM193-24"],
+        ["193-24-2-SDC2", "15 PM 193-24 - PH MONTERREY 21.07.25.xlsx", "15PM193-24"],
+        ["193-24-2 SDC16", "16 PM 193-24 - PH MONTERREY SDC 16 07.08.25 modif.xlsx", "16PM193-24"],
+        ["193-24-2 SDC17 PH MONTERREY", "17 PM 193-24 - PH MONTERREY AZ SDC 17 - 13.10.25.xlsx", "17PM193-24"],
+      ])("celda %s + archivo %s → %s", (celda, archivo, esperado) => {
+        expect(normalizarNumeroPM(celda, { nombreArchivo: archivo })).toBe(esperado);
+      });
+
+      it("sin número explícito en ningún lado se queda con el sufijo de la celda", () => {
+        expect(
+          normalizarNumeroPM("193-24-2 SDC 5", {
+            nombreArchivo: "PM 193-24 - PH MONTERREY SDC 5 - 30.04.25.xlsx",
+          })
+        ).toBe("2PM193-24");
+      });
+
+      it("el número explícito de la celda sigue mandando sobre el del archivo", () => {
+        expect(
+          normalizarNumeroPM("3PM134-26", { nombreArchivo: "2PM 134-26 SMART FIT.xlsx" })
+        ).toBe("3PM134-26");
+      });
+    });
+
     it("ignora el número de PM del archivo si es de otra OT", () => {
       expect(
         normalizarNumeroPM("PM135-26", { nombreArchivo: "2PM 134-26 SMART FIT.xlsx" })
@@ -109,5 +143,23 @@ describe("normalizarNumeroPM", () => {
     ])("orden de trabajo de %s → %s", (pm, ot) => {
       expect(ordenDeTrabajo(pm)).toBe(ot);
     });
+  });
+});
+
+describe("avisoNumeroPM", () => {
+  it("avisa cuando la celda y el archivo dan PM distintos", () => {
+    const nombreArchivo = "17 PM 193-24 - PH MONTERREY AZ SDC 17 - 13.10.25.xlsx";
+    const celda = "193-24-2 SDC17 PH MONTERREY";
+    const pm = normalizarNumeroPM(celda, { nombreArchivo });
+    expect(avisoNumeroPM(celda, pm, { nombreArchivo })).toBe(
+      'La celda "No. PEDIDO" dice «193-24-2 SDC17 PH MONTERREY» (PM 2), pero el nombre del archivo indica 17PM193-24; se cargó como 17PM193-24.'
+    );
+  });
+
+  it("no avisa si coinciden o si la celda no trae número de PM", () => {
+    const opciones = { nombreArchivo: "12 PM 193-24 - PH MONTERREY 24.06.25.xlsx" };
+    expect(avisoNumeroPM("193-24", "12PM193-24", opciones)).toBeNull();
+    expect(avisoNumeroPM("2PM134-26", "2PM134-26", { nombreArchivo: "2PM 134-26.xlsx" })).toBeNull();
+    expect(avisoNumeroPM("193-24-2", "2PM193-24", {})).toBeNull();
   });
 });
