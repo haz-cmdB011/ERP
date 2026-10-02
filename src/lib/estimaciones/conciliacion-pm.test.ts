@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  claveDescripcion,
   claveModelo,
   claveOt,
+  claveSaldo,
+  claveVariante,
   conciliarRenglones,
   requiereMotivo,
+  saldosDeVariantes,
   type SaldoModeloPm,
 } from "./conciliacion-pm";
 
@@ -94,6 +98,65 @@ describe("claveModelo", () => {
     );
     expect(r[0]).toEqual({ estado: "dentro", cantidadPm: 10, acumulada: 6 });
     expect(r[1]).toMatchObject({ estado: "excede", acumulada: 11 });
+  });
+});
+
+describe("variantes de modelo (código + descripción)", () => {
+  // 102-24: "MUEBLE" son muebles distintos; "TIRAS DE ROSA MORADO" tiene dos
+  // descripciones (94 + 25 = 119 por código).
+  const saldos = saldosDeVariantes([
+    { modelo: "MUEBLE", descripcionPm: "CAMA KING", cantidadPm: 2, cantidadRegistrada: 0 },
+    { modelo: "MUEBLE", descripcionPm: "MACETA METALICA BAÑO", cantidadPm: 4, cantidadRegistrada: 1 },
+    { modelo: "TIRAS DE ROSA MORADO", descripcionPm: "DUELA MADERA MACIZA", cantidadPm: 94, cantidadRegistrada: 0 },
+    { modelo: "TIRAS DE ROSA MORADO", descripcionPm: "a) 6 pzas 9\" de ancho", cantidadPm: 25, cantidadRegistrada: 0 },
+    { modelo: "VRG-01", descripcionPm: "NICHO VIRGEN\nINCLUYE LAMPARA LED", cantidadPm: 2, cantidadRegistrada: 0 },
+  ]);
+
+  it("la descripción se compara sin mayúsculas, acentos, signos ni espacios", () => {
+    expect(claveDescripcion("Zoclo en lámina de acero al carbón")).toBe(
+      claveDescripcion("ZOCLO EN LAMINA DE ACERO AL CARBON")
+    );
+    expect(claveDescripcion("cama king")).not.toBe(claveDescripcion("cama queen"));
+    expect(claveVariante("ms-01", "Espejo  900 x 600")).toBe(claveVariante("MS 01", "espejo 900x600"));
+  });
+
+  it("cada variante tiene su saldo y el código suma todas", () => {
+    expect(saldos.get(claveVariante("MUEBLE", "cama king"))).toEqual({ cantidadPm: 2, cantidadRegistrada: 0 });
+    expect(saldos.get(claveModelo("TIRAS DE ROSA MORADO"))).toEqual({ cantidadPm: 119, cantidadRegistrada: 0 });
+  });
+
+  it("no mezcla variantes: pasarse en una pide motivo aunque el código tenga saldo", () => {
+    const r = conciliarRenglones(
+      [
+        { modelo: "MUEBLE", descripcionPm: "Cama King", cantidad: 3 },
+        { modelo: "MUEBLE", descripcionPm: "maceta metálica baño", cantidad: 3 },
+      ],
+      saldos
+    );
+    expect(r[0]).toEqual({ estado: "excede", cantidadPm: 2, acumulada: 3, excedente: 1 });
+    expect(r[1]).toEqual({ estado: "dentro", cantidadPm: 4, acumulada: 4 });
+  });
+
+  it("sin variante (escrito a mano) se compara por código, contando todo lo del código", () => {
+    const r = conciliarRenglones(
+      [
+        { modelo: "TIRAS DE ROSA MORADO", descripcionPm: "duela madera maciza", cantidad: 90 },
+        { modelo: "tiras de rosa morado", cantidad: 30 },
+      ],
+      saldos
+    );
+    expect(r[0]).toEqual({ estado: "dentro", cantidadPm: 94, acumulada: 90 });
+    expect(r[1]).toEqual({ estado: "excede", cantidadPm: 119, acumulada: 120, excedente: 1 });
+  });
+
+  it("si el código tiene una sola variante, un renglón sin descripción va a esa", () => {
+    const r = { modelo: "vrg 01", descripcionPm: null };
+    expect(claveSaldo(r, saldos)).toBe(claveVariante("VRG-01", "NICHO VIRGEN\nINCLUYE LAMPARA LED"));
+  });
+
+  it("una descripción que ya no está en la OT cae al código", () => {
+    const r = { modelo: "MUEBLE", descripcionPm: "CAMA MATRIMONIAL" };
+    expect(claveSaldo(r, saldos)).toBe(claveModelo("MUEBLE"));
   });
 });
 
