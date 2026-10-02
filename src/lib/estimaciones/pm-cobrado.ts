@@ -1,8 +1,9 @@
-// PM contra cobrado, por OT: por OT y modelo, lo que Planeación declaró en todos
-// los PM de la OT contra lo que se ha capturado en recibos vigentes de
-// Acabados, Armado y Electrificación (función ot_contra_cobrado, ver
-// supabase/migrations/20261001194636_recibos_por_ot.sql, con las mismas reglas
-// que el control al guardar). Aquí se clasifica cada celda y se resume el
+// PM contra cobrado, por OT: por OT y variante de modelo (código + descripción
+// del padre), lo que Planeación declaró en todos los PM de la OT contra lo que
+// se ha capturado en recibos vigentes de Acabados, Armado y Electrificación
+// (función ot_contra_cobrado, ver
+// supabase/migrations/20261002154916_variantes_modelo_iluminacion.sql, con las
+// mismas reglas que el control al guardar). Aquí se clasifica cada celda y se resume el
 // avance por OT.
 
 import type { SupabaseClient } from "@supabase/supabase-js";

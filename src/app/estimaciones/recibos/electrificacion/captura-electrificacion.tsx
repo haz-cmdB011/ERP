@@ -23,9 +23,11 @@ import {
   resolverElectrificacion,
   type CategoriaCharola,
   type ComplejidadLed,
+  type PrecedenteElectrificacion,
   type TarifasElectrificacion,
 } from "@/lib/estimaciones/motor-electrificacion";
 import {
+  cargarPreciosPagadosElectrificacion,
   guardarReciboElectrificacionEnDb,
   listarFoliosElectrificacion,
   listarModelosOtElectrificacion,
@@ -41,8 +43,11 @@ import {
 import {
   claveModelo,
   claveOt,
+  claveSaldo,
+  claveVariante,
   conciliarRenglones,
   requiereMotivo,
+  saldosDeVariantes,
 } from "@/lib/estimaciones/conciliacion-pm";
 import DialogoDescuadres, {
   AVISO_DESCUADRE_CAMBIO,
@@ -61,6 +66,9 @@ interface Charola {
 interface Renglon {
   id: number;
   modelo: string;
+  // Variante del modelo: descripción del padre del PM elegido en la lista
+  // (null si se escribió a mano).
+  descripcionPm: string | null;
   cantidad: number | "";
   metrosLed: number | "";
   complejidadLed: ComplejidadLed | "";
@@ -81,6 +89,7 @@ function nuevoRenglon(pre: Partial<Renglon> = {}): Renglon {
   return {
     id: seq,
     modelo: "",
+    descripcionPm: null,
     cantidad: 1,
     metrosLed: 0,
     complejidadLed: "",
@@ -121,6 +130,7 @@ const OPCIONES_COMPLEJIDAD = (Object.keys(COMPLEJIDAD_NOMBRE) as ComplejidadLed[
 function renglonDesdeGuardado(rg: RenglonElectrificacionGuardado): Renglon {
   return nuevoRenglon({
     modelo: rg.modelo,
+    descripcionPm: rg.descripcionPm,
     cantidad: rg.cantidad,
     metrosLed: rg.metrosLed,
     complejidadLed: rg.complejidadLed,
@@ -165,9 +175,14 @@ export default function CapturaElectrificacion({
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string[] } | null>(null);
 
   const [foliosDb, setFoliosDb] = useState<FolioElectrificacionExistente[]>([]);
+  // Renglones ya pagados: si el modelo tiene antecedente pagado, el sugerido es
+  // ese precio y no el paramétrico (ver motor-electrificacion.ts). Se recarga
+  // tras guardar.
+  const [pagados, setPagados] = useState<PrecedenteElectrificacion[]>([]);
   useEffect(() => {
     const supabase = createClient();
     listarFoliosElectrificacion(supabase).then(setFoliosDb);
+    cargarPreciosPagadosElectrificacion(supabase).then(setPagados);
   }, []);
 
   const [reciboGuardado, setReciboGuardado] = useState<ReciboElectrificacionGuardado | null>(null);
@@ -239,10 +254,8 @@ export default function CapturaElectrificacion({
   }, [claveElegida, reciboExistente?.id]);
   const modelosOt = modelosDe && modelosDe.ot === claveElegida ? modelosDe.modelos : null;
 
-  const modelosPorClave = useMemo(
-    () => new Map((modelosOt ?? []).map((m) => [claveModelo(m.modelo), m])),
-    [modelosOt]
-  );
+  // Saldo por variante (código + descripción) y por código, como en la base.
+  const saldos = useMemo(() => saldosDeVariantes(modelosOt ?? []), [modelosOt]);
 
   // Selector de modelo: se abre al enfocar el campo de un renglón. Para todos
   // (personal y maquilador) solo trae los muebles con iluminación de la OT: es
@@ -269,14 +282,8 @@ export default function CapturaElectrificacion({
   // OT de Planeación o sin modelos cargados).
   const conciliaciones = useMemo(() => {
     if (!otElegida || modelosOt === null) return renglones.map(() => null);
-    const saldo = new Map(
-      modelosOt.map((m) => [
-        claveModelo(m.modelo),
-        { cantidadPm: m.cantidadPm, cantidadRegistrada: m.cantidadRegistrada },
-      ])
-    );
-    return conciliarRenglones(renglones, saldo);
-  }, [otElegida, modelosOt, renglones]);
+    return conciliarRenglones(renglones, saldos);
+  }, [otElegida, modelosOt, renglones, saldos]);
 
   function continuarFolio() {
     if (!folioPrevio) return;
@@ -288,7 +295,7 @@ export default function CapturaElectrificacion({
   }
 
   function evaluar(r: Renglon) {
-    const res = resolverElectrificacion(r, prioridad, tarifas);
+    const res = resolverElectrificacion(r, prioridad, tarifas, pagados);
     const esManual = res.fuente === "manual";
     const b = bandaDe(esManual ? null : res.pu, Number(r.propuesto) || 0, esManual);
     return { res, esManual, b };
@@ -335,7 +342,7 @@ export default function CapturaElectrificacion({
             num: numeroInicial + i,
             modelo: r.modelo,
             conciliacion: c,
-            registrada: modelosPorClave.get(claveModelo(r.modelo))?.cantidadRegistrada ?? 0,
+            registrada: saldos.get(claveSaldo(r, saldos))?.cantidadRegistrada ?? 0,
             motivo: r.motivoDescuadre,
           },
         ]
@@ -349,7 +356,7 @@ export default function CapturaElectrificacion({
     const c = conciliaciones[i];
     if (!c) return;
     ultimoPorModelo.set(
-      claveModelo(r.modelo),
+      claveSaldo(r, saldos),
       c.estado === "dentro"
         ? { modelo: normalizar(r.modelo), acumulada: c.acumulada, cantidadPm: c.cantidadPm }
         : null
@@ -413,6 +420,7 @@ export default function CapturaElectrificacion({
       renglonesGuardados.push({
         numero: num,
         modelo: normalizar(r.modelo),
+        descripcionPm: r.descripcionPm,
         cantidad,
         metrosLed: metros,
         complejidadLed: complejidad,
@@ -430,6 +438,7 @@ export default function CapturaElectrificacion({
 
       renglonesParaDb.push({
         modelo: normalizar(r.modelo),
+        descripcionPm: r.descripcionPm,
         cantidad,
         metrosLed: metros,
         complejidadLed: complejidad,
@@ -794,25 +803,33 @@ export default function CapturaElectrificacion({
                             onFocus={() => setModeloAbierto(r.id)}
                             onBlur={() => setModeloAbierto(null)}
                             onChange={(e) => {
-                              actualizar(r.id, { modelo: e.target.value });
+                              actualizar(r.id, { modelo: e.target.value, descripcionPm: null });
                               setModeloAbierto(r.id);
                             }}
                           />
+                          <VarianteElegida renglon={r} modelos={modelosOt} />
                           {modeloAbierto === r.id && opcionesModelo(r.modelo).length > 0 && (
                             <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
                               {opcionesModelo(r.modelo).map((m) => (
-                                <li key={m.modelo}>
+                                <li key={claveVariante(m.modelo, m.descripcionPm)}>
                                   <button
                                     type="button"
                                     onMouseDown={(e) => {
                                       e.preventDefault();
-                                      actualizar(r.id, { modelo: m.modelo });
+                                      actualizar(r.id, { modelo: m.modelo, descripcionPm: m.descripcionPm });
                                       setModeloAbierto(null);
                                     }}
                                     className="flex w-full flex-col px-2.5 py-1.5 text-left text-sm hover:bg-indigo-50"
                                   >
                                     <span className="flex items-center justify-between gap-2">
-                                      <span className="font-mono text-slate-900">{m.modelo}</span>
+                                      <span className="font-mono text-slate-900">
+                                        {m.modelo}
+                                        {m.variantes > 1 && (
+                                          <span className="ml-1.5 rounded bg-amber-50 px-1 font-sans text-[10px] text-amber-700 ring-1 ring-amber-200">
+                                            variante
+                                          </span>
+                                        )}
+                                      </span>
                                       <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
                                         {m.cantidadPm} en la OT
                                         {m.cantidadRegistrada > 0 && (
@@ -829,6 +846,9 @@ export default function CapturaElectrificacion({
                                         )}
                                       </span>
                                     </span>
+                                    {m.descripcion && (
+                                      <span className="truncate text-[11px] text-slate-500">{m.descripcion}</span>
+                                    )}
                                     {(otElegida?.numPms ?? 0) > 1 && m.pms && (
                                       <span className="truncate font-mono text-[10px] text-slate-400">
                                         {m.pms}
@@ -1349,4 +1369,35 @@ function Total({
       </span>
     </div>
   );
+}
+
+// Debajo del campo de modelo: la descripción de la variante elegida o, si se
+// escribió un código con varias variantes en la OT, el aviso de elegir una.
+function VarianteElegida({
+  renglon: r,
+  modelos,
+}: {
+  renglon: { modelo: string; descripcionPm: string | null };
+  modelos: ModeloOtElectrificacion[] | null;
+}) {
+  if (r.descripcionPm) {
+    const elegida = (modelos ?? []).find(
+      (m) => claveVariante(m.modelo, m.descripcionPm) === claveVariante(r.modelo, r.descripcionPm)
+    );
+    return (
+      <p className="mt-0.5 truncate text-[11px] text-slate-500" title={r.descripcionPm}>
+        {elegida?.descripcion ?? r.descripcionPm.split("\n")[0]}
+      </p>
+    );
+  }
+  const q = claveModelo(r.modelo);
+  const variantes = q ? (modelos ?? []).filter((m) => claveModelo(m.modelo) === q).length : 0;
+  if (r.descripcionPm === null && variantes > 1) {
+    return (
+      <p className="mt-0.5 text-[11px] text-amber-700">
+        {variantes} variantes con este código: elige la tuya en la lista.
+      </p>
+    );
+  }
+  return null;
 }

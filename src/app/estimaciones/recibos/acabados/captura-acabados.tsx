@@ -11,8 +11,9 @@ import DialogoDescuadres, {
   type Descuadre,
 } from "../dialogo-descuadres";
 import {
-  claveModelo,
+  claveSaldo,
   conciliarRenglones,
+  saldosDeVariantes,
   requiereMotivo,
 } from "@/lib/estimaciones/conciliacion-pm";
 import {
@@ -58,6 +59,9 @@ import { avisar } from "@/components/avisos";
 interface Renglon {
   id: number;
   modelo: string;
+  // Variante del modelo: descripción del padre del PM elegido en la lista
+  // (null si se escribió a mano).
+  descripcionPm: string | null;
   familia: string;
   tamano: string;
   cantidad: number | "";
@@ -82,6 +86,7 @@ function nuevoRenglon(pre: Partial<Renglon> = {}): Renglon {
   return {
     id: seq,
     modelo: "",
+    descripcionPm: null,
     familia: "",
     tamano: "",
     cantidad: 1,
@@ -119,6 +124,7 @@ function comoOpciones(valores: readonly string[]) {
 function renglonDesdeGuardado(rg: RenglonGuardado): Renglon {
   return nuevoRenglon({
     modelo: rg.modelo,
+    descripcionPm: rg.descripcionPm,
     familia: rg.familia,
     tamano: rg.tamano,
     cantidad: rg.cantidad,
@@ -293,23 +299,20 @@ export default function CapturaAcabados({
   // que no concuerdan piden motivo antes de guardar.
   const [avisoDescuadre, setAvisoDescuadre] = useState(false);
   const { otElegida, modelos: modelosOt } = seleccionOt;
+  // Saldo por variante (código + descripción) y por código, como en la base.
+  const saldos = useMemo(() => saldosDeVariantes(modelosOt ?? []), [modelosOt]);
   const conciliaciones = useMemo(() => {
     if (!otElegida || modelosOt === null) return renglones.map(() => null);
-    const saldo = new Map(
-      modelosOt.map((m) => [
-        claveModelo(m.modelo),
-        { cantidadPm: m.cantidadPm, cantidadRegistrada: m.cantidadRegistrada },
-      ])
-    );
     return conciliarRenglones(
       renglones.map((r) => ({
         modelo: r.modelo,
+        descripcionPm: r.descripcionPm,
         cantidad: r.cantidad,
         cuentaParaPm: r.tipoTrabajo !== "reproceso",
       })),
-      saldo
+      saldos
     );
-  }, [otElegida, modelosOt, renglones]);
+  }, [otElegida, modelosOt, renglones, saldos]);
   const descuadres: Descuadre[] = renglones.flatMap((r, i) => {
     const c = conciliaciones[i];
     return c && requiereMotivo(c)
@@ -319,9 +322,7 @@ export default function CapturaAcabados({
             num: numeroInicial + i,
             modelo: r.modelo,
             conciliacion: c,
-            registrada:
-              modelosOt?.find((m) => claveModelo(m.modelo) === claveModelo(r.modelo))
-                ?.cantidadRegistrada ?? 0,
+            registrada: saldos.get(claveSaldo(r, saldos))?.cantidadRegistrada ?? 0,
             motivo: r.motivoDescuadre,
           },
         ]
@@ -390,6 +391,7 @@ export default function CapturaAcabados({
       renglonesGuardados.push({
         numero: num,
         modelo: normalizar(r.modelo),
+        descripcionPm: r.descripcionPm,
         familia: r.familia,
         tamano: r.tamano,
         cantidad: Number(r.cantidad) || 0,
@@ -411,6 +413,7 @@ export default function CapturaAcabados({
 
       renglonesParaDb.push({
         modelo: normalizar(r.modelo),
+        descripcionPm: r.descripcionPm,
         familia: r.familia,
         acabado: r.acabado,
         acabado2: r.acabado2,
@@ -740,7 +743,8 @@ export default function CapturaAcabados({
                           seleccion={seleccionOt}
                           className={CONTROL}
                           value={r.modelo}
-                          onChange={(modelo) => actualizar(r.id, { modelo })}
+                          descripcionPm={r.descripcionPm}
+                          onChange={(modelo, descripcionPm) => actualizar(r.id, { modelo, descripcionPm })}
                           onBlur={() => {
                             const fams = CATALOGO.filter((c) => c.modelo === normalizar(r.modelo));
                             if (fams.length === 1 && !r.familia) {

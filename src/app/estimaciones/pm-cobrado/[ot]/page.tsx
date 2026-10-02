@@ -173,8 +173,8 @@ export default async function PmCobradoDetallePage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {visibles.map((f) => (
-                <tr key={f.modelo} className="align-top transition-colors hover:bg-slate-50">
+              {visibles.map((f, i) => (
+                <tr key={`${f.modelo}|${f.descripcion ?? ""}|${i}`} className="align-top transition-colors hover:bg-slate-50">
                   <td className="px-3 py-2">
                     <span className="font-mono font-medium text-slate-900">{f.modelo}</span>
                     {f.discrepanciasPendientes > 0 && (
