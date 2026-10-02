@@ -120,6 +120,8 @@ export interface ReciboPagado {
   obra: string;
   pagadoEn: string;
   importe: number;
+  // Piezas trabajadas: suma de la cantidad de los renglones del recibo.
+  piezas: number;
 }
 
 export interface FilaReporte {
@@ -129,6 +131,7 @@ export interface FilaReporte {
   ot: string;
   obra: string;
   importe: number;
+  piezas: number;
   // null mientras no haya datos de IMSS para el contratista.
   seguroSocial: number | null;
   totalPagar: number;
@@ -138,6 +141,7 @@ export interface GrupoMaquilador {
   contratista: string;
   filas: FilaReporte[];
   importe: number;
+  piezas: number;
   seguroSocial: number | null;
   totalPagar: number;
 }
@@ -177,7 +181,7 @@ export function armarReporte(
     const clave = claveContratista(contratista);
     let grupo = grupos.get(clave);
     if (!grupo) {
-      grupo = { contratista, filas: [], importe: 0, seguroSocial: null, totalPagar: 0 };
+      grupo = { contratista, filas: [], importe: 0, piezas: 0, seguroSocial: null, totalPagar: 0 };
       grupos.set(clave, grupo);
     }
     grupo.filas.push({
@@ -187,6 +191,7 @@ export function armarReporte(
       ot: r.ot.trim(),
       obra: r.obra.trim(),
       importe: redondear(r.importe),
+      piezas: redondear(r.piezas),
       seguroSocial: null,
       totalPagar: 0,
     });
@@ -214,6 +219,7 @@ export function armarReporte(
 
     for (const f of g.filas) f.totalPagar = redondear(f.importe - (f.seguroSocial ?? 0));
     g.importe = redondear(g.filas.reduce((s, f) => s + f.importe, 0));
+    g.piezas = redondear(g.filas.reduce((s, f) => s + f.piezas, 0));
     g.totalPagar = redondear(g.filas.reduce((s, f) => s + f.totalPagar, 0));
   }
 
@@ -245,6 +251,8 @@ type RenglonDb = { cantidad: number; pu_aceptado: number };
 const importeDe = (rs: RenglonDb[]) =>
   rs.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_aceptado), 0);
 
+const piezasDe = (rs: RenglonDb[]) => rs.reduce((s, x) => s + Number(x.cantidad), 0);
+
 const aRecibo = (r: FilaDb, tipo: TipoCualquierRecibo, rs: RenglonDb[]): ReciboPagado => ({
   tipo,
   folio: r.folio,
@@ -253,46 +261,86 @@ const aRecibo = (r: FilaDb, tipo: TipoCualquierRecibo, rs: RenglonDb[]): ReciboP
   obra: r.obra ?? "",
   pagadoEn: r.pagado_en,
   importe: importeDe(rs),
+  piezas: piezasDe(rs),
 });
 
-// Recibos pagados que corresponden a la semana (todas las áreas): los que se
-// pagaron en la semana siguiente. RLS decide qué se ve. Se pide un día de
-// margen por lado en UTC y se recorta con la fecha local.
-export async function cargarRecibosPagados(
+const PAGINA = 1000;
+
+// Todas las filas de una consulta (la API corta cada respuesta en 1000).
+async function paginar<T>(
+  pedir: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<{ filas: T[]; error: string | null }> {
+  const filas: T[] = [];
+  for (let desde = 0; ; desde += PAGINA) {
+    const { data, error } = await pedir(desde, desde + PAGINA - 1);
+    if (error) return { filas, error: error.message };
+    filas.push(...(data ?? []));
+    if ((data ?? []).length < PAGINA) return { filas, error: null };
+  }
+}
+
+// Recibos pagados entre dos fechas locales "AAAA-MM-DD" (ambas incluidas), de
+// todas las áreas. RLS decide qué se ve. Se pide un día de margen por lado en
+// UTC y se recorta con la fecha local.
+export async function cargarRecibosPagadosEntre(
   supabase: SupabaseClient,
-  semana: Semana
+  desde: string,
+  hasta: string
 ): Promise<{ recibos: ReciboPagado[]; error: string | null }> {
-  const { desde, hasta } = rangoSemana(semanaDePago(semana));
   const margenDesde = fechaUTC(desde);
   margenDesde.setUTCDate(margenDesde.getUTCDate() - 1);
   const margenHasta = fechaUTC(hasta);
   margenHasta.setUTCDate(margenHasta.getUTCDate() + 2);
+  const inicio = margenDesde.toISOString();
+  const fin = margenHasta.toISOString();
 
   const [aa, el] = await Promise.all([
-    supabase
-      .from("recibos")
-      .select("tipo, folio, contratista, ot, obra, pagado_en, renglones(cantidad, pu_aceptado)")
-      .eq("estado", "pagado")
-      .gte("pagado_en", margenDesde.toISOString())
-      .lt("pagado_en", margenHasta.toISOString())
-      .returns<(FilaDb & { tipo: TipoCualquierRecibo; renglones: RenglonDb[] })[]>(),
-    supabase
-      .from("recibos_electrificacion")
-      .select("folio, contratista, ot, obra, pagado_en, renglones_electrificacion(cantidad, pu_aceptado)")
-      .eq("estado", "pagado")
-      .gte("pagado_en", margenDesde.toISOString())
-      .lt("pagado_en", margenHasta.toISOString())
-      .returns<(FilaDb & { renglones_electrificacion: RenglonDb[] })[]>(),
+    paginar<FilaDb & { tipo: TipoCualquierRecibo; renglones: RenglonDb[] }>((d, h) =>
+      supabase
+        .from("recibos")
+        .select("tipo, folio, contratista, ot, obra, pagado_en, renglones(cantidad, pu_aceptado)")
+        .eq("estado", "pagado")
+        .gte("pagado_en", inicio)
+        .lt("pagado_en", fin)
+        .order("pagado_en")
+        .order("folio")
+        .range(d, h)
+        .returns<(FilaDb & { tipo: TipoCualquierRecibo; renglones: RenglonDb[] })[]>()
+    ),
+    paginar<FilaDb & { renglones_electrificacion: RenglonDb[] }>((d, h) =>
+      supabase
+        .from("recibos_electrificacion")
+        .select(
+          "folio, contratista, ot, obra, pagado_en, renglones_electrificacion(cantidad, pu_aceptado)"
+        )
+        .eq("estado", "pagado")
+        .gte("pagado_en", inicio)
+        .lt("pagado_en", fin)
+        .order("pagado_en")
+        .order("folio")
+        .range(d, h)
+        .returns<(FilaDb & { renglones_electrificacion: RenglonDb[] })[]>()
+    ),
   ]);
 
-  const error = aa.error?.message ?? el.error?.message ?? null;
+  const error = aa.error ?? el.error ?? null;
   const recibos = [
-    ...(aa.data ?? []).map((r) => aRecibo(r, r.tipo, r.renglones)),
-    ...(el.data ?? []).map((r) => aRecibo(r, "electrificacion", r.renglones_electrificacion)),
+    ...aa.filas.map((r) => aRecibo(r, r.tipo, r.renglones)),
+    ...el.filas.map((r) => aRecibo(r, "electrificacion", r.renglones_electrificacion)),
   ].filter((r) => {
     const dia = fechaLocal(r.pagadoEn);
     return dia >= desde && dia <= hasta;
   });
 
   return { recibos, error };
+}
+
+// Recibos pagados que corresponden a la semana (todas las áreas): los que se
+// pagaron en la semana siguiente.
+export async function cargarRecibosPagados(
+  supabase: SupabaseClient,
+  semana: Semana
+): Promise<{ recibos: ReciboPagado[]; error: string | null }> {
+  const { desde, hasta } = rangoSemana(semanaDePago(semana));
+  return cargarRecibosPagadosEntre(supabase, desde, hasta);
 }
