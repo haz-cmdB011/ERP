@@ -24,6 +24,7 @@ import {
   TARIFAS_ELECTRIFICACION_INICIALES,
   resolverElectrificacion,
   type FuenteElectrificacion,
+  type PrecedenteElectrificacion,
 } from "@/lib/estimaciones/motor-electrificacion";
 import {
   cargarHistoricoDb,
@@ -31,7 +32,10 @@ import {
   type ReciboGuardado,
   type TipoRecibo,
 } from "@/lib/estimaciones/recibos-db";
-import type { ReciboElectrificacionGuardado } from "@/lib/estimaciones/recibos-electrificacion-db";
+import {
+  cargarPreciosPagadosElectrificacion,
+  type ReciboElectrificacionGuardado,
+} from "@/lib/estimaciones/recibos-electrificacion-db";
 import {
   NOMBRE_TIPO_CUALQUIERA,
   decidirRenglon,
@@ -58,11 +62,24 @@ interface Sugerencia {
   esManual: boolean;
 }
 
+// Precios ya pagados para el precio sugerido: histórico de Acabados o Armado, y
+// renglones pagados de Electrificación.
+interface Precedentes {
+  historico: RenglonHistorico[];
+  electrificacion: PrecedenteElectrificacion[];
+}
+
+function primeraLinea(descripcionPm: string | null): string | null {
+  return descripcionPm ? descripcionPm.split("\n")[0] : null;
+}
+
 // Forma común de un renglón para revisar, sea del tipo que sea.
 interface RenglonRevision {
   id: string;
   numero: number;
   modelo: string;
+  // Variante del modelo en el PM (primera línea de su descripción).
+  variante: string | null;
   descripcion: string;
   cantidad: number;
   propuesto: number;
@@ -73,7 +90,7 @@ interface RenglonRevision {
   bandaGuardada: Banda | null;
   justificacion: string;
   nota: string;
-  sugerir: (historico: RenglonHistorico[]) => Sugerencia;
+  sugerir: (precedentes: Precedentes) => Sugerencia;
 }
 
 const CFG_ACABADOS: ConfiguracionMotor = {
@@ -113,6 +130,7 @@ function aRenglones(props: Props): RenglonRevision[] {
       id: r.id ?? "",
       numero: r.numero,
       modelo: r.modelo,
+      variante: primeraLinea(r.descripcionPm),
       descripcion: [
         r.metrosLed > 0
           ? `${r.metrosLed} m LED ${r.complejidadLed ? COMPLEJIDAD_NOMBRE[r.complejidadLed].toLowerCase() : ""}`
@@ -133,16 +151,19 @@ function aRenglones(props: Props): RenglonRevision[] {
       bandaGuardada: r.banda,
       justificacion: r.justificacion,
       nota: r.nota,
-      sugerir: () => {
+      sugerir: ({ electrificacion }) => {
         const res = resolverElectrificacion(
           {
+            modelo: r.modelo,
+            descripcionPm: r.descripcionPm,
             cantidad: r.cantidad,
             metrosLed: r.metrosLed,
             complejidadLed: r.complejidadLed,
             charolas: r.charolas.map((c) => ({ drivers: c.drivers })),
           },
           prioridad,
-          TARIFAS_ELECTRIFICACION_INICIALES
+          TARIFAS_ELECTRIFICACION_INICIALES,
+          electrificacion
         );
         return {
           pu: res.fuente === "manual" ? null : res.pu,
@@ -161,6 +182,7 @@ function aRenglones(props: Props): RenglonRevision[] {
     id: r.id ?? "",
     numero: r.numero,
     modelo: r.modelo,
+    variante: primeraLinea(r.descripcionPm),
     descripcion:
       tipo === "armado"
         ? [r.familia, r.tipoArmado, r.colocacionHerrajes ? "con herrajes" : "sin herrajes"]
@@ -178,11 +200,12 @@ function aRenglones(props: Props): RenglonRevision[] {
     bandaGuardada: r.banda,
     justificacion: r.justificacion,
     nota: r.nota,
-    sugerir: (historico) => {
+    sugerir: ({ historico }) => {
       const entrada =
         tipo === "armado"
           ? {
               modelo: r.modelo,
+              descripcionPm: r.descripcionPm,
               familia: r.familia,
               tamano: r.tamano,
               cantidad: r.cantidad,
@@ -193,6 +216,7 @@ function aRenglones(props: Props): RenglonRevision[] {
             }
           : {
               modelo: r.modelo,
+              descripcionPm: r.descripcionPm,
               familia: r.familia,
               tamano: r.tamano,
               cantidad: r.cantidad,
@@ -224,15 +248,24 @@ export default function RevisionRecibo(props: Props) {
 
   const renglones = useMemo(() => aRenglones(props), [props]);
 
-  // Histórico para los precedentes (Acabados: base + guardados; Armado: solo
-  // guardados de armado). Electrificación no usa precedentes.
+  // Precios ya pagados para los precedentes (Acabados: base + guardados;
+  // Armado: solo guardados de armado; Electrificación: sus renglones pagados).
+  // El motor solo toma los de recibos pagados.
   const [historico, setHistorico] = useState<RenglonHistorico[]>(tipo === "acabados" ? HISTORICO : []);
+  const [pagadosElectrificacion, setPagadosElectrificacion] = useState<PrecedenteElectrificacion[]>([]);
   useEffect(() => {
-    if (tipo === "electrificacion") return;
+    if (tipo === "electrificacion") {
+      cargarPreciosPagadosElectrificacion(createClient()).then(setPagadosElectrificacion);
+      return;
+    }
     cargarHistoricoDb(createClient(), tipo).then((db) =>
       setHistorico(tipo === "acabados" ? [...HISTORICO, ...db] : db)
     );
   }, [tipo]);
+  const precedentes = useMemo(
+    () => ({ historico, electrificacion: pagadosElectrificacion }),
+    [historico, pagadosElectrificacion]
+  );
 
   const totales = renglones.reduce(
     (acc, r) => {
@@ -309,7 +342,7 @@ export default function RevisionRecibo(props: Props) {
             key={r.id}
             tipo={tipo}
             renglon={r}
-            historico={historico}
+            precedentes={precedentes}
             editable={editable}
           />
         ))}
@@ -348,12 +381,12 @@ export default function RevisionRecibo(props: Props) {
 function RenglonRevisionCard({
   tipo,
   renglon: r,
-  historico,
+  precedentes,
   editable,
 }: {
   tipo: TipoCualquierRecibo;
   renglon: RenglonRevision;
-  historico: RenglonHistorico[];
+  precedentes: Precedentes;
   editable: boolean;
 }) {
   const router = useRouter();
@@ -373,7 +406,7 @@ function RenglonRevisionCard({
         detalle: "Sugerido al momento de la revisión.",
         esManual: r.puSugeridoGuardado == null,
       }
-    : r.sugerir(historico);
+    : r.sugerir(precedentes);
   const b = bandaDe(sug.pu, r.propuesto, sug.esManual);
   const faltaJustificar = b.banda === "justificar" && !justificacion.trim();
 
@@ -410,6 +443,11 @@ function RenglonRevisionCard({
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2">
         <span className="font-mono text-xs font-semibold text-slate-500">#{r.numero}</span>
         <span className="font-mono text-sm font-semibold text-slate-900">{r.modelo}</span>
+        {r.variante && (
+          <span className="truncate text-xs text-slate-500" title={r.variante}>
+            {r.variante}
+          </span>
+        )}
         <span className="truncate text-sm text-slate-600">
           {r.descripcion} · {r.cantidad} pz
         </span>

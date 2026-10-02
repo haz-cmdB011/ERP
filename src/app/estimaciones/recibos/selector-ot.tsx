@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { claveModelo, claveOt } from "@/lib/estimaciones/conciliacion-pm";
+import { claveModelo, claveOt, claveVariante } from "@/lib/estimaciones/conciliacion-pm";
 import {
   listarModelosOtRecibo,
   listarOtsRecibos,
@@ -13,6 +13,8 @@ import {
 // OT y modelos de Planeación para los generadores de Acabados y Armado
 // (Electrificación tiene su propia versión, solo con muebles con iluminación).
 // Se elige la OT; los modelos son los de todos sus PM, con la cantidad sumada.
+// Cada opción es una variante (código + descripción del padre): "MUEBLE · cama
+// king" y "MUEBLE · cama queen" son dos opciones distintas.
 
 export interface OtSeleccion {
   // undefined: cargando; null: la consulta falló.
@@ -104,17 +106,21 @@ export function SelectorOt({
 }
 
 // Campo de modelo con la lista de modelos de la OT elegida (todos sus PM): se
-// abre al enfocarlo y filtra mientras se escribe. Se puede escribir un modelo
-// que no esté en la lista.
+// abre al enfocarlo y filtra mientras se escribe. Elegir una opción fija el
+// código y la variante (descripcionPm); escribir a mano borra la variante (la
+// base la completa si el código tiene una sola en la OT). Se puede escribir un
+// modelo que no esté en la lista.
 export function CampoModeloOt({
   value,
+  descripcionPm,
   onChange,
   onBlur,
   seleccion,
   className,
 }: {
   value: string;
-  onChange: (modelo: string) => void;
+  descripcionPm: string | null;
+  onChange: (modelo: string, descripcionPm: string | null) => void;
   onBlur?: () => void;
   seleccion: OtSeleccion;
   className: string;
@@ -124,6 +130,16 @@ export function CampoModeloOt({
   // Todos los modelos de la OT (la lista se desplaza y se filtra al escribir).
   const opciones = (seleccion.modelos ?? []).filter((m) => !q || claveModelo(m.modelo).includes(q));
   const variosPm = (seleccion.otElegida?.numPms ?? 0) > 1;
+  const elegida =
+    descripcionPm != null
+      ? (seleccion.modelos ?? []).find(
+          (m) => claveVariante(m.modelo, m.descripcionPm) === claveVariante(value, descripcionPm)
+        )
+      : undefined;
+  // Variantes del código escrito: si hay más de una y no se eligió, se avisa.
+  const variantesDelCodigo = q
+    ? (seleccion.modelos ?? []).filter((m) => claveModelo(m.modelo) === q).length
+    : 0;
 
   return (
     <div className="relative">
@@ -138,26 +154,45 @@ export function CampoModeloOt({
           onBlur?.();
         }}
         onChange={(e) => {
-          onChange(e.target.value);
+          onChange(e.target.value, null);
           setAbierto(true);
         }}
       />
+      {descripcionPm != null && descripcionPm !== "" ? (
+        <p className="mt-0.5 truncate text-[11px] text-slate-500" title={descripcionPm}>
+          {elegida?.descripcion ?? descripcionPm.split("\n")[0]}
+        </p>
+      ) : (
+        descripcionPm == null &&
+        variantesDelCodigo > 1 && (
+          <p className="mt-0.5 text-[11px] text-amber-700">
+            {variantesDelCodigo} variantes con este código: elige la tuya en la lista.
+          </p>
+        )
+      )}
       {abierto && opciones.length > 0 && (
         <ul className="absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {opciones.map((m) => (
-            <li key={m.modelo}>
+            <li key={claveVariante(m.modelo, m.descripcionPm)}>
               <button
                 type="button"
                 // mouseDown (no click): se dispara antes del blur del input.
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  onChange(m.modelo);
+                  onChange(m.modelo, m.descripcionPm);
                   setAbierto(false);
                 }}
                 className="flex w-full flex-col px-2.5 py-1.5 text-left text-sm hover:bg-indigo-50"
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-slate-900">{m.modelo}</span>
+                  <span className="font-mono text-slate-900">
+                    {m.modelo}
+                    {m.variantes > 1 && (
+                      <span className="ml-1.5 rounded bg-amber-50 px-1 font-sans text-[10px] text-amber-700 ring-1 ring-amber-200">
+                        variante
+                      </span>
+                    )}
+                  </span>
                   <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
                     {m.cantidadPm} en la OT
                     {m.cantidadRegistrada > 0 && (

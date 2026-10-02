@@ -35,6 +35,8 @@ export interface RenglonGuardado {
   id?: string;
   numero: number;
   modelo: string;
+  // Descripción del padre del PM elegido (la variante del modelo).
+  descripcionPm: string | null;
   familia: string;
   tamano: string;
   cantidad: number;
@@ -78,6 +80,10 @@ export interface ReciboGuardado {
 // Payload que espera guardar_recibo_acabados para cada renglón (jsonb).
 export interface RenglonParaGuardar {
   modelo: string;
+  // Variante del modelo: descripción del padre del PM elegido en la lista
+  // (null si se escribió a mano; la base la completa si el código tiene una
+  // sola variante en la OT).
+  descripcionPm: string | null;
   familia: string;
   acabado: string;
   acabado2: string;
@@ -160,6 +166,7 @@ export async function modificarReciboEnDb(
 
 interface RenglonConRecibo {
   modelo: string;
+  descripcion_pm: string | null;
   familia: string;
   acabado: string | null;
   acabado_2: string | null;
@@ -174,6 +181,7 @@ interface RenglonConRecibo {
     obra: string | null;
     ot: string | null;
     tipo: TipoRecibo;
+    estado: EstadoRecibo;
   } | null;
 }
 
@@ -191,7 +199,7 @@ export async function cargarHistoricoDb(
   const { data, error } = await supabase
     .from("renglones")
     .select(
-      "modelo, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo, estado)"
+      "modelo, descripcion_pm, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo, estado)"
     )
     .eq("recibos.tipo", tipo)
     .neq("recibos.estado", "cancelado")
@@ -217,6 +225,9 @@ export async function cargarHistoricoDb(
       folio: r.recibos!.folio,
       obra: r.recibos!.obra ?? "",
       ot: r.recibos!.ot ?? "",
+      // Solo lo pagado sirve de precedente (ver precedenteDe).
+      estado: r.recibos!.estado,
+      descripcionPm: r.descripcion_pm,
     }));
 }
 
@@ -224,6 +235,7 @@ interface RenglonDbRow {
   id: string;
   numero: number;
   modelo: string;
+  descripcion_pm: string | null;
   familia: string;
   tamano: string | null;
   cantidad: number;
@@ -283,7 +295,7 @@ export async function buscarReciboPorFolio(
     .from("recibos")
     .select(
       "id, estado, tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
-        "renglones(id, numero, modelo, familia, tamano, cantidad, acabado, acabado_2, tipo_armado, colocacion_herrajes, tipo_trabajo, " +
+        "renglones(id, numero, modelo, descripcion_pm, familia, tamano, cantidad, acabado, acabado_2, tipo_armado, colocacion_herrajes, tipo_trabajo, " +
         "causa_reproceso, fases, nota, pu_sugerido, fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision)"
     )
     .eq("folio", folio)
@@ -312,6 +324,7 @@ export async function buscarReciboPorFolio(
         id: r.id,
         numero: r.numero,
         modelo: r.modelo,
+        descripcionPm: r.descripcion_pm,
         familia: r.familia,
         tamano: r.tamano ?? "",
         cantidad: Number(r.cantidad),

@@ -5,6 +5,7 @@
 //
 // Tres grupos:
 //   1. Funciones puras (norm_modelo, descripcion_incluye_iluminacion): casos fijos.
+//      Las variantes de modelo (código + descripción) se prueban en el grupo 3.
 //   2. Permisos: lo que un usuario sin sesión o sin rol NO debe poder ejecutar.
 //   3. Datos del PM: (a) invariante "solo cuentan los padres, de todos los PM de
 //      la OT", que se comprueba contra las propias tablas y por eso aguanta que
@@ -57,6 +58,14 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
         ["MESA SIN ILUMINACION", false],
         ["NO LLEVA  ILUMINACIÓN", false],
         ["MESA SIN LUCES", false],
+        // LED, lámpara, luminaria, foco (20261002154916_variantes_modelo_iluminacion.sql).
+        ["NICHO VIRGEN 900 X 650 X 1800 INCLUYE LAMPARA LED", true],
+        ["LIBRERO (LUMINARIAS VALENTINA 3000K)", true],
+        ["REPISA CON TIRA LED", true],
+        ["MESA SIN LED", false],
+        ["NO INCLUYE LÁMPARAS", false],
+        ["TIRA MDF 18MM CHAPA ROSA MORADO", false],
+        ["MESA DE TRABAJO INCLUYE CAJA ELECTRICA CON CONTACTOS", false],
       ];
       for (const [descripcion, esperado] of casos) {
         const { data, error } = await servicio.rpc("descripcion_incluye_iluminacion", {
@@ -79,6 +88,9 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
       ["listar_modelos_ot_electrificacion", { p_ot: "X" }],
       ["cantidad_pm_ot", { p_ot: "X", p_modelo: "X", p_solo_iluminacion: false }],
       ["cantidad_registrada_ot", { p_ot: "X", p_modelo: "X", p_area: "acabados" }],
+      ["cantidad_pm_variante", { p_ot: "X", p_modelo: "X", p_descripcion: "X", p_solo_iluminacion: false }],
+      ["cantidad_registrada_variante", { p_ot: "X", p_modelo: "X", p_descripcion: "X", p_area: "acabados" }],
+      ["variante_unica_ot", { p_ot: "X", p_modelo: "X", p_solo_iluminacion: false }],
       ["ot_contra_cobrado", {}],
       ["pedido_id_por_ot", { p_ot: "X" }],
       ["auditar_recibos", {}],
@@ -231,6 +243,38 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
     const conocidos: [string, string, number][] = [
       ["102-24", "TIRAS DE ROSA MORADO", 119], // 94 en 2PM102-24 + 25 en su hoja "PEDIDO (2)"
     ];
+    // Por variante (código + descripción): la misma OT y código separados por
+    // la descripción del padre.
+    const conocidosPorVariante: [string, string, string, number][] = [
+      ["102-24", "TIRAS DE ROSA MORADO", "DUELA MADERA MACIZA", 94],
+      ["102-24", "MUEBLE", "CAMA KING", 2],
+    ];
+    for (const [ot, modelo, descripcion, esperado] of conocidosPorVariante) {
+      it(`caso conocido: ${modelo} · ${descripcion} en la OT ${ot} = ${esperado}`, async (ctx) => {
+        const { data, error } = await servicio.rpc("cantidad_pm_variante", {
+          p_ot: ot,
+          p_modelo: modelo,
+          p_descripcion: descripcion,
+          p_solo_iluminacion: false,
+        });
+        expect(error).toBeNull();
+        if (data == null) {
+          console.warn(`[test:db] La OT ${ot} no está cargada: se omite ${modelo} · ${descripcion}.`);
+          return ctx.skip();
+        }
+        expect(Number(data)).toBe(esperado);
+      });
+    }
+
+    it("VRG-01 (lámpara LED) cuenta para Electrificación en la 193-24", async (ctx) => {
+      const total = await cantidadOt("193-24", "VRG-01");
+      if (total == null) {
+        console.warn("[test:db] La OT 193-24 no está cargada: se omite VRG-01.");
+        return ctx.skip();
+      }
+      expect(await cantidadOt("193-24", "VRG-01", true)).toBe(total);
+    });
+
     for (const [ot, modelo, esperado] of conocidos) {
       it(`caso conocido: ${modelo} en la OT ${ot} = ${esperado}`, async (ctx) => {
         const cantidad = await cantidadOt(ot, modelo);

@@ -2,10 +2,14 @@
 //
 // Resuelve por niveles y se queda con el primero que aplique:
 //   0 proyecto     — tarifa negociada para esta OT
-//   1 tarifa fija  — familias que no se negocian (sin escalón de volumen)
-//   2 precedente   — lo que se aceptó la última vez para ese mismo modelo
+//   1 precedente   — lo que ya se PAGÓ la última vez por ese mismo modelo (en
+//                    cualquier OT), tal cual
+//   2 tarifa fija  — familias que no se negocian (sin escalón de volumen)
 //   3 familia      — tarifa base de la familia × escalón de volumen
 //   4 manual       — no hay de dónde sacarlo; el estimador fija y justifica
+//
+// Los niveles 2 y 3 son el precio paramétrico: solo se proponen si el modelo
+// no tiene antecedente pagado en esa área de maquila.
 //
 // Las fases (limpieza, lijado, sellado...) son auditoría y no entran al
 // cálculo. El tipo de acabado tampoco, salvo cuando la pieza lleva dos
@@ -18,6 +22,7 @@ import {
   VOLUMEN,
   type RenglonHistorico,
 } from "./datos-acabados";
+import { claveDescripcion, claveModelo } from "./conciliacion-pm";
 
 export type Fuente = "proyecto" | "tarifa_fija" | "precedente" | "familia" | "manual";
 export type Banda = "auto" | "estimador" | "justificar";
@@ -51,6 +56,9 @@ export interface ConfiguracionMotor {
 
 export interface EntradaRenglon {
   modelo: string;
+  // Descripción del padre del PM elegido (la variante del modelo); null si se
+  // escribió el modelo a mano.
+  descripcionPm?: string | null;
   familia: string;
   tamano: string;
   cantidad: number | "";
@@ -103,34 +111,59 @@ export function fechaCorta(iso: string): string {
   return `${Number(p[2])} ${MESES[Number(p[1]) - 1]} ${p[0]}`;
 }
 
-// El precedente es el más reciente por fecha de recibo: es el precio que el
-// maquilador va a repetir, no el promedio histórico. `historico` incluye el
-// histórico real más los recibos que se hayan guardado en esta sesión, para
-// que un recibo recién guardado ya sirva de precedente al siguiente.
+// El precedente es el más reciente por fecha de recibo entre los renglones ya
+// PAGADOS (recibo en estado "pagado"; el histórico base de Excel ya está
+// pagado) con precio aceptado: es el precio que el maquilador va a repetir, no
+// el promedio histórico. Se busca en cualquier OT. El modelo se compara con
+// claveModelo ("MS-01" = "ms 01"). Si el renglón trae variante (descripción del
+// PM), solo sirven los antecedentes de esa misma variante o, si no hay, los que
+// no guardaron variante (recibos anteriores): nunca el de otra variante del
+// mismo código ("MUEBLE · cama king" no es precedente de "MUEBLE · maceta").
 // En el histórico de Armado, la colocación de herrajes viaja como "Sí" / "No"
 // en el campo `acabado2` (y el tipo de armado en `acabado`).
 export const HERRAJES_SI = "Sí";
 export const HERRAJES_NO = "No";
 
+export function esPagado(h: { aceptado: number; estado?: string }): boolean {
+  return h.aceptado > 0 && (h.estado === undefined || h.estado === "pagado");
+}
+
+export function masReciente<T extends { fecha: string }>(filas: T[]): T | null {
+  if (!filas.length) return null;
+  return [...filas].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0))[0];
+}
+
+// Entre antecedentes del mismo código: los de la misma variante y, si no hay,
+// los que no guardaron variante.
+export function deLaVariante<T extends { descripcionPm?: string | null }>(
+  filas: T[],
+  descripcionPm: string | null | undefined
+): T[] {
+  if (descripcionPm == null) return filas;
+  const d = claveDescripcion(descripcionPm);
+  const misma = filas.filter((h) => h.descripcionPm != null && claveDescripcion(h.descripcionPm) === d);
+  return misma.length ? misma : filas.filter((h) => h.descripcionPm == null);
+}
+
 export function precedenteDe(
   modelo: string,
   historico: RenglonHistorico[],
   tipoArmado?: string,
-  herrajes?: boolean
+  herrajes?: boolean,
+  descripcionPm?: string | null
 ): RenglonHistorico | null {
-  const m = normalizar(modelo);
+  const m = claveModelo(modelo);
+  if (!m) return null;
   const t = tipoArmado ? normalizar(tipoArmado) : null;
   const hz = herrajes === undefined ? null : normalizar(herrajes ? HERRAJES_SI : HERRAJES_NO);
   const prev = historico.filter(
     (h) =>
-      normalizar(h.modelo) === m &&
-      h.aceptado > 0 &&
+      claveModelo(h.modelo) === m &&
+      esPagado(h) &&
       (t === null || normalizar(h.acabado) === t) &&
       (hz === null || normalizar(h.acabado2) === hz)
   );
-  if (!prev.length) return null;
-  prev.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
-  return prev[0];
+  return masReciente(deLaVariante(prev, descripcionPm));
 }
 
 export function resolver(
@@ -148,28 +181,32 @@ export function resolver(
     (t) => t.ot === normalizar(recibo.ot) && t.modelo === modeloN
   );
 
+  const p = tp ? null : precedenteDe(r.modelo, historico, r.tipoArmado, r.herrajes, r.descripcionPm);
+
   if (tp) {
     out.pu = tp.tarifa;
     out.fuente = "proyecto";
     out.detalle = `Tarifa de proyecto para la OT ${recibo.ot}`;
+  } else if (p) {
+    // El precio ya pagado, sin ajustes: es lo que el maquilador va a repetir.
+    out.pu = p.aceptado;
+    out.fuente = "precedente";
+    out.detalle =
+      `Pagado antes: ${money(p.aceptado)} · ${p.cantidad} pz · ${fechaCorta(p.fecha)}` +
+      (p.folio ? ` · folio ${p.folio}` : "") +
+      (p.ot ? ` · OT ${p.ot}` : "");
+    return out;
   } else if (tarifasFijas[r.familia] != null) {
     out.pu = tarifasFijas[r.familia];
     out.fuente = "tarifa_fija";
     out.detalle = `${r.familia} · sin negociación`;
-  } else {
-    const p = modeloN ? precedenteDe(modeloN, historico, r.tipoArmado, r.herrajes) : null;
-    if (p) {
-      out.pu = r2((p.aceptado * factorVolumen(r.cantidad)) / factorVolumen(p.cantidad));
-      out.fuente = "precedente";
-      out.detalle = `Última vez: ${money(p.aceptado)} · ${p.cantidad} pz · ${fechaCorta(p.fecha)}`;
-    } else if (tarifasBase[r.familia] != null) {
-      out.pu = r2(tarifasBase[r.familia] * factorVolumen(r.cantidad));
-      out.fuente = "familia";
-      out.sinTamano = !r.tamano;
-      out.detalle =
-        `Base ${money(tarifasBase[r.familia])} × ${factorVolumen(r.cantidad).toFixed(2)}` +
-        (out.sinTamano ? " · sin tamaño" : "");
-    }
+  } else if (tarifasBase[r.familia] != null) {
+    out.pu = r2(tarifasBase[r.familia] * factorVolumen(r.cantidad));
+    out.fuente = "familia";
+    out.sinTamano = !r.tamano;
+    out.detalle =
+      `Base ${money(tarifasBase[r.familia])} × ${factorVolumen(r.cantidad).toFixed(2)}` +
+      (out.sinTamano ? " · sin tamaño" : "");
   }
 
   if (out.pu != null) {

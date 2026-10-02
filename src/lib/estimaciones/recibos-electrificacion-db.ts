@@ -30,6 +30,8 @@ export interface RenglonElectrificacionGuardado {
   id?: string;
   numero: number;
   modelo: string;
+  // Descripción del padre del PM elegido (la variante del modelo).
+  descripcionPm: string | null;
   cantidad: number;
   metrosLed: number;
   complejidadLed: ComplejidadLed | "";
@@ -63,6 +65,8 @@ export interface ReciboElectrificacionGuardado {
 // Payload que espera guardar_recibo_electrificacion para cada renglón (jsonb).
 export interface RenglonElectrificacionParaGuardar {
   modelo: string;
+  // Variante del modelo (ver RenglonParaGuardar en recibos-db.ts).
+  descripcionPm: string | null;
   cantidad: number;
   metrosLed: number;
   complejidadLed: ComplejidadLed | "";
@@ -91,14 +95,21 @@ export interface OtElectrificacion {
   piezas: number;
 }
 
-// Modelo con iluminación de una OT: lo que declararon todos sus PM (suma de los
-// muebles con iluminación) y lo ya registrado en otros recibos no cancelados.
+// Variante (código + descripción) con iluminación de una OT: lo que declararon
+// todos sus PM (suma de esos muebles) y lo ya registrado en otros recibos no
+// cancelados.
 export interface ModeloOtElectrificacion {
   modelo: string;
   cantidadPm: number;
   cantidadRegistrada: number;
   // En qué PM de la OT viene ("2PM193-24, 7PM193-24").
   pms: string;
+  // Primera línea de la descripción, para reconocerla en la lista.
+  descripcion: string | null;
+  // Descripción completa: es lo que guarda el renglón.
+  descripcionPm: string;
+  // Cuántas variantes tiene ese código en la OT.
+  variantes: number;
 }
 
 // Todas las OT con iluminación (el personal de Estimaciones y el maquilador las
@@ -144,12 +155,18 @@ export async function listarModelosOtElectrificacion(
       cantidad_pm: number;
       cantidad_registrada: number;
       pms: string | null;
+      descripcion: string | null;
+      descripcion_pm: string | null;
+      variantes: number;
     }[]
   ).map((r) => ({
     modelo: r.modelo,
     cantidadPm: Number(r.cantidad_pm),
     cantidadRegistrada: Number(r.cantidad_registrada),
     pms: r.pms ?? "",
+    descripcion: r.descripcion || null,
+    descripcionPm: r.descripcion_pm ?? "",
+    variantes: Number(r.variantes) || 1,
   }));
 }
 
@@ -247,6 +264,7 @@ interface RenglonDbRow {
   id: string;
   numero: number;
   modelo: string;
+  descripcion_pm: string | null;
   cantidad: number;
   metros_led: number;
   complejidad_led: ComplejidadLed | null;
@@ -284,7 +302,7 @@ export async function buscarReciboElectrificacionPorFolio(
     .from("recibos_electrificacion")
     .select(
       "id, estado, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
-        "renglones_electrificacion(id, numero, modelo, cantidad, metros_led, complejidad_led, nota, pu_sugerido, " +
+        "renglones_electrificacion(id, numero, modelo, descripcion_pm, cantidad, metros_led, complejidad_led, nota, pu_sugerido, " +
         "fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision, " +
         "charolas_electrificacion(numero, drivers, categoria))"
     )
@@ -312,6 +330,7 @@ export async function buscarReciboElectrificacionPorFolio(
         id: r.id,
         numero: r.numero,
         modelo: r.modelo,
+        descripcionPm: r.descripcion_pm,
         cantidad: Number(r.cantidad),
         metrosLed: Number(r.metros_led),
         complejidadLed: r.complejidad_led ?? "",
@@ -386,4 +405,54 @@ export async function listarRecibosElectrificacion(
       };
     })
     .sort((a, b) => compararFolios(a.folio, b.folio));
+}
+
+// Precio pagado de un renglón de Electrificación: los precedentes del precio
+// sugerido (ver precedenteElectrificacion en motor-electrificacion.ts).
+export interface PrecioPagadoElectrificacion {
+  modelo: string;
+  descripcionPm: string | null;
+  cantidad: number;
+  aceptado: number;
+  fecha: string;
+  folio: string;
+  ot: string;
+}
+
+// Renglones de recibos de Electrificación PAGADOS con precio aceptado (los
+// únicos que sirven de precedente). Al maquilador RLS solo le devuelve los
+// suyos, y de todos modos no ve el sugerido.
+export async function cargarPreciosPagadosElectrificacion(
+  supabase: SupabaseClient
+): Promise<PrecioPagadoElectrificacion[]> {
+  const { data, error } = await supabase
+    .from("renglones_electrificacion")
+    .select(
+      "modelo, descripcion_pm, cantidad, pu_aceptado, recibos_electrificacion!inner(folio, fecha_recibo, ot, estado)"
+    )
+    .eq("recibos_electrificacion.estado", "pagado")
+    .gt("pu_aceptado", 0)
+    .order("creado_en", { ascending: false })
+    .limit(3000)
+    .returns<
+      {
+        modelo: string;
+        descripcion_pm: string | null;
+        cantidad: number;
+        pu_aceptado: number;
+        recibos_electrificacion: { folio: string; fecha_recibo: string; ot: string | null } | null;
+      }[]
+    >();
+  if (error || !data) return [];
+  return data
+    .filter((r) => r.recibos_electrificacion)
+    .map((r) => ({
+      modelo: r.modelo,
+      descripcionPm: r.descripcion_pm,
+      cantidad: Number(r.cantidad),
+      aceptado: Number(r.pu_aceptado),
+      fecha: r.recibos_electrificacion!.fecha_recibo,
+      folio: r.recibos_electrificacion!.folio,
+      ot: r.recibos_electrificacion!.ot ?? "",
+    }));
 }

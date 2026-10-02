@@ -18,6 +18,12 @@ export interface RenglonHistorico {
   folio: string;
   obra: string;
   ot: string;
+  // Estado del recibo; el histórico base (de Excel) no lo trae: ya está pagado.
+  // Solo lo pagado sirve de precedente.
+  estado?: string;
+  // Descripción del padre del PM (la variante del modelo); null en recibos
+  // anteriores a las variantes y en el histórico base.
+  descripcionPm?: string | null;
 }
 
 // [modelo, familia, acabado, acabado2, cantidad, propuesto, aceptado, fecha, folio, obra, ot]

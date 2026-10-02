@@ -16,14 +16,24 @@ export interface OtRecibo {
   numModelos: number;
 }
 
+// Un modelo de la OT es una VARIANTE: código + descripción del padre. Dos
+// padres con el mismo código y la misma descripción (sin importar mayúsculas,
+// acentos, signos ni espacios) son el mismo modelo aunque vengan en PM
+// distintos; si la descripción cambia, es otro (ver
+// supabase/migrations/20261002154916_variantes_modelo_iluminacion.sql).
 export interface ModeloOtRecibo {
   modelo: string;
-  // Suma de lo que Planeación declaró para ese modelo en todos los PM de la OT.
+  // Suma de lo que Planeación declaró para esa variante en todos los PM de la OT.
   cantidadPm: number;
   // Primera línea de la descripción, para reconocer el modelo en la lista.
   descripcion: string | null;
-  // Lo ya capturado de ese modelo en recibos vigentes de la OT en el área (sin
-  // reprocesos ni el recibo que se está modificando).
+  // Descripción completa: es lo que guarda el renglón para ligarse a la variante.
+  descripcionPm: string;
+  // Cuántas variantes tiene ese código en la OT (más de una: fijarse en la
+  // descripción).
+  variantes: number;
+  // Lo ya capturado de esa variante en recibos vigentes de la OT en el área
+  // (sin reprocesos ni el recibo que se está modificando).
   cantidadRegistrada: number;
   // En qué PM de la OT viene ("2PM193-24, 7PM193-24").
   pms: string;
@@ -63,11 +73,15 @@ export async function listarModelosOtRecibo(
       descripcion: string | null;
       cantidad_registrada: number;
       pms: string | null;
+      descripcion_pm: string | null;
+      variantes: number;
     }[]
   ).map((r) => ({
     modelo: r.modelo,
     cantidadPm: Number(r.cantidad_pm),
     descripcion: r.descripcion || null,
+    descripcionPm: r.descripcion_pm ?? "",
+    variantes: Number(r.variantes) || 1,
     cantidadRegistrada: Number(r.cantidad_registrada),
     pms: r.pms ?? "",
   }));

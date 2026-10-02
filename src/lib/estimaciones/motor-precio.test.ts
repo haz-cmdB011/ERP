@@ -115,7 +115,7 @@ describe("Armado: motor propio", () => {
     expect(precedenteDe("P-1", historico)?.aceptado).toBe(200); // el más reciente
   });
 
-  it("resuelve por precedente ajustando por volumen y prioridad", () => {
+  it("el precedente es el precio ya pagado, tal cual (sin volumen ni prioridad)", () => {
     const historico = [historicoArmado("P-1", "Natural", 300, "2026-01-10")];
     const res = resolver(
       entrada({
@@ -130,7 +130,76 @@ describe("Armado: motor propio", () => {
       historico
     );
     expect(res.fuente).toBe("precedente");
-    // 300 × (0.70 de "4 a 10" / 1.00 de "1 pieza") × 1.30 urgente
-    expect(res.pu).toBe(273);
+    expect(res.pu).toBe(300);
+  });
+});
+
+describe("Precedente: solo lo ya pagado, antes que el paramétrico", () => {
+  const pagado = (cambios: Partial<RenglonHistorico>): RenglonHistorico => ({
+    modelo: "ZOCLO",
+    familia: "Zoclo",
+    acabado: "",
+    acabado2: "",
+    cantidad: 1,
+    propuesto: 30,
+    aceptado: 28,
+    fecha: "2026-09-01",
+    folio: "10",
+    obra: "",
+    ot: "193-24",
+    estado: "pagado",
+    ...cambios,
+  });
+
+  it("un antecedente pagado gana a la tarifa fija y a la de familia", () => {
+    const zoclo = resolver(entrada({ modelo: "ZOCLO", familia: "Zoclo" }), RECIBO, CFG_ACABADOS, [pagado({})]);
+    expect(zoclo.fuente).toBe("precedente");
+    expect(zoclo.pu).toBe(28);
+
+    const puerta = resolver(
+      entrada({ modelo: "P-9", familia: "Puerta" }),
+      RECIBO,
+      CFG_ACABADOS,
+      [pagado({ modelo: "P-9", familia: "Puerta", aceptado: 650 })]
+    );
+    expect(puerta.fuente).toBe("precedente");
+    expect(puerta.pu).toBe(650);
+  });
+
+  it("sin antecedente pagado propone el paramétrico", () => {
+    for (const estado of ["pendiente", "revisado", "cancelado"]) {
+      const zoclo = resolver(entrada({ modelo: "ZOCLO", familia: "Zoclo" }), RECIBO, CFG_ACABADOS, [
+        pagado({ estado }),
+      ]);
+      expect(zoclo.fuente, estado).toBe("tarifa_fija");
+      expect(zoclo.pu, estado).toBe(20);
+    }
+    // Pagado pero sin precio aceptado no es antecedente.
+    const sinPrecio = resolver(entrada({ modelo: "ZOCLO", familia: "Zoclo" }), RECIBO, CFG_ACABADOS, [
+      pagado({ aceptado: 0 }),
+    ]);
+    expect(sinPrecio.fuente).toBe("tarifa_fija");
+  });
+
+  it("el último pagado de cualquier OT, con el modelo escrito distinto", () => {
+    const historico = [
+      pagado({ modelo: "MS-01", aceptado: 100, fecha: "2026-08-01", ot: "102-24" }),
+      pagado({ modelo: "ms 01", aceptado: 120, fecha: "2026-09-15", ot: "033-25" }),
+      pagado({ modelo: "MS-01", aceptado: 999, fecha: "2026-09-20", estado: "revisado" }),
+    ];
+    expect(precedenteDe("MS.01", historico)?.aceptado).toBe(120);
+  });
+
+  it("con variante, nunca usa el precio de otra variante del mismo código", () => {
+    const historico = [
+      pagado({ modelo: "MUEBLE", descripcionPm: "CAMA KING", aceptado: 900, fecha: "2026-09-01" }),
+      pagado({ modelo: "MUEBLE", descripcionPm: "MACETA METALICA BAÑO", aceptado: 150, fecha: "2026-08-01" }),
+    ];
+    expect(precedenteDe("MUEBLE", historico, undefined, undefined, "Cama  king")?.aceptado).toBe(900);
+    expect(precedenteDe("MUEBLE", historico, undefined, undefined, "maceta metálica baño")?.aceptado).toBe(150);
+    expect(precedenteDe("MUEBLE", historico, undefined, undefined, "CAMA QUEEN")).toBeNull();
+    // Un antecedente sin variante (recibo anterior) sirve si no hay de la misma.
+    const conAnterior = [...historico, pagado({ modelo: "MUEBLE", aceptado: 500, fecha: "2026-01-01" })];
+    expect(precedenteDe("MUEBLE", conAnterior, undefined, undefined, "CAMA QUEEN")?.aceptado).toBe(500);
   });
 });
