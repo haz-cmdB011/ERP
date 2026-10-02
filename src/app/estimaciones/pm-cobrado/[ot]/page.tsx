@@ -91,10 +91,10 @@ export default async function PmCobradoDetallePage({
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <Link
-          href="/estimaciones/pm-cobrado"
+          href="/estimaciones/reportes#pm-cobrado"
           className="text-xs font-medium uppercase tracking-wide text-slate-500 hover:text-indigo-600 hover:underline"
         >
-          ← PM contra cobrado
+          ← Reporte semanal · PM contra cobrado
         </Link>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
           <span className="font-mono">O.T. {resumen?.ot ?? ot}</span>

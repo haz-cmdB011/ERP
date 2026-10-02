@@ -101,3 +101,45 @@ body {
 .desplazable-sin-barra::-webkit-scrollbar {
   display: none;
 }
+
+/* Colores de las gráficas del reporte semanal (src/app/estimaciones/reportes).
+   Paleta categórica en orden fijo, con su paso para modo oscuro. "otros" es
+   gris neutro: nunca ocupa un color de la serie. */
+.graficas {
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-5: #e87ba4;
+  --serie-6: #008300;
+  --serie-7: #4a3aa7;
+  --serie-8: #e34948;
+  --serie-otros: #8a8984;
+  --serie-pista: #e4e3df;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .graficas {
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-3: #199e70;
+    --serie-4: #c98500;
+    --serie-5: #d55181;
+    --serie-6: #008300;
+    --serie-7: #9085e9;
+    --serie-8: #e66767;
+    --serie-otros: #8a8984;
+    --serie-pista: #383835;
+  }
+}
+:root[data-tema="oscuro"] .graficas {
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-7: #9085e9;
+  --serie-8: #e66767;
+  --serie-otros: #8a8984;
+  --serie-pista: #383835;
+}
