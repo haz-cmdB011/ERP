@@ -78,6 +78,8 @@ export function Dato({ etiqueta, valor, nota }: { etiqueta: string; valor: strin
 
 // El color de un maquilador en la sección es el de su rebanada del pastel; si
 // no está en el pastel (no cobró esta semana o cayó en "Otros") va en gris.
+const piezas = (n: number) => n.toLocaleString("es-MX", { maximumFractionDigits: 2 });
+
 export function colorMaquilador(
   nombre: string,
   porciones: Porcion[]
@@ -120,12 +122,18 @@ export function FilasGrupo({
           <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-700">
             {money(f.importe)}
           </td>
-          <td
-            className="px-4 py-2 text-right font-mono tabular-nums text-slate-400"
-            title={f.seguroSocial == null ? "Sin datos de IMSS todavía" : undefined}
-          >
-            {f.seguroSocial == null ? "—" : money(f.seguroSocial)}
-          </td>
+          {mostrarNombre ? (
+            <td
+              className="px-4 py-2 text-right font-mono tabular-nums text-slate-400"
+              title={f.seguroSocial == null ? "Sin datos de IMSS todavía" : undefined}
+            >
+              {f.seguroSocial == null ? "—" : money(f.seguroSocial)}
+            </td>
+          ) : (
+            <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-700">
+              {piezas(f.piezas)}
+            </td>
+          )}
           <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-900">
             {money(f.totalPagar)}
           </td>
@@ -216,9 +224,9 @@ export function SeccionMaquilador({
             nota={m.mejorSemana ? `Semana ${m.mejorSemana.semana.semana}` : undefined}
           />
           <Dato
-            etiqueta="Esta semana"
-            valor={`${m.recibosSemana} recibo${m.recibosSemana === 1 ? "" : "s"}`}
-            nota={`${m.otsSemana} O.T.`}
+            etiqueta="Piezas trabajadas"
+            valor={grupo ? piezas(grupo.piezas) : "0"}
+            nota={`${m.recibosSemana} recibo${m.recibosSemana === 1 ? "" : "s"} · ${m.otsSemana} O.T.`}
           />
         </div>
 
@@ -242,7 +250,7 @@ export function SeccionMaquilador({
                   <th className="px-4 py-2">Folio</th>
                   <th className="px-4 py-2">OT</th>
                   <th className="px-4 py-2 text-right">Importe</th>
-                  <th className="px-4 py-2 text-right">Seguro social</th>
+                  <th className="px-4 py-2 text-right">Piezas</th>
                   <th className="px-4 py-2 text-right">Total a pagar</th>
                 </tr>
               </thead>
@@ -255,8 +263,8 @@ export function SeccionMaquilador({
                     Total
                   </td>
                   <td className="px-4 py-2 text-right font-mono tabular-nums">{money(grupo.importe)}</td>
-                  <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-500">
-                    {grupo.seguroSocial == null ? "—" : money(grupo.seguroSocial)}
+                  <td className="px-4 py-2 text-right font-mono tabular-nums">
+                    {piezas(grupo.piezas)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono tabular-nums">
                     {money(grupo.totalPagar)}

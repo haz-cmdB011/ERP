@@ -72,6 +72,7 @@ const r = (p: Partial<ReciboPagado>): ReciboPagado => ({
   obra: "",
   pagadoEn: "2026-09-22T18:00:00Z",
   importe: 0,
+  piezas: 0,
   ...p,
 });
 
@@ -111,6 +112,18 @@ const SS_38 = new Map([
 ]);
 
 describe("armarReporte", () => {
+  it("suma las piezas trabajadas por folio y por maquilador", () => {
+    const rep = armarReporte([
+      r({ folio: "1", importe: 100, piezas: 12 }),
+      r({ folio: "2", importe: 100, piezas: 3.5 }),
+      r({ contratista: "Ana", folio: "3", importe: 100, piezas: 4 }),
+    ]);
+    const [ana, juan] = rep.grupos;
+    expect(juan.filas.map((f) => f.piezas)).toEqual([12, 3.5]);
+    expect(juan.piezas).toBe(15.5);
+    expect(ana.piezas).toBe(4);
+  });
+
   it("deja un renglón por folio, agrupado por maquilador", () => {
     const rep = armarReporte([
       r({ folio: "10", importe: 100 }),

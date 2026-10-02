@@ -120,6 +120,8 @@ export interface ReciboPagado {
   obra: string;
   pagadoEn: string;
   importe: number;
+  // Piezas trabajadas: suma de la cantidad de los renglones del recibo.
+  piezas: number;
 }
 
 export interface FilaReporte {
@@ -129,6 +131,7 @@ export interface FilaReporte {
   ot: string;
   obra: string;
   importe: number;
+  piezas: number;
   // null mientras no haya datos de IMSS para el contratista.
   seguroSocial: number | null;
   totalPagar: number;
@@ -138,6 +141,7 @@ export interface GrupoMaquilador {
   contratista: string;
   filas: FilaReporte[];
   importe: number;
+  piezas: number;
   seguroSocial: number | null;
   totalPagar: number;
 }
@@ -177,7 +181,7 @@ export function armarReporte(
     const clave = claveContratista(contratista);
     let grupo = grupos.get(clave);
     if (!grupo) {
-      grupo = { contratista, filas: [], importe: 0, seguroSocial: null, totalPagar: 0 };
+      grupo = { contratista, filas: [], importe: 0, piezas: 0, seguroSocial: null, totalPagar: 0 };
       grupos.set(clave, grupo);
     }
     grupo.filas.push({
@@ -187,6 +191,7 @@ export function armarReporte(
       ot: r.ot.trim(),
       obra: r.obra.trim(),
       importe: redondear(r.importe),
+      piezas: redondear(r.piezas),
       seguroSocial: null,
       totalPagar: 0,
     });
@@ -214,6 +219,7 @@ export function armarReporte(
 
     for (const f of g.filas) f.totalPagar = redondear(f.importe - (f.seguroSocial ?? 0));
     g.importe = redondear(g.filas.reduce((s, f) => s + f.importe, 0));
+    g.piezas = redondear(g.filas.reduce((s, f) => s + f.piezas, 0));
     g.totalPagar = redondear(g.filas.reduce((s, f) => s + f.totalPagar, 0));
   }
 
@@ -245,6 +251,8 @@ type RenglonDb = { cantidad: number; pu_aceptado: number };
 const importeDe = (rs: RenglonDb[]) =>
   rs.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_aceptado), 0);
 
+const piezasDe = (rs: RenglonDb[]) => rs.reduce((s, x) => s + Number(x.cantidad), 0);
+
 const aRecibo = (r: FilaDb, tipo: TipoCualquierRecibo, rs: RenglonDb[]): ReciboPagado => ({
   tipo,
   folio: r.folio,
@@ -253,6 +261,7 @@ const aRecibo = (r: FilaDb, tipo: TipoCualquierRecibo, rs: RenglonDb[]): ReciboP
   obra: r.obra ?? "",
   pagadoEn: r.pagado_en,
   importe: importeDe(rs),
+  piezas: piezasDe(rs),
 });
 
 const PAGINA = 1000;

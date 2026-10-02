@@ -19,6 +19,7 @@ function recibo(parcial: Partial<ReciboPagado>): ReciboPagado {
     obra: "",
     pagadoEn: "2026-09-23T18:00:00Z",
     importe: 1000,
+    piezas: 10,
     ...parcial,
   };
 }
