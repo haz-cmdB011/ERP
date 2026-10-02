@@ -36,6 +36,7 @@ import {
 } from "./componentes";
 import { BarrasSemanales, Pastel } from "./graficos";
 import PanelPmCobrado from "./panel-pm-cobrado";
+import SeccionDesplegable from "./seccion-desplegable";
 
 export const metadata = { title: "Reporte semanal" };
 
@@ -228,35 +229,34 @@ export default async function ReporteSemanalPage({
       )}
 
       {reporte.numRecibos > 0 && (
-        <div className="grid gap-4 lg:grid-cols-5">
-          <div className="lg:col-span-3">
-            <Panel
-              titulo="Pagado por maquilador"
-              descripcion="Parte del total pagado en la semana que le tocó a cada maquilador."
-            >
-              <Pastel
-                porciones={porMaquilador}
-                titulo="Gráfica de pastel del importe pagado a cada maquilador"
-                centro={money(reporte.importe)}
-              />
-            </Panel>
-          </div>
-          <div className="lg:col-span-2">
-            <Panel titulo="Pagado por área" descripcion="Acabados, Armado y Electrificación.">
-              <Pastel
-                porciones={porArea}
-                titulo="Gráfica de pastel del importe pagado por área"
-                apilado
-                centro={money(reporte.importe)}
-              />
-            </Panel>
-          </div>
+        <div className="grid items-stretch gap-4 lg:grid-cols-2">
+          <Panel
+            titulo="Pagado por maquilador"
+            descripcion="Parte del total pagado en la semana que le tocó a cada maquilador."
+          >
+            <Pastel
+              apilado
+              porciones={porMaquilador}
+              titulo="Gráfica de pastel del importe pagado a cada maquilador"
+              centro={money(reporte.importe)}
+            />
+          </Panel>
+          <Panel titulo="Pagado por área" descripcion="Acabados, Armado y Electrificación.">
+            <Pastel
+              apilado
+              porciones={porArea}
+              titulo="Gráfica de pastel del importe pagado por área"
+              centro={money(reporte.importe)}
+            />
+          </Panel>
         </div>
       )}
 
-      <Panel
+      <SeccionDesplegable
+        id="ultimas-semanas"
         titulo={`Total pagado en las últimas ${tablero.semanas.length} semanas`}
         descripcion="La barra más fuerte es la semana que estás viendo."
+        resumen={money(tablero.importeSemana)}
       >
         <BarrasSemanales
           titulo="Barras del total pagado por semana"
@@ -267,18 +267,15 @@ export default async function ReporteSemanalPage({
             detalle: `${t.recibos} recibo${t.recibos === 1 ? "" : "s"}`,
           }))}
         />
-      </Panel>
+      </SeccionDesplegable>
 
-      {/* Rendimiento por maquilador: una sección desplegable cada uno */}
       {tablero.maquiladores.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Rendimiento por maquilador</h2>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Lo cobrado por cada maquilador en las últimas {tablero.semanas.length} semanas (hasta
-              la {semana.semana}). Despliega uno para ver su KPI y sus recibos.
-            </p>
-          </div>
+        <SeccionDesplegable
+          id="rendimiento"
+          titulo="Rendimiento por maquilador"
+          descripcion={`Lo cobrado por cada maquilador en las últimas ${tablero.semanas.length} semanas (hasta la ${semana.semana}). Despliega uno para ver su KPI y sus recibos.`}
+          resumen={`${tablero.maquiladores.length} maquilador${tablero.maquiladores.length === 1 ? "" : "es"}`}
+        >
           {tablero.maquiladores.map((m) => (
             <SeccionMaquilador
               key={m.contratista}
@@ -289,26 +286,28 @@ export default async function ReporteSemanalPage({
               semanas={tablero.semanas.length}
             />
           ))}
-        </section>
+        </SeccionDesplegable>
       )}
 
-      {resumenesPm && <PanelPmCobrado resumenes={resumenesPm} error={pm?.error ?? null} />}
+      {resumenesPm && (
+        <SeccionDesplegable
+          id="pm-cobrado"
+          titulo="PM contra cobrado"
+          descripcion="Lo que Planeación declaró en los PM de cada O.T. contra lo ya capturado en recibos vigentes."
+          resumen={`${resumenesPm.length} O.T.`}
+        >
+          <PanelPmCobrado resumenes={resumenesPm} error={pm?.error ?? null} />
+        </SeccionDesplegable>
+      )}
 
-      {/* Registro de recibos de la semana, desplegable */}
       {reporte.numRecibos > 0 && (
-        <details className="group rounded-xl border border-slate-200 bg-white shadow-sm">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            <span>
-              Registro de recibos de la semana ({reporte.numRecibos}) · {money(reporte.totalPagar)}
-            </span>
-            <span
-              aria-hidden="true"
-              className="text-slate-400 transition-transform group-open:rotate-180"
-            >
-              ▾
-            </span>
-          </summary>
-          <div className="overflow-x-auto border-t border-slate-200">
+        <SeccionDesplegable
+          id="recibos"
+          titulo="Registro de recibos de la semana"
+          descripcion="Todos los recibos pagados, por maquilador y folio."
+          resumen={`${reporte.numRecibos} · ${money(reporte.totalPagar)}`}
+        >
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -360,7 +359,7 @@ export default async function ReporteSemanalPage({
               </tfoot>
             </table>
           </div>
-        </details>
+        </SeccionDesplegable>
       )}
 
       <p className="text-xs text-slate-400">
