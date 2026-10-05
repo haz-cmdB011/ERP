@@ -62,7 +62,6 @@ export default async function CalidadListPage({
             href: "/calidad?f=por-evaluar",
             tono: "atencion",
           },
-          { valor: total.evaluados, etiqueta: "Ítems evaluados", detalle: "con al menos un informe" },
           { valor: total.liberados, etiqueta: "Ítems en producción", detalle: "liberados por Producción", href: "/calidad" },
         ]}
       />
