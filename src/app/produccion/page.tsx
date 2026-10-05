@@ -1,40 +1,47 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
+import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
+import {
+  filtrarOrdenesTrabajo,
+  hrefListaPedidos,
+  type PedidoConOt,
+} from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 
-interface PedidoRow {
-  id: string;
-  numero_pedido: string;
-  fecha_pedido: string | null;
-  fecha_entrega: string | null;
-  estado: string;
-  proyectos: { nombre: string; cliente: string } | null;
-  pedido_versiones: { id: string; numero_version: number; es_version_activa: boolean }[];
-}
-
+// Igual que en Planeación: órdenes de trabajo con sus PM. Al entrar a una O.T.
+// se ven sus PM; el buscador además encuentra muebles y modelos en todos los
+// pedidos.
 export default async function ProduccionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, anio, cliente } = await searchParams;
   const consulta = (q ?? "").trim();
+  const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
+  const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
   const supabase = await createClient();
 
-  // Con texto en el buscador se muestran muebles/modelos de todos los pedidos.
+  // Con texto en el buscador se muestran también muebles/modelos de todos los pedidos.
   const busqueda = consulta ? await buscarMuebles(supabase, consulta) : null;
 
   const { data: pedidos, error } = await supabase
     .from("pedidos")
-    .select(
-      "id, numero_pedido, fecha_pedido, fecha_entrega, estado, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
-    )
+    .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
     .is("eliminado_en", null)
     // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
     .is("eliminado_definitivo_en", null)
     .order("created_at", { ascending: false })
-    .returns<PedidoRow[]>();
+    .returns<PedidoConOt[]>();
+
+  const { filas, aniosDisponibles, clientesDisponibles } = filtrarOrdenesTrabajo(pedidos ?? [], {
+    anio: anioFiltro,
+    cliente: clienteFiltro,
+    busqueda: consulta,
+  });
+  const totalOts = filas.filter((f) => f.ot).length;
+  const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
@@ -44,20 +51,21 @@ export default async function ProduccionListPage({
             Pedidos — Producción
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Selecciona un pedido para liberar sus ítems a producción y generar los viajeros.
+            Órdenes de trabajo con sus PM. Entra a una O.T. para ver sus PM, liberar ítems, generar
+            viajeros y asignar a equipos.
           </p>
         </div>
         {pedidos && pedidos.length > 0 && (
-          <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {pedidos.length} pedido{pedidos.length === 1 ? "" : "s"}
+          <span className="whitespace-nowrap rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+            {totalOts} O.T.
           </span>
         )}
       </div>
 
-      {/* Buscador de muebles y modelos entre todos los pedidos: primero el
-          mueble (ítem padre); al hacer clic se despliegan sus componentes. */}
       <form method="get" action="/produccion" className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-md">
+        {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
+        {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
+        <div className="relative min-w-0 flex-1">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -75,7 +83,7 @@ export default async function ProduccionListPage({
             type="search"
             name="q"
             defaultValue={consulta}
-            placeholder="Buscar mueble o modelo (ej. pérgola, PG-01, PRD-000123)"
+            placeholder="Buscar O.T., PM, cliente, mueble o modelo (ej. 134-26, pérgola, PRD-000123)"
             autoComplete="off"
             className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
           />
@@ -87,14 +95,63 @@ export default async function ProduccionListPage({
           Buscar
         </button>
         {consulta && (
-          <Link href="/produccion" className="text-sm text-slate-500 underline hover:text-slate-700">
+          <Link
+            href={hrefListaPedidos("/produccion", {
+              anio: anioFiltro ? String(anioFiltro) : undefined,
+              cliente: clienteFiltro || undefined,
+            })}
+            className="text-sm text-slate-500 underline hover:text-slate-700"
+          >
             Limpiar
           </Link>
         )}
       </form>
 
+      <FiltrosOrdenesTrabajo
+        base="/produccion"
+        anios={aniosDisponibles}
+        anio={anioFiltro}
+        clientes={clientesDisponibles}
+        cliente={clienteFiltro}
+        q={consulta || undefined}
+      />
+
+      {error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          No se pudieron cargar los pedidos: {error.message}
+        </p>
+      )}
+
+      {!error && (!pedidos || pedidos.length === 0) && (
+        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          Todavía no hay pedidos cargados.
+        </p>
+      )}
+
+      {pedidos && pedidos.length > 0 && (
+        <section className="flex flex-col gap-3">
+          {consulta && (
+            <h2 className="text-sm font-semibold text-slate-600">
+              Órdenes de trabajo que coinciden con &ldquo;{consulta}&rdquo;
+            </h2>
+          )}
+          {filas.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+              {hayFiltros ? "Ninguna O.T. coincide con los filtros." : "No hay pedidos."}
+            </p>
+          ) : (
+            <TablaOrdenesTrabajo
+              filas={filas}
+              hrefOt={(ot) => `/produccion/ot/${encodeURIComponent(ot)}`}
+              hrefPedido={(id) => `/produccion/pedidos/${id}`}
+            />
+          )}
+        </section>
+      )}
+
       {busqueda && (
         <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-slate-600">Muebles y modelos</h2>
           <p className="text-sm text-slate-600">
             {busqueda.totalGrupos === 0
               ? `Ningún mueble ni modelo coincide con "${consulta}".`
@@ -106,63 +163,6 @@ export default async function ProduccionListPage({
           </p>
           {busqueda.grupos.length > 0 && <ResultadosMuebles grupos={busqueda.grupos} />}
         </section>
-      )}
-
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          No se pudieron cargar los pedidos: {error.message}
-        </p>
-      )}
-
-      {!busqueda && !error && (!pedidos || pedidos.length === 0) && (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Todavía no hay pedidos cargados.
-        </p>
-      )}
-
-      {!busqueda && pedidos && pedidos.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">Pedido</th>
-                <th className="px-4 py-3">Proyecto</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Entrega</th>
-                <th className="px-4 py-3">Versión activa</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {pedidos.map((p) => {
-                const activa = p.pedido_versiones.find((v) => v.es_version_activa);
-                return (
-                  <tr key={p.id} className="transition-colors hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/produccion/pedidos/${p.id}`}
-                        className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
-                      >
-                        {p.numero_pedido}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{p.proyectos?.cliente ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {activa ? (
-                        <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                          #{activa.numero_version}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
       )}
     </main>
   );
