@@ -1,5 +1,6 @@
 import Link from "next/link";
 import NumeroAnimado from "./numero-animado";
+import Inclinable from "./inclinable";
 
 export interface TarjetaResumen {
   valor: number;
@@ -35,12 +36,11 @@ export default function ResumenInicio({ tarjetas }: { tarjetas: TarjetaResumen[]
             </span>
           </>
         );
-        const base = `anim-escala flex items-center gap-4 rounded-xl border bg-white p-4 shadow-sm ${
+        const base = `anim-escala flex h-full items-center gap-4 rounded-xl border bg-white p-4 shadow-sm ${
           activa ? "border-brand-300 ring-1 ring-brand-200" : "border-slate-200"
         }`;
-        return t.href ? (
+        const tarjeta = t.href ? (
           <Link
-            key={t.etiqueta}
             href={t.href}
             style={{ "--d": `${120 + i * 90}ms` } as React.CSSProperties}
             className={`${base} group transition duration-200 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-md`}
@@ -48,14 +48,11 @@ export default function ResumenInicio({ tarjetas }: { tarjetas: TarjetaResumen[]
             {cuerpo}
           </Link>
         ) : (
-          <div
-            key={t.etiqueta}
-            className={base}
-            style={{ "--d": `${120 + i * 90}ms` } as React.CSSProperties}
-          >
+          <div className={base} style={{ "--d": `${120 + i * 90}ms` } as React.CSSProperties}>
             {cuerpo}
           </div>
         );
+        return <Inclinable key={t.etiqueta}>{tarjeta}</Inclinable>;
       })}
     </section>
   );

@@ -1,16 +1,27 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-// Barra fina verde arriba de la pantalla mientras se abre otra página: confirma
-// que el clic hizo algo, sobre todo en pantallas que tardan. Se enciende al
-// hacer clic en un enlace interno a otra ruta y se apaga sola cuando cambia la
-// ruta (no hay estado que limpiar: se compara la ruta de entonces con la
-// actual). Si la navegación no ocurre, la propia animación la desvanece.
+// Lo que se ve al abrir otra pantalla:
+//  - Barra fina verde arriba mientras carga: se enciende al hacer clic en un
+//    enlace interno a otra ruta y se apaga sola cuando cambia la ruta (se
+//    compara la ruta de entonces con la actual, sin estado que limpiar).
+//  - Transición entre pantallas: en navegadores con View Transitions API
+//    (Chrome, Edge, Safari 18+) la pantalla vieja se desvanece y la nueva sube
+//    suavemente; la barra superior se queda quieta (ver ::view-transition en
+//    globals.css). Si la nueva pantalla tarda más de medio segundo, la
+//    transición se suelta para no dejar la página congelada.
 export default function BarraProgreso() {
   const ruta = usePathname();
   const [desde, setDesde] = useState<{ ruta: string; n: number } | null>(null);
+  const terminarTransicion = useRef<(() => void) | null>(null);
+
+  // Cuando la ruta cambia, la pantalla nueva ya está lista: se libera la transición.
+  useEffect(() => {
+    terminarTransicion.current?.();
+    terminarTransicion.current = null;
+  }, [ruta]);
 
   useEffect(() => {
     function alHacerClic(e: MouseEvent) {
@@ -23,6 +34,20 @@ export default function BarraProgreso() {
       const url = new URL(enlace.href, window.location.href);
       if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
       setDesde((previo) => ({ ruta: window.location.pathname, n: (previo?.n ?? 0) + 1 }));
+
+      const doc = document as Document & {
+        startViewTransition?: (actualizar: () => Promise<void>) => unknown;
+      };
+      if (
+        typeof doc.startViewTransition === "function" &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        const lista = new Promise<void>((resolver) => {
+          terminarTransicion.current = resolver;
+          setTimeout(resolver, 500);
+        });
+        doc.startViewTransition(() => lista);
+      }
     }
     // En captura: el <Link> de Next cancela el clic (preventDefault) para
     // navegar por su cuenta, y en la fase normal ya no se vería el clic limpio.

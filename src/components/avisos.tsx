@@ -38,7 +38,7 @@ const ESTILO: Record<
   exito: {
     borde: "border-l-emerald-500",
     icono: "text-emerald-600",
-    ruta: <path d="m5 12 5 5L20 7" />,
+    ruta: <path d="m5 12 5 5L20 7" pathLength={1} className="anim-trazo" />,
   },
   error: {
     borde: "border-l-rose-500",
@@ -130,7 +130,9 @@ export default function Avisos() {
               strokeWidth={2.2}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className={`mt-0.5 h-4 w-4 shrink-0 ${estilo.icono}`}
+              className={`mt-0.5 h-4 w-4 shrink-0 ${estilo.icono} ${
+                aviso.tipo === "error" ? "anim-sacudir" : aviso.tipo === "info" ? "anim-rebote" : ""
+              }`}
               aria-hidden="true"
             >
               {estilo.ruta}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   colorFilaEstadoRevision,
   ESTADO_REVISION_LABELS,
@@ -11,6 +11,8 @@ import EliminarItemBoton from "./eliminar-item-boton";
 import type { PlanoLink } from "@/lib/planos/planos-por-item";
 import PlanosItem from "./planos-item";
 import Chevron from "@/components/chevron";
+import GrupoDesplegable from "@/components/grupo-desplegable";
+import { useFlip } from "@/lib/ui/use-flip";
 
 export interface ItemTabla {
   id: string;
@@ -61,6 +63,7 @@ export default function ItemsTabla({
   puedeEliminar: boolean;
   filtroInicial: string;
 }) {
+  const tablaRef = useFlip<HTMLTableElement>();
   const [filtro, setFiltro] = useState(filtroInicial);
   const [expandidos, setExpandidos] = useState<Set<string>>(() =>
     padresConHijosCoincidentes(muebles, filtroInicial)
@@ -135,7 +138,7 @@ export default function ItemsTabla({
 
       {visibles.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-left text-xs">
+          <table ref={tablaRef} className="w-full text-left text-xs">
             <thead>
               <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="w-6 py-2 pl-3"></th>
@@ -149,12 +152,14 @@ export default function ItemsTabla({
                 {puedeEliminar && <th className="px-3 py-2"></th>}
               </tr>
             </thead>
-            <tbody>
               {visibles.map(({ mueble: m, hijos }) => {
                 const abierto = expandidos.has(m.id);
                 return (
-                  <Fragment key={m.id}>
+                  <GrupoDesplegable key={m.id} abierto={abierto} total={hijos.length}>
+                    {(mostrar) => (
+                  <>
                     <tr
+                      data-flip={m.id}
                       onClick={() => alternar(m.id)}
                       aria-expanded={abierto}
                       className={`cursor-pointer border-t border-slate-200 align-top text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${colorFilaEstadoRevision(m.estado_revision)}`}
@@ -191,10 +196,11 @@ export default function ItemsTabla({
                         </td>
                       )}
                     </tr>
-                    {abierto &&
+                    {mostrar &&
                       hijos.map((f, i) => (
                         <tr
                           key={f.id}
+                          data-flip={f.id}
                           style={{ "--i": i } as React.CSSProperties}
                           className={`fila-hija border-t border-slate-100 align-top text-slate-700 transition-colors hover:bg-slate-50 ${colorFilaEstadoRevision(f.estado_revision)}`}
                         >
@@ -222,10 +228,11 @@ export default function ItemsTabla({
                           )}
                         </tr>
                       ))}
-                  </Fragment>
+                  </>
+                    )}
+                  </GrupoDesplegable>
                 );
               })}
-            </tbody>
           </table>
         </div>
       )}

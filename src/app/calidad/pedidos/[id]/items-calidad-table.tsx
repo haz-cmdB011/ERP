@@ -308,6 +308,7 @@ export default function ItemsCalidadTable({
 
     return (
       <tr
+        key={item.id}
         className={`transition-colors hover:bg-slate-50 ${indentado ? "border-t border-slate-100" : "text-sm font-medium text-slate-900"}`}
       >
         <td className={`border-l-4 py-2 pl-2 pr-1 ${franja}`}>
@@ -332,10 +333,10 @@ export default function ItemsCalidadTable({
           {item.cantidad_total} {item.unidad}
         </td>
         <td className="px-3 py-2">
-          <EstadoBadge item={item} />
+          {EstadoBadge({ item })}
         </td>
         <td className="px-3 py-2">
-          <FolioCelda item={item} />
+          {FolioCelda({ item })}
         </td>
         {puedeEvaluar && (
           <td className="flex flex-wrap gap-2 px-3 py-2">
@@ -461,10 +462,8 @@ export default function ItemsCalidadTable({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  <Fila item={m} indentado={false} />
-                  {(fuPorPadre.get(m.id) ?? []).map((f) => (
-                    <Fila key={f.id} item={f} indentado />
-                  ))}
+                  {Fila({ item: m, indentado: false })}
+                  {(fuPorPadre.get(m.id) ?? []).map((f) => Fila({ item: f, indentado: true }))}
                 </tbody>
               </table>
             </div>
@@ -487,9 +486,7 @@ export default function ItemsCalidadTable({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {fuSueltos.map((f) => (
-                    <Fila key={f.id} item={f} indentado={false} />
-                  ))}
+                  {fuSueltos.map((f) => Fila({ item: f, indentado: false }))}
                 </tbody>
               </table>
             </div>

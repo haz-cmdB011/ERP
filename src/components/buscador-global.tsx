@@ -203,11 +203,11 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-lg sm:h-10 sm:w-10 xl:w-auto text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 xl:border xl:border-nav-line xl:px-3"
+        className="group inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-lg sm:h-10 sm:w-10 xl:w-auto text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 xl:border xl:border-nav-line xl:px-3"
         aria-label={`Buscar (${atajo})`}
         aria-keyshortcuts="Control+K Meta+K"
       >
-        <IconoLupa className="h-[18px] w-[18px]" />
+        <IconoLupa className="h-[18px] w-[18px] transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-125" />
         <span className="hidden xl:inline">Buscar…</span>
         <kbd className="hidden rounded border border-nav-line bg-nav-hover px-1.5 font-sans text-[11px] text-on-nav-suave xl:inline">
           {atajo}
