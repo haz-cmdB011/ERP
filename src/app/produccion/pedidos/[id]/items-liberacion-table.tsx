@@ -367,10 +367,13 @@ export default function ItemsLiberacionTable({
     item,
     indentado,
     grupo,
+    indice = 0,
   }: {
     item: ItemLiberacionRow;
     indentado: boolean;
     grupo?: GrupoMueble;
+    // Posición entre los hijos de su mueble: escalona la entrada.
+    indice?: number;
   }) {
     const procesando = procesandoId === item.id;
     const seleccionado = seleccionados.has(item.id);
@@ -382,7 +385,8 @@ export default function ItemsLiberacionTable({
     return (
       <tr
         onClick={desplegable && grupo ? () => alternarMueble(grupo) : undefined}
-        className={`align-top transition-colors ${
+        style={indentado ? ({ "--i": indice } as React.CSSProperties) : undefined}
+        className={`align-top transition-colors ${indentado ? "fila-hija" : ""} ${abierto && desplegable ? "fila-padre-abierta" : ""} ${
           seleccionado
             ? "bg-brand-50"
             : colorFilaEstadoRevision(item.estado_revision) || "odd:bg-slate-50/60 hover:bg-slate-100/70"
@@ -390,7 +394,7 @@ export default function ItemsLiberacionTable({
           desplegable ? "cursor-pointer" : ""
         }`}
       >
-        <td className="px-3 py-3 lg:py-2" onClick={sinToggle}>
+        <td className={`px-3 py-3 lg:py-2 ${indentado ? "guia-hija" : ""}`} onClick={sinToggle}>
           <input
             type="checkbox"
             checked={seleccionados.has(item.id)}
@@ -866,7 +870,7 @@ export default function ItemsLiberacionTable({
                   >
                     <Fila item={g.padre} indentado={false} grupo={g} />
                     {estaAbierto(g) &&
-                      g.hijos.map((f) => <Fila key={f.id} item={f} indentado />)}
+                      g.hijos.map((f, i) => <Fila key={f.id} item={f} indentado indice={i} />)}
                   </tbody>
                 ))}
                 {sueltos.length > 0 && (

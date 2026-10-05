@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCancelado, IconoCheck, IconoReloj, IconoX } from "@/components/iconos-estado";
 import { DIAS_ANTIGUEDAD_ALERTA } from "./antiguedad";
+import Colapsable from "@/components/colapsable";
 
 export interface InformeResumen {
   id: string;
@@ -268,8 +269,8 @@ export default function ItemsCalidadTable({
             >
               {abierto ? "Ocultar" : "Ver"} historial ({item.informes.length})
             </button>
-            {abierto && (
-              <ul className="mt-1 flex flex-col gap-1 border-l-2 border-slate-100 pl-2">
+            <Colapsable abierto={abierto}>
+              <ul className="mt-1 flex flex-col gap-1 border-l-2 border-brand-200 pl-2">
                 {historialAnterior.map((inf) => (
                   <li key={inf.id}>
                     <button
@@ -283,7 +284,7 @@ export default function ItemsCalidadTable({
                   </li>
                 ))}
               </ul>
-            )}
+            </Colapsable>
           </div>
         )}
       </div>

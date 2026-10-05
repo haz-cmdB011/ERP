@@ -1,6 +1,7 @@
-// Marca de Mobiliarium para la interfaz. Usa el logotipo real recortado
-// (scripts/generar-logo-ui.mjs lo genera desde public/branding): la variante
-// "claro" tiene el texto aclarado para leerse sobre la barra oscura. No usa
+// Marca de Mobiliarium para la interfaz. Usa el logotipo real vectorizado
+// (scripts/generar-logo-ui.mjs lo genera desde public/branding, nítido a
+// cualquier tamaño): la variante "claro" tiene el texto aclarado para leerse
+// sobre la barra oscura. No usa
 // next/image para que sea un <img> simple, igual que en las fichas de PDF.
 // La estrella sola (EstrellaMarca) sirve de adorno y de ícono de la app.
 export function EstrellaMarca({ className = "h-6 w-6" }: { className?: string }) {
@@ -30,7 +31,7 @@ export default function Marca({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`/branding/mobiliarium-logo-ui${sobreOscuro ? "-claro" : ""}.png`}
+      src={`/branding/mobiliarium-logo-ui${sobreOscuro ? "-claro" : ""}.svg`}
       alt="Mobiliarium — creating lifestyle"
       width={239}
       height={47}

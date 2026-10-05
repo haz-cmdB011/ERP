@@ -603,3 +603,75 @@ html.transicion-tema *::after {
     box-shadow: 0 6px 14px -6px color-mix(in oklab, var(--marca) 55%, transparent);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Desplegables (padre -> hijos, historiales, renglones, secciones).
+   --------------------------------------------------------------------------- */
+
+/* Pliegue con altura animada (src/components/colapsable.tsx). */
+.colapsable {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease,
+    visibility 0s linear 320ms;
+}
+.colapsable-abierto {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+@keyframes hija-entrada {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* Filas hijas: al desplegar el padre entran en cascada desde la izquierda
+     (--i es su posición). Va después de la regla general de filas de tabla. */
+  tbody > tr.fila-hija {
+    animation: hija-entrada 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+
+  /* Renglones plegables de captura: el cuerpo baja suavemente al abrirse. */
+  .anim-desplegar {
+    animation: desplegar 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  /* <details> con altura animada (navegadores que lo soportan; en los demás
+     abre al instante y solo se anima la entrada del contenido). */
+  :root {
+    interpolate-size: allow-keywords;
+  }
+  details::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition:
+      block-size 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      content-visibility 320ms allow-discrete;
+  }
+  details[open]::details-content {
+    block-size: auto;
+  }
+}
+
+/* Guía visual de los hijos: una barra verde a la izquierda de sus filas. */
+.guia-hija {
+  box-shadow: inset 3px 0 0 var(--color-brand-400);
+}
+/* Padre desplegado: se distingue del resto de filas. */
+.fila-padre-abierta {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-brand-500) 14%, transparent),
+    transparent 70%
+  );
+}
