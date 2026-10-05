@@ -1,0 +1,249 @@
+/* ---------------------------------------------------------------------------
+   Vidrio esmerilado (glassmorphism). La app sigue escrita con clases normales
+   de Tailwind (bg-white, bg-slate-50, border-slate-200...); aquí esas clases de
+   superficie se vuelven paneles translúcidos que difuminan lo que tienen
+   detrás: una hoja de planos de muebles nítida (fondo-mobiliario.tsx). Así no
+   hay que tocar cada pantalla.
+
+   Los colores y la intensidad salen de variables que cada quien ajusta en
+   "Personalizar apariencia" (src/components/personalizar-apariencia.tsx,
+   src/lib/apariencia.ts): --marca, --fondo-1..3, --vidrio-opacidad y
+   --vidrio-desenfoque. Al imprimir y en las fichas que se exportan a PDF
+   todo vuelve a ser opaco.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Valores iniciales: los mismos que el preset "Mobiliarium". */
+  --marca: #7cfc00;
+  --sobre-marca: #0b1300;
+  --fondo-1: #7cfc00;
+  --fondo-2: #3f6212;
+  --fondo-3: #0f766e;
+  --vidrio-opacidad: 58%;
+  --vidrio-desenfoque: 14px;
+
+  /* Hoja de planos del fondo: --fondo-1 tiñe el papel, --fondo-2 son los
+     trazos de los muebles y --fondo-3 las cotas. En modo oscuro el papel se
+     vuelve azul noche y los trazos se aclaran (abajo). */
+  --fondo-papel: color-mix(in oklab, var(--fondo-1) 9%, #f4f3ee);
+  --fondo-trazo: color-mix(in oklab, var(--fondo-2) 78%, #111);
+  --fondo-cota: color-mix(in oklab, var(--fondo-3) 80%, #111);
+  --fondo-op-trazo: 0.42;
+  --fondo-op-cota: 0.55;
+
+  /* Brillo del borde superior y sombra de los paneles: menores en modo
+     oscuro. */
+  --vidrio-brillo: rgb(255 255 255 / 0.65);
+  --vidrio-sombra: rgb(15 23 42 / 0.14);
+
+  /* Barra superior y paneles de marca: vidrio oscuro teñido con el acento. */
+  --nav: color-mix(in oklab, var(--marca) 12%, rgb(7 11 14 / 0.78));
+  --nav-hover: color-mix(in oklab, var(--marca) 18%, rgb(255 255 255 / 0.1));
+  --nav-linea: rgb(255 255 255 / 0.12);
+
+  /* Superficies derivadas. --color-white y --color-slate-* ya cambian con el
+     modo oscuro (tema-oscuro.css), así que el vidrio claro se vuelve oscuro
+     solo. */
+  --vidrio: color-mix(in oklab, var(--color-white) var(--vidrio-opacidad), transparent);
+  --vidrio-fuerte: color-mix(
+    in oklab,
+    var(--color-white) calc((var(--vidrio-opacidad) + 100%) / 2),
+    transparent
+  );
+  --vidrio-tenue: color-mix(
+    in oklab,
+    var(--color-slate-50) calc(var(--vidrio-opacidad) * 0.7),
+    transparent
+  );
+  --vidrio-tenue-2: color-mix(
+    in oklab,
+    var(--color-slate-100) calc(var(--vidrio-opacidad) * 0.8),
+    transparent
+  );
+  --vidrio-borde: color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+  --vidrio-filtro: blur(var(--vidrio-desenfoque)) saturate(170%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --fondo-papel: color-mix(in oklab, var(--fondo-1) 8%, #070a0e);
+    --fondo-trazo: color-mix(in oklab, var(--fondo-2) 70%, #fff);
+    --fondo-cota: color-mix(in oklab, var(--fondo-3) 72%, #fff);
+    --fondo-op-trazo: 0.3;
+    --fondo-op-cota: 0.42;
+    --vidrio-brillo: rgb(255 255 255 / 0.08);
+    --vidrio-sombra: rgb(0 0 0 / 0.45);
+  }
+}
+:root[data-tema="oscuro"] {
+  --fondo-papel: color-mix(in oklab, var(--fondo-1) 8%, #070a0e);
+  --fondo-trazo: color-mix(in oklab, var(--fondo-2) 70%, #fff);
+  --fondo-cota: color-mix(in oklab, var(--fondo-3) 72%, #fff);
+  --fondo-op-trazo: 0.3;
+  --fondo-op-cota: 0.42;
+  --vidrio-brillo: rgb(255 255 255 / 0.08);
+  --vidrio-sombra: rgb(0 0 0 / 0.45);
+}
+
+/* Fichas que se exportan a PDF o se imprimen: opacas, sin desenfoque y con la
+   marca original, sin importar lo que haya elegido el usuario. */
+[data-informe],
+[data-viajero-ficha],
+[data-siempre-claro] {
+  --marca: #7cfc00;
+  --sobre-marca: #0b1300;
+  --vidrio: #fff;
+  --vidrio-fuerte: #fff;
+  --vidrio-tenue: var(--color-slate-50);
+  --vidrio-tenue-2: var(--color-slate-100);
+  --vidrio-borde: var(--color-slate-200);
+  --vidrio-filtro: none;
+  --vidrio-brillo: transparent;
+}
+
+/* Fondo: hoja de planos de muebles (src/components/fondo-mobiliario.tsx),
+   nítida y fija detrás de todo; la difuminan los paneles. */
+.fondo-mobiliario {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: var(--fondo-papel);
+}
+.fondo-mobiliario svg {
+  display: block;
+}
+/* Viñeta suave: los bordes un poco más oscuros enmarcan el contenido. */
+.fondo-mobiliario::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    130% 100% at 50% 0%,
+    transparent 55%,
+    color-mix(in oklab, var(--fondo-trazo) 14%, transparent) 100%
+  );
+}
+.fondo-mobiliario .cuad {
+  fill: none;
+  stroke: var(--fondo-trazo);
+  stroke-opacity: calc(var(--fondo-op-trazo) * 0.18);
+  stroke-width: 1;
+}
+.fondo-mobiliario .cuad.mayor {
+  stroke-opacity: calc(var(--fondo-op-trazo) * 0.34);
+}
+.fondo-mobiliario .t {
+  fill: none;
+  stroke: var(--fondo-trazo);
+  stroke-opacity: var(--fondo-op-trazo);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fondo-mobiliario .p {
+  fill: var(--fondo-trazo);
+  fill-opacity: var(--fondo-op-trazo);
+}
+.fondo-mobiliario .c {
+  fill: none;
+  stroke: var(--fondo-cota);
+  stroke-opacity: var(--fondo-op-cota);
+  stroke-width: 1;
+}
+.fondo-mobiliario .oculta {
+  stroke-dasharray: 5 4;
+}
+.fondo-mobiliario .eje {
+  stroke-dasharray: 12 4 2 4;
+}
+.fondo-mobiliario .txt {
+  fill: var(--fondo-cota);
+  fill-opacity: var(--fondo-op-cota);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.fondo-mobiliario .etiqueta {
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+@layer utilities {
+  @media screen {
+    /* Paneles y tarjetas. Va en la capa de utilidades y después de las de
+       Tailwind: gana a bg-white, pero hover:/focus: (más específicos) siguen
+       ganando. */
+    .bg-white {
+      background-color: var(--vidrio);
+    }
+    .bg-white\/95,
+    .bg-white\/90 {
+      background-color: var(--vidrio-fuerte);
+    }
+    .bg-slate-50,
+    .bg-slate-50\/60,
+    .bg-slate-50\/50 {
+      background-color: var(--vidrio-tenue);
+    }
+    .bg-slate-100 {
+      background-color: var(--vidrio-tenue-2);
+    }
+    .border-slate-200 {
+      border-color: var(--vidrio-borde);
+    }
+
+    /* Desenfoque solo en las superficies que "flotan" (tarjetas, barras,
+       menús): ponerlo en cada fila o celda costaría mucho al dibujar.
+
+       Va en un ::before detrás del contenido y no en el elemento: un
+       backdrop-filter en el elemento lo vuelve el marco de sus hijos
+       position:fixed, y los diálogos (fixed inset-0) que viven dentro de una
+       tarjeta o de la barra quedarían encerrados en ella. Sin isolation ni
+       z-index en el elemento (también encerrarían los diálogos): el ::before
+       con z-index -1 se pinta debajo del fondo translúcido del panel, que es
+       justo el efecto que se busca. */
+    :is(
+        .bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl, .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl),
+        .bg-nav
+      ):not(.fixed, .sticky, .absolute) {
+      position: relative;
+    }
+    :is(
+        .bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl, .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl, .fixed, .sticky, .absolute),
+        .bg-white\/95,
+        .bg-white\/90,
+        .bg-nav
+      )::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      pointer-events: none;
+      -webkit-backdrop-filter: var(--vidrio-filtro);
+      backdrop-filter: var(--vidrio-filtro);
+    }
+
+    /* Brillo en el borde superior, como el canto de un cristal. */
+    .bg-white:is(.rounded-xl, .rounded-2xl):is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+      box-shadow:
+        inset 0 1px 0 var(--vidrio-brillo),
+        0 1px 2px rgb(0 0 0 / 0.04),
+        0 10px 30px -14px var(--vidrio-sombra);
+    }
+
+    /* Menús, diálogos y avisos flotantes: más opacos para que se lean bien
+       encima de cualquier cosa. */
+    .bg-white:is(.absolute, .fixed, .shadow-lg, .shadow-xl, .shadow-2xl),
+    .fixed.inset-0.z-50 > .bg-white,
+    .fixed.inset-0.z-50 > div > .bg-white {
+      background-color: var(--vidrio-fuerte);
+    }
+
+    /* Campos de captura: un poco más sólidos que el panel que los contiene. */
+    :is(input, select, textarea).bg-white {
+      background-color: var(--vidrio-fuerte);
+    }
+  }
+}

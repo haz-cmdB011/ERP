@@ -48,13 +48,13 @@ export default async function PlaneacionLayout({
         esDesarrollador={perfil?.rol === "desarrollador"}
         porRevisar={porRevisar}
       >
-        <SubnavLink href="/planeacion" tambien={["/planeacion/pedidos", "/planeacion/ot"]}>
+        <SubnavLink href="/planeacion" icono="pedidos" tambien={["/planeacion/pedidos", "/planeacion/ot"]}>
           Pedidos
         </SubnavLink>
-        <SubnavLink href="/planeacion/upload">
+        <SubnavLink href="/planeacion/upload" icono="subir">
           Cargar Excel
         </SubnavLink>
-        <SubnavLink href="/planeacion/cancelados">
+        <SubnavLink href="/planeacion/cancelados" icono="cancelados">
           Cancelados
         </SubnavLink>
       </AreaNav>

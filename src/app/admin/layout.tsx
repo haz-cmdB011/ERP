@@ -46,13 +46,13 @@ export default async function AdminLayout({
         esDesarrollador
         porRevisar={await contarPorRevisar(supabase)}
       >
-        <SubnavLink href="/admin/usuarios">
+        <SubnavLink href="/admin/usuarios" icono="usuarios">
           Usuarios
         </SubnavLink>
-        <SubnavLink href="/admin/auditoria">
+        <SubnavLink href="/admin/auditoria" icono="auditoria">
           Auditoría
         </SubnavLink>
-        <SubnavLink href="/estimaciones/discrepancias">
+        <SubnavLink href="/estimaciones/discrepancias" icono="discrepancias">
           Discrepancias
         </SubnavLink>
       </AreaNav>

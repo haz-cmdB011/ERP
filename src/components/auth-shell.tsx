@@ -52,7 +52,7 @@ export default function AuthShell({
       </aside>
 
       <section className="pie-seguro flex items-center justify-center px-6 py-10 sm:px-10">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h1 className="anim-aparecer text-2xl font-semibold tracking-tight text-slate-900" style={{ "--d": "100ms" } as React.CSSProperties}>
             {titulo}
           </h1>
