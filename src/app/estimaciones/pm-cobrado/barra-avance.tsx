@@ -14,7 +14,7 @@ export default function BarraAvance({ etiqueta, avance }: { etiqueta: string; av
       <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
         {pct != null && (
           <div
-            className={`h-full rounded-full ${pct >= 100 ? "bg-emerald-500" : "bg-indigo-500"}`}
+            className={`anim-crecer-x h-full rounded-full ${pct >= 100 ? "bg-emerald-500" : "bg-brand-500"}`}
             style={{ width: `${Math.min(pct, 100)}%` }}
           />
         )}

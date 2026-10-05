@@ -36,7 +36,7 @@ export default async function SeguimientoReciboPage({
 
   if (!recibo) {
     return (
-      <main className="mx-auto flex max-w-xl flex-col gap-3 p-6">
+      <main className="mx-auto flex max-w-xl flex-col gap-3 p-4 sm:p-6">
         <h1 className="text-lg font-semibold text-slate-900">Recibo no encontrado</h1>
         <p className="text-sm text-slate-500">
           El folio <span className="font-mono">{folio}</span> no está guardado, o no tienes acceso al
@@ -47,7 +47,7 @@ export default async function SeguimientoReciboPage({
   }
 
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-4 p-6">
+    <main className="mx-auto flex max-w-xl flex-col gap-4 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-slate-900">Seguimiento de recibo</h1>
         <div className="flex items-center gap-3">

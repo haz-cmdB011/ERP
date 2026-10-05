@@ -255,7 +255,7 @@ export default function ItemsCalidadTable({
         <Link
           href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
           title="Ver informe"
-          className="whitespace-nowrap font-mono text-xs text-slate-800 hover:text-indigo-600 hover:underline"
+          className="whitespace-nowrap font-mono text-xs text-slate-800 hover:text-brand-700 hover:underline"
         >
           {ultimo.folio}
         </Link>
@@ -393,7 +393,7 @@ export default function ItemsCalidadTable({
               onClick={() => setFiltroCalidad(valor)}
               className={`rounded border px-3 py-1 font-medium transition-colors ${
                 filtroCalidad === valor
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >

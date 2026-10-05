@@ -65,7 +65,7 @@ export default function CambiarPasswordForm() {
       <button
         type="submit"
         disabled={guardando}
-        className="w-fit rounded bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="w-fit rounded bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand disabled:opacity-50"
       >
         {guardando ? "Guardando..." : "Guardar contraseña"}
       </button>

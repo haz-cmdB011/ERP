@@ -122,7 +122,7 @@ export default function EquiposEditor({
                     <button
                       type="button"
                       onClick={() => editar(e)}
-                      className="text-sm font-medium text-indigo-600 hover:underline"
+                      className="text-sm font-medium text-brand-700 hover:underline"
                     >
                       Editar
                     </button>

@@ -44,7 +44,7 @@ export function Pastel({
         viewBox="0 0 200 200"
         role="img"
         aria-label={titulo}
-        className="h-48 w-48 shrink-0 -rotate-90"
+        className="anim-donut h-48 w-48 shrink-0 -rotate-90"
       >
         <circle
           cx="100"
@@ -173,6 +173,8 @@ export function BarrasSemanales({
                 fill="var(--serie-1)"
                 opacity={i === resaltar ? 1 : 0.45}
                 pointerEvents="none"
+                className="anim-barra"
+                style={{ animationDelay: `${i * 45}ms` }}
               />
             ) : (
               <rect

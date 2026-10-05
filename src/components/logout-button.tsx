@@ -16,9 +16,24 @@ export default function LogoutButton() {
   return (
     <button
       onClick={handleLogout}
-      className="shrink-0 whitespace-nowrap text-gray-500 hover:text-black"
+      title="Cerrar sesión"
+      aria-label="Cerrar sesión"
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg sm:h-10 sm:w-10 xl:w-auto xl:px-2.5 text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500"
     >
-      Cerrar sesión
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-[18px] w-[18px]"
+        aria-hidden="true"
+      >
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="m16 17 5-5-5-5M21 12H9" />
+      </svg>
+      <span className="hidden xl:inline">Cerrar sesión</span>
     </button>
   );
 }

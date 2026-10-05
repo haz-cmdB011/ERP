@@ -6,6 +6,8 @@ import {
   type FilaOrdenTrabajo,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
+import ChipEntrega from "@/components/chip-entrega";
+import { estadoEntrega } from "@/lib/resumen/entrega";
 
 // Chips de año + filtro de cliente de la lista de Pedidos por O.T.
 export function FiltrosOrdenesTrabajo({
@@ -38,7 +40,7 @@ export function FiltrosOrdenesTrabajo({
               href={hrefListaPedidos(base, { q, anio: a ? String(a) : undefined, cliente: clienteParam })}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 activo
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -60,11 +62,18 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   hrefOt,
   hrefPedido,
   accion,
+  columnaEstado,
+  hoy,
 }: {
   filas: FilaOrdenTrabajo<P>[];
   hrefOt: (ot: string) => string;
   hrefPedido: (pedidoId: string) => string;
   accion?: (fila: FilaOrdenTrabajo<P>) => React.ReactNode;
+  // Columna extra con el estado de cada O.T. (liberación en Producción,
+  // evaluación en Calidad).
+  columnaEstado?: { titulo: string; celda: (fila: FilaOrdenTrabajo<P>) => React.ReactNode };
+  // Fecha de hoy (YYYY-MM-DD): si se da, la entrega lleva una etiqueta de estado.
+  hoy?: string;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -76,6 +85,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
             <th className="px-4 py-3">Cliente</th>
             <th className="px-4 py-3">PM</th>
             <th className="px-4 py-3">Entrega</th>
+            {columnaEstado && <th className="px-4 py-3">{columnaEstado.titulo}</th>}
             {accion && <th className="px-4 py-3"></th>}
           </tr>
         </thead>
@@ -89,15 +99,15 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                 <td className="px-4 py-3">
                   <Link href={href} className="group inline-flex items-center gap-2 whitespace-nowrap">
                     {fila.ot ? (
-                      <span className="font-mono font-semibold text-slate-900 group-hover:text-indigo-600 group-hover:underline">
+                      <span className="font-mono font-semibold text-slate-900 group-hover:text-brand-700 group-hover:underline">
                         {fila.ot}
                       </span>
                     ) : (
-                      <span className="font-medium text-slate-900 group-hover:text-indigo-600 group-hover:underline">
+                      <span className="font-medium text-slate-900 group-hover:text-brand-700 group-hover:underline">
                         {primero.numero_pedido}
                       </span>
                     )}
-                    <span className="text-slate-400 group-hover:text-indigo-600" aria-hidden>
+                    <span className="text-slate-400 group-hover:text-brand-700" aria-hidden>
                       →
                     </span>
                   </Link>
@@ -113,7 +123,11 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                     <span className="text-xs text-slate-400">Sin O.T.</span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-700">{ultimaEntrega(fila.pedidos) ?? "—"}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                  <span className="mr-2">{ultimaEntrega(fila.pedidos) ?? "—"}</span>
+                  {hoy && <ChipEntrega estado={estadoEntrega(ultimaEntrega(fila.pedidos), hoy)} />}
+                </td>
+                {columnaEstado && <td className="px-4 py-3">{columnaEstado.celda(fila)}</td>}
                 {accion && <td className="px-4 py-3">{accion(fila)}</td>}
               </tr>
             );

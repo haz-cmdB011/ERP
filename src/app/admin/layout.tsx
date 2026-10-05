@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import SubnavLink from "@/components/subnav-link";
+import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
 
 // Usuarios vive como panel propio (mismo peso visual que Planeación y
 // Producción en AreaNav), pero solo es accesible para desarrolladores:
@@ -37,16 +38,23 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen">
-      <AreaNav area="usuarios" email={user.email ?? ""} esDesarrollador>
-        <Link href="/admin/usuarios" className="text-gray-600 hover:text-black">
+      <AreaNav
+        area="usuarios"
+        email={user.email ?? ""}
+        userId={user.id}
+        avatarPath={user.app_metadata?.avatar_path}
+        esDesarrollador
+        porRevisar={await contarPorRevisar(supabase)}
+      >
+        <SubnavLink href="/admin/usuarios">
           Usuarios
-        </Link>
-        <Link href="/admin/auditoria" className="text-gray-600 hover:text-black">
+        </SubnavLink>
+        <SubnavLink href="/admin/auditoria">
           Auditoría
-        </Link>
-        <Link href="/estimaciones/discrepancias" className="text-gray-600 hover:text-black">
+        </SubnavLink>
+        <SubnavLink href="/estimaciones/discrepancias">
           Discrepancias
-        </Link>
+        </SubnavLink>
       </AreaNav>
       {children}
     </div>

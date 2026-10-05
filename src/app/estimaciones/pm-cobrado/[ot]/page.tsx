@@ -17,6 +17,7 @@ import {
 } from "@/lib/estimaciones/pm-cobrado";
 import { AREA_RECIBO_LABELS } from "@/lib/estimaciones/discrepancias-db";
 import BarraAvance from "../barra-avance";
+import { CLASE_MIGA, FlechaRegresar } from "@/components/regresar-estilo";
 
 export const metadata: Metadata = { title: "PM contra cobrado" };
 
@@ -92,11 +93,12 @@ export default async function PmCobradoDetallePage({
       <div className="border-b border-slate-200 pb-4">
         <Link
           href="/estimaciones/reportes#pm-cobrado"
-          className="text-xs font-medium uppercase tracking-wide text-slate-500 hover:text-indigo-600 hover:underline"
+          className={CLASE_MIGA}
         >
-          ← Reporte semanal · PM contra cobrado
+          <FlechaRegresar className="h-4 w-4" />
+          Reporte semanal · PM contra cobrado
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
           <span className="font-mono">O.T. {resumen?.ot ?? ot}</span>
         </h1>
         {resumen?.proyecto && <p className="text-sm text-slate-600">{resumen.proyecto}</p>}
@@ -140,7 +142,7 @@ export default async function PmCobradoDetallePage({
             }
             className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
               filtro === valor
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-brand-600 bg-brand-500 text-on-brand"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >

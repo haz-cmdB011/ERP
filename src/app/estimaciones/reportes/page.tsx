@@ -160,7 +160,7 @@ export default async function ReporteSemanalPage({
           />
           <button
             type="submit"
-            className="rounded bg-slate-900 px-3 py-1 font-semibold text-white hover:bg-slate-800"
+            className="rounded bg-brand-500 px-3 py-1 font-semibold text-on-brand hover:bg-brand-400"
           >
             Ver
           </button>
@@ -174,12 +174,12 @@ export default async function ReporteSemanalPage({
         {(semana.anio !== porReportar.anio || semana.semana !== porReportar.semana) && (
           <Link
             href={hrefSemana(porReportar)}
-            className="px-2 font-medium text-indigo-600 hover:underline"
+            className="px-2 font-medium text-brand-700 hover:underline"
           >
             Semana por pagar ({porReportar.semana})
           </Link>
         )}
-        <a href="#pm-cobrado" className="px-2 font-medium text-indigo-600 hover:underline">
+        <a href="#pm-cobrado" className="px-2 font-medium text-brand-700 hover:underline">
           PM contra cobrado ↓
         </a>
       </div>

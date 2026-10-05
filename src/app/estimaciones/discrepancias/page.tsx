@@ -110,7 +110,7 @@ export default async function DiscrepanciasPage({
   };
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Discrepancias con el PM
@@ -130,7 +130,7 @@ export default async function DiscrepanciasPage({
             href={hrefPagina(valor)}
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-brand-600 bg-brand-500 text-on-brand"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -144,7 +144,7 @@ export default async function DiscrepanciasPage({
             href={hrefPagina(filtro, 1, a)}
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               area === a
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-brand-600 bg-brand-500 text-on-brand"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -199,7 +199,7 @@ export default async function DiscrepanciasPage({
                     {folio ? (
                       <Link
                         href={`/estimaciones/revision/${f.area}/${encodeURIComponent(folio)}`}
-                        className="font-mono font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                        className="font-mono font-medium text-slate-900 hover:text-brand-700 hover:underline"
                       >
                         {folio}
                       </Link>

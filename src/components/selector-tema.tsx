@@ -37,6 +37,9 @@ function suscribir(aviso: () => void) {
 
 function aplicar(tema: Tema, guardar = true) {
   const raiz = document.documentElement;
+  // Funde los colores durante medio segundo (ver .transicion-tema en globals.css).
+  raiz.classList.add("transicion-tema");
+  window.setTimeout(() => raiz.classList.remove("transicion-tema"), 500);
   if (tema === "sistema") raiz.removeAttribute("data-tema");
   else raiz.setAttribute("data-tema", tema);
   if (guardar) {
@@ -59,7 +62,7 @@ function Icono({ tema }: { tema: Tema }) {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="h-4 w-4"
+      className="h-[18px] w-[18px]"
       aria-hidden="true"
     >
       {tema === "claro" ? (
@@ -92,9 +95,11 @@ export default function SelectorTema() {
       onClick={() => aplicar(siguiente)}
       title={`${ETIQUETA[tema]} (clic para ${ACCION[siguiente]})`}
       aria-label={`${ETIQUETA[tema]}. Clic para ${ACCION[siguiente]}`}
-      className="inline-flex shrink-0 items-center rounded-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:border-gray-300 hover:text-black"
+      className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg sm:h-10 text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 w-9 sm:w-10"
     >
-      <Icono tema={tema} />
+      <span key={tema} className="anim-icono inline-flex">
+        <Icono tema={tema} />
+      </span>
     </button>
   );
 }

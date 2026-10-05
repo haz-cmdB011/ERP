@@ -119,7 +119,7 @@ export default async function AsignacionesPedidoPage({
   const pedidoCancelado = !!pedido.cancelado_en;
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-5 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Asignar a equipos — {pedido.numero_pedido}

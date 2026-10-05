@@ -103,7 +103,7 @@ export default function PanelPmCobrado({
               onClick={() => setSoloDiferencias(false)}
               className={`rounded border px-3 py-1 text-sm font-medium pointer-coarse:py-2 ${
                 !soloDiferencias
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -134,11 +134,11 @@ export default function PanelPmCobrado({
             <Link
               key={r.ot}
               href={`/estimaciones/pm-cobrado/${encodeURIComponent(r.ot)}`}
-              className="group/ot flex flex-col gap-3 rounded-lg border border-slate-200 p-3 transition-colors hover:border-indigo-300"
+              className="group/ot flex flex-col gap-3 rounded-lg border border-slate-200 p-3 transition-colors hover:border-brand-300"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <div className="min-w-0">
-                  <span className="font-mono text-base font-semibold text-slate-900 group-hover/ot:text-indigo-600">
+                  <span className="font-mono text-base font-semibold text-slate-900 group-hover/ot:text-brand-700">
                     O.T. {r.ot}
                   </span>
                   {r.proyecto && <span className="ml-2 text-sm text-slate-500">{r.proyecto}</span>}

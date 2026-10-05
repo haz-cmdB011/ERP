@@ -97,7 +97,7 @@ export default function AsignarForm({
         onClick={abrir}
         disabled={sinDisponible}
         title={sinDisponible ? "Ya está asignado todo el mueble" : undefined}
-        className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-40"
       >
         Asignar
       </button>

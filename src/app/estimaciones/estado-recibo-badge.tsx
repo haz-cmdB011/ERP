@@ -2,7 +2,7 @@ import { ESTADO_NOMBRE, type EstadoRecibo } from "@/lib/estimaciones/recibos-db"
 
 const ESTILO: Record<EstadoRecibo, string> = {
   pendiente: "bg-amber-50 text-amber-700 ring-amber-200",
-  revisado: "bg-indigo-50 text-indigo-700 ring-indigo-200",
+  revisado: "bg-brand-50 text-brand-800 ring-brand-200",
   pagado: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   cancelado: "bg-slate-100 text-slate-500 ring-slate-200",
 };

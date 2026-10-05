@@ -16,7 +16,7 @@ export default function PlanosItem({ planos }: { planos: PlanoLink[] }) {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100"
+        className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-800 hover:bg-brand-100"
       >
         Plano{planos.length > 1 ? `s (${planos.length})` : ""}
         {origen && <span className="font-normal text-slate-400"> · de {origen}</span>}
@@ -177,7 +177,7 @@ function RutaServidor({ ruta }: { ruta: string }) {
         <button
           type="button"
           onClick={copiar}
-          className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+          className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-on-brand hover:bg-brand-400"
         >
           {estado === "copiado" ? "¡Ruta copiada!" : "Copiar ruta"}
         </button>

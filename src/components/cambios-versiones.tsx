@@ -12,6 +12,7 @@ import {
   type ResumenCambios,
 } from "@/lib/planeacion/diff-versiones";
 import { cargarItemsVersion } from "@/lib/planeacion/versiones-db";
+import { CLASE_MIGA, FlechaRegresar } from "@/components/regresar-estilo";
 
 // Qué cambió entre dos versiones de un PM. Se monta en Planeación y en
 // Producción (/<área>/pedidos/[id]/cambios?de=2&a=3&ver=...).
@@ -132,11 +133,12 @@ export default async function CambiosVersiones({
     <div className="border-b border-slate-200 pb-4">
       <Link
         href={basePedido}
-        className="text-xs font-medium uppercase tracking-wide text-slate-500 hover:text-indigo-600 hover:underline"
+        className={CLASE_MIGA}
       >
-        ← {pedido.numero_pedido}
+        <FlechaRegresar className="h-4 w-4" />
+        {pedido.numero_pedido}
       </Link>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
         Cambios entre versiones
       </h1>
       {pedido.proyectos && (
@@ -149,7 +151,7 @@ export default async function CambiosVersiones({
 
   if (!versionA || !versionDe) {
     return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+      <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
         {encabezado}
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Este PM tiene una sola versión: todavía no hay con qué comparar. Cuando se suba una
@@ -174,7 +176,7 @@ export default async function CambiosVersiones({
     : [];
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       {encabezado}
 
       <form method="get" className="flex flex-wrap items-end gap-3">
@@ -234,7 +236,7 @@ export default async function CambiosVersiones({
                     href={hrefFiltro(f)}
                     className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                       activo
-                        ? "border-slate-900 bg-slate-900 text-white"
+                        ? "border-brand-600 bg-brand-500 text-on-brand"
                         : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                   >
@@ -279,7 +281,7 @@ function SelectorVersion({
       <select
         name={nombre}
         defaultValue={valor}
-        className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm font-normal normal-case tracking-normal text-slate-800 shadow-sm focus:border-indigo-400 focus:outline-none"
+        className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm font-normal normal-case tracking-normal text-slate-800 shadow-sm focus:border-brand-600 focus:outline-none"
       >
         {versiones.map((v) => (
           <option key={v.id} value={v.numero_version}>
@@ -378,7 +380,7 @@ function TarjetaMueble({ cambio }: { cambio: CambioMueble }) {
               <ListaComponentes componentes={cambio.componentes} />
             ) : (
               <details open={cambio.tipo === "agregado"}>
-                <summary className="cursor-pointer text-xs font-medium text-slate-600 hover:text-indigo-600">
+                <summary className="cursor-pointer text-xs font-medium text-slate-600 hover:text-brand-700">
                   {cambio.componentes.length} componente{cambio.componentes.length === 1 ? "" : "s"}
                   {cambio.tipo === "agregado" ? " incluidos" : " que se quitan con él"}
                 </summary>

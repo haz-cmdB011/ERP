@@ -6,15 +6,20 @@ import {
   hrefListaPedidos,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
+import Bienvenida from "@/components/bienvenida";
+import ResumenInicio from "@/components/resumen-inicio";
+import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
+import EstadoCalidad from "./estado-calidad";
 
 // Igual que en Planeación y Producción: órdenes de trabajo con sus PM. Al
 // entrar a una O.T. se ven sus PM con el avance de evaluación.
 export default async function CalidadListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; f?: string }>;
 }) {
-  const { q, anio, cliente } = await searchParams;
+  const { q, anio, cliente, f } = await searchParams;
+  const soloPorEvaluar = f === "por-evaluar";
   const busqueda = q?.trim() ?? "";
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
@@ -29,16 +34,39 @@ export default async function CalidadListPage({
     .order("created_at", { ascending: false })
     .returns<PedidoConOt[]>();
 
-  const { filas, aniosDisponibles, clientesDisponibles } = filtrarOrdenesTrabajo(pedidos ?? [], {
+  const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
     cliente: clienteFiltro,
     busqueda,
   });
+  const { aniosDisponibles, clientesDisponibles } = filtradas;
+
+  // Avance de evaluación por pedido; las tarjetas suman todo lo vigente.
+  const avance = await avancePorPedido(supabase, { conCalidad: true });
+  const total = sumarAvance(avance);
+  const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
+    sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
+  const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porEvaluar > 0).length;
+  const filas = filtradas.filas.filter((fila) => !soloPorEvaluar || avanceDe(fila).porEvaluar > 0);
   const totalOts = filas.filter((f) => f.ot).length;
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <div className="flex items-end justify-between border-b border-slate-200 pb-4">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <Bienvenida acciones={[{ href: "/calidad/folios", etiqueta: "Folios de calidad" }]} />
+      <ResumenInicio
+        tarjetas={[
+          {
+            valor: total.porEvaluar,
+            etiqueta: "Ítems por evaluar",
+            detalle: `en ${otsConPendientes} O.T.`,
+            href: "/calidad?f=por-evaluar",
+            tono: "atencion",
+          },
+          { valor: total.evaluados, etiqueta: "Ítems evaluados", detalle: "con al menos un informe" },
+          { valor: total.liberados, etiqueta: "Ítems en producción", detalle: "liberados por Producción", href: "/calidad" },
+        ]}
+      />
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Calidad
@@ -63,7 +91,7 @@ export default async function CalidadListPage({
           name="q"
           defaultValue={busqueda}
           placeholder="Buscar O.T., PM, proyecto o cliente..."
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-400 focus:outline-none"
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:outline-none"
         />
         <button
           type="submit"
@@ -77,7 +105,7 @@ export default async function CalidadListPage({
               anio: anioFiltro ? String(anioFiltro) : undefined,
               cliente: clienteFiltro || undefined,
             })}
-            className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:underline"
+            className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
           >
             Limpiar
           </Link>
@@ -93,6 +121,15 @@ export default async function CalidadListPage({
       {!error && (!pedidos || pedidos.length === 0) && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Todavía no hay pedidos cargados.
+        </p>
+      )}
+
+      {soloPorEvaluar && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
+          Mostrando solo las O.T. con ítems por evaluar ({filas.length}).
+          <Link href="/calidad" className="font-medium underline-offset-2 hover:underline">
+            Ver todas
+          </Link>
         </p>
       )}
 
@@ -116,6 +153,10 @@ export default async function CalidadListPage({
           filas={filas}
           hrefOt={(ot) => `/calidad/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/calidad/pedidos/${id}`}
+          columnaEstado={{
+            titulo: "Evaluación",
+            celda: (fila) => <EstadoCalidad cancelado={false} avance={avanceDe(fila)} />,
+          }}
         />
       )}
     </main>
