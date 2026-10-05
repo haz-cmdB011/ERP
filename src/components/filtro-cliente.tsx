@@ -1,15 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { hrefListaPedidos } from "@/lib/planeacion/lista-ordenes-trabajo";
 
-// Filtro por cliente de la lista de Pedidos: aplica en cuanto se elige,
-// conservando la búsqueda y el año.
+// Filtro por cliente de la lista de Pedidos (Planeación o Producción): aplica
+// en cuanto se elige, conservando la búsqueda y el año.
 export default function FiltroCliente({
+  base,
   clientes,
   valor,
   q,
   anio,
 }: {
+  base: string;
   clientes: string[];
   valor: string;
   q?: string;
@@ -21,14 +24,9 @@ export default function FiltroCliente({
       <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</span>
       <select
         value={valor}
-        onChange={(e) => {
-          const qs = new URLSearchParams();
-          if (q) qs.set("q", q);
-          if (anio) qs.set("anio", anio);
-          if (e.target.value) qs.set("cliente", e.target.value);
-          const texto = qs.toString();
-          router.push(texto ? `/planeacion?${texto}` : "/planeacion");
-        }}
+        onChange={(e) =>
+          router.push(hrefListaPedidos(base, { q, anio, cliente: e.target.value || undefined }))
+        }
         className="max-w-xs rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm focus:border-brand-600 focus:outline-none"
       >
         <option value="">Todos</option>

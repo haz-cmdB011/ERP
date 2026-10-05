@@ -48,7 +48,7 @@ export default async function CalidadLayout({
         esDesarrollador={perfil?.rol === "desarrollador"}
         porRevisar={porRevisar}
       >
-        <SubnavLink href="/calidad" tambien={["/calidad/pedidos"]}>
+        <SubnavLink href="/calidad" tambien={["/calidad/pedidos", "/calidad/ot"]}>
           Pedidos
         </SubnavLink>
         <SubnavLink href="/calidad/cancelados">

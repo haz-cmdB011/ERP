@@ -57,6 +57,16 @@ export function sumarAvance(mapa: Map<string, AvancePedido>): AvancePedido {
   return suma;
 }
 
+// Avance de una O.T.: suma el de todos sus PM.
+export function sumarAvanceDe(mapa: Map<string, AvancePedido>, pedidoIds: string[]): AvancePedido {
+  const parcial = new Map<string, AvancePedido>();
+  for (const id of pedidoIds) {
+    const a = mapa.get(id);
+    if (a) parcial.set(id, a);
+  }
+  return sumarAvance(parcial);
+}
+
 // PostgREST devuelve máximo 1000 filas por consulta: se pide por páginas.
 const PAGINA = 1000;
 

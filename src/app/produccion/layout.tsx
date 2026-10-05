@@ -48,8 +48,11 @@ export default async function ProduccionLayout({
         esDesarrollador={perfil?.rol === "desarrollador"}
         porRevisar={porRevisar}
       >
-        <SubnavLink href="/produccion" tambien={["/produccion/pedidos"]}>
+        <SubnavLink href="/produccion" tambien={["/produccion/pedidos", "/produccion/ot"]}>
           Pedidos
+        </SubnavLink>
+        <SubnavLink href="/produccion/asignaciones">
+          Asignaciones
         </SubnavLink>
         <SubnavLink href="/produccion/cancelados">
           Cancelados / Eliminados
