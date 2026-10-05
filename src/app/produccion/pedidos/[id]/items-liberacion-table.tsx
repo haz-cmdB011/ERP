@@ -367,10 +367,13 @@ export default function ItemsLiberacionTable({
     item,
     indentado,
     grupo,
+    indice = 0,
   }: {
     item: ItemLiberacionRow;
     indentado: boolean;
     grupo?: GrupoMueble;
+    // Posición entre los hijos de su mueble: escalona la entrada.
+    indice?: number;
   }) {
     const procesando = procesandoId === item.id;
     const seleccionado = seleccionados.has(item.id);
@@ -382,15 +385,16 @@ export default function ItemsLiberacionTable({
     return (
       <tr
         onClick={desplegable && grupo ? () => alternarMueble(grupo) : undefined}
-        className={`align-top transition-colors ${
+        style={indentado ? ({ "--i": indice } as React.CSSProperties) : undefined}
+        className={`align-top transition-colors ${indentado ? "fila-hija" : ""} ${abierto && desplegable ? "fila-padre-abierta" : ""} ${
           seleccionado
-            ? "bg-indigo-50"
+            ? "bg-brand-50"
             : colorFilaEstadoRevision(item.estado_revision) || "odd:bg-slate-50/60 hover:bg-slate-100/70"
         } ${indentado ? "text-slate-700" : "text-sm font-medium text-slate-900"} ${
           desplegable ? "cursor-pointer" : ""
         }`}
       >
-        <td className="px-3 py-3 lg:py-2" onClick={sinToggle}>
+        <td className={`px-3 py-3 lg:py-2 ${indentado ? "guia-hija" : ""}`} onClick={sinToggle}>
           <input
             type="checkbox"
             checked={seleccionados.has(item.id)}
@@ -578,7 +582,7 @@ export default function ItemsLiberacionTable({
             }}
             className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
               !vistaPapelera && filtroEstado === valor
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-brand-600 bg-brand-500 text-on-brand"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -762,7 +766,7 @@ export default function ItemsLiberacionTable({
               onClick={() => setFiltroMaterial(null)}
               className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
                 filtroMaterial === null
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -775,7 +779,7 @@ export default function ItemsLiberacionTable({
                 onClick={() => setFiltroMaterial(mat)}
                 className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
                   filtroMaterial === mat
-                    ? "border-slate-900 bg-slate-900 text-white"
+                    ? "border-brand-600 bg-brand-500 text-on-brand"
                     : "border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -808,7 +812,7 @@ export default function ItemsLiberacionTable({
                 className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   seleccionados.size === 0
                     ? "pointer-events-none border-slate-200 text-slate-400"
-                    : "border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-white"
+                    : "border-brand-600 text-slate-900 hover:bg-brand-500 hover:text-on-brand"
                 }`}
               >
                 Imprimir Selección (PDF)
@@ -825,7 +829,7 @@ export default function ItemsLiberacionTable({
                 type="button"
                 onClick={liberarSeleccion}
                 disabled={seleccionados.size === 0 || liberando}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-50"
+                className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
               >
                 {liberando ? "Liberando..." : "Liberar Selección a Producción"}
               </button>
@@ -866,7 +870,7 @@ export default function ItemsLiberacionTable({
                   >
                     <Fila item={g.padre} indentado={false} grupo={g} />
                     {estaAbierto(g) &&
-                      g.hijos.map((f) => <Fila key={f.id} item={f} indentado />)}
+                      g.hijos.map((f, i) => <Fila key={f.id} item={f} indentado indice={i} />)}
                   </tbody>
                 ))}
                 {sueltos.length > 0 && (

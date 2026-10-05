@@ -27,7 +27,7 @@ export default function AreasMaquilaSelector({
             key={a}
             className={`inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs ${
               activo
-                ? "border-black bg-black text-white"
+                ? "border-brand-600 bg-brand-500 text-on-brand"
                 : "border-gray-300 text-gray-600 hover:border-gray-500"
             } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
           >

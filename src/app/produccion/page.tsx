@@ -8,6 +8,10 @@ import {
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
+import Bienvenida from "@/components/bienvenida";
+import ResumenInicio from "@/components/resumen-inicio";
+import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
+import EstadoLiberacion from "./estado-liberacion";
 
 // Igual que en Planeación: órdenes de trabajo con sus PM. Al entrar a una O.T.
 // se ven sus PM; el buscador además encuentra muebles y modelos en todos los
@@ -15,9 +19,10 @@ import ResultadosMuebles from "./resultados-muebles";
 export default async function ProduccionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; f?: string }>;
 }) {
-  const { q, anio, cliente } = await searchParams;
+  const { q, anio, cliente, f } = await searchParams;
+  const soloPorLiberar = f === "por-liberar";
   const consulta = (q ?? "").trim();
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
@@ -35,17 +40,44 @@ export default async function ProduccionListPage({
     .order("created_at", { ascending: false })
     .returns<PedidoConOt[]>();
 
-  const { filas, aniosDisponibles, clientesDisponibles } = filtrarOrdenesTrabajo(pedidos ?? [], {
+  const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
     cliente: clienteFiltro,
     busqueda: consulta,
   });
+  const { aniosDisponibles, clientesDisponibles } = filtradas;
+
+  // Avance de liberación por pedido; las tarjetas suman todo lo vigente.
+  const avance = await avancePorPedido(supabase, { conCalidad: false });
+  const total = sumarAvance(avance);
+  const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
+    sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
+  const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porLiberar > 0).length;
+  const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
   const totalOts = filas.filter((f) => f.ot).length;
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <div className="flex items-end justify-between border-b border-slate-200 pb-4">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <Bienvenida acciones={[{ href: "/produccion/folios", etiqueta: "Folios de producción" }]} />
+      <ResumenInicio
+        tarjetas={[
+          {
+            valor: total.porLiberar,
+            etiqueta: "Ítems por liberar",
+            detalle: `en ${otsConPendientes} O.T.`,
+            href: "/produccion?f=por-liberar",
+            tono: "atencion",
+          },
+          { valor: total.liberados, etiqueta: "Ítems liberados", detalle: "ya enviados a producción" },
+          {
+            valor: new Set((pedidos ?? []).map((p) => p.orden_trabajo ?? p.id)).size,
+            etiqueta: "O.T. vigentes",
+            href: "/produccion",
+          },
+        ]}
+      />
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Producción
@@ -90,7 +122,7 @@ export default async function ProduccionListPage({
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
         >
           Buscar
         </button>
@@ -128,6 +160,15 @@ export default async function ProduccionListPage({
         </p>
       )}
 
+      {soloPorLiberar && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
+          Mostrando solo las O.T. con ítems por liberar ({filas.length}).
+          <Link href="/produccion" className="font-medium underline-offset-2 hover:underline">
+            Ver todas
+          </Link>
+        </p>
+      )}
+
       {pedidos && pedidos.length > 0 && (
         <section className="flex flex-col gap-3">
           {consulta && (
@@ -144,6 +185,10 @@ export default async function ProduccionListPage({
               filas={filas}
               hrefOt={(ot) => `/produccion/ot/${encodeURIComponent(ot)}`}
               hrefPedido={(id) => `/produccion/pedidos/${id}`}
+              columnaEstado={{
+                titulo: "Liberación",
+                celda: (fila) => <EstadoLiberacion cancelado={false} avance={avanceDe(fila)} />,
+              }}
             />
           )}
         </section>

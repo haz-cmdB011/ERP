@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCancelado, IconoCheck, IconoReloj, IconoX } from "@/components/iconos-estado";
 import { DIAS_ANTIGUEDAD_ALERTA } from "./antiguedad";
+import Colapsable from "@/components/colapsable";
 
 export interface InformeResumen {
   id: string;
@@ -255,7 +256,7 @@ export default function ItemsCalidadTable({
         <Link
           href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
           title="Ver informe"
-          className="whitespace-nowrap font-mono text-xs text-slate-800 hover:text-indigo-600 hover:underline"
+          className="whitespace-nowrap font-mono text-xs text-slate-800 hover:text-brand-700 hover:underline"
         >
           {ultimo.folio}
         </Link>
@@ -268,8 +269,8 @@ export default function ItemsCalidadTable({
             >
               {abierto ? "Ocultar" : "Ver"} historial ({item.informes.length})
             </button>
-            {abierto && (
-              <ul className="mt-1 flex flex-col gap-1 border-l-2 border-slate-100 pl-2">
+            <Colapsable abierto={abierto}>
+              <ul className="mt-1 flex flex-col gap-1 border-l-2 border-brand-200 pl-2">
                 {historialAnterior.map((inf) => (
                   <li key={inf.id}>
                     <button
@@ -283,7 +284,7 @@ export default function ItemsCalidadTable({
                   </li>
                 ))}
               </ul>
-            )}
+            </Colapsable>
           </div>
         )}
       </div>
@@ -393,7 +394,7 @@ export default function ItemsCalidadTable({
               onClick={() => setFiltroCalidad(valor)}
               className={`rounded border px-3 py-1 font-medium transition-colors ${
                 filtroCalidad === valor
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >

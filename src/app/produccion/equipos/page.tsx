@@ -19,7 +19,7 @@ export default async function EquiposPage() {
     .returns<EquipoProduccion[]>();
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-5 p-6">
+    <main className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Equipos</h1>
         <p className="mt-1 text-sm text-slate-500">

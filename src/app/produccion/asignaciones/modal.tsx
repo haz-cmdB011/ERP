@@ -42,6 +42,6 @@ export const estiloCampo =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none";
 export const estiloEtiqueta = "flex flex-col gap-1 text-sm font-medium text-slate-700";
 export const estiloBotonPrimario =
-  "rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-50";
+  "rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50";
 export const estiloBotonSecundario =
   "rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50";

@@ -131,7 +131,7 @@ export default async function PedidoProduccionPage({
     : null;
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           {pedido.numero_pedido}
@@ -145,7 +145,7 @@ export default async function PedidoProduccionPage({
           </p>
           <Link
             href={`/produccion/pedidos/${id}/asignaciones`}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+            className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
           >
             Asignar a equipos
           </Link>
@@ -161,7 +161,7 @@ export default async function PedidoProduccionPage({
                 href={`/produccion/pedidos/${id}?version=${v.numero_version}`}
                 className={`rounded px-3 py-1 font-medium transition-colors ${
                   versionSeleccionada?.id === v.id
-                    ? "bg-slate-900 text-white shadow-sm"
+                    ? "bg-brand-500 text-on-brand shadow-sm"
                     : "text-slate-600 hover:bg-slate-200/70"
                 }`}
               >
@@ -173,7 +173,7 @@ export default async function PedidoProduccionPage({
           {versiones.length > 1 && versionSeleccionada && (
             <Link
               href={`/produccion/pedidos/${id}/cambios?a=${versionSeleccionada.numero_version}`}
-              className="text-sm font-medium text-indigo-600 hover:underline"
+              className="text-sm font-medium text-brand-700 hover:underline"
             >
               Ver qué cambió entre versiones →
             </Link>

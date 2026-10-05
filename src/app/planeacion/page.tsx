@@ -4,10 +4,16 @@ import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perf
 import AccionesPedido from "./acciones-pedido";
 import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
+  agruparPorOrdenTrabajo,
   filtrarOrdenesTrabajo,
   hrefListaPedidos,
+  ultimaEntrega,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
+import Bienvenida from "@/components/bienvenida";
+import ResumenInicio from "@/components/resumen-inicio";
+import EstadoVacio from "@/components/estado-vacio";
+import { estadoEntrega, hoyEnEmpresa } from "@/lib/resumen/entrega";
 
 interface PedidoRow extends PedidoConOt {
   estado: string;
@@ -20,9 +26,11 @@ const COLUMNAS =
 export default async function PlaneacionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; entrega?: string }>;
 }) {
-  const { q, anio, cliente } = await searchParams;
+  const { q, anio, cliente, entrega } = await searchParams;
+  const entregaFiltro = entrega === "semana" || entrega === "sin-fecha" ? entrega : null;
+  const hoy = hoyEnEmpresa();
   const busqueda = q?.trim() ?? "";
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
@@ -51,16 +59,47 @@ export default async function PlaneacionListPage({
         .returns<PedidoRow[]>()
     : { data: null };
 
-  const { filas, aniosDisponibles, clientesDisponibles } = filtrarOrdenesTrabajo(pedidos ?? [], {
+  const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
     cliente: clienteFiltro,
     busqueda,
   });
+  const { aniosDisponibles, clientesDisponibles } = filtradas;
+  const filas = filtradas.filas.filter(
+    (fila) => !entregaFiltro || estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === entregaFiltro
+  );
   const totalOts = filas.filter((f) => f.ot).length;
 
+  // Números de las tarjetas: sobre todas las O.T. vigentes, sin filtros.
+  const todas = agruparPorOrdenTrabajo(pedidos ?? []);
+  const conEstado = (e: string) =>
+    todas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
+
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <div className="flex items-end justify-between gap-3 border-b border-slate-200 pb-4">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <Bienvenida />
+      {pedidos && pedidos.length > 0 && (
+        <ResumenInicio
+          tarjetas={[
+            { valor: todas.length, etiqueta: "O.T. vigentes", detalle: `${pedidos.length} PM en total`, href: "/planeacion" },
+            {
+              valor: conEstado("semana"),
+              etiqueta: "Entregan esta semana",
+              detalle: "en los próximos 7 días",
+              href: "/planeacion?entrega=semana",
+              tono: "atencion",
+            },
+            { valor: conEstado("mes"), etiqueta: "Entregan este mes", detalle: "entre 8 y 30 días" },
+            {
+              valor: conEstado("sin-fecha"),
+              etiqueta: "Sin fecha de entrega",
+              detalle: "conviene completarla",
+              href: "/planeacion?entrega=sin-fecha",
+            },
+          ]}
+        />
+      )}
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Planeación
@@ -77,7 +116,7 @@ export default async function PlaneacionListPage({
           )}
           <Link
             href="/planeacion/upload"
-            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+            className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
           >
             Cargar Excel
           </Link>
@@ -92,7 +131,7 @@ export default async function PlaneacionListPage({
           name="q"
           defaultValue={busqueda}
           placeholder="Buscar O.T., PM, proyecto o cliente..."
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-400 focus:outline-none"
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:outline-none"
         />
         <button
           type="submit"
@@ -103,7 +142,7 @@ export default async function PlaneacionListPage({
         {busqueda && (
           <Link
             href={hrefListaPedidos("/planeacion", { anio: anioParam, cliente: clienteParam })}
-            className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:underline"
+            className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
           >
             Limpiar
           </Link>
@@ -117,8 +156,22 @@ export default async function PlaneacionListPage({
       )}
 
       {!error && (!pedidos || pedidos.length === 0) && (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Todavía no hay pedidos cargados. Sube el primer Excel de Planeación para empezar.
+        <EstadoVacio
+          titulo="Todavía no hay pedidos"
+          descripcion="Sube el primer Excel de Planeación para empezar a ver las órdenes de trabajo aquí."
+          accion={{ href: "/planeacion/upload", etiqueta: "Cargar Excel" }}
+        />
+      )}
+
+      {entregaFiltro && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
+          {entregaFiltro === "semana"
+            ? "Mostrando solo las O.T. que entregan en los próximos 7 días"
+            : "Mostrando solo las O.T. sin fecha de entrega"}{" "}
+          ({filas.length}).
+          <Link href="/planeacion" className="font-medium underline-offset-2 hover:underline">
+            Ver todas
+          </Link>
         </p>
       )}
 
@@ -142,6 +195,7 @@ export default async function PlaneacionListPage({
       {filas.length > 0 && (
         <TablaOrdenesTrabajo
           filas={filas}
+          hoy={hoy}
           hrefOt={(ot) => `/planeacion/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/planeacion/pedidos/${id}`}
           accion={

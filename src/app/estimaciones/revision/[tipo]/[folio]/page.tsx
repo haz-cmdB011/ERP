@@ -54,11 +54,11 @@ async function avisoDiscrepancias(
 
 function NoEncontrado({ folio }: { folio: string }) {
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-3 p-6">
+    <main className="mx-auto flex max-w-xl flex-col gap-3 p-4 sm:p-6">
       <h1 className="text-lg font-semibold text-slate-900">Recibo no encontrado</h1>
       <p className="text-sm text-slate-500">
         El folio <span className="font-mono">{folio}</span> no está guardado.{" "}
-        <Link href="/estimaciones/registro" className="text-indigo-600 hover:underline">
+        <Link href="/estimaciones/registro" className="text-brand-700 hover:underline">
           Volver al registro
         </Link>
       </p>

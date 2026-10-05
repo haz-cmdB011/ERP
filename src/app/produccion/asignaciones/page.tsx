@@ -64,7 +64,7 @@ export default async function AsignacionesPage({
   const hoy = hoyMexico();
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-5 p-6">
+    <main className="mx-auto flex max-w-7xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Asignaciones</h1>
@@ -82,7 +82,7 @@ export default async function AsignacionesPage({
           </Link>
           <a
             href={`/api/produccion/asignaciones/exportar${filtrosAQuery(filtros)}`}
-            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+            className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
           >
             Descargar Excel
           </a>
@@ -145,7 +145,7 @@ export default async function AsignacionesPage({
         </label>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+          className="rounded-lg bg-brand-500 px-4 py-2 font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
         >
           Filtrar
         </button>
@@ -191,7 +191,7 @@ export default async function AsignacionesPage({
                       {a.pedido_id ? (
                         <Link
                           href={`/produccion/pedidos/${a.pedido_id}/asignaciones`}
-                          className="hover:text-indigo-600 hover:underline"
+                          className="hover:text-brand-700 hover:underline"
                         >
                           {a.numero_pedido}
                         </Link>
@@ -231,7 +231,7 @@ export default async function AsignacionesPage({
                   <tr>
                     <td colSpan={9} className="px-3 pb-3">
                       <details className="group">
-                        <summary className="cursor-pointer text-xs font-medium text-indigo-600 hover:underline">
+                        <summary className="cursor-pointer text-xs font-medium text-brand-700 hover:underline">
                           {a.num_entregas > 0
                             ? `${a.num_entregas} entrega${a.num_entregas === 1 ? "" : "s"} · ver fotos y acciones`
                             : "Ver detalle y acciones"}

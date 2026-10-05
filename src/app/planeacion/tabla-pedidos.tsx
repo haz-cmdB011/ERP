@@ -38,7 +38,7 @@ export default function TablaPedidos({
                 <td className="px-4 py-3">
                   <Link
                     href={`/planeacion/pedidos/${p.id}`}
-                    className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                    className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                   >
                     {p.numero_pedido}
                   </Link>
@@ -55,7 +55,7 @@ export default function TablaPedidos({
                       {activa.numero_version > 1 && (
                         <Link
                           href={`/planeacion/pedidos/${p.id}/cambios?a=${activa.numero_version}`}
-                          className="text-xs text-indigo-600 hover:underline"
+                          className="text-xs text-brand-700 hover:underline"
                         >
                           qué cambió
                         </Link>

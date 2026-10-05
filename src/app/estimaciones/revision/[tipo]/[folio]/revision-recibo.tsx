@@ -113,7 +113,7 @@ const BANDA_ESTILO: Record<Banda, string> = {
 const ETIQUETA = "text-[11px] font-medium uppercase tracking-wide text-slate-500";
 const CONTROL =
   "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 " +
-  "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+  "focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
 
 function nombreFuente(fuente: string): string {
   return (
@@ -300,7 +300,7 @@ export default function RevisionRecibo(props: Props) {
   const fichaUrl = `/estimaciones/recibos/${tipo}/recibo/${encodeURIComponent(recibo.folio)}`;
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-5 p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -317,7 +317,7 @@ export default function RevisionRecibo(props: Props) {
         </div>
         <div className="flex items-center gap-3">
           <EstadoReciboBadge estado={estado} />
-          <Link href={fichaUrl} className="text-sm font-medium text-indigo-600 hover:underline">
+          <Link href={fichaUrl} className="text-sm font-medium text-brand-700 hover:underline">
             Ver ficha
           </Link>
         </div>
@@ -528,7 +528,7 @@ function RenglonRevisionCard({
                 <button
                   type="button"
                   onClick={() => setEditando(true)}
-                  className="w-fit text-xs font-medium text-indigo-600 hover:underline"
+                  className="w-fit text-xs font-medium text-brand-700 hover:underline"
                 >
                   Cambiar decisión
                 </button>
@@ -571,7 +571,7 @@ function RenglonRevisionCard({
                   type="button"
                   disabled={guardando || aceptado === "" || Number(aceptado) === r.propuesto}
                   onClick={() => void decidir(Number(aceptado))}
-                  className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+                  className="rounded-md bg-brand-500 px-3 py-1.5 text-xs font-semibold text-on-brand hover:bg-brand-400 disabled:opacity-40"
                 >
                   Modificar a {aceptado === "" ? "—" : money(Number(aceptado))}
                 </button>

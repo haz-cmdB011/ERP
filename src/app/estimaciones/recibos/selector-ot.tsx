@@ -171,7 +171,7 @@ export function CampoModeloOt({
         )
       )}
       {abierto && opciones.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+        <ul className="anim-menu absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {opciones.map((m) => (
             <li key={claveVariante(m.modelo, m.descripcionPm)}>
               <button
@@ -182,7 +182,7 @@ export function CampoModeloOt({
                   onChange(m.modelo, m.descripcionPm);
                   setAbierto(false);
                 }}
-                className="flex w-full flex-col px-2.5 py-1.5 text-left text-sm hover:bg-indigo-50"
+                className="flex w-full flex-col px-2.5 py-1.5 text-left text-sm hover:bg-brand-50"
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className="font-mono text-slate-900">

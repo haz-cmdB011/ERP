@@ -14,6 +14,13 @@ for (const [, nombre, valor] of tema.matchAll(/--color-([a-z]+-\d+):\s*([^;]+);/
   colores.set(nombre, valor.trim());
 }
 
+// La marca (verde Mobiliarium) no viene en Tailwind: se lee de su escala en
+// src/app/globals.css (--color-brand-50...950) para espejarla igual que el resto.
+const globales = readFileSync("src/app/globals.css", "utf8");
+for (const [, paso, valor] of globales.matchAll(/--color-(brand-\d+):\s*([^;]+);/g)) {
+  colores.set(paso, valor.trim());
+}
+
 const PASOS = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"];
 const familias = [...new Set([...colores.keys()].map((n) => n.split("-")[0]))];
 

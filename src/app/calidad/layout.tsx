@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import SubnavLink from "@/components/subnav-link";
+import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
+import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
 
 export const metadata: Metadata = {
   title: { default: "Calidad", template: "%s · Calidad" },
@@ -24,7 +26,7 @@ export default async function CalidadLayout({
 
   const { data: perfil } = await supabase
     .from("perfiles")
-    .select("rol")
+    .select("rol, area")
     .eq("id", user.id)
     .single();
 
@@ -33,22 +35,28 @@ export default async function CalidadLayout({
     redirect("/estimaciones/recibos");
   }
 
+  // Aviso de recibos por revisar en la pestaña Estimaciones (solo a quien los revisa).
+  const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase) : 0;
+
   return (
     <div className="min-h-screen">
       <AreaNav
         area="calidad"
         email={user.email ?? ""}
+        userId={user.id}
+        avatarPath={user.app_metadata?.avatar_path}
         esDesarrollador={perfil?.rol === "desarrollador"}
+        porRevisar={porRevisar}
       >
-        <Link href="/calidad" className="text-gray-600 hover:text-black">
+        <SubnavLink href="/calidad" icono="pedidos" tambien={["/calidad/pedidos", "/calidad/ot"]}>
           Pedidos
-        </Link>
-        <Link href="/calidad/cancelados" className="text-gray-600 hover:text-black">
+        </SubnavLink>
+        <SubnavLink href="/calidad/cancelados" icono="cancelados">
           Cancelados
-        </Link>
-        <Link href="/calidad/folios" className="text-gray-600 hover:text-black">
+        </SubnavLink>
+        <SubnavLink href="/calidad/folios" icono="folios">
           Folios de calidad
-        </Link>
+        </SubnavLink>
       </AreaNav>
       {children}
     </div>

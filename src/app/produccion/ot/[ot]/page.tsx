@@ -100,7 +100,7 @@ export default async function OrdenTrabajoProduccionPage({
   }
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           O.T. <span className="font-mono">{ot}</span>
@@ -146,7 +146,7 @@ export default async function OrdenTrabajoProduccionPage({
                       <td className="px-4 py-3">
                         <Link
                           href={`/produccion/pedidos/${p.id}`}
-                          className="whitespace-nowrap font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                          className="whitespace-nowrap font-medium text-slate-900 hover:text-brand-700 hover:underline"
                         >
                           {p.numero_pedido}
                         </Link>
@@ -176,7 +176,7 @@ export default async function OrdenTrabajoProduccionPage({
                       <td className="px-4 py-3">
                         <Link
                           href={`/produccion/pedidos/${p.id}/asignaciones`}
-                          className="whitespace-nowrap text-sm font-medium text-indigo-600 hover:underline"
+                          className="whitespace-nowrap text-sm font-medium text-brand-700 hover:underline"
                         >
                           Asignar a equipos
                         </Link>

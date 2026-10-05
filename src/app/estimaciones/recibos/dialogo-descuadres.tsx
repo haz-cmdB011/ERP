@@ -98,7 +98,7 @@ export default function DialogoDescuadres({
             type="button"
             disabled={faltanMotivos}
             onClick={onConfirmar}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md bg-brand-500 px-4 py-2 text-sm font-semibold text-on-brand hover:bg-brand-400 disabled:opacity-50"
           >
             Enviar al administrador y guardar
           </button>

@@ -98,7 +98,7 @@ export default async function ViajeroLotePage({
   );
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6 print:max-w-none print:p-0">
+    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6 print:max-w-none print:p-0">
       <div className="flex items-center justify-end print:hidden">
         <div className="flex gap-2">
           <DescargarPdfButton nombreArchivo={nombreArchivo} />

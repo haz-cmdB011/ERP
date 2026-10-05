@@ -62,7 +62,7 @@ export default async function RegistroRecibosPage({
   );
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-end justify-between border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -124,7 +124,7 @@ export default async function RegistroRecibosPage({
                     <td className="px-4 py-3">
                       <Link
                         href={`/estimaciones/recibos/${r.tipo}/recibo/${folioUrl}`}
-                        className="font-mono font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                        className="font-mono font-medium text-slate-900 hover:text-brand-700 hover:underline"
                       >
                         {r.folio}
                       </Link>
@@ -155,7 +155,7 @@ export default async function RegistroRecibosPage({
                         {(r.estado === "pendiente" || r.estado === "revisado") && (
                           <Link
                             href={`/estimaciones/revision/${r.tipo}/${folioUrl}`}
-                            className="whitespace-nowrap rounded bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-slate-800"
+                            className="whitespace-nowrap rounded bg-brand-500 px-2.5 py-1 text-xs font-semibold text-on-brand hover:bg-brand-400"
                           >
                             {r.estado === "pendiente" ? "Revisar" : "Pagar"}
                           </Link>
@@ -191,7 +191,7 @@ function Filtro({ href, activo, etiqueta }: { href: string; activo: boolean; eti
       href={href}
       className={`rounded px-3 py-1 font-medium ring-1 ${
         activo
-          ? "bg-slate-900 text-white ring-slate-900"
+          ? "bg-brand-500 text-on-brand ring-brand-600"
           : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
       }`}
     >

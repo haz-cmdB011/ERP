@@ -10,6 +10,7 @@ import EstadoRevisionSelect from "./estado-revision-select";
 import EliminarItemBoton from "./eliminar-item-boton";
 import type { PlanoLink } from "@/lib/planos/planos-por-item";
 import PlanosItem from "./planos-item";
+import Chevron from "@/components/chevron";
 
 export interface ItemTabla {
   id: string;
@@ -108,7 +109,7 @@ export default function ItemsTabla({
             setExpandidos(padresConHijosCoincidentes(muebles, e.target.value));
           }}
           placeholder="Buscar modelo en este pedido..."
-          className="min-w-48 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-400 focus:outline-none"
+          className="min-w-48 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:outline-none"
         />
         <button
           type="button"
@@ -156,10 +157,10 @@ export default function ItemsTabla({
                     <tr
                       onClick={() => alternar(m.id)}
                       aria-expanded={abierto}
-                      className={`cursor-pointer border-t border-slate-200 align-top text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 ${colorFilaEstadoRevision(m.estado_revision)}`}
+                      className={`cursor-pointer border-t border-slate-200 align-top text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${colorFilaEstadoRevision(m.estado_revision)}`}
                     >
                       <td className="py-2 pl-3 text-slate-400">
-                        {hijos.length > 0 ? (abierto ? "▾" : "▸") : ""}
+                        {hijos.length > 0 && <Chevron abierto={abierto} />}
                       </td>
                       <td className="px-3 py-2">
                         <ImagenesItem urls={imagenesPorItem[m.id] ?? []} onAbrir={abrirImagen} />
@@ -191,12 +192,13 @@ export default function ItemsTabla({
                       )}
                     </tr>
                     {abierto &&
-                      hijos.map((f) => (
+                      hijos.map((f, i) => (
                         <tr
                           key={f.id}
-                          className={`border-t border-slate-100 align-top text-slate-700 transition-colors hover:bg-slate-50 ${colorFilaEstadoRevision(f.estado_revision)}`}
+                          style={{ "--i": i } as React.CSSProperties}
+                          className={`fila-hija border-t border-slate-100 align-top text-slate-700 transition-colors hover:bg-slate-50 ${colorFilaEstadoRevision(f.estado_revision)}`}
                         >
-                          <td></td>
+                          <td className="guia-hija"></td>
                           <td className="py-2 pr-3 pl-6">
                             <ImagenesItem urls={imagenesPorItem[f.id] ?? []} onAbrir={abrirImagen} />
                           </td>

@@ -3,6 +3,11 @@ import LogoutButton from "./logout-button";
 import BotonRegresar from "./boton-regresar";
 import BuscadorGlobal from "./buscador-global";
 import SelectorTema from "./selector-tema";
+import PersonalizarApariencia from "./personalizar-apariencia";
+import MenuArea from "./menu-area";
+import Marca from "./marca";
+import Avatar from "./avatar";
+import { urlAvatar } from "@/lib/cuenta/avatar";
 
 const INICIO_AREA = {
   planeacion: "/planeacion",
@@ -12,194 +17,192 @@ const INICIO_AREA = {
   usuarios: "/admin/usuarios",
 } as const;
 
+type Area = keyof typeof INICIO_AREA;
+
+// Íconos de línea (24×24) de cada área.
+const AREAS: { area: Area; href: string; nombre: string; icono: React.ReactNode }[] = [
+  {
+    area: "planeacion",
+    href: "/planeacion",
+    nombre: "Planeación",
+    icono: (
+      <>
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+        <rect x="8" y="2" width="8" height="4" rx="1" />
+        <path d="M9 12h6M9 16h6" />
+      </>
+    ),
+  },
+  {
+    area: "produccion",
+    href: "/produccion",
+    nombre: "Producción",
+    icono: (
+      <>
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+        <path d="m3.27 6.96 8.73 5.05 8.73-5.05" />
+        <path d="M12 22.08V12" />
+      </>
+    ),
+  },
+  {
+    area: "calidad",
+    href: "/calidad",
+    nombre: "Calidad",
+    icono: (
+      <>
+        <path d="M12 3 4 6v6c0 4.5 3.2 7.7 8 9 4.8-1.3 8-4.5 8-9V6l-8-3Z" />
+        <path d="m9 12 2 2 4-4" />
+      </>
+    ),
+  },
+  {
+    area: "estimaciones",
+    href: "/estimaciones",
+    nombre: "Estimaciones",
+    icono: (
+      <>
+        <rect x="5" y="2" width="14" height="20" rx="2" />
+        <path d="M8 6h8" />
+        <path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01M16 19h.01" />
+      </>
+    ),
+  },
+  {
+    area: "usuarios",
+    href: "/admin/usuarios",
+    nombre: "Usuarios",
+    icono: (
+      <>
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </>
+    ),
+  },
+];
+
 // Barra superior compartida entre las áreas de la app (Planeación,
-// Producción...). Dos niveles separados a propósito: la fila de arriba es
-// el selector de área (Planeación / Producción) + la sesión; la fila de
-// abajo son los links propios de la área activa (pasados como children,
-// ej. "Pedidos" / "Cargar Excel" dentro de Planeación) — así quedan
-// visualmente subordinados al área en vez de verse como paneles hermanos
-// al mismo nivel que Planeación/Producción.
-export default function AreaNav({
+// Producción...): la marca + el selector de área + la sesión. Los links
+// propios del área activa (pasados como children, ej. "Pedidos" / "Cargar
+// Excel" dentro de Planeación, con SubnavLink) van en un menú lateral que se
+// abre con el botón de tres rayas (MenuArea), a la izquierda de la marca.
+//
+// La barra oscura va siempre en dos líneas: marca + acciones arriba y debajo
+// las áreas (con desplazamiento de lado si no caben), para que en ventanas
+// angostas no se corten las áreas.
+export default async function AreaNav({
   area,
   email,
+  userId,
+  avatarPath,
   esDesarrollador = false,
   soloEstimaciones = false,
+  porRevisar = 0,
   children,
 }: {
-  area: "planeacion" | "produccion" | "calidad" | "estimaciones" | "usuarios";
+  area: Area;
   email: string;
+  // Para mostrar la foto de perfil (app_metadata.avatar_path del usuario).
+  userId?: string;
+  avatarPath?: unknown;
   // Usuarios es un panel más, pero solo para desarrolladores (acceso
   // global): las demás áreas no lo ven en su selector.
   esDesarrollador?: boolean;
   // Maquilador (usuario externo): solo existe Estimaciones para él, así que
   // no se le muestran las demás áreas ni el enlace a la cuenta de Planeación.
   soloEstimaciones?: boolean;
+  // Recibos esperando revisión: se marca en la pestaña Estimaciones desde
+  // cualquier área, para que se note sin entrar. 0 lo oculta.
+  porRevisar?: number;
   children?: React.ReactNode;
 }) {
+  const visibles = AREAS.filter((a) => {
+    if (soloEstimaciones) return a.area === "estimaciones";
+    if (a.area === "usuarios") return esDesarrollador;
+    return true;
+  });
+  const inicial = (email.trim()[0] ?? "?").toUpperCase();
+  const avatarUrl = userId ? await urlAvatar(userId, avatarPath) : null;
+  const hrefCuenta = soloEstimaciones ? "/estimaciones/cuenta" : "/planeacion/cuenta";
+
   return (
     <div className="print:hidden">
-      {/* En tablet/celular las áreas se desplazan de lado en vez de partir la
-          barra en varias líneas; el correo se cambia por un ícono. */}
-      <nav className="flex items-center gap-3 border-b border-gray-200 px-4 py-2.5 text-sm sm:px-6">
-        <div className="desplazable-sin-barra -my-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap py-1">
-          {!soloEstimaciones && (
-            <>
-              <Link
-                href="/planeacion"
-                className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-                  area === "planeacion"
-                    ? "bg-black text-white"
-                    : "text-gray-600 hover:text-black"
-                }`}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="hidden h-4 w-4 lg:block"
-                  aria-hidden="true"
-                >
-                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                  <rect x="8" y="2" width="8" height="4" rx="1" />
-                  <path d="M9 12h6M9 16h6" />
-                </svg>
-                Planeación
-              </Link>
-              <Link
-                href="/produccion"
-                className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-                  area === "produccion"
-                    ? "bg-black text-white"
-                    : "text-gray-600 hover:text-black"
-                }`}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="hidden h-4 w-4 lg:block"
-                  aria-hidden="true"
-                >
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-                  <path d="m3.27 6.96 8.73 5.05 8.73-5.05" />
-                  <path d="M12 22.08V12" />
-                </svg>
-                Producción
-              </Link>
-              <Link
-                href="/calidad"
-                className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-                  area === "calidad"
-                    ? "bg-black text-white"
-                    : "text-gray-600 hover:text-black"
-                }`}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="hidden h-4 w-4 lg:block"
-                  aria-hidden="true"
-                >
-                  <path d="M12 3 4 6v6c0 4.5 3.2 7.7 8 9 4.8-1.3 8-4.5 8-9V6l-8-3Z" />
-                  <path d="m9 12 2 2 4-4" />
-                </svg>
-                Calidad
-              </Link>
-            </>
+      <header className="border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav">
+        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6">
+          {/* Paneles del área (Pedidos, Cargar Excel...): menú lateral que se
+              abre con las tres rayas. */}
+          {children && (
+            <MenuArea titulo={AREAS.find((a) => a.area === area)?.nombre ?? "Área"}>
+              {children}
+            </MenuArea>
           )}
           <Link
-            href="/estimaciones"
-            className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-              area === "estimaciones"
-                ? "bg-black text-white"
-                : "text-gray-600 hover:text-black"
-            }`}
+            href={soloEstimaciones ? "/estimaciones/recibos" : "/planeacion"}
+            className="shrink-0 rounded-lg focus-visible:outline-brand-500"
+            aria-label="Mobiliarium, ir al inicio"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="hidden h-4 w-4 lg:block"
-              aria-hidden="true"
-            >
-              <rect x="5" y="2" width="14" height="20" rx="2" />
-              <path d="M8 6h8" />
-              <path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01M16 19h.01" />
-            </svg>
-            Estimaciones
+            <Marca sobreOscuro />
           </Link>
-          {esDesarrollador && (
+
+          {/* Acciones de sesión: a la derecha de la marca. */}
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+            <BuscadorGlobal area={area} />
+            <PersonalizarApariencia />
+            <SelectorTema />
             <Link
-              href="/admin/usuarios"
-              className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold ${
-                area === "usuarios"
-                  ? "bg-black text-white"
-                  : "text-gray-600 hover:text-black"
-              }`}
+              href={hrefCuenta}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg p-1 text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500"
+              title={`Mi perfil (${email})`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="hidden h-4 w-4 lg:block"
-                aria-hidden="true"
-              >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-              Usuarios
+              <Avatar
+                url={avatarUrl}
+                inicial={inicial}
+                tamano="h-7 w-7 sm:h-8 sm:w-8"
+              />
+              <span className="sr-only xl:not-sr-only xl:max-w-44 xl:truncate">{email}</span>
             </Link>
-          )}
-        </div>
-        <BuscadorGlobal area={area} />
-        <SelectorTema />
-        {soloEstimaciones ? (
-          <span className="hidden shrink-0 text-gray-500 lg:inline">{email}</span>
-        ) : (
-          <Link
-            href="/planeacion/cuenta"
-            className="inline-flex shrink-0 items-center text-gray-500 hover:text-black"
-            title={`Mi cuenta (${email})`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5 lg:hidden"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21a8 8 0 0 1 16 0" />
-            </svg>
-            <span className="sr-only lg:not-sr-only">{email}</span>
-          </Link>
-        )}
-        <LogoutButton />
-      </nav>
-      {children && (
-        <div className="desplazable-sin-barra flex items-center gap-5 overflow-x-auto whitespace-nowrap border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-sm sm:px-6">
-          {children}
-        </div>
-      )}
+            <LogoutButton />
+          </div>
+
+          <div className="desplazable-sin-barra -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5">
+            {visibles.map((a) => (
+              <Link
+                key={a.area}
+                href={a.href}
+                aria-current={area === a.area ? "page" : undefined}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 ${
+                  area === a.area
+                    ? "bg-brand-500 text-on-brand shadow-sm"
+                    : "text-on-nav-suave hover:bg-nav-hover hover:text-on-nav"
+                }`}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 shrink-0"
+                  aria-hidden="true"
+                >
+                  {a.icono}
+                </svg>
+                {a.nombre}
+                {a.area === "estimaciones" && porRevisar > 0 && (
+                  <span
+                    className="anim-aviso ml-0.5 min-w-5 rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white"
+                    title={`${porRevisar} recibo${porRevisar === 1 ? "" : "s"} por revisar`}
+                  >
+                    {porRevisar > 99 ? "99+" : porRevisar}
+                    <span className="sr-only"> recibos por revisar</span>
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      </header>
       {/* Debajo de las áreas y los paneles, a la altura del contenido: vuelve
           al panel anterior (oculto en el inicio del área). */}
       <BotonRegresar

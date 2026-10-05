@@ -1,0 +1,372 @@
+/* ---------------------------------------------------------------------------
+   Estilo "Vidrio" (glassmorphism). Es opcional: solo aplica con
+   <html data-estilo="vidrio">, que se elige en "Personalizar apariencia"
+   (src/components/personalizar-apariencia.tsx, src/lib/apariencia.ts). Sin
+   ese atributo la app usa el estilo clásico (globals.css) tal cual.
+
+   La app sigue escrita con clases normales de Tailwind (bg-white, bg-slate-50,
+   border-slate-200...); aquí esas clases de superficie se vuelven paneles
+   translúcidos que difuminan lo que tienen detrás: una hoja de planos de
+   muebles nítida (fondo-mobiliario.tsx). Así no hay que tocar cada pantalla.
+
+   Los colores y la intensidad salen de variables que cada quien ajusta:
+   --marca, --fondo-1..3, --vidrio-opacidad y --vidrio-desenfoque (las pone
+   el script de <head> en el style de <html>). Globals.css lee las variables
+   --vidrio-* con un valor de respaldo, que es el del estilo clásico. Al
+   imprimir y en las fichas que se exportan a PDF todo vuelve a ser opaco.
+
+   Los selectores van dentro de :where() para no subir la especificidad: así
+   hover:/focus: de Tailwind siguen ganando a las reglas de aquí.
+   --------------------------------------------------------------------------- */
+
+:root[data-estilo="vidrio"] {
+  /* Valores iniciales: los mismos que el preset "Mobiliarium". */
+  --marca: #7cfc00;
+  --sobre-marca: #0b1300;
+  --fondo-1: #7cfc00;
+  --fondo-2: #3f6212;
+  --fondo-3: #0f766e;
+  --vidrio-opacidad: 58%;
+  --vidrio-desenfoque: 14px;
+
+  /* Marca: la escala sale del acento. El 500 es el acento puro; del 600 en
+     adelante se oscurece para texto y bordes sobre fondo claro (el 700 pasa
+     AA sobre blanco con los presets); del 400 hacia abajo, fondos suaves. */
+  --vidrio-marca-50: color-mix(in oklab, var(--marca) 8%, #fff);
+  --vidrio-marca-100: color-mix(in oklab, var(--marca) 16%, #fff);
+  --vidrio-marca-200: color-mix(in oklab, var(--marca) 30%, #fff);
+  --vidrio-marca-300: color-mix(in oklab, var(--marca) 50%, #fff);
+  --vidrio-marca-400: color-mix(in oklab, var(--marca) 75%, #fff);
+  --vidrio-marca-500: var(--marca);
+  --vidrio-marca-600: color-mix(in oklab, var(--marca) 74%, #000);
+  --vidrio-marca-700: color-mix(in oklab, var(--marca) 48%, #000);
+  --vidrio-marca-800: color-mix(in oklab, var(--marca) 38%, #000);
+  --vidrio-marca-900: color-mix(in oklab, var(--marca) 30%, #000);
+  --vidrio-marca-950: color-mix(in oklab, var(--marca) 15%, #000);
+  --vidrio-sobre-marca: var(--sobre-marca);
+  --vidrio-resplandor: color-mix(in oklab, var(--marca) 55%, transparent);
+
+  /* Barra superior y paneles de marca: vidrio oscuro teñido con el acento. */
+  --vidrio-nav: color-mix(in oklab, var(--marca) 12%, rgb(7 11 14 / 0.78));
+  --vidrio-nav-hover: color-mix(in oklab, var(--marca) 18%, rgb(255 255 255 / 0.1));
+  --vidrio-nav-linea: rgb(255 255 255 / 0.12);
+  --vidrio-sobre-nav: #eef3f0;
+  --vidrio-sobre-nav-suave: #b3c0bb;
+
+  /* Hoja de planos del fondo: --fondo-1 tiñe el papel, --fondo-2 son los
+     trazos de los muebles y --fondo-3 las cotas. En modo oscuro el papel se
+     vuelve azul noche y los trazos se aclaran (abajo). */
+  --fondo-papel: color-mix(in oklab, var(--fondo-1) 9%, #f4f3ee);
+  --fondo-trazo: color-mix(in oklab, var(--fondo-2) 78%, #111);
+  --fondo-cota: color-mix(in oklab, var(--fondo-3) 80%, #111);
+  --fondo-op-trazo: 0.42;
+  --fondo-op-cota: 0.55;
+
+  /* Brillo del borde superior y sombra de los paneles: menores en modo
+     oscuro. */
+  --vidrio-brillo: rgb(255 255 255 / 0.65);
+  --vidrio-sombra: rgb(15 23 42 / 0.14);
+
+  /* Superficies derivadas. --color-white y --color-slate-* ya cambian con el
+     modo oscuro (tema-oscuro.css), así que el vidrio claro se vuelve oscuro
+     solo. */
+  --vidrio: color-mix(in oklab, var(--color-white) var(--vidrio-opacidad), transparent);
+  --vidrio-fuerte: color-mix(
+    in oklab,
+    var(--color-white) calc((var(--vidrio-opacidad) + 100%) / 2),
+    transparent
+  );
+  --vidrio-tenue: color-mix(
+    in oklab,
+    var(--color-slate-50) calc(var(--vidrio-opacidad) * 0.7),
+    transparent
+  );
+  --vidrio-tenue-2: color-mix(
+    in oklab,
+    var(--color-slate-100) calc(var(--vidrio-opacidad) * 0.8),
+    transparent
+  );
+  --vidrio-borde: color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+  --vidrio-filtro: blur(var(--vidrio-desenfoque)) saturate(170%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-estilo="vidrio"]:not([data-tema="claro"]) {
+    --fondo-papel: color-mix(in oklab, var(--fondo-1) 8%, #070a0e);
+    --fondo-trazo: color-mix(in oklab, var(--fondo-2) 70%, #fff);
+    --fondo-cota: color-mix(in oklab, var(--fondo-3) 72%, #fff);
+    --fondo-op-trazo: 0.3;
+    --fondo-op-cota: 0.42;
+    --vidrio-brillo: rgb(255 255 255 / 0.08);
+    --vidrio-sombra: rgb(0 0 0 / 0.45);
+  }
+}
+:root[data-estilo="vidrio"][data-tema="oscuro"] {
+  --fondo-papel: color-mix(in oklab, var(--fondo-1) 8%, #070a0e);
+  --fondo-trazo: color-mix(in oklab, var(--fondo-2) 70%, #fff);
+  --fondo-cota: color-mix(in oklab, var(--fondo-3) 72%, #fff);
+  --fondo-op-trazo: 0.3;
+  --fondo-op-cota: 0.42;
+  --vidrio-brillo: rgb(255 255 255 / 0.08);
+  --vidrio-sombra: rgb(0 0 0 / 0.45);
+}
+
+/* Fichas que se exportan a PDF o se imprimen: opacas, sin desenfoque y con la
+   marca original, sin importar lo que haya elegido el usuario. "initial" deja
+   la variable sin valor, así que globals.css usa su respaldo (el verde). */
+:where(:root[data-estilo="vidrio"]) :is([data-informe], [data-viajero-ficha], [data-siempre-claro]) {
+  --vidrio-marca-50: initial;
+  --vidrio-marca-100: initial;
+  --vidrio-marca-200: initial;
+  --vidrio-marca-300: initial;
+  --vidrio-marca-400: initial;
+  --vidrio-marca-500: initial;
+  --vidrio-marca-600: initial;
+  --vidrio-marca-700: initial;
+  --vidrio-marca-800: initial;
+  --vidrio-marca-900: initial;
+  --vidrio-marca-950: initial;
+  --vidrio-sobre-marca: initial;
+  --vidrio: #fff;
+  --vidrio-fuerte: #fff;
+  --vidrio-tenue: var(--color-slate-50);
+  --vidrio-tenue-2: var(--color-slate-100);
+  --vidrio-borde: var(--color-slate-200);
+  --vidrio-filtro: none;
+  --vidrio-brillo: transparent;
+}
+
+/* Fondo: hoja de planos de muebles (src/components/fondo-mobiliario.tsx),
+   nítida y fija detrás de todo; la difuminan los paneles. Oculta en el estilo
+   clásico. */
+.fondo-mobiliario {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: var(--fondo-papel);
+}
+@media screen {
+  :where(:root[data-estilo="vidrio"]) .fondo-mobiliario {
+    display: block;
+  }
+}
+.fondo-mobiliario svg {
+  display: block;
+}
+/* Viñeta suave: los bordes un poco más oscuros enmarcan el contenido. */
+.fondo-mobiliario::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    130% 100% at 50% 0%,
+    transparent 55%,
+    color-mix(in oklab, var(--fondo-trazo) 14%, transparent) 100%
+  );
+}
+.fondo-mobiliario .cuad {
+  fill: none;
+  stroke: var(--fondo-trazo);
+  stroke-opacity: calc(var(--fondo-op-trazo) * 0.18);
+  stroke-width: 1;
+}
+.fondo-mobiliario .cuad.mayor {
+  stroke-opacity: calc(var(--fondo-op-trazo) * 0.34);
+}
+.fondo-mobiliario .t {
+  fill: none;
+  stroke: var(--fondo-trazo);
+  stroke-opacity: var(--fondo-op-trazo);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fondo-mobiliario .p {
+  fill: var(--fondo-trazo);
+  fill-opacity: var(--fondo-op-trazo);
+}
+.fondo-mobiliario .c {
+  fill: none;
+  stroke: var(--fondo-cota);
+  stroke-opacity: var(--fondo-op-cota);
+  stroke-width: 1;
+}
+.fondo-mobiliario .oculta {
+  stroke-dasharray: 5 4;
+}
+.fondo-mobiliario .eje {
+  stroke-dasharray: 12 4 2 4;
+}
+.fondo-mobiliario .txt {
+  fill: var(--fondo-cota);
+  fill-opacity: var(--fondo-op-cota);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.fondo-mobiliario .etiqueta {
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+/* Entradas sin fundido: un ancestro con opacidad aísla el desenfoque de los
+   paneles, que se verían nítidos hasta que acabe la animación y luego
+   "brincarían" a difuminados. Suben igual que en el estilo clásico. */
+@keyframes entrada-bloque-sin-fundido {
+  from {
+    transform: translateY(0.5rem);
+  }
+}
+@keyframes aparecer-sin-fundido {
+  from {
+    transform: translateY(0.75rem);
+  }
+}
+@keyframes escalar-entrada-sin-fundido {
+  from {
+    transform: translateY(0.5rem) scale(0.96);
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  :root[data-estilo="vidrio"] main > * {
+    animation-name: entrada-bloque-sin-fundido;
+  }
+}
+:root[data-estilo="vidrio"] .anim-aparecer {
+  animation-name: aparecer-sin-fundido;
+}
+:root[data-estilo="vidrio"] .anim-escala {
+  animation-name: escalar-entrada-sin-fundido;
+}
+
+@layer utilities {
+  @media screen {
+    /* Paneles y tarjetas. Va en la capa de utilidades y después de las de
+       Tailwind: gana a bg-white, pero hover:/focus: (más específicos) siguen
+       ganando. */
+    :where(:root[data-estilo="vidrio"]) .bg-white {
+      background-color: var(--vidrio);
+    }
+    :where(:root[data-estilo="vidrio"]) :is(.bg-white\/95, .bg-white\/90) {
+      background-color: var(--vidrio-fuerte);
+    }
+    :where(:root[data-estilo="vidrio"]) :is(.bg-slate-50, .bg-slate-50\/60, .bg-slate-50\/50) {
+      background-color: var(--vidrio-tenue);
+    }
+    :where(:root[data-estilo="vidrio"]) .bg-slate-100 {
+      background-color: var(--vidrio-tenue-2);
+    }
+    :where(:root[data-estilo="vidrio"]) .border-slate-200 {
+      border-color: var(--vidrio-borde);
+    }
+
+    /* Recuadros con borde pero sin fondo propio (formularios, tablas,
+       avisos de "sin resultados"...): en el estilo clásico se ven sobre el
+       blanco de la página, pero aquí quedarían transparentes sobre el plano.
+       Se vuelven paneles de vidrio. " bg-" con espacio: hover:bg-... no
+       cuenta como fondo propio. */
+    :where(:root[data-estilo="vidrio"])
+      :is(div, p, form, section, article, aside, details, fieldset, ul, ol, nav):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"]) {
+      background-color: var(--vidrio);
+    }
+
+    /* Campos sin fondo propio: el plano se vería a través del texto. */
+    :where(:root[data-estilo="vidrio"])
+      :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"]), select, textarea):not([class^="bg-"], [class*=" bg-"]) {
+      background-color: var(--vidrio-fuerte);
+    }
+
+    /* Marca para contenedores sin borde ni fondo que en el estilo clásico van
+       directo sobre la página (ej. la tabla de Usuarios): aquí, un panel. */
+    :where(:root[data-estilo="vidrio"]) .panel-vidrio {
+      border: 1px solid var(--vidrio-borde);
+      border-radius: 1rem;
+      background-color: var(--vidrio);
+      padding: 1rem;
+      overflow-x: auto;
+      box-shadow:
+        inset 0 1px 0 var(--vidrio-brillo),
+        0 10px 30px -14px var(--vidrio-sombra);
+    }
+
+    /* Formulario de acceso (auth-shell.tsx): en el estilo clásico va sin
+       marco; aquí, en un panel de vidrio sobre el plano. */
+    :where(:root[data-estilo="vidrio"]) .panel-auth {
+      max-width: 28rem;
+      border: 1px solid var(--vidrio-borde);
+      border-radius: 1rem;
+      background-color: var(--vidrio);
+      padding: 2rem;
+      box-shadow:
+        inset 0 1px 0 var(--vidrio-brillo),
+        0 10px 30px -14px var(--vidrio-sombra);
+    }
+
+    /* Desenfoque solo en las superficies que "flotan" (tarjetas, barras,
+       menús): ponerlo en cada fila o celda costaría mucho al dibujar.
+
+       Va en un ::before detrás del contenido y no en el elemento: un
+       backdrop-filter en el elemento lo vuelve el marco de sus hijos
+       position:fixed, y los diálogos (fixed inset-0) que viven dentro de una
+       tarjeta o de la barra quedarían encerrados en ella. Sin isolation ni
+       z-index en el elemento (también encerrarían los diálogos): el ::before
+       con z-index -1 se pinta debajo del fondo translúcido del panel, que es
+       justo el efecto que se busca. */
+    :where(:root[data-estilo="vidrio"])
+      :is(
+        .bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl, .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl),
+        .bg-nav,
+        .panel-auth,
+        .panel-vidrio,
+        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
+      ):not(.fixed, .sticky, .absolute) {
+      position: relative;
+    }
+    :where(:root[data-estilo="vidrio"])
+      :is(
+        .bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl, .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl, .fixed, .sticky, .absolute),
+        .bg-white\/95,
+        .bg-white\/90,
+        .bg-nav,
+        .panel-auth,
+        .panel-vidrio,
+        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
+      )::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      pointer-events: none;
+      -webkit-backdrop-filter: var(--vidrio-filtro);
+      backdrop-filter: var(--vidrio-filtro);
+    }
+
+    /* Brillo en el borde superior, como el canto de un cristal. */
+    :where(:root[data-estilo="vidrio"])
+      .bg-white:is(.rounded-xl, .rounded-2xl):is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+      box-shadow:
+        inset 0 1px 0 var(--vidrio-brillo),
+        0 1px 2px rgb(0 0 0 / 0.04),
+        0 10px 30px -14px var(--vidrio-sombra);
+    }
+
+    /* Menús, diálogos y avisos flotantes: más opacos para que se lean bien
+       encima de cualquier cosa. */
+    :where(:root[data-estilo="vidrio"])
+      :is(
+        .bg-white:is(.absolute, .fixed, .shadow-lg, .shadow-xl, .shadow-2xl),
+        .fixed.inset-0.z-50 > .bg-white,
+        .fixed.inset-0.z-50 > div > .bg-white
+      ) {
+      background-color: var(--vidrio-fuerte);
+    }
+
+    /* Campos de captura: un poco más sólidos que el panel que los contiene. */
+    :where(:root[data-estilo="vidrio"]) :is(input, select, textarea).bg-white {
+      background-color: var(--vidrio-fuerte);
+    }
+  }
+}

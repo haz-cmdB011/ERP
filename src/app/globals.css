@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./tema-oscuro.css";
+@import "./vidrio.css";
 
 :root {
   --background: #ffffff;
@@ -17,6 +18,39 @@
   --color-scrim: #000;
   --color-on-scrim: #fff;
   --color-papel: #fff;
+
+  /* Fijos en ambos modos: texto sobre el verde de marca y la barra superior
+     (siempre oscura, con la marca en verde). El estilo "Vidrio" los cambia
+     con las variables --vidrio-* (vidrio.css); sin él, valen el respaldo. */
+  --color-on-brand: var(--vidrio-sobre-marca, #0b1f00);
+  --color-nav: var(--vidrio-nav, #0c1a06);
+  --color-nav-hover: var(--vidrio-nav-hover, #172a0e);
+  --color-nav-line: var(--vidrio-nav-linea, #24391a);
+  --color-on-nav: var(--vidrio-sobre-nav, #e9f2e1);
+  --color-on-nav-suave: var(--vidrio-sobre-nav-suave, #a4b79a);
+}
+
+/* Sin "inline": las utilidades de la marca leen var(--color-brand-N), que es lo
+   que sobrescribe tema-oscuro.css en modo oscuro. */
+@theme {
+  /* Marca Mobiliarium: el verde limón #7CFC00 es el 500. Del 600 en adelante
+     es el verde para texto y bordes sobre fondo claro (el 700 pasa AA sobre
+     blanco); del 400 hacia abajo, los fondos suaves. En el estilo "Vidrio" la
+     escala sale del acento que elija cada quien (--vidrio-marca-N en
+     vidrio.css); sin él, valen estos verdes. En modo oscuro la escala se
+     espeja como el resto de colores (scripts/generar-tema-oscuro.mjs lee estas
+     líneas): no editar a mano los valores en tema-oscuro.css. */
+  --color-brand-50: var(--vidrio-marca-50, #f4ffe6);
+  --color-brand-100: var(--vidrio-marca-100, #e6ffc7);
+  --color-brand-200: var(--vidrio-marca-200, #cfff94);
+  --color-brand-300: var(--vidrio-marca-300, #b0ff55);
+  --color-brand-400: var(--vidrio-marca-400, #98fb2a);
+  --color-brand-500: var(--vidrio-marca-500, #7cfc00);
+  --color-brand-600: var(--vidrio-marca-600, #5ab800);
+  --color-brand-700: var(--vidrio-marca-700, #387d00);
+  --color-brand-800: var(--vidrio-marca-800, #2c6100);
+  --color-brand-900: var(--vidrio-marca-900, #234d00);
+  --color-brand-950: var(--vidrio-marca-950, #0f2400);
 }
 
 /* Mismas reglas que tema-oscuro.css: el sistema decide salvo que el usuario
@@ -32,10 +66,57 @@
   --foreground: #ededed;
 }
 
+html {
+  /* iOS y Android no reescalan el texto al girar el teléfono. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+    sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+  /* iPhone en horizontal: nada queda bajo la muesca. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Selección y foco con la marca. El foco por teclado siempre se ve (verde
+   oscuro sobre claro, verde limón sobre oscuro); el de ratón/dedo no dibuja
+   anillo. */
+::selection {
+  background: var(--color-brand-500);
+  color: var(--color-on-brand);
+}
+:focus-visible {
+  outline: 2px solid var(--color-brand-700);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+}
+
+/* Barras de desplazamiento discretas (Chrome/Edge/Firefox). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-slate-300) transparent;
+}
+
+/* Muescas de iPhone y barras de gestos de Android: el contenido de las áreas
+   nunca queda debajo (con viewport-fit=cover, ver src/app/layout.tsx). */
+.pie-seguro {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 /* Impresión desde el navegador (botón "Imprimir"): hoja carta con márgenes
@@ -142,4 +223,457 @@ body {
   --serie-8: #e66767;
   --serie-otros: #8a8984;
   --serie-pista: #383835;
+}
+
+/* Entrada suave del contenido de cada pantalla: los bloques de <main> suben y
+   aparecen uno tras otro (el estilo "Vidrio" usa una variante sin fundido, ver
+   vidrio.css). Solo en pantalla y si el usuario no pidió menos
+   movimiento. */
+@keyframes entrada-bloque {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  main > * {
+    animation: entrada-bloque 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  main > :nth-child(2) { animation-delay: 50ms; }
+  main > :nth-child(3) { animation-delay: 100ms; }
+  main > :nth-child(4) { animation-delay: 150ms; }
+  main > :nth-child(n + 5) { animation-delay: 200ms; }
+
+  /* Los botones verdes se hunden un poco al tocarlos. */
+  :is(button, a)[class*="bg-brand-500"]:not(:disabled):active {
+    transform: scale(0.97);
+  }
+}
+@media print {
+  main > * {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Animaciones de la interfaz. Todas se apagan con prefers-reduced-motion (ver
+   la regla general al final) y al imprimir.
+   --------------------------------------------------------------------------- */
+
+/* Aparición con ligera subida; --d retrasa cada elemento para escalonarlos. */
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.anim-aparecer {
+  animation: aparecer 600ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: var(--d, 0ms);
+}
+
+/* Entrada de tarjetas de resumen: suben y crecen un poco. */
+@keyframes escalar-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.anim-escala {
+  animation: escalar-entrada 500ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: var(--d, 0ms);
+}
+
+/* La estrella de la marca gira muy despacio (adorno de fondo). */
+@keyframes girar-lento {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.anim-girar {
+  animation: girar-lento 120s linear infinite;
+}
+.anim-girar-rapido {
+  animation: girar-lento 60s linear infinite;
+}
+
+/* Las letras de "Sistema interno" se abren al cargar el login. */
+@keyframes abrir-letras {
+  from {
+    opacity: 0;
+    letter-spacing: 0.02em;
+  }
+  to {
+    opacity: 1;
+    letter-spacing: 0.2em;
+  }
+}
+.anim-abrir-letras {
+  animation: abrir-letras 1400ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: 250ms;
+}
+
+/* Subrayado de la pestaña activa: se dibuja de izquierda a derecha. */
+@keyframes barrido {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.subrayado-activo::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -2px;
+  height: 2px;
+  background: var(--color-brand-500);
+  transform-origin: left;
+  animation: barrido 350ms ease-out backwards;
+}
+
+/* Aviso que "late" con un anillo suave (recibos por revisar). */
+@keyframes latido {
+  0% {
+    box-shadow: 0 0 0 0 rgb(225 29 72 / 0.55);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px rgb(225 29 72 / 0);
+  }
+}
+@keyframes aparece-con-rebote {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.anim-aviso {
+  animation:
+    aparece-con-rebote 450ms ease-out backwards,
+    latido 2.4s ease-out 600ms infinite;
+}
+
+/* Esqueleto de carga con brillo que cruza (en vez de parpadear). */
+@keyframes brillo {
+  to {
+    background-position: -200% 0;
+  }
+}
+.esqueleto {
+  background-color: var(--color-slate-200);
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in oklab, var(--color-white) 65%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: brillo 1.4s linear infinite;
+}
+
+/* Giro del indicador de "cargando" dentro de los botones. */
+@keyframes giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.anim-giro {
+  animation: giro 700ms linear infinite;
+}
+
+/* Barra de progreso fina arriba de la pantalla al cambiar de página. */
+@keyframes progreso {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  15% {
+    transform: scaleX(0.35);
+  }
+  60% {
+    transform: scaleX(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(0.94);
+    opacity: 0;
+  }
+}
+.barra-progreso {
+  transform-origin: left;
+  animation: progreso 8s cubic-bezier(0.1, 0.6, 0.3, 1) forwards;
+}
+
+/* Las primeras filas de una tabla entran una tras otra. */
+@keyframes entrada-fila {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  tbody > tr:nth-child(-n + 14) {
+    animation: entrada-fila 350ms ease-out backwards;
+  }
+  tbody > tr:nth-child(2) { animation-delay: 35ms; }
+  tbody > tr:nth-child(3) { animation-delay: 70ms; }
+  tbody > tr:nth-child(4) { animation-delay: 105ms; }
+  tbody > tr:nth-child(5) { animation-delay: 140ms; }
+  tbody > tr:nth-child(6) { animation-delay: 175ms; }
+  tbody > tr:nth-child(7) { animation-delay: 210ms; }
+  tbody > tr:nth-child(8) { animation-delay: 245ms; }
+  tbody > tr:nth-child(n + 9) { animation-delay: 280ms; }
+}
+
+/* Quien pide menos movimiento no ve animaciones ni transiciones largas. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media print {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Animaciones suaves: transiciones generales, diálogos, menús, desplegables,
+   gráficas y cambio de tema. Las de entrada usan fill-mode "backwards": al
+   terminar sueltan el elemento (no pisan transform/opacity propios).
+   --------------------------------------------------------------------------- */
+
+/* Todo lo interactivo cambia de color, borde y sombra con suavidad. Va en la
+   capa base: las utilidades de Tailwind (transition-colors, etc.) la superan. */
+@layer base {
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"] {
+    transition-property: color, background-color, border-color, box-shadow, opacity, translate;
+    transition-duration: 180ms;
+    transition-timing-function: ease;
+  }
+}
+
+/* Cambio de tema claro/oscuro: los colores se funden en vez de saltar. La
+   clase la pone selector-tema.tsx durante medio segundo. */
+html.transicion-tema,
+html.transicion-tema *,
+html.transicion-tema *::before,
+html.transicion-tema *::after {
+  transition:
+    background-color 380ms ease,
+    color 380ms ease,
+    border-color 380ms ease,
+    fill 380ms ease,
+    stroke 380ms ease !important;
+}
+
+@keyframes velo-entrada {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes panel-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+@keyframes cajon-entrada {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes menu-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+@keyframes desplegar {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+@keyframes crecer-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes crecer-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes donut-entrada {
+  from {
+    opacity: 0;
+    transform: rotate(-70deg) scale(0.88);
+  }
+}
+@keyframes girar-entrada {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.6);
+  }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* Diálogos y visores: el velo se funde y la ventana sube un poco. */
+  .fixed.inset-0.z-50 {
+    animation: velo-entrada 220ms ease-out backwards;
+  }
+  .fixed.inset-0.z-50 > div {
+    animation: panel-entrada 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  /* Menú lateral de cada área (menu-area.tsx): entra desde la izquierda. */
+  .fixed.inset-0.z-50 > .cajon-menu {
+    animation: cajon-entrada 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .anim-menu {
+    transform-origin: top;
+    animation: menu-entrada 170ms ease-out backwards;
+  }
+
+  /* Secciones desplegables (<details>): el contenido baja suavemente. */
+  details[open] > :not(summary) {
+    animation: desplegar 300ms ease-out backwards;
+  }
+
+  /* Barras y gráficas se dibujan al aparecer. */
+  .anim-crecer-x {
+    transform-origin: left;
+    animation: crecer-x 900ms cubic-bezier(0.22, 1, 0.36, 1) 250ms backwards;
+  }
+  .anim-barra {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: crecer-y 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .anim-donut {
+    animation: donut-entrada 900ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .anim-icono {
+    animation: girar-entrada 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  /* Los botones verdes se elevan apenas al pasar el cursor. */
+  :is(button, a)[class*="bg-brand-500"]:not(:disabled):hover {
+    translate: 0 -1px;
+    box-shadow: 0 6px 14px -6px var(--vidrio-resplandor, rgb(88 180 0 / 0.55));
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Desplegables (padre -> hijos, historiales, renglones, secciones).
+   --------------------------------------------------------------------------- */
+
+/* Pliegue con altura animada (src/components/colapsable.tsx). */
+.colapsable {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease,
+    visibility 0s linear 320ms;
+}
+.colapsable-abierto {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+@keyframes hija-entrada {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* Filas hijas: al desplegar el padre entran en cascada desde la izquierda
+     (--i es su posición). Va después de la regla general de filas de tabla. */
+  tbody > tr.fila-hija {
+    animation: hija-entrada 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+
+  /* Renglones plegables de captura: el cuerpo baja suavemente al abrirse. */
+  .anim-desplegar {
+    animation: desplegar 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  /* <details> con altura animada (navegadores que lo soportan; en los demás
+     abre al instante y solo se anima la entrada del contenido). */
+  :root {
+    interpolate-size: allow-keywords;
+  }
+  details::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition:
+      block-size 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      content-visibility 320ms allow-discrete;
+  }
+  details[open]::details-content {
+    block-size: auto;
+  }
+}
+
+/* Guía visual de los hijos: una barra verde a la izquierda de sus filas. */
+.guia-hija {
+  box-shadow: inset 3px 0 0 var(--color-brand-400);
+}
+/* Padre desplegado: se distingue del resto de filas. */
+.fila-padre-abierta {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-brand-500) 14%, transparent),
+    transparent 70%
+  );
 }
