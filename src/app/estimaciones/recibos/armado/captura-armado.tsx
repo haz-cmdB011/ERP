@@ -115,7 +115,7 @@ const BANDA_ESTILO: Record<string, string> = {
 const ETIQUETA = "text-[11px] font-medium uppercase tracking-wide text-slate-500";
 const CONTROL =
   "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 " +
-  "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+  "focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
 
 function comoOpciones(valores: readonly string[]) {
   return valores.map((v) => ({ value: v, label: v }));
@@ -526,9 +526,9 @@ export default function CapturaArmado({
   }
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-5 p-6 pb-28">
+    <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-6 pb-28">
       {!puedeVerSugerido && (
-        <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
+        <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
           Captura tu precio propuesto para cada renglón. El personal de Estimaciones lo revisa
           (acepta o modifica) y el recibo se paga una vez revisado. Consulta el estado en Mis
           recibos.
@@ -655,7 +655,7 @@ export default function CapturaArmado({
           </div>
         )}
         {folioContinuado && (
-          <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
+          <div className="mt-3 rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
             Continuando el folio <strong className="font-mono">{folio}</strong>. La numeración sigue
             desde el #{numeroInicial}.
           </div>
@@ -1007,7 +1007,7 @@ export default function CapturaArmado({
         <div
           className={`rounded-lg border p-3 text-sm ${
             resultado.ok
-              ? "border-indigo-200 bg-indigo-50 text-indigo-900"
+              ? "border-brand-200 bg-brand-50 text-brand-900"
               : "border-rose-200 bg-rose-50 text-rose-800"
           }`}
         >
@@ -1030,14 +1030,14 @@ export default function CapturaArmado({
               {reciboExistente && (
                 <Link
                   href="/estimaciones/mis-recibos"
-                  className="text-xs font-semibold text-indigo-700 hover:underline"
+                  className="text-xs font-semibold text-brand-800 hover:underline"
                 >
                   ← Volver a Mis recibos
                 </Link>
               )}
               <Link
                 href={`/estimaciones/recibos/armado/recibo/${encodeURIComponent(reciboGuardado.folio)}`}
-                className="text-xs font-semibold text-indigo-700 hover:underline"
+                className="text-xs font-semibold text-brand-800 hover:underline"
               >
                 Ver ficha de seguimiento →
               </Link>
@@ -1182,7 +1182,7 @@ export default function CapturaArmado({
             type="button"
             onClick={() => void guardar()}
             disabled={guardando}
-            className="ml-auto rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className="ml-auto rounded-md bg-brand-500 px-4 py-2 text-sm font-semibold text-on-brand hover:bg-brand-400 disabled:opacity-50"
           >
             {guardando ? "Guardando…" : reciboExistente ? "Guardar cambios" : "Guardar recibo"}
           </button>

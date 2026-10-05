@@ -4,6 +4,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PasswordStrengthMeter from "@/components/password-strength-meter";
+import {
+  AVISO_ERROR_AUTH,
+  BOTON_AUTH,
+  CAMPO_AUTH,
+  ETIQUETA_AUTH,
+  Girando,
+} from "@/components/auth-shell";
 
 export default function RegistroForm() {
   const router = useRouter();
@@ -50,51 +57,78 @@ export default function RegistroForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input
-        type="text"
-        required
-        placeholder="Nombre(s)"
-        value={nombres}
-        onChange={(e) => setNombres(e.target.value)}
-        className="rounded border border-gray-300 px-3 py-2 text-sm"
-      />
-      <input
-        type="text"
-        required
-        placeholder="Apellidos"
-        value={apellidos}
-        onChange={(e) => setApellidos(e.target.value)}
-        className="rounded border border-gray-300 px-3 py-2 text-sm"
-      />
-      <input
-        type="email"
-        required
-        placeholder="tu@empresa.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="rounded border border-gray-300 px-3 py-2 text-sm"
-      />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="nombres" className={ETIQUETA_AUTH}>
+            Nombre(s)
+          </label>
+          <input
+            id="nombres"
+            type="text"
+            required
+            autoComplete="given-name"
+            value={nombres}
+            onChange={(e) => setNombres(e.target.value)}
+            className={CAMPO_AUTH}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="apellidos" className={ETIQUETA_AUTH}>
+            Apellidos
+          </label>
+          <input
+            id="apellidos"
+            type="text"
+            required
+            autoComplete="family-name"
+            value={apellidos}
+            onChange={(e) => setApellidos(e.target.value)}
+            className={CAMPO_AUTH}
+          />
+        </div>
+      </div>
       <div className="flex flex-col gap-1.5">
+        <label htmlFor="email" className={ETIQUETA_AUTH}>
+          Correo electrónico
+        </label>
         <input
+          id="email"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="tu@empresa.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={CAMPO_AUTH}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="password" className={ETIQUETA_AUTH}>
+          Contraseña
+        </label>
+        <input
+          id="password"
           type="password"
           required
           minLength={8}
-          placeholder="Contraseña (mín. 8 caracteres)"
+          autoComplete="new-password"
+          placeholder="Mínimo 8 caracteres"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded border border-gray-300 px-3 py-2 text-sm"
+          className={CAMPO_AUTH}
         />
         <PasswordStrengthMeter password={password} />
       </div>
-      <button
-        type="submit"
-        disabled={enviando}
-        className="rounded bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <button type="submit" disabled={enviando} className={BOTON_AUTH}>
+        {enviando && <Girando />}
         {enviando ? "Creando cuenta..." : "Crear cuenta"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className={AVISO_ERROR_AUTH}>
+          {error}
+        </p>
+      )}
     </form>
   );
 }

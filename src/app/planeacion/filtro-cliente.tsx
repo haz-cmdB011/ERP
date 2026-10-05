@@ -29,7 +29,7 @@ export default function FiltroCliente({
           const texto = qs.toString();
           router.push(texto ? `/planeacion?${texto}` : "/planeacion");
         }}
-        className="max-w-xs rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+        className="max-w-xs rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm focus:border-brand-600 focus:outline-none"
       >
         <option value="">Todos</option>
         {clientes.map((c) => (

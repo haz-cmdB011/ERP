@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { CLASE_REGRESAR, FlechaRegresar } from "./regresar-estilo";
 
 // Cuántas navegaciones internas lleva la pestaña. Vive a nivel de módulo
 // para sobrevivir al cambio de layout entre áreas (Planeación → Calidad...).
@@ -57,14 +58,15 @@ export default function BotonRegresar({
   }
 
   return (
-    <div className="px-6 pt-4 print:hidden">
+    <div className="px-4 pt-4 sm:px-6 print:hidden">
       <button
         type="button"
         onClick={regresar}
         title="Regresar al panel anterior"
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600"
+        className={CLASE_REGRESAR}
       >
-        ← Regresar
+        <FlechaRegresar />
+        Regresar
       </button>
     </div>
   );

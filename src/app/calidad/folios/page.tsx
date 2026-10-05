@@ -196,7 +196,7 @@ export default async function FoliosCalidadPage({
   };
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Folios de calidad</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -218,7 +218,7 @@ export default async function FoliosCalidadPage({
         {filtro !== "todos" && <input type="hidden" name="estado" value={filtro} />}
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
         >
           Buscar
         </button>
@@ -239,7 +239,7 @@ export default async function FoliosCalidadPage({
             href={hrefFiltro(valor)}
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-brand-600 bg-brand-500 text-on-brand"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -292,7 +292,7 @@ export default async function FoliosCalidadPage({
                       {enlazable ? (
                         <Link
                           href={`/calidad/pedidos/${pedido.id}/informe/${inf.id}`}
-                          className="hover:text-indigo-600 hover:underline"
+                          className="hover:text-brand-700 hover:underline"
                         >
                           {inf.folio}
                         </Link>
@@ -325,7 +325,7 @@ export default async function FoliosCalidadPage({
                       {enlazable ? (
                         <Link
                           href={`/calidad/pedidos/${pedido.id}`}
-                          className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                          className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                         >
                           {pedido.numero_pedido}
                         </Link>

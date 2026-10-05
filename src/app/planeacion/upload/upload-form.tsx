@@ -227,9 +227,9 @@ export default function UploadForm() {
           setArrastrando(false);
           agregarArchivos(e.dataTransfer.files);
         }}
-        className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+        className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
           arrastrando
-            ? "border-indigo-400 bg-indigo-50"
+            ? "border-brand-600 bg-brand-50"
             : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50"
         }`}
       >
@@ -239,7 +239,7 @@ export default function UploadForm() {
           fill="none"
           stroke="currentColor"
           strokeWidth={1.5}
-          className={`h-10 w-10 ${arrastrando ? "text-indigo-500" : "text-slate-400"}`}
+          className={`h-10 w-10 ${arrastrando ? "text-brand-600" : "text-slate-400"}`}
           aria-hidden
         >
           <path
@@ -252,7 +252,7 @@ export default function UploadForm() {
           {arrastrando ? "Suelta los archivos aquí" : "Arrastra aquí uno o varios Excel"}
         </p>
         <p className="text-xs text-slate-500">
-          o <span className="font-medium text-indigo-600 underline">haz clic para elegirlos</span> ·
+          o <span className="font-medium text-brand-700 underline">haz clic para elegirlos</span> ·
           .xlsx o .xlsm, hasta 40 MB cada uno
         </p>
         <input
@@ -275,7 +275,7 @@ export default function UploadForm() {
             type="button"
             onClick={subirPendientes}
             disabled={enviando || pendientes === 0}
-            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700 disabled:opacity-50"
+            className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
           >
             {enviando
               ? "Procesando..."
@@ -285,7 +285,7 @@ export default function UploadForm() {
             <button
               type="button"
               onClick={() => setCargas((prev) => prev.filter((c) => c.estado !== "terminado"))}
-              className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:underline"
+              className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
             >
               Limpiar terminados
             </button>
@@ -332,7 +332,7 @@ function EstadoCarga({ carga }: { carga: Carga }) {
   }
   if (carga.estado === "procesando") {
     return (
-      <span className={`${base} animate-pulse bg-indigo-50 text-indigo-700`}>Procesando...</span>
+      <span className={`${base} animate-pulse bg-brand-50 text-brand-800`}>Procesando...</span>
     );
   }
   return carga.resultado && !esError(carga.resultado) ? (

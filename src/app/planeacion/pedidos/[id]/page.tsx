@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CLASE_MIGA, FlechaRegresar } from "@/components/regresar-estilo";
 import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -154,18 +155,19 @@ export default async function PedidoDetailPage({
   ];
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           {pedido.numero_pedido}
         </h1>
         {pedido.orden_trabajo && (
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          <p>
             <Link
               href={`/planeacion/ot/${encodeURIComponent(pedido.orden_trabajo)}`}
-              className="hover:text-indigo-600 hover:underline"
+              className={CLASE_MIGA}
             >
-              ← O.T. <span className="font-mono">{pedido.orden_trabajo}</span>
+              <FlechaRegresar className="h-4 w-4" />
+              O.T. <span className="font-mono">{pedido.orden_trabajo}</span>
             </Link>
           </p>
         )}
@@ -196,7 +198,7 @@ export default async function PedidoDetailPage({
                 href={`/planeacion/pedidos/${id}?version=${v.numero_version}`}
                 className={`rounded px-3 py-1 font-medium transition-colors ${
                   versionSeleccionada?.id === v.id
-                    ? "bg-slate-900 text-white shadow-sm"
+                    ? "bg-brand-500 text-on-brand shadow-sm"
                     : "text-slate-600 hover:bg-slate-200/70"
                 }`}
               >
@@ -208,7 +210,7 @@ export default async function PedidoDetailPage({
           {versiones.length > 1 && versionSeleccionada && (
             <Link
               href={`/planeacion/pedidos/${id}/cambios?a=${versionSeleccionada.numero_version}`}
-              className="text-sm font-medium text-indigo-600 hover:underline"
+              className="text-sm font-medium text-brand-700 hover:underline"
             >
               Ver qué cambió entre versiones →
             </Link>

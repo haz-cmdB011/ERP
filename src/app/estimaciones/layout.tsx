@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import SubnavLink from "@/components/subnav-link";
 import {
   contarPendientes,
   contarRechazadas,
   listarResumenDiscrepancias,
 } from "@/lib/estimaciones/discrepancias-resumen";
+import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
+import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
 
 // Globo con un número, para los contadores del menú.
 function Globo({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
-    <span className="ml-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+    <span className="anim-aviso ml-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
       {n}
     </span>
   );
@@ -54,50 +56,53 @@ export default async function EstimacionesLayout({
     decideDiscrepancias || maquilador ? await listarResumenDiscrepancias(supabase) : [];
   const pendientes = decideDiscrepancias ? contarPendientes(resumen) : 0;
   const rechazadas = maquilador ? contarRechazadas(resumen) : 0;
+  // Recibos esperando revisión: lo ve quien los revisa (la RLS le devuelve todos).
+  const porRevisar = !maquilador && puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase) : 0;
 
   return (
     <div className="min-h-screen">
       <AreaNav
         area="estimaciones"
         email={user.email ?? ""}
+        userId={user.id}
+        avatarPath={user.app_metadata?.avatar_path}
         esDesarrollador={perfil?.rol === "desarrollador"}
         soloEstimaciones={maquilador}
+        porRevisar={porRevisar}
       >
         {maquilador ? (
           <>
-            <Link href="/estimaciones/recibos" className="text-gray-600 hover:text-black">
+            <SubnavLink href="/estimaciones/recibos">
               Generador de Recibos
-            </Link>
-            <Link href="/estimaciones/mis-recibos" className="text-gray-600 hover:text-black">
+            </SubnavLink>
+            <SubnavLink href="/estimaciones/mis-recibos">
               Mis recibos
               <Globo n={rechazadas} />
-            </Link>
+            </SubnavLink>
           </>
         ) : (
           <>
-            <Link href="/estimaciones" className="text-gray-600 hover:text-black">
+            <SubnavLink href="/estimaciones" tambien={["/estimaciones/pm-cobrado"]}>
               Panel
-            </Link>
-            <Link href="/estimaciones/recibos" className="text-gray-600 hover:text-black">
+            </SubnavLink>
+            <SubnavLink href="/estimaciones/recibos">
               Generador de Recibos
-            </Link>
-            <Link
-              href="/estimaciones/registro?estado=pendiente"
-              className="text-gray-600 hover:text-black"
-            >
+            </SubnavLink>
+            <SubnavLink href="/estimaciones/registro?estado=pendiente">
               Por revisar
-            </Link>
-            <Link href="/estimaciones/registro" className="text-gray-600 hover:text-black">
+              <Globo n={porRevisar} />
+            </SubnavLink>
+            <SubnavLink href="/estimaciones/registro" excluye="estado=pendiente">
               Registro de recibos
-            </Link>
-            <Link href="/estimaciones/reportes" className="text-gray-600 hover:text-black">
+            </SubnavLink>
+            <SubnavLink href="/estimaciones/reportes">
               Reporte semanal
-            </Link>
+            </SubnavLink>
             {decideDiscrepancias && (
-              <Link href="/estimaciones/discrepancias" className="text-gray-600 hover:text-black">
+              <SubnavLink href="/estimaciones/discrepancias">
                 Discrepancias
                 <Globo n={pendientes} />
-              </Link>
+              </SubnavLink>
             )}
           </>
         )}

@@ -110,7 +110,7 @@ export function FilasGrupo({
           <td className="px-4 py-2">
             <Link
               href={`/estimaciones/recibos/${f.tipo}/recibo/${encodeURIComponent(f.folio)}`}
-              className="font-mono text-slate-700 hover:text-indigo-600 hover:underline"
+              className="font-mono text-slate-700 hover:text-brand-700 hover:underline"
             >
               EST-{f.folio}
             </Link>

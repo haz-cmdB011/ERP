@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esMaquilador, getPerfilActual, puedeCapturarTipo } from "@/lib/auth/get-perfil";
 import type { AreaMaquila } from "@/lib/auth/roles";
+import Bienvenida from "@/components/bienvenida";
+import EstadoVacio from "@/components/estado-vacio";
 
 const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string }[] = [
   {
@@ -37,7 +39,8 @@ export default async function GeneradorRecibosPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <Bienvenida />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Generador de Recibos
@@ -50,18 +53,19 @@ export default async function GeneradorRecibosPage() {
       </div>
 
       {disponibles.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Tu usuario no tiene un área de maquila asignada. Pide a un administrador que te la asigne.
-        </p>
+        <EstadoVacio
+          titulo="Aún no tienes un área de maquila"
+          descripcion="Pide a un administrador que te asigne una para poder generar recibos."
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {disponibles.map((t) => (
             <Link
               key={t.tipo}
               href={`/estimaciones/recibos/${t.tipo}`}
-              className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-indigo-300"
+              className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"
             >
-              <h2 className="text-base font-semibold text-slate-900 group-hover:text-indigo-600">
+              <h2 className="text-base font-semibold text-slate-900 group-hover:text-brand-700">
                 {t.titulo}
               </h2>
               <p className="mt-1 text-sm text-slate-500">{t.descripcion}</p>

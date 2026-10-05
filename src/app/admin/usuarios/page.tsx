@@ -34,7 +34,7 @@ export default async function AdminUsuariosPage() {
     .returns<PerfilRow[]>();
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6">
       <div>
         <h1 className="text-xl font-semibold">Usuarios</h1>
         <p className="text-sm text-gray-600">

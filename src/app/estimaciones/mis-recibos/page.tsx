@@ -37,7 +37,7 @@ export default async function MisRecibosPage() {
     .reduce((s, r) => s + r.totalAceptado, 0);
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Mis recibos</h1>
@@ -46,7 +46,7 @@ export default async function MisRecibosPage() {
           </p>
         </div>
         {porCobrar > 0 && (
-          <span className="rounded bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200">
+          <span className="rounded bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 ring-1 ring-brand-200">
             Revisado por pagar: {money(porCobrar)}
           </span>
         )}
@@ -71,7 +71,7 @@ export default async function MisRecibosPage() {
       {recibos.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Todavía no has capturado recibos.{" "}
-          <Link href="/estimaciones/recibos" className="font-medium text-indigo-600 hover:underline">
+          <Link href="/estimaciones/recibos" className="font-medium text-brand-700 hover:underline">
             Capturar uno
           </Link>
         </p>
@@ -102,7 +102,7 @@ export default async function MisRecibosPage() {
                     <td className="px-4 py-3">
                       <Link
                         href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}
-                        className="font-mono font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                        className="font-mono font-medium text-slate-900 hover:text-brand-700 hover:underline"
                       >
                         {r.folio}
                       </Link>
@@ -146,7 +146,7 @@ export default async function MisRecibosPage() {
                           {puedeCapturarTipo(perfil, r.tipo) && (
                             <Link
                               href={`/estimaciones/mis-recibos/${r.tipo}/${encodeURIComponent(r.folio)}/modificar`}
-                              className="text-xs font-medium text-slate-500 hover:text-indigo-600"
+                              className="text-xs font-medium text-slate-500 hover:text-brand-700"
                             >
                               Modificar
                             </Link>

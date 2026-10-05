@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Avisos from "@/components/avisos";
 import { SCRIPT_TEMA } from "@/lib/tema";
+import BarraProgreso from "@/components/barra-progreso";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,6 +25,20 @@ export const metadata: Metadata = {
   description: "Sistema interno de Mobiliarium: Planeación, Producción, Calidad y Estimaciones.",
   // Aplicación interna: que los buscadores no la indexen.
   robots: { index: false, follow: false },
+  // Al agregarla a la pantalla de inicio de iOS abre como app, sin la barra de
+  // Safari (el manifest cubre Android; ver src/app/manifest.ts).
+  appleWebApp: { capable: true, title: "ERP Mobiliarium", statusBarStyle: "black-translucent" },
+  formatDetection: { telephone: false },
+};
+
+// viewportFit "cover" extiende la página bajo la muesca del iPhone (el
+// contenido respeta las zonas seguras con env(safe-area-inset-*)). No se
+// desactiva el zoom: quien lo necesite debe poder ampliar.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0c1a06",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -41,6 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
       </head>
       <body className="min-h-full flex flex-col">
+        <BarraProgreso />
         {children}
         <Avisos />
       </body>

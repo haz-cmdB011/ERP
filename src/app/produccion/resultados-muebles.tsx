@@ -126,7 +126,7 @@ export default function ResultadosMuebles({ grupos }: { grupos: GrupoBusqueda[] 
               <div className="flex min-w-40 flex-col text-xs" onClick={(e) => e.stopPropagation()}>
                 <Link
                   href={`/produccion/pedidos/${g.pedidoId}`}
-                  className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                  className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                 >
                   {g.numeroPedido}
                 </Link>

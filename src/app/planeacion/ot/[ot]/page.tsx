@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import TablaPedidos, { type PedidoLista } from "../../tabla-pedidos";
+import { CLASE_MIGA, FlechaRegresar } from "@/components/regresar-estilo";
 
 interface ResultadoModeloRow {
   id: string;
@@ -94,15 +95,16 @@ export default async function OrdenTrabajoPage({
       : { data: null, error: null };
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <Link
           href="/planeacion"
-          className="text-xs font-medium uppercase tracking-wide text-slate-500 hover:text-indigo-600 hover:underline"
+          className={CLASE_MIGA}
         >
-          ← Pedidos
+          <FlechaRegresar className="h-4 w-4" />
+          Pedidos
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
           O.T. <span className="font-mono">{ot}</span>
         </h1>
         {primero && (
@@ -124,7 +126,7 @@ export default async function OrdenTrabajoPage({
           name="modelo"
           defaultValue={busqueda}
           placeholder="Buscar modelo en los PM de esta O.T..."
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-400 focus:outline-none"
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:outline-none"
         />
         <button
           type="submit"
@@ -135,7 +137,7 @@ export default async function OrdenTrabajoPage({
         {busqueda && (
           <Link
             href={hrefOt}
-            className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:underline"
+            className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
           >
             Limpiar
           </Link>
@@ -182,7 +184,7 @@ export default async function OrdenTrabajoPage({
                         <td className="px-4 py-3">
                           <Link
                             href={`/planeacion/pedidos/${pedido.id}?modelo=${encodeURIComponent(busqueda)}`}
-                            className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                            className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                           >
                             {pedido.numero_pedido}
                           </Link>

@@ -236,7 +236,7 @@ export default async function CanceladosProduccionPage() {
   );
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6">
       <h1 className="border-b border-slate-200 pb-4 text-2xl font-semibold tracking-tight text-slate-900">Cancelados y eliminados</h1>
 
       <section className="flex flex-col gap-4">
@@ -299,7 +299,7 @@ export default async function CanceladosProduccionPage() {
           pedidosConPapelera.map((p) => (
             <div key={p.id} className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-200 bg-slate-50 p-3">
-                <Link href={`/produccion/pedidos/${p.id}`} className="font-medium text-slate-900 hover:text-indigo-600 hover:underline">
+                <Link href={`/produccion/pedidos/${p.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
                   {p.numero_pedido}
                 </Link>
                 <p className="text-sm text-slate-600">
@@ -403,7 +403,7 @@ function PedidoCancelado({
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 p-3">
         <div>
-          <Link href={href} className="font-medium text-slate-900 hover:text-indigo-600 hover:underline">
+          <Link href={href} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
             {pedido.numero_pedido}
           </Link>
           <p className="text-sm text-slate-600">

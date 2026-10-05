@@ -108,7 +108,7 @@ export default function ItemsTabla({
             setExpandidos(padresConHijosCoincidentes(muebles, e.target.value));
           }}
           placeholder="Buscar modelo en este pedido..."
-          className="min-w-48 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-400 focus:outline-none"
+          className="min-w-48 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:outline-none"
         />
         <button
           type="button"

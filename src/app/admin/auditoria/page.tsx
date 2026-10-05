@@ -146,7 +146,7 @@ export default async function AuditoriaPage({
   };
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Auditoría</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -163,7 +163,7 @@ export default async function AuditoriaPage({
             href={hrefPagina(valor)}
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-brand-600 bg-brand-500 text-on-brand"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >

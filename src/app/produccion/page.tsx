@@ -2,6 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
 import ResultadosMuebles from "./resultados-muebles";
+import Bienvenida from "@/components/bienvenida";
+import ResumenInicio from "@/components/resumen-inicio";
+import { avancePorPedido, sumarAvance } from "@/lib/resumen/avance-items";
+import EstadoLiberacion from "./estado-liberacion";
 
 interface PedidoRow {
   id: string;
@@ -9,6 +13,7 @@ interface PedidoRow {
   fecha_pedido: string | null;
   fecha_entrega: string | null;
   estado: string;
+  cancelado_en: string | null;
   proyectos: { nombre: string; cliente: string } | null;
   pedido_versiones: { id: string; numero_version: number; es_version_activa: boolean }[];
 }
@@ -16,9 +21,10 @@ interface PedidoRow {
 export default async function ProduccionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; f?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, f } = await searchParams;
+  const soloPorLiberar = f === "por-liberar";
   const consulta = (q ?? "").trim();
   const supabase = await createClient();
 
@@ -28,7 +34,7 @@ export default async function ProduccionListPage({
   const { data: pedidos, error } = await supabase
     .from("pedidos")
     .select(
-      "id, numero_pedido, fecha_pedido, fecha_entrega, estado, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
+      "id, numero_pedido, fecha_pedido, fecha_entrega, estado, cancelado_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
     )
     .is("eliminado_en", null)
     // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
@@ -36,8 +42,30 @@ export default async function ProduccionListPage({
     .order("created_at", { ascending: false })
     .returns<PedidoRow[]>();
 
+  // Avance de liberación por pedido y totales para las tarjetas.
+  const avance = await avancePorPedido(supabase, { conCalidad: false });
+  const total = sumarAvance(avance);
+  const conPendientes = [...avance.values()].filter((a) => a.porLiberar > 0).length;
+  const visibles = (pedidos ?? []).filter(
+    (p) => !soloPorLiberar || (avance.get(p.id)?.porLiberar ?? 0) > 0
+  );
+
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <Bienvenida acciones={[{ href: "/produccion/folios", etiqueta: "Folios de producción" }]} />
+      <ResumenInicio
+        tarjetas={[
+          {
+            valor: total.porLiberar,
+            etiqueta: "Ítems por liberar",
+            detalle: `en ${conPendientes} pedido${conPendientes === 1 ? "" : "s"}`,
+            href: "/produccion?f=por-liberar",
+            tono: "atencion",
+          },
+          { valor: total.liberados, etiqueta: "Ítems liberados", detalle: "ya enviados a producción" },
+          { valor: (pedidos ?? []).filter((p) => !p.cancelado_en).length, etiqueta: "Pedidos vigentes", href: "/produccion" },
+        ]}
+      />
       <div className="flex items-end justify-between border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -82,7 +110,7 @@ export default async function ProduccionListPage({
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
         >
           Buscar
         </button>
@@ -120,6 +148,15 @@ export default async function ProduccionListPage({
         </p>
       )}
 
+      {!busqueda && soloPorLiberar && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
+          Mostrando solo los pedidos con ítems por liberar ({visibles.length}).
+          <Link href="/produccion" className="font-medium underline-offset-2 hover:underline">
+            Ver todos
+          </Link>
+        </p>
+      )}
+
       {!busqueda && pedidos && pedidos.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
@@ -129,18 +166,19 @@ export default async function ProduccionListPage({
                 <th className="px-4 py-3">Proyecto</th>
                 <th className="px-4 py-3">Cliente</th>
                 <th className="px-4 py-3">Entrega</th>
+                <th className="px-4 py-3">Liberación</th>
                 <th className="px-4 py-3">Versión activa</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {pedidos.map((p) => {
+              {visibles.map((p) => {
                 const activa = p.pedido_versiones.find((v) => v.es_version_activa);
                 return (
                   <tr key={p.id} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <Link
                         href={`/produccion/pedidos/${p.id}`}
-                        className="font-medium text-slate-900 hover:text-indigo-600 hover:underline"
+                        className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                       >
                         {p.numero_pedido}
                       </Link>
@@ -148,6 +186,9 @@ export default async function ProduccionListPage({
                     <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-700">{p.proyectos?.cliente ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <EstadoLiberacion cancelado={!!p.cancelado_en} avance={avance.get(p.id)} />
+                    </td>
                     <td className="px-4 py-3">
                       {activa ? (
                         <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">

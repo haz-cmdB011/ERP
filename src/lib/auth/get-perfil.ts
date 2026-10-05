@@ -9,6 +9,8 @@ export interface PerfilActual {
   contratista: string | null;
   // Solo maquiladores: las áreas de maquila de las que puede generar recibos.
   areasMaquila: AreaMaquila[];
+  // Ruta de la foto de perfil en Storage (ver src/lib/cuenta/avatar.ts), si tiene.
+  avatarPath?: string | null;
 }
 
 export async function getPerfilActual(
@@ -34,6 +36,7 @@ export async function getPerfilActual(
     area: perfil.area,
     contratista: perfil.contratista ?? null,
     areasMaquila: normalizarAreasMaquila(perfil.areas_maquila),
+    avatarPath: user.app_metadata?.avatar_path ?? null,
   };
 }
 
@@ -61,7 +64,7 @@ export function puedeEditarPlaneacion(perfil: PerfilActual | null): boolean {
 // trabajador de Estimaciones. Son quienes ven el precio sugerido del motor,
 // revisan los recibos (aceptan o modifican el precio que propuso el
 // maquilador) y los marcan como pagados.
-export function puedeVerPrecioSugerido(perfil: PerfilActual | null): boolean {
+export function puedeVerPrecioSugerido(perfil: Pick<PerfilActual, "rol" | "area"> | null): boolean {
   return (
     perfil?.rol === "desarrollador" ||
     ((perfil?.rol === "administrador" || perfil?.rol === "trabajador") &&

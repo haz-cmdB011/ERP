@@ -56,7 +56,7 @@ export default function SelectMenu({
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
-        className={`flex w-full items-center justify-between gap-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-left text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+        className={`flex w-full items-center justify-between gap-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-left text-sm text-slate-900 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 ${
           mono ? "font-mono" : ""
         } ${className}`}
       >
@@ -76,7 +76,7 @@ export default function SelectMenu({
         </svg>
       </button>
       {abierto && (
-        <div className="absolute z-20 mt-1 max-h-60 w-full min-w-max overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+        <div className="anim-menu absolute z-20 mt-1 max-h-60 w-full min-w-max overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {todas.map((o) => (
             <button
               key={o.value || "__vacio__"}
@@ -89,7 +89,7 @@ export default function SelectMenu({
                 mono ? "font-mono" : ""
               } ${
                 o.value === value
-                  ? "bg-indigo-50 font-medium text-indigo-700"
+                  ? "bg-brand-50 font-medium text-brand-800"
                   : o.value === ""
                     ? "text-slate-400"
                     : "text-slate-900"

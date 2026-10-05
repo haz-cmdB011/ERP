@@ -41,7 +41,7 @@ export default function DescargarPdfButton({
         type="button"
         onClick={descargar}
         disabled={generando}
-        className="rounded border border-black px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
+        className="rounded border border-brand-700 px-3 py-2 text-sm font-medium text-brand-800 hover:bg-brand-50 disabled:opacity-50"
       >
         {generando ? "Generando PDF..." : "Descargar PDF"}
       </button>

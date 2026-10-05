@@ -182,7 +182,7 @@ export function CampoModeloOt({
                   onChange(m.modelo, m.descripcionPm);
                   setAbierto(false);
                 }}
-                className="flex w-full flex-col px-2.5 py-1.5 text-left text-sm hover:bg-indigo-50"
+                className="flex w-full flex-col px-2.5 py-1.5 text-left text-sm hover:bg-brand-50"
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className="font-mono text-slate-900">

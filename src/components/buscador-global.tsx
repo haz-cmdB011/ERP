@@ -203,13 +203,13 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-1.5 text-gray-500 transition-colors hover:border-gray-300 hover:text-black"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-lg sm:h-10 sm:w-10 xl:w-auto text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 xl:border xl:border-nav-line xl:px-3"
         aria-label={`Buscar (${atajo})`}
         aria-keyshortcuts="Control+K Meta+K"
       >
-        <IconoLupa className="h-4 w-4" />
-        <span className="hidden lg:inline">Buscar…</span>
-        <kbd className="hidden rounded border border-gray-200 bg-gray-50 px-1.5 font-sans text-[11px] text-gray-500 lg:inline">
+        <IconoLupa className="h-[18px] w-[18px]" />
+        <span className="hidden xl:inline">Buscar…</span>
+        <kbd className="hidden rounded border border-nav-line bg-nav-hover px-1.5 font-sans text-[11px] text-on-nav-suave xl:inline">
           {atajo}
         </kbd>
       </button>
@@ -308,7 +308,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
                         onMouseMove={() => setActivo(i)}
                         onClick={() => abrirResultado(r)}
                         className={`mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 ${
-                          elegido ? "bg-indigo-50" : ""
+                          elegido ? "bg-brand-50" : ""
                         }`}
                       >
                         <span className="w-14 shrink-0 text-[11px] sm:w-20 font-medium uppercase tracking-wide text-slate-400">
@@ -317,7 +317,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
                         <span className="min-w-0 flex-1">
                           <span
                             className={`block truncate text-sm font-medium ${
-                              elegido ? "text-indigo-700" : "text-slate-900"
+                              elegido ? "text-brand-800" : "text-slate-900"
                             }`}
                           >
                             {r.titulo}

@@ -69,7 +69,7 @@ function ResetPasswordCell({ userId }: { userId: string }) {
         <button
           onClick={guardar}
           disabled={guardando}
-          className="rounded bg-black px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+          className="rounded bg-brand-500 px-2 py-1 text-xs font-medium text-on-brand disabled:opacity-50"
         >
           {guardando ? "..." : "Guardar"}
         </button>
@@ -204,7 +204,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
             disabled={
               guardando || (esMaquila && (areasMaquila.length === 0 || !nombre.trim()))
             }
-            className="rounded bg-black px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+            className="rounded bg-brand-500 px-2 py-1 text-xs font-medium text-on-brand disabled:opacity-50"
           >
             {guardando ? "Guardando..." : "Guardar"}
           </button>

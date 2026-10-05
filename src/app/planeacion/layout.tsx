@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import SubnavLink from "@/components/subnav-link";
+import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
+import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
 
 export const metadata: Metadata = {
   title: { default: "Planeación", template: "%s · Planeación" },
@@ -24,7 +26,7 @@ export default async function PlaneacionLayout({
 
   const { data: perfil } = await supabase
     .from("perfiles")
-    .select("rol")
+    .select("rol, area")
     .eq("id", user.id)
     .single();
 
@@ -33,22 +35,28 @@ export default async function PlaneacionLayout({
     redirect("/estimaciones/recibos");
   }
 
+  // Aviso de recibos por revisar en la pestaña Estimaciones (solo a quien los revisa).
+  const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase) : 0;
+
   return (
     <div className="min-h-screen">
       <AreaNav
         area="planeacion"
         email={user.email ?? ""}
+        userId={user.id}
+        avatarPath={user.app_metadata?.avatar_path}
         esDesarrollador={perfil?.rol === "desarrollador"}
+        porRevisar={porRevisar}
       >
-        <Link href="/planeacion" className="text-gray-600 hover:text-black">
+        <SubnavLink href="/planeacion" tambien={["/planeacion/pedidos", "/planeacion/ot"]}>
           Pedidos
-        </Link>
-        <Link href="/planeacion/upload" className="text-gray-600 hover:text-black">
+        </SubnavLink>
+        <SubnavLink href="/planeacion/upload">
           Cargar Excel
-        </Link>
-        <Link href="/planeacion/cancelados" className="text-gray-600 hover:text-black">
+        </SubnavLink>
+        <SubnavLink href="/planeacion/cancelados">
           Cancelados
-        </Link>
+        </SubnavLink>
       </AreaNav>
       {children}
     </div>
