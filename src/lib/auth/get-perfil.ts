@@ -91,3 +91,23 @@ export function puedeCapturarTipo(perfil: PerfilActual | null, tipo: AreaMaquila
   if (!esMaquilador(perfil)) return true;
   return perfil?.areasMaquila.includes(tipo) ?? false;
 }
+
+// Espejo de is_produccion() en la base: desarrollador, administrador o
+// trabajador de Producción. Asigna modelos a equipos, registra entregas y
+// administra el catálogo de equipos.
+export function puedeEditarProduccion(perfil: PerfilActual | null): boolean {
+  return (
+    perfil?.rol === "desarrollador" ||
+    ((perfil?.rol === "administrador" || perfil?.rol === "trabajador") &&
+      perfil.area === "produccion")
+  );
+}
+
+// Espejo de is_admin_area('produccion'): quien puede anular una entrega
+// capturada por error.
+export function puedeAdministrarProduccion(perfil: PerfilActual | null): boolean {
+  return (
+    perfil?.rol === "desarrollador" ||
+    (perfil?.rol === "administrador" && perfil.area === "produccion")
+  );
+}

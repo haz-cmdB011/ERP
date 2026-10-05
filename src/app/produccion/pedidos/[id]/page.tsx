@@ -139,9 +139,17 @@ export default async function PedidoProduccionPage({
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
-        <p className="mt-1 text-xs font-medium text-slate-500">
-          Entrega: {pedido.fecha_entrega ?? "—"}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-medium text-slate-500">
+            Entrega: {pedido.fecha_entrega ?? "—"}
+          </p>
+          <Link
+            href={`/produccion/pedidos/${id}/asignaciones`}
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
+          >
+            Asignar a equipos
+          </Link>
+        </div>
       </div>
 
       {versiones && versiones.length > 0 && (
