@@ -34,6 +34,31 @@ const TONOS: Record<Tono, string> = {
   slate: "border-slate-300 bg-slate-100 text-slate-600",
 };
 
+// Acciones que registran los triggers (auditar_cambios), para poder buscar por
+// su etiqueta legible ("pagado", "papelera"...).
+const ACCIONES = [
+  "cancelado",
+  "cancelacion_revertida",
+  "enviado_a_papelera",
+  "restaurado",
+  "eliminado_definitivo",
+  "revision_cancelado",
+  "revision_en_revision",
+  "revision_normal",
+  "liberacion_enviado_a_produccion",
+  "liberacion_pendiente",
+  "estado_cancelado",
+  "estado_revisado",
+  "estado_pagado",
+  "estado_pendiente",
+];
+
+// Quita lo que rompería la sintaxis de filtros de PostgREST (.or) y acota la
+// longitud; el texto se usa solo como patrón de coincidencia parcial.
+function limpiarBusqueda(texto: string | undefined): string {
+  return (texto ?? "").replace(/[,()*%\\:"']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+}
+
 // Etiqueta legible de cada acción que registran los triggers (auditar_cambios).
 function describirAccion(accion: string): { etiqueta: string; tono: Tono } {
   switch (accion) {
@@ -89,16 +114,46 @@ const TIPO_RECIBO: Record<string, string> = {
 export default async function AuditoriaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tabla?: string; pagina?: string }>;
+  searchParams: Promise<{ tabla?: string; pagina?: string; q?: string }>;
 }) {
-  const { tabla, pagina: paginaParam } = await searchParams;
+  const { tabla, pagina: paginaParam, q } = await searchParams;
+  const busqueda = limpiarBusqueda(q);
   const filtro = FILTROS.some(([v]) => v === tabla) ? (tabla as string) : "todos";
 
   const supabase = await createClient();
 
+  // Búsqueda: texto libre sobre el detalle (pedido, ítem, modelo, motivo, folio,
+  // contratista, O.T.), la acción (por su etiqueta) y quien hizo el cambio.
+  let condicionBusqueda: string | null = null;
+  if (busqueda) {
+    const patron = `*${busqueda}*`;
+    const minusculas = busqueda.toLowerCase();
+    const accionesQueCoinciden = ACCIONES.filter(
+      (a) => describirAccion(a).etiqueta.toLowerCase().includes(minusculas) || a.includes(minusculas)
+    );
+    const { data: usuarios } = await supabase
+      .from("perfiles")
+      .select("id")
+      .or(`nombre_completo.ilike.${patron},email.ilike.${patron}`)
+      .returns<{ id: string }[]>();
+    const partes = [
+      "numero_pedido",
+      "item_code",
+      "modelo",
+      "motivo",
+      "folio",
+      "contratista",
+      "ot",
+    ].map((campo) => `detalle->>${campo}.ilike.${patron}`);
+    if (accionesQueCoinciden.length) partes.push(`accion.in.(${accionesQueCoinciden.join(",")})`);
+    if (usuarios?.length) partes.push(`usuario_id.in.(${usuarios.map((u) => u.id).join(",")})`);
+    condicionBusqueda = partes.join(",");
+  }
+
   let conteoQuery = supabase.from("auditoria").select("id", { count: "exact", head: true });
   if (filtro === "recibos") conteoQuery = conteoQuery.in("tabla", TABLAS_RECIBOS);
   else if (filtro !== "todos") conteoQuery = conteoQuery.eq("tabla", filtro);
+  if (condicionBusqueda) conteoQuery = conteoQuery.or(condicionBusqueda);
   const { count, error: errorConteo } = await conteoQuery;
   const total = count ?? 0;
 
@@ -117,6 +172,7 @@ export default async function AuditoriaPage({
       .range((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA - 1);
     if (filtro === "recibos") consulta = consulta.in("tabla", TABLAS_RECIBOS);
     else if (filtro !== "todos") consulta = consulta.eq("tabla", filtro);
+    if (condicionBusqueda) consulta = consulta.or(condicionBusqueda);
     const { data, error: errorFilas } = await consulta.returns<AuditoriaRow[]>();
     error = errorFilas;
     filas = data ?? [];
@@ -137,9 +193,10 @@ export default async function AuditoriaPage({
     (perfiles ?? []).map((p) => [p.id, p.nombre_completo || p.email || null])
   );
 
-  const hrefPagina = (valor: string, numeroPagina = 1) => {
+  const hrefPagina = (valor: string, numeroPagina = 1, conBusqueda = true) => {
     const params = new URLSearchParams();
     if (valor !== "todos") params.set("tabla", valor);
+    if (busqueda && conBusqueda) params.set("q", busqueda);
     if (numeroPagina > 1) params.set("pagina", String(numeroPagina));
     const cadena = params.toString();
     return cadena ? `/admin/auditoria?${cadena}` : "/admin/auditoria";
@@ -155,6 +212,47 @@ export default async function AuditoriaPage({
           revisión. Se registra automáticamente y no se puede editar ni borrar.
         </p>
       </div>
+
+      <form action="/admin/auditoria" className="flex gap-2">
+        {filtro !== "todos" && <input type="hidden" name="tabla" value={filtro} />}
+        <div className="relative min-w-0 flex-1">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input
+            type="search"
+            name="q"
+            defaultValue={busqueda}
+            placeholder="Buscar por usuario, pedido, ítem, modelo, folio, motivo o acción..."
+            aria-label="Buscar en la auditoría"
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm shadow-sm focus:border-brand-600 focus:outline-none"
+          />
+        </div>
+        <button
+          type="submit"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        >
+          Buscar
+        </button>
+        {busqueda && (
+          <Link
+            href={hrefPagina(filtro, 1, false)}
+            className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
+          >
+            Limpiar
+          </Link>
+        )}
+      </form>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {FILTROS.map(([valor, etiqueta]) => (
@@ -178,7 +276,15 @@ export default async function AuditoriaPage({
         </p>
       )}
 
-      {!error && filas.length === 0 && (
+      {!error && busqueda && (
+        <p className="text-sm text-slate-600">
+          {total === 0
+            ? `Ningún evento coincide con “${busqueda}”.`
+            : `${total.toLocaleString("es-MX")} evento${total === 1 ? "" : "s"} para “${busqueda}”.`}
+        </p>
+      )}
+
+      {!error && filas.length === 0 && !busqueda && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Todavía no hay eventos registrados. Aparecerán aquí a partir de ahora.
         </p>
