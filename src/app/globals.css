@@ -590,3 +590,20 @@ html.transicion-tema *::after {
     box-shadow: 0 6px 14px -6px rgb(88 180 0 / 0.55);
   }
 }
+
+/* Modo "Ordenar" de las pestañas del área (src/components/subnav-ordenable.tsx). */
+.pestanas-ordenables[data-ordenando] > a {
+  cursor: grab;
+  border-radius: 0.375rem;
+  outline: 1px dashed var(--color-slate-300);
+  outline-offset: -1px;
+  padding-inline: 0.5rem;
+  user-select: none;
+}
+.pestanas-ordenables[data-ordenando] > a:active {
+  cursor: grabbing;
+}
+.pestanas-ordenables[data-ordenando] > a[data-elegida] {
+  background: var(--color-brand-100);
+  outline: 2px solid var(--color-brand-600);
+}
