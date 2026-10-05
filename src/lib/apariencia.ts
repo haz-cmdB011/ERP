@@ -1,8 +1,29 @@
-// Apariencia personalizable (vidrio esmerilado / glassmorphism): color de
-// acento, tres colores para la hoja de planos de muebles del fondo, y
-// transparencia y desenfoque de los paneles que la difuminan. Vive en este navegador (localStorage) y se aplica como
-// variables CSS en <html style="--marca: ...">, que es lo que leen
-// src/app/vidrio.css y la escala --color-brand-* de globals.css.
+// Apariencia de la interfaz, elegida en "Personalizar apariencia" y guardada
+// en este navegador (localStorage).
+//
+// Estilo: "clasico" (el predefinido: la marca verde con fondos sólidos) o
+// "vidrio" (glassmorphism: paneles translúcidos sobre una hoja de planos de
+// muebles). Se refleja en <html data-estilo="vidrio">, que es lo que activa
+// src/app/vidrio.css.
+//
+// Apariencia del estilo vidrio: color de acento, tres colores para la hoja de
+// planos del fondo, y transparencia y desenfoque de los paneles que la
+// difuminan. Se aplica como variables CSS en <html style="--marca: ...">; en
+// el estilo clásico nada las lee.
+export type Estilo = "clasico" | "vidrio";
+
+export const CLAVE_ESTILO = "erp-estilo";
+export const ESTILO_INICIAL: Estilo = "clasico";
+
+export function esEstilo(valor: unknown): valor is Estilo {
+  return valor === "clasico" || valor === "vidrio";
+}
+
+export function aplicarEstilo(estilo: Estilo, raiz: HTMLElement = document.documentElement) {
+  if (estilo === "vidrio") raiz.setAttribute("data-estilo", "vidrio");
+  else raiz.removeAttribute("data-estilo");
+}
+
 export interface Apariencia {
   marca: string;
   fondo1: string;
@@ -130,8 +151,11 @@ export function aplicarApariencia(a: Apariencia, raiz: HTMLElement = document.do
 }
 
 // Corre en <head> antes de pintar (ver src/app/layout.tsx), igual que
-// SCRIPT_TEMA. Repite en pequeño la validación y el cálculo de contraste de
-// arriba: no puede importar módulos.
-export const SCRIPT_APARIENCIA = `(function(){try{var a=JSON.parse(localStorage.getItem(${JSON.stringify(
+// SCRIPT_TEMA: pone el estilo y las variables de la apariencia. Repite en
+// pequeño la validación y el cálculo de contraste de arriba: no puede importar
+// módulos.
+export const SCRIPT_APARIENCIA = `(function(){try{if(localStorage.getItem(${JSON.stringify(
+  CLAVE_ESTILO
+)})==="vidrio")document.documentElement.setAttribute("data-estilo","vidrio");var a=JSON.parse(localStorage.getItem(${JSON.stringify(
   CLAVE_APARIENCIA
 )})||"null");if(!a||typeof a!=="object")return;var r=document.documentElement.style,h=/^#[0-9a-f]{6}$/;function c(k,n){if(typeof a[k]==="string"&&h.test(a[k]))r.setProperty(n,a[k])}function x(k,n,u,lo,hi){var v=a[k];if(typeof v==="number"&&isFinite(v))r.setProperty(n,Math.min(hi,Math.max(lo,Math.round(v)))+u)}c("marca","--marca");c("fondo1","--fondo-1");c("fondo2","--fondo-2");c("fondo3","--fondo-3");x("opacidad","--vidrio-opacidad","%",${LIMITES.opacidad.min},${LIMITES.opacidad.max});x("desenfoque","--vidrio-desenfoque","px",${LIMITES.desenfoque.min},${LIMITES.desenfoque.max});if(typeof a.marca==="string"&&h.test(a.marca)){var L=0;[1,3,5].forEach(function(i,j){var v=parseInt(a.marca.slice(i,i+2),16)/255;v=v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);L+=[0.2126,0.7152,0.0722][j]*v});r.setProperty("--sobre-marca",(L+0.05)/0.05>=1.05/(L+0.05)?"#0b1300":"#ffffff")}}catch(e){}})()`;

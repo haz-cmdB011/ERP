@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   APARIENCIA_INICIAL,
+  ESTILO_INICIAL,
+  esEstilo,
   LIMITES,
   normalizarApariencia,
   textoSobreMarca,
@@ -46,5 +48,15 @@ describe("variablesApariencia", () => {
     expect(v["--marca"]).toBe(APARIENCIA_INICIAL.marca);
     expect(v["--vidrio-opacidad"]).toBe("50%");
     expect(v["--vidrio-desenfoque"]).toBe("12px");
+  });
+});
+
+describe("estilo", () => {
+  it("el predefinido es el clásico y solo acepta los dos estilos", () => {
+    expect(ESTILO_INICIAL).toBe("clasico");
+    expect(esEstilo("vidrio")).toBe(true);
+    expect(esEstilo("clasico")).toBe(true);
+    expect(esEstilo("otro")).toBe(false);
+    expect(esEstilo(null)).toBe(false);
   });
 });

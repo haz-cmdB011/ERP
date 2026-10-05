@@ -3,8 +3,7 @@
 @import "./vidrio.css";
 
 :root {
-  /* Papel de la hoja de planos del fondo (vidrio.css). */
-  --background: var(--fondo-papel);
+  --background: #ffffff;
   --foreground: #171717;
 }
 
@@ -20,51 +19,50 @@
   --color-on-scrim: #fff;
   --color-papel: #fff;
 
-  /* Iguales en ambos modos: texto sobre el acento (oscuro o blanco según el
-     color elegido) y la barra superior, de vidrio oscuro teñido con el acento
-     (ver vidrio.css). */
-  --color-on-brand: var(--sobre-marca);
-  --color-nav: var(--nav);
-  --color-nav-hover: var(--nav-hover);
-  --color-nav-line: var(--nav-linea);
-  --color-on-nav: #eef3f0;
-  --color-on-nav-suave: #b3c0bb;
+  /* Fijos en ambos modos: texto sobre el verde de marca y la barra superior
+     (siempre oscura, con la marca en verde). El estilo "Vidrio" los cambia
+     con las variables --vidrio-* (vidrio.css); sin él, valen el respaldo. */
+  --color-on-brand: var(--vidrio-sobre-marca, #0b1f00);
+  --color-nav: var(--vidrio-nav, #0c1a06);
+  --color-nav-hover: var(--vidrio-nav-hover, #172a0e);
+  --color-nav-line: var(--vidrio-nav-linea, #24391a);
+  --color-on-nav: var(--vidrio-sobre-nav, #e9f2e1);
+  --color-on-nav-suave: var(--vidrio-sobre-nav-suave, #a4b79a);
 }
 
 /* Sin "inline": las utilidades de la marca leen var(--color-brand-N), que es lo
    que sobrescribe tema-oscuro.css en modo oscuro. */
 @theme {
-  /* Marca: la escala sale del color de acento --marca (por defecto el verde
-     limón Mobiliarium #7CFC00), que cada quien puede cambiar en "Personalizar
-     apariencia" (src/lib/apariencia.ts). El 500 es el acento puro; del 600 en
-     adelante se oscurece para texto y bordes sobre fondo claro (el 700 pasa AA
-     sobre blanco con los colores de los presets); del 400 hacia abajo, los
-     fondos suaves. En modo oscuro la escala se espeja como el resto de colores
-     (scripts/generar-tema-oscuro.mjs lee estas líneas): no editar a mano los
-     valores en tema-oscuro.css. */
-  --color-brand-50: color-mix(in oklab, var(--marca) 8%, #fff);
-  --color-brand-100: color-mix(in oklab, var(--marca) 16%, #fff);
-  --color-brand-200: color-mix(in oklab, var(--marca) 30%, #fff);
-  --color-brand-300: color-mix(in oklab, var(--marca) 50%, #fff);
-  --color-brand-400: color-mix(in oklab, var(--marca) 75%, #fff);
-  --color-brand-500: var(--marca);
-  --color-brand-600: color-mix(in oklab, var(--marca) 74%, #000);
-  --color-brand-700: color-mix(in oklab, var(--marca) 48%, #000);
-  --color-brand-800: color-mix(in oklab, var(--marca) 38%, #000);
-  --color-brand-900: color-mix(in oklab, var(--marca) 30%, #000);
-  --color-brand-950: color-mix(in oklab, var(--marca) 15%, #000);
+  /* Marca Mobiliarium: el verde limón #7CFC00 es el 500. Del 600 en adelante
+     es el verde para texto y bordes sobre fondo claro (el 700 pasa AA sobre
+     blanco); del 400 hacia abajo, los fondos suaves. En el estilo "Vidrio" la
+     escala sale del acento que elija cada quien (--vidrio-marca-N en
+     vidrio.css); sin él, valen estos verdes. En modo oscuro la escala se
+     espeja como el resto de colores (scripts/generar-tema-oscuro.mjs lee estas
+     líneas): no editar a mano los valores en tema-oscuro.css. */
+  --color-brand-50: var(--vidrio-marca-50, #f4ffe6);
+  --color-brand-100: var(--vidrio-marca-100, #e6ffc7);
+  --color-brand-200: var(--vidrio-marca-200, #cfff94);
+  --color-brand-300: var(--vidrio-marca-300, #b0ff55);
+  --color-brand-400: var(--vidrio-marca-400, #98fb2a);
+  --color-brand-500: var(--vidrio-marca-500, #7cfc00);
+  --color-brand-600: var(--vidrio-marca-600, #5ab800);
+  --color-brand-700: var(--vidrio-marca-700, #387d00);
+  --color-brand-800: var(--vidrio-marca-800, #2c6100);
+  --color-brand-900: var(--vidrio-marca-900, #234d00);
+  --color-brand-950: var(--vidrio-marca-950, #0f2400);
 }
 
 /* Mismas reglas que tema-oscuro.css: el sistema decide salvo que el usuario
    haya elegido tema (data-tema en <html>). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --background: var(--fondo-papel);
+    --background: #0a0a0a;
     --foreground: #ededed;
   }
 }
 :root[data-tema="oscuro"] {
-  --background: var(--fondo-papel);
+  --background: #0a0a0a;
   --foreground: #ededed;
 }
 
@@ -227,16 +225,17 @@ textarea:focus-visible {
   --serie-pista: #383835;
 }
 
-/* Entrada suave del contenido de cada pantalla: los bloques de <main> suben
-   uno tras otro. Sin fundido (opacity): un ancestro con opacidad aísla el
-   desenfoque de los paneles de vidrio y se verían nítidos hasta que acabe la
-   animación (ver vidrio.css). Solo en pantalla y si el usuario no pidió menos
+/* Entrada suave del contenido de cada pantalla: los bloques de <main> suben y
+   aparecen uno tras otro (el estilo "Vidrio" usa una variante sin fundido, ver
+   vidrio.css). Solo en pantalla y si el usuario no pidió menos
    movimiento. */
 @keyframes entrada-bloque {
   from {
+    opacity: 0;
     transform: translateY(0.5rem);
   }
   to {
+    opacity: 1;
     transform: none;
   }
 }
@@ -265,13 +264,14 @@ textarea:focus-visible {
    la regla general al final) y al imprimir.
    --------------------------------------------------------------------------- */
 
-/* Aparición con ligera subida (sin fundido, igual que entrada-bloque); --d
-   retrasa cada elemento para escalonarlos. */
+/* Aparición con ligera subida; --d retrasa cada elemento para escalonarlos. */
 @keyframes aparecer {
   from {
+    opacity: 0;
     transform: translateY(0.75rem);
   }
   to {
+    opacity: 1;
     transform: none;
   }
 }
@@ -283,9 +283,11 @@ textarea:focus-visible {
 /* Entrada de tarjetas de resumen: suben y crecen un poco. */
 @keyframes escalar-entrada {
   from {
+    opacity: 0;
     transform: translateY(0.5rem) scale(0.96);
   }
   to {
+    opacity: 1;
     transform: none;
   }
 }
@@ -600,7 +602,7 @@ html.transicion-tema *::after {
   /* Los botones verdes se elevan apenas al pasar el cursor. */
   :is(button, a)[class*="bg-brand-500"]:not(:disabled):hover {
     translate: 0 -1px;
-    box-shadow: 0 6px 14px -6px color-mix(in oklab, var(--marca) 55%, transparent);
+    box-shadow: 0 6px 14px -6px var(--vidrio-resplandor, rgb(88 180 0 / 0.55));
   }
 }
 

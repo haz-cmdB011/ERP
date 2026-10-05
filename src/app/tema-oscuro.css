@@ -295,17 +295,17 @@
     --color-taupe-800: oklch(92.2% 0.005 34.3);
     --color-taupe-900: oklch(96% 0.002 17.2);
     --color-taupe-950: oklch(98.6% 0.002 67.8);
-    --color-brand-50: color-mix(in oklab, var(--marca) 15%, #000);
-    --color-brand-100: color-mix(in oklab, var(--marca) 30%, #000);
-    --color-brand-200: color-mix(in oklab, var(--marca) 38%, #000);
-    --color-brand-300: color-mix(in oklab, var(--marca) 48%, #000);
-    --color-brand-400: color-mix(in oklab, var(--marca) 74%, #000);
-    --color-brand-500: var(--marca);
-    --color-brand-600: color-mix(in oklab, var(--marca) 75%, #fff);
-    --color-brand-700: color-mix(in oklab, var(--marca) 50%, #fff);
-    --color-brand-800: color-mix(in oklab, var(--marca) 30%, #fff);
-    --color-brand-900: color-mix(in oklab, var(--marca) 16%, #fff);
-    --color-brand-950: color-mix(in oklab, var(--marca) 8%, #fff);
+    --color-brand-50: var(--vidrio-marca-950, #0f2400);
+    --color-brand-100: var(--vidrio-marca-900, #234d00);
+    --color-brand-200: var(--vidrio-marca-800, #2c6100);
+    --color-brand-300: var(--vidrio-marca-700, #387d00);
+    --color-brand-400: var(--vidrio-marca-600, #5ab800);
+    --color-brand-500: var(--vidrio-marca-500, #7cfc00);
+    --color-brand-600: var(--vidrio-marca-400, #98fb2a);
+    --color-brand-700: var(--vidrio-marca-300, #b0ff55);
+    --color-brand-800: var(--vidrio-marca-200, #cfff94);
+    --color-brand-900: var(--vidrio-marca-100, #e6ffc7);
+    --color-brand-950: var(--vidrio-marca-50, #f4ffe6);
   }
 }
 @media screen {
@@ -599,17 +599,17 @@
     --color-taupe-800: oklch(92.2% 0.005 34.3);
     --color-taupe-900: oklch(96% 0.002 17.2);
     --color-taupe-950: oklch(98.6% 0.002 67.8);
-    --color-brand-50: color-mix(in oklab, var(--marca) 15%, #000);
-    --color-brand-100: color-mix(in oklab, var(--marca) 30%, #000);
-    --color-brand-200: color-mix(in oklab, var(--marca) 38%, #000);
-    --color-brand-300: color-mix(in oklab, var(--marca) 48%, #000);
-    --color-brand-400: color-mix(in oklab, var(--marca) 74%, #000);
-    --color-brand-500: var(--marca);
-    --color-brand-600: color-mix(in oklab, var(--marca) 75%, #fff);
-    --color-brand-700: color-mix(in oklab, var(--marca) 50%, #fff);
-    --color-brand-800: color-mix(in oklab, var(--marca) 30%, #fff);
-    --color-brand-900: color-mix(in oklab, var(--marca) 16%, #fff);
-    --color-brand-950: color-mix(in oklab, var(--marca) 8%, #fff);
+    --color-brand-50: var(--vidrio-marca-950, #0f2400);
+    --color-brand-100: var(--vidrio-marca-900, #234d00);
+    --color-brand-200: var(--vidrio-marca-800, #2c6100);
+    --color-brand-300: var(--vidrio-marca-700, #387d00);
+    --color-brand-400: var(--vidrio-marca-600, #5ab800);
+    --color-brand-500: var(--vidrio-marca-500, #7cfc00);
+    --color-brand-600: var(--vidrio-marca-400, #98fb2a);
+    --color-brand-700: var(--vidrio-marca-300, #b0ff55);
+    --color-brand-800: var(--vidrio-marca-200, #cfff94);
+    --color-brand-900: var(--vidrio-marca-100, #e6ffc7);
+    --color-brand-950: var(--vidrio-marca-50, #f4ffe6);
   }
 }
 
@@ -908,15 +908,15 @@
   --color-taupe-800: oklch(26.8% 0.011 36.5);
   --color-taupe-900: oklch(21.4% 0.009 43.1);
   --color-taupe-950: oklch(14.7% 0.004 49.3);
-  --color-brand-50: color-mix(in oklab, var(--marca) 8%, #fff);
-  --color-brand-100: color-mix(in oklab, var(--marca) 16%, #fff);
-  --color-brand-200: color-mix(in oklab, var(--marca) 30%, #fff);
-  --color-brand-300: color-mix(in oklab, var(--marca) 50%, #fff);
-  --color-brand-400: color-mix(in oklab, var(--marca) 75%, #fff);
-  --color-brand-500: var(--marca);
-  --color-brand-600: color-mix(in oklab, var(--marca) 74%, #000);
-  --color-brand-700: color-mix(in oklab, var(--marca) 48%, #000);
-  --color-brand-800: color-mix(in oklab, var(--marca) 38%, #000);
-  --color-brand-900: color-mix(in oklab, var(--marca) 30%, #000);
-  --color-brand-950: color-mix(in oklab, var(--marca) 15%, #000);
+  --color-brand-50: var(--vidrio-marca-50, #f4ffe6);
+  --color-brand-100: var(--vidrio-marca-100, #e6ffc7);
+  --color-brand-200: var(--vidrio-marca-200, #cfff94);
+  --color-brand-300: var(--vidrio-marca-300, #b0ff55);
+  --color-brand-400: var(--vidrio-marca-400, #98fb2a);
+  --color-brand-500: var(--vidrio-marca-500, #7cfc00);
+  --color-brand-600: var(--vidrio-marca-600, #5ab800);
+  --color-brand-700: var(--vidrio-marca-700, #387d00);
+  --color-brand-800: var(--vidrio-marca-800, #2c6100);
+  --color-brand-900: var(--vidrio-marca-900, #234d00);
+  --color-brand-950: var(--vidrio-marca-950, #0f2400);
 }

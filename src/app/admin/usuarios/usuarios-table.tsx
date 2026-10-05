@@ -237,7 +237,9 @@ export default function UsuariosTable({
   );
 
   return (
-    <div className="flex flex-col gap-3">
+    // panel-vidrio: sin efecto en el estilo clásico; en el de vidrio la tabla
+    // va en un panel difuminado (vidrio.css).
+    <div className="panel-vidrio flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <label className="flex items-center gap-2">
           <span className="text-gray-500">Rol</span>
