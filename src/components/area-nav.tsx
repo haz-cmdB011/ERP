@@ -6,7 +6,6 @@ import SelectorTema from "./selector-tema";
 import Marca from "./marca";
 import Avatar from "./avatar";
 import { urlAvatar } from "@/lib/cuenta/avatar";
-import SubnavOrdenable from "./subnav-ordenable";
 
 const INICIO_AREA = {
   planeacion: "/planeacion",
@@ -198,7 +197,9 @@ export default async function AreaNav({
       </header>
       {children && (
         <div className="border-b border-slate-200 bg-white">
-          <SubnavOrdenable clave={`${area}:${userId ?? ""}`}>{children}</SubnavOrdenable>
+          <div className="desplazable-sin-barra flex items-stretch gap-5 overflow-x-auto whitespace-nowrap px-4 text-sm sm:gap-6 sm:px-6">
+            {children}
+          </div>
         </div>
       )}
       {/* Debajo de las áreas y los paneles, a la altura del contenido: vuelve
