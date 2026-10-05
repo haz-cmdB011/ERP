@@ -788,7 +788,7 @@ export default function CapturaElectrificacion({
               </div>
 
               {!r.colapsado && (
-                <div className={`grid gap-4 p-4 ${puedeVerSugerido ? "lg:grid-cols-[1.6fr_1fr]" : ""}`}>
+                <div className={`anim-desplegar grid gap-4 p-4 ${puedeVerSugerido ? "lg:grid-cols-[1.6fr_1fr]" : ""}`}>
                   {/* campos */}
                   <div className="flex flex-col gap-4">
                     <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">

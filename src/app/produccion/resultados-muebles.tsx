@@ -5,6 +5,8 @@ import { useState } from "react";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import type { GrupoBusqueda, ItemBusqueda } from "@/lib/produccion/buscar-muebles";
+import Colapsable from "@/components/colapsable";
+import Chevron from "@/components/chevron";
 
 function EstadoBadge({ item }: { item: ItemBusqueda }) {
   if (item.estadoLiberacion === "enviado_a_produccion") {
@@ -95,22 +97,7 @@ export default function ResultadosMuebles({ grupos }: { grupos: GrupoBusqueda[] 
 
               <div className="flex min-w-0 flex-1 basis-64 flex-col">
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-                  {desplegable && (
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className={`h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform ${
-                        abierto ? "rotate-90" : ""
-                      }`}
-                      aria-hidden="true"
-                    >
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
-                  )}
+                  {desplegable && <Chevron abierto={abierto} className="h-3.5 w-3.5 text-slate-500" />}
                   {g.padre.item_code}
                   {g.padre.modelo ? ` — ${g.padre.modelo}` : ""}
                 </span>
@@ -147,7 +134,7 @@ export default function ResultadosMuebles({ grupos }: { grupos: GrupoBusqueda[] 
             </div>
 
             {/* Componentes (hijos): solo al desplegar. */}
-            {abierto && desplegable && (
+            <Colapsable abierto={abierto && desplegable}>
               <div className="overflow-x-auto border-t border-slate-200 bg-slate-50/50">
                 <table className="w-full text-left text-xs">
                   <thead>
@@ -187,7 +174,7 @@ export default function ResultadosMuebles({ grupos }: { grupos: GrupoBusqueda[] 
                   </tbody>
                 </table>
               </div>
-            )}
+            </Colapsable>
           </div>
         );
       })}

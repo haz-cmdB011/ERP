@@ -171,7 +171,7 @@ export function CampoModeloOt({
         )
       )}
       {abierto && opciones.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+        <ul className="anim-menu absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {opciones.map((m) => (
             <li key={claveVariante(m.modelo, m.descripcionPm)}>
               <button
