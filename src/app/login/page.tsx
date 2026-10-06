@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { codigoValido, faltaSegundoPaso, normalizarCodigo } from "@/lib/seguridad/mfa";
 import AuthShell, {
   AVISO_ERROR_AUTH,
   BOTON_AUTH,
@@ -49,7 +50,7 @@ function leerCorreoGuardado(): string | null {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [modo, setModo] = useState<"login" | "recuperar">("login");
+  const [modo, setModo] = useState<"login" | "recuperar" | "mfa">("login");
 
   // Correo recordado de la vez anterior (null en el servidor y si no hay). Lo
   // escrito en esta sesión manda sobre lo recordado.
@@ -61,9 +62,28 @@ export default function LoginPage() {
   const [recordarElegido, setRecordar] = useState<boolean | null>(null);
   const recordar = recordarElegido ?? correoGuardado !== null;
 
+  const [codigo, setCodigo] = useState("");
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  // Volver al login con una sesión que aún no pasó el segundo paso (p. ej. el
+  // servidor lo mandó aquí con ?mfa=1): se pide el código directamente.
+  useEffect(() => {
+    let vigente = true;
+    (async () => {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data: nivel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (vigente && faltaSegundoPaso(nivel)) setModo("mfa");
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -73,9 +93,17 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    setEnviando(false);
     if (error) {
+      setEnviando(false);
       setError(error.message);
+      return;
+    }
+    // Si tiene la verificación en dos pasos activada, falta pedir el código antes
+    // de entrar (la sesión todavía no sirve para usar la app).
+    const { data: nivel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    setEnviando(false);
+    if (faltaSegundoPaso(nivel)) {
+      setModo("mfa");
       return;
     }
     try {
@@ -87,6 +115,49 @@ export default function LoginPage() {
     if (recordar) await guardarEnGestorDelNavegador(email, password);
     router.push("/planeacion");
     router.refresh();
+  }
+
+  async function handleMfa(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!codigoValido(codigo)) {
+      setError("El código tiene 6 dígitos.");
+      return;
+    }
+    setEnviando(true);
+    const supabase = createClient();
+    const { data: factores, error: errorFactores } = await supabase.auth.mfa.listFactors();
+    const factor = factores?.totp?.[0];
+    if (errorFactores || !factor) {
+      setEnviando(false);
+      setError("No se encontró tu verificación en dos pasos. Inicia sesión de nuevo.");
+      return;
+    }
+    const { error: errorCodigo } = await supabase.auth.mfa.challengeAndVerify({
+      factorId: factor.id,
+      code: normalizarCodigo(codigo),
+    });
+    setEnviando(false);
+    if (errorCodigo) {
+      setError("Código incorrecto o vencido. Revisa tu app e inténtalo de nuevo.");
+      setCodigo("");
+      return;
+    }
+    try {
+      if (recordar) localStorage.setItem(CLAVE_CORREO, email);
+    } catch {
+      // Sin localStorage no se puede recordar el correo; el acceso sigue.
+    }
+    router.push("/planeacion");
+    router.refresh();
+  }
+
+  async function cancelarMfa() {
+    await createClient().auth.signOut();
+    setCodigo("");
+    setPassword("");
+    setError(null);
+    setModo("login");
   }
 
   async function handleRecuperar(e: React.FormEvent) {
@@ -112,6 +183,47 @@ export default function LoginPage() {
       {error}
     </p>
   );
+
+  if (modo === "mfa") {
+    return (
+      <AuthShell
+        titulo="Verificación en dos pasos"
+        descripcion="Escribe el código de 6 dígitos que muestra tu app de autenticación."
+        pie={
+          <button type="button" onClick={cancelarMfa} className={`${ENLACE_AUTH} w-fit text-left`}>
+            ← Cancelar e iniciar sesión de nuevo
+          </button>
+        }
+      >
+        <form onSubmit={handleMfa} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="codigo-mfa" className={ETIQUETA_AUTH}>
+              Código de verificación
+            </label>
+            <input
+              id="codigo-mfa"
+              name="codigo"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9 ]*"
+              maxLength={7}
+              required
+              autoFocus
+              placeholder="123 456"
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              className={`${CAMPO_AUTH} text-center font-mono text-xl tracking-[0.3em]`}
+            />
+          </div>
+          <button type="submit" disabled={enviando} className={BOTON_AUTH}>
+            {enviando && <Girando />}
+            {enviando ? "Verificando..." : "Verificar"}
+          </button>
+          {mensajeError}
+        </form>
+      </AuthShell>
+    );
+  }
 
   if (modo === "recuperar") {
     return (

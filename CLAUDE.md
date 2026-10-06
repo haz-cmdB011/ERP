@@ -113,6 +113,15 @@ en el repo. Por eso:
    `select statements from supabase_migrations.schema_migrations where version = '...'`
    y guardarla en el repo.
 
+## Seguridad
+
+Ver `SEGURIDAD.md`: capas de defensa, variables opcionales (`REGISTRO_DOMINIOS_PERMITIDOS`,
+`NEXT_PUBLIC_SITE_URL`, `CSP_SOLO_REPORTE`) y pasos manuales en Supabase/Vercel. Reglas que no
+hay que romper: la lectura de datos exige rol asignado (`is_staff()`; un `usuario` recién
+registrado no ve nada), las imágenes se validan por su contenido real antes de `sharp`
+(`src/lib/seguridad/imagen.ts`), `?next=` solo acepta rutas internas
+(`src/lib/seguridad/redireccion.ts`) y toda tabla nueva lleva RLS desde su migración.
+
 ## Contraseñas filtradas
 
 Se comprueban en la app contra Pwned Passwords (k-anonimato: solo sale el prefijo
