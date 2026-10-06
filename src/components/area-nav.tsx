@@ -156,7 +156,7 @@ export default async function AreaNav({
             <LogoutButton />
           </div>
 
-          <div className="desplazable-sin-barra order-3 -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5 xl:order-2 xl:mx-0 xl:basis-auto xl:flex-1 xl:px-3">
+          <div className="desplazable-sin-barra relative order-3 -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5 xl:order-2 xl:mx-0 xl:basis-auto xl:flex-1 xl:px-3">
             {visibles.map((a) => (
               <Link
                 key={a.area}

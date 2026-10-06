@@ -62,6 +62,14 @@
   --foreground: #ededed;
 }
 
+html,
+body {
+  /* Red de seguridad: ningún elemento que se salga del ancho de la pantalla puede
+     ensanchar la página (en el celular se podía alejar con los dedos y ver los
+     recortes). `clip` no crea un contenedor de scroll, así que sticky sigue igual. */
+  overflow-x: clip;
+  max-width: 100%;
+}
 html {
   /* iOS y Android no reescalan el texto al girar el teléfono. */
   -webkit-text-size-adjust: 100%;
@@ -471,6 +479,20 @@ textarea:focus-visible {
    gráficas y cambio de tema. Las de entrada usan fill-mode "backwards": al
    terminar sueltan el elemento (no pisan transform/opacity propios).
    --------------------------------------------------------------------------- */
+
+/* Los contenedores que recortan o se desplazan deben ser también el bloque de
+   referencia de lo posicionado dentro (.sr-only de casillas y avisos, menús
+   absolutos): si no, esos elementos se escapan del recorte y ensanchan toda la
+   página en el celular. Va en la capa base: .absolute, .fixed y .sticky de
+   Tailwind siguen mandando. */
+@layer base {
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-auto,
+  .overflow-hidden {
+    position: relative;
+  }
+}
 
 /* Todo lo interactivo cambia de color, borde y sombra con suavidad. Va en la
    capa base: las utilidades de Tailwind (transition-colors, etc.) la superan. */
