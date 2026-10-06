@@ -6,6 +6,11 @@ import { headers } from "next/headers";
 // armar links absolutos (ej. el QR de la Hoja de Viajero, que debe abrir
 // la página al escanearlo, no solo mostrar texto).
 export async function getBaseUrl(): Promise<string> {
+  // Si está configurada, se usa tal cual (recomendado en producción: así un Host
+  // falsificado no puede cambiar los links de los QR).
+  const fija = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+  if (fija && /^https?:\/\//.test(fija)) return fija;
+
   const hdrs = await headers();
   const host = hdrs.get("host") ?? "localhost:3000";
   const protocol =

@@ -5,6 +5,7 @@ import AreaNav from "@/components/area-nav";
 import SubnavLink from "@/components/subnav-link";
 import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
+import CuentaPendiente from "@/components/cuenta-pendiente";
 
 export const metadata: Metadata = {
   title: { default: "Calidad", template: "%s · Calidad" },
@@ -58,6 +59,7 @@ export default async function CalidadLayout({
           Folios de calidad
         </SubnavLink>
       </AreaNav>
+      {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
     </div>
   );
