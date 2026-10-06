@@ -105,14 +105,16 @@ body {
   background: var(--color-brand-500);
   color: var(--color-on-brand);
 }
-:focus-visible {
-  outline: 2px solid var(--color-brand-700);
-  outline-offset: 2px;
-}
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline-offset: 0;
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-brand-700);
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline-offset: 0;
+  }
 }
 
 /* Barras de desplazamiento discretas (Chrome/Edge/Firefox). */
@@ -708,6 +710,10 @@ html.transicion-tema *::after {
    quieta; el resto se desvanece y la pantalla nueva sube. */
 .vt-cabecera {
   view-transition-name: cabecera;
+  /* Capa propia por encima del contenido: los diálogos y menús que viven dentro
+     de la barra (buscador, menú de áreas, apariencia) no deben quedar tapados. */
+  position: relative;
+  z-index: 40;
 }
 @keyframes vt-salir {
   to {
