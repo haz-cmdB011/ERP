@@ -445,7 +445,7 @@ export default function ItemsCalidadTable({
           {mo.map((m) => (
             <div
               key={m.id}
-              className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+              className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm"
             >
               <table className="w-full text-left text-xs">
                 <thead>
@@ -470,7 +470,7 @@ export default function ItemsCalidadTable({
           ))}
 
           {fuSueltos.length > 0 && (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">

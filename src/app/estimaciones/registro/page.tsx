@@ -63,7 +63,7 @@ export default async function RegistroRecibosPage({
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
-      <div className="flex items-end justify-between border-b border-slate-200 pb-4">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             {filtro === "pendiente" ? "Por revisar" : "Registro de recibos"}

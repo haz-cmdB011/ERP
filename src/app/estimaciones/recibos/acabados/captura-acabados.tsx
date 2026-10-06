@@ -1255,7 +1255,7 @@ function Total({
 
 function TablaParametro({ titulo, filas }: { titulo: string; filas: string[][] }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200">
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
       <div className="bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
         {titulo}
       </div>

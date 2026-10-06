@@ -352,6 +352,7 @@ export default async function CanceladosProduccionPage() {
         {(pedidosEliminados ?? []).length === 0 ? (
           <p className="text-sm text-slate-500">No hay pedidos eliminados.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -378,6 +379,7 @@ export default async function CanceladosProduccionPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </main>
@@ -401,7 +403,7 @@ function PedidoCancelado({
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 p-3">
         <div>
           <Link href={href} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
             {pedido.numero_pedido}

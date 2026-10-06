@@ -287,7 +287,8 @@ export default function UsuariosTable({
         </span>
       </div>
 
-      <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[820px] text-left text-sm">
         <thead>
           <tr className="text-gray-500">
             <th className="py-2 pr-4">Nombre</th>
@@ -311,6 +312,7 @@ export default function UsuariosTable({
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
