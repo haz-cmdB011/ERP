@@ -20,8 +20,9 @@ describe("versiones de imagen de ítems", () => {
     const miniatura = await comprimirImagenItem(original, "png");
     const grande = await comprimirImagenGrande(original);
 
-    expect(miniatura.extension).toBe("webp");
-    const metaMini = await sharp(miniatura.buffer).metadata();
+    expect(miniatura).not.toBeNull();
+    expect(miniatura!.extension).toBe("webp");
+    const metaMini = await sharp(miniatura!.buffer).metadata();
     expect(Math.max(metaMini.width ?? 0, metaMini.height ?? 0)).toBe(600);
 
     expect(grande).not.toBeNull();
@@ -40,6 +41,13 @@ describe("versiones de imagen de ítems", () => {
 
   it("devuelve null (sin lanzar) si el buffer no es una imagen", async () => {
     expect(await comprimirImagenGrande(Buffer.from("no soy una imagen"))).toBeNull();
+  });
+
+  it("descarta lo que no es JPG, PNG, WebP o GIF (un SVG con scripts, por ejemplo)", async () => {
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+    expect(await comprimirImagenItem(svg, "svg")).toBeNull();
+    expect(await comprimirImagenGrande(svg)).toBeNull();
+    expect(await comprimirImagenItem(Buffer.from("%PDF-1.7 ....................."), "png")).toBeNull();
   });
 
   it("deriva la ruta de la versión grande junto a la miniatura", () => {

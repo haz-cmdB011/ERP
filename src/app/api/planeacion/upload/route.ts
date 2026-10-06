@@ -115,6 +115,8 @@ async function subirImagenesDeItems(
         imagenOriginal.buffer,
         imagenOriginal.extension
       );
+      // Formato que no es una foto válida (ver comprimirImagenItem): se omite.
+      if (!imagen) continue;
       const path = `${carpeta}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
       const error = await subirConReintentos(
         supabase,
@@ -164,6 +166,14 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
+
+  // Antes de descargar o analizar nada: solo Planeación (o desarrollador) carga
+  // pedidos. La base lo exige igual al guardar, pero así una cuenta sin permiso no
+  // gasta CPU del servidor analizando un Excel de hasta 40 MB.
+  const { data: puedeCargar } = await supabase.rpc("is_planeacion");
+  if (!puedeCargar) {
+    return NextResponse.json({ error: "Tu usuario no tiene permiso para cargar pedidos." }, { status: 403 });
   }
 
   // El navegador sube el Excel directo a Storage (carpeta "entrantes/") y

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { urlAvatar } from "@/lib/cuenta/avatar";
 import PerfilForm from "@/app/planeacion/cuenta/perfil-form";
 import CambiarPasswordForm from "@/app/planeacion/cuenta/cambiar-password-form";
+import MfaForm from "@/app/planeacion/cuenta/mfa-form";
 
 // Pantalla "Mi perfil": foto, nombre y contraseña. La comparten Planeación
 // (/planeacion/cuenta) y Estimaciones (/estimaciones/cuenta, para los
@@ -36,6 +37,10 @@ export default async function CuentaContenido() {
       <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">Contraseña</h2>
         <CambiarPasswordForm />
+      </section>
+      <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Verificación en dos pasos</h2>
+        <MfaForm />
       </section>
     </main>
   );

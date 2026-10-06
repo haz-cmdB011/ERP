@@ -10,6 +10,7 @@ import {
 } from "@/lib/estimaciones/discrepancias-resumen";
 import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
+import CuentaPendiente from "@/components/cuenta-pendiente";
 
 // Globo con un número, para los contadores del menú.
 function Globo({ n }: { n: number }) {
@@ -107,6 +108,7 @@ export default async function EstimacionesLayout({
           </>
         )}
       </AreaNav>
+      {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
     </div>
   );

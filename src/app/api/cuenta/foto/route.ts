@@ -11,6 +11,7 @@ import {
   nuevaRutaAvatar,
   rutaAvatarValida,
 } from "@/lib/cuenta/avatar";
+import { detectarFormatoImagen, LIMITE_PIXELES } from "@/lib/seguridad/imagen";
 
 async function usuarioActual() {
   const supabase = await createClient();
@@ -39,9 +40,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "La foto pesa demasiado (máximo 2 MB)." }, { status: 400 });
   }
 
+  // Se confía en los bytes, no en el tipo que declara el navegador.
+  const original = Buffer.from(await archivo.arrayBuffer());
+  if (!detectarFormatoImagen(original)) {
+    return NextResponse.json({ error: "La foto debe ser JPG, PNG o WebP." }, { status: 400 });
+  }
+
   let imagen: Buffer;
   try {
-    imagen = await sharp(Buffer.from(await archivo.arrayBuffer()))
+    imagen = await sharp(original, { limitInputPixels: LIMITE_PIXELES })
       .rotate()
       .resize(LADO_AVATAR, LADO_AVATAR, { fit: "cover", position: "attention" })
       .webp({ quality: 82 })
