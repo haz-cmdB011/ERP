@@ -72,34 +72,34 @@ export default async function EstimacionesLayout({
       >
         {maquilador ? (
           <>
-            <SubnavLink href="/estimaciones/recibos">
+            <SubnavLink href="/estimaciones/recibos" icono="recibo">
               Generador de Recibos
             </SubnavLink>
-            <SubnavLink href="/estimaciones/mis-recibos">
+            <SubnavLink href="/estimaciones/mis-recibos" icono="mis_recibos">
               Mis recibos
               <Globo n={rechazadas} />
             </SubnavLink>
           </>
         ) : (
           <>
-            <SubnavLink href="/estimaciones" tambien={["/estimaciones/pm-cobrado"]}>
+            <SubnavLink href="/estimaciones" icono="panel" tambien={["/estimaciones/pm-cobrado"]}>
               Panel
             </SubnavLink>
-            <SubnavLink href="/estimaciones/recibos">
+            <SubnavLink href="/estimaciones/recibos" icono="recibo">
               Generador de Recibos
             </SubnavLink>
-            <SubnavLink href="/estimaciones/registro?estado=pendiente">
+            <SubnavLink href="/estimaciones/registro?estado=pendiente" icono="por_revisar">
               Por revisar
               <Globo n={porRevisar} />
             </SubnavLink>
-            <SubnavLink href="/estimaciones/registro" excluye="estado=pendiente">
+            <SubnavLink href="/estimaciones/registro" icono="registro" excluye="estado=pendiente">
               Registro de recibos
             </SubnavLink>
-            <SubnavLink href="/estimaciones/reportes">
+            <SubnavLink href="/estimaciones/reportes" icono="reporte">
               Reporte semanal
             </SubnavLink>
             {decideDiscrepancias && (
-              <SubnavLink href="/estimaciones/discrepancias">
+              <SubnavLink href="/estimaciones/discrepancias" icono="discrepancias">
                 Discrepancias
                 <Globo n={pendientes} />
               </SubnavLink>

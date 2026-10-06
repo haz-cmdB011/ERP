@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./tema-oscuro.css";
+@import "./vidrio.css";
 
 :root {
   --background: #ffffff;
@@ -19,13 +20,14 @@
   --color-papel: #fff;
 
   /* Fijos en ambos modos: texto sobre el verde de marca y la barra superior
-     (siempre oscura, con la marca en verde). */
-  --color-on-brand: #0b1f00;
-  --color-nav: #0c1a06;
-  --color-nav-hover: #172a0e;
-  --color-nav-line: #24391a;
-  --color-on-nav: #e9f2e1;
-  --color-on-nav-suave: #a4b79a;
+     (siempre oscura, con la marca en verde). El estilo "Vidrio" los cambia
+     con las variables --vidrio-* (vidrio.css); sin él, valen el respaldo. */
+  --color-on-brand: var(--vidrio-sobre-marca, #0b1f00);
+  --color-nav: var(--vidrio-nav, #0c1a06);
+  --color-nav-hover: var(--vidrio-nav-hover, #172a0e);
+  --color-nav-line: var(--vidrio-nav-linea, #24391a);
+  --color-on-nav: var(--vidrio-sobre-nav, #e9f2e1);
+  --color-on-nav-suave: var(--vidrio-sobre-nav-suave, #a4b79a);
 }
 
 /* Sin "inline": las utilidades de la marca leen var(--color-brand-N), que es lo
@@ -33,20 +35,22 @@
 @theme {
   /* Marca Mobiliarium: el verde limón #7CFC00 es el 500. Del 600 en adelante
      es el verde para texto y bordes sobre fondo claro (el 700 pasa AA sobre
-     blanco); del 400 hacia abajo, los fondos suaves. En modo oscuro la escala
-     se espeja como el resto de colores (scripts/generar-tema-oscuro.mjs lee
-     estas líneas): no editar a mano los valores en tema-oscuro.css. */
-  --color-brand-50: #f4ffe6;
-  --color-brand-100: #e6ffc7;
-  --color-brand-200: #cfff94;
-  --color-brand-300: #b0ff55;
-  --color-brand-400: #98fb2a;
-  --color-brand-500: #7cfc00;
-  --color-brand-600: #5ab800;
-  --color-brand-700: #387d00;
-  --color-brand-800: #2c6100;
-  --color-brand-900: #234d00;
-  --color-brand-950: #0f2400;
+     blanco); del 400 hacia abajo, los fondos suaves. En el estilo "Vidrio" la
+     escala sale del acento que elija cada quien (--vidrio-marca-N en
+     vidrio.css); sin él, valen estos verdes. En modo oscuro la escala se
+     espeja como el resto de colores (scripts/generar-tema-oscuro.mjs lee estas
+     líneas): no editar a mano los valores en tema-oscuro.css. */
+  --color-brand-50: var(--vidrio-marca-50, #f4ffe6);
+  --color-brand-100: var(--vidrio-marca-100, #e6ffc7);
+  --color-brand-200: var(--vidrio-marca-200, #cfff94);
+  --color-brand-300: var(--vidrio-marca-300, #b0ff55);
+  --color-brand-400: var(--vidrio-marca-400, #98fb2a);
+  --color-brand-500: var(--vidrio-marca-500, #7cfc00);
+  --color-brand-600: var(--vidrio-marca-600, #5ab800);
+  --color-brand-700: var(--vidrio-marca-700, #387d00);
+  --color-brand-800: var(--vidrio-marca-800, #2c6100);
+  --color-brand-900: var(--vidrio-marca-900, #234d00);
+  --color-brand-950: var(--vidrio-marca-950, #0f2400);
 }
 
 /* Mismas reglas que tema-oscuro.css: el sistema decide salvo que el usuario
@@ -230,7 +234,8 @@ textarea:focus-visible {
 }
 
 /* Entrada suave del contenido de cada pantalla: los bloques de <main> suben y
-   aparecen uno tras otro. Solo en pantalla y si el usuario no pidió menos
+   aparecen uno tras otro (el estilo "Vidrio" usa una variante sin fundido, ver
+   vidrio.css). Solo en pantalla y si el usuario no pidió menos
    movimiento. */
 @keyframes entrada-bloque {
   from {
@@ -535,6 +540,11 @@ html.transicion-tema *::after {
     transform: translateY(14px) scale(0.97);
   }
 }
+@keyframes cajon-entrada {
+  from {
+    transform: translateX(-100%);
+  }
+}
 @keyframes menu-entrada {
   from {
     opacity: 0;
@@ -579,6 +589,11 @@ html.transicion-tema *::after {
     animation: panel-entrada 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
+  /* Menú lateral de cada área (menu-area.tsx): entra desde la izquierda. */
+  .fixed.inset-0.z-50 > .cajon-menu {
+    animation: cajon-entrada 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
   .anim-menu {
     transform-origin: top;
     animation: menu-entrada 170ms ease-out backwards;
@@ -609,7 +624,7 @@ html.transicion-tema *::after {
   /* Los botones verdes se elevan apenas al pasar el cursor. */
   :is(button, a)[class*="bg-brand-500"]:not(:disabled):hover {
     translate: 0 -1px;
-    box-shadow: 0 6px 14px -6px rgb(88 180 0 / 0.55);
+    box-shadow: 0 6px 14px -6px var(--vidrio-resplandor, rgb(88 180 0 / 0.55));
   }
 }
 

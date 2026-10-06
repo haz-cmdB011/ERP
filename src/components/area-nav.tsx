@@ -3,6 +3,8 @@ import LogoutButton from "./logout-button";
 import BotonRegresar from "./boton-regresar";
 import BuscadorGlobal from "./buscador-global";
 import SelectorTema from "./selector-tema";
+import PersonalizarApariencia from "./personalizar-apariencia";
+import MenuArea from "./menu-area";
 import Marca from "./marca";
 import Avatar from "./avatar";
 import { urlAvatar } from "@/lib/cuenta/avatar";
@@ -80,15 +82,14 @@ const AREAS: { area: Area; href: string; nombre: string; icono: React.ReactNode 
 ];
 
 // Barra superior compartida entre las áreas de la app (Planeación,
-// Producción...). Dos niveles separados a propósito: la barra oscura de
-// arriba es la marca + el selector de área + la sesión; la fila clara de
-// abajo son los links propios de la área activa (pasados como children,
-// ej. "Pedidos" / "Cargar Excel" dentro de Planeación, con SubnavLink) — así
-// quedan visualmente subordinados al área en vez de verse como paneles
-// hermanos al mismo nivel que Planeación/Producción.
+// Producción...): la marca + el selector de área + la sesión. Los links
+// propios del área activa (pasados como children, ej. "Pedidos" / "Cargar
+// Excel" dentro de Planeación, con SubnavLink) van en un menú lateral que se
+// abre con el botón de tres rayas (MenuArea), a la izquierda de la marca.
 //
-// En celular la barra oscura se parte en dos líneas (marca + acciones, y
-// debajo las áreas con desplazamiento de lado); desde `xl` cabe en una.
+// La barra oscura va siempre en dos líneas: marca + acciones arriba y debajo
+// las áreas (con desplazamiento de lado si no caben), para que en ventanas
+// angostas no se corten las áreas.
 export default async function AreaNav({
   area,
   email,
@@ -127,7 +128,14 @@ export default async function AreaNav({
   return (
     <div className="print:hidden">
       <header className="vt-cabecera border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav">
-        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6 xl:flex-nowrap">
+        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6">
+          {/* Paneles del área (Pedidos, Cargar Excel...): menú lateral que se
+              abre con las tres rayas. */}
+          {children && (
+            <MenuArea titulo={AREAS.find((a) => a.area === area)?.nombre ?? "Área"}>
+              {children}
+            </MenuArea>
+          )}
           <Link
             href={soloEstimaciones ? "/estimaciones/recibos" : "/planeacion"}
             className="shrink-0 rounded-lg focus-visible:outline-brand-500"
@@ -136,10 +144,10 @@ export default async function AreaNav({
             <Marca sobreOscuro />
           </Link>
 
-          {/* Acciones de sesión: a la derecha de la marca en celular, al final
-              de la fila desde xl (order cambia de lugar la fila de áreas). */}
-          <div className="order-2 ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5 xl:order-3">
+          {/* Acciones de sesión: a la derecha de la marca. */}
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
             <BuscadorGlobal area={area} />
+            <PersonalizarApariencia />
             <SelectorTema />
             <Link
               href={hrefCuenta}
@@ -156,7 +164,7 @@ export default async function AreaNav({
             <LogoutButton />
           </div>
 
-          <div className="desplazable-sin-barra relative order-3 -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5 xl:order-2 xl:mx-0 xl:basis-auto xl:flex-1 xl:px-3">
+          <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5">
             {visibles.map((a) => (
               <Link
                 key={a.area}
@@ -195,13 +203,6 @@ export default async function AreaNav({
           </div>
         </nav>
       </header>
-      {children && (
-        <div className="border-b border-slate-200 bg-white">
-          <div className="desplazable-sin-barra flex items-stretch gap-5 overflow-x-auto whitespace-nowrap px-4 text-sm sm:gap-6 sm:px-6">
-            {children}
-          </div>
-        </div>
-      )}
       {/* Debajo de las áreas y los paneles, a la altura del contenido: vuelve
           al panel anterior (oculto en el inicio del área). */}
       <BotonRegresar

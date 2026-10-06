@@ -52,7 +52,9 @@ export default function AuthShell({
       </aside>
 
       <section className="pie-seguro flex items-center justify-center px-6 py-10 sm:px-10">
-        <div className="w-full max-w-sm">
+        {/* panel-auth: en el estilo "Vidrio" el formulario va en un panel de
+            vidrio (vidrio.css); en el clásico, sin marco. */}
+        <div className="panel-auth w-full max-w-sm">
           <h1 className="anim-aparecer text-2xl font-semibold tracking-tight text-slate-900" style={{ "--d": "100ms" } as React.CSSProperties}>
             {titulo}
           </h1>

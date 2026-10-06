@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import IconoMenu, { type NombreIcono } from "./iconos-menu";
+import { useCerrarMenu } from "./menu-area";
 
-// Enlace de la segunda fila de AreaNav (Pedidos / Cargar Excel...). Marca la
-// pestaña de la pantalla actual. Las rutas de un solo tramo ("/planeacion")
+// Enlace del menú lateral de cada área (MenuArea: Pedidos / Cargar Excel...),
+// con su ícono. Marca la pantalla actual. Las rutas de un solo tramo ("/planeacion")
 // son el inicio del área y solo coinciden exactas o con las rutas de `tambien`
 // (el detalle de un pedido sigue siendo "Pedidos"); las demás coinciden por
 // prefijo ("/estimaciones/recibos" también cubre "/estimaciones/recibos/acabados").
@@ -14,13 +16,16 @@ export default function SubnavLink({
   href,
   tambien = [],
   excluye,
+  icono,
   children,
 }: {
   href: string;
   tambien?: string[];
   excluye?: string;
+  icono: NombreIcono;
   children: React.ReactNode;
 }) {
+  const cerrarMenu = useCerrarMenu();
   const pathname = usePathname();
   const parametros = useSearchParams();
 
@@ -44,14 +49,19 @@ export default function SubnavLink({
   return (
     <Link
       href={href}
+      onClick={cerrarMenu}
       aria-current={activo ? "page" : undefined}
-      className={`relative -mb-px inline-flex items-center gap-1 border-b-2 px-0.5 py-3 text-sm transition-colors ${
+      className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
         activo
-          ? "subrayado-activo border-transparent font-semibold text-slate-900"
-          : "border-transparent font-medium text-slate-500 hover:border-slate-300 hover:text-slate-900"
+          ? "bg-brand-100 font-semibold text-slate-900 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-brand-500"
+          : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
       }`}
     >
-      {children}
+      <IconoMenu
+        nombre={icono}
+        className={`h-5 w-5 shrink-0 ${activo ? "text-brand-700" : "text-slate-400"}`}
+      />
+      <span className="flex min-w-0 flex-1 items-center justify-between gap-2">{children}</span>
     </Link>
   );
 }
