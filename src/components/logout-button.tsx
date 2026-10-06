@@ -18,7 +18,7 @@ export default function LogoutButton() {
       onClick={handleLogout}
       title="Cerrar sesión"
       aria-label="Cerrar sesión"
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg sm:h-10 sm:w-10 xl:w-auto xl:px-2.5 text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500"
+      className="group inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg sm:h-10 sm:w-10 xl:w-auto xl:px-2.5 text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500"
     >
       <svg
         viewBox="0 0 24 24"
@@ -27,7 +27,7 @@ export default function LogoutButton() {
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-[18px] w-[18px]"
+        className="h-[18px] w-[18px] transition-transform duration-200 group-hover:translate-x-1"
         aria-hidden="true"
       >
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

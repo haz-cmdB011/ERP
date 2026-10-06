@@ -48,7 +48,7 @@ export default async function SeguimientoReciboPage({
 
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-4 p-4 sm:p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold text-slate-900">Seguimiento de recibo</h1>
         <div className="flex items-center gap-3">
           {esPersonal && (recibo.estado === "pendiente" || recibo.estado === "revisado") && (

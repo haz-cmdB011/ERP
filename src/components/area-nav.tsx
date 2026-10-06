@@ -127,7 +127,7 @@ export default async function AreaNav({
 
   return (
     <div className="print:hidden">
-      <header className="border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav">
+      <header className="vt-cabecera border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav">
         <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6">
           {/* Paneles del área (Pedidos, Cargar Excel...): menú lateral que se
               abre con las tres rayas. */}
@@ -164,13 +164,13 @@ export default async function AreaNav({
             <LogoutButton />
           </div>
 
-          <div className="desplazable-sin-barra -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5">
+          <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5">
             {visibles.map((a) => (
               <Link
                 key={a.area}
                 href={a.href}
                 aria-current={area === a.area ? "page" : undefined}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 ${
+                className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 ${
                   area === a.area
                     ? "bg-brand-500 text-on-brand shadow-sm"
                     : "text-on-nav-suave hover:bg-nav-hover hover:text-on-nav"
@@ -183,7 +183,7 @@ export default async function AreaNav({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4 shrink-0"
+                  className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-125"
                   aria-hidden="true"
                 >
                   {a.icono}

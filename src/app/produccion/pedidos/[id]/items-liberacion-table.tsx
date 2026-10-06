@@ -9,6 +9,8 @@ import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 import { avisar } from "@/components/avisos";
+import GrupoDesplegable from "@/components/grupo-desplegable";
+import { useFlip } from "@/lib/ui/use-flip";
 
 export interface ItemLiberacionRow {
   id: string;
@@ -78,6 +80,7 @@ export default function ItemsLiberacionTable({
 }) {
   const router = useRouter();
   const [vistaPapelera, setVistaPapelera] = useState(false);
+  const tablaRef = useFlip<HTMLTableElement>();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
   const [filtroMaterial, setFiltroMaterial] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
@@ -384,7 +387,9 @@ export default function ItemsLiberacionTable({
 
     return (
       <tr
+        key={item.id}
         onClick={desplegable && grupo ? () => alternarMueble(grupo) : undefined}
+        data-flip={item.id}
         style={indentado ? ({ "--i": indice } as React.CSSProperties) : undefined}
         className={`align-top transition-colors ${indentado ? "fila-hija" : ""} ${abierto && desplegable ? "fila-padre-abierta" : ""} ${
           seleccionado
@@ -463,7 +468,7 @@ export default function ItemsLiberacionTable({
               {item.folio && <span className="font-mono text-slate-800">{item.folio}</span>}
             </p>
             <div>
-              <EstadoBadge item={item} />
+              {EstadoBadge({ item })}
               {item.estado_revision && (
                 <span className="mt-1 block text-xs font-semibold">
                   {ESTADO_REVISION_LABELS[item.estado_revision]} (Planeación)
@@ -481,7 +486,7 @@ export default function ItemsLiberacionTable({
           {item.cantidad_total} {item.unidad}
         </td>
         <td className="hidden px-3 py-2 lg:table-cell">
-          <EstadoBadge item={item} />
+          {EstadoBadge({ item })}
           {item.estado_revision && (
             <span className="mt-1 block text-xs font-semibold">
               {ESTADO_REVISION_LABELS[item.estado_revision]} (Planeación)
@@ -846,7 +851,7 @@ export default function ItemsLiberacionTable({
 
           {(grupos.length > 0 || sueltos.length > 0) && (
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-              <table className="w-full text-left text-xs">
+              <table ref={tablaRef} className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2"></th>
@@ -864,19 +869,25 @@ export default function ItemsLiberacionTable({
                 {/* Un <tbody> por mueble: su fila y, si está desplegado, sus
                     componentes; el borde superior los separa entre sí. */}
                 {grupos.map((g) => (
-                  <tbody
+                  <GrupoDesplegable
                     key={g.padre.id}
+                    abierto={estaAbierto(g)}
+                    total={g.hijos.length}
                     className="divide-y divide-slate-100 border-t border-slate-200 first:border-t-0"
                   >
-                    <Fila item={g.padre} indentado={false} grupo={g} />
-                    {estaAbierto(g) &&
-                      g.hijos.map((f, i) => <Fila key={f.id} item={f} indentado indice={i} />)}
-                  </tbody>
+                    {(mostrarHijos) => (
+                      <>
+                        {Fila({ item: g.padre, indentado: false, grupo: g })}
+                        {mostrarHijos &&
+                          g.hijos.map((f, i) => Fila({ item: f, indentado: true, indice: i }))}
+                      </>
+                    )}
+                  </GrupoDesplegable>
                 ))}
                 {sueltos.length > 0 && (
                   <tbody className="divide-y divide-slate-100 border-t border-slate-200">
                     {sueltos.map((f) => (
-                      <Fila key={f.id} item={f} indentado={false} />
+                      Fila({ item: f, indentado: false })
                     ))}
                   </tbody>
                 )}

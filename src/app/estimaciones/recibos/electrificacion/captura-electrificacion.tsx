@@ -1229,7 +1229,7 @@ export default function CapturaElectrificacion({
                 </span>
               </label>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="overflow-hidden rounded-lg border border-slate-200">
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <div className="bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     LED — precio por metro
                   </div>
@@ -1254,7 +1254,7 @@ export default function CapturaElectrificacion({
                     ))}
                   </div>
                 </div>
-                <div className="overflow-hidden rounded-lg border border-slate-200">
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <div className="bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Charola — precio por categoría
                   </div>
@@ -1282,7 +1282,7 @@ export default function CapturaElectrificacion({
                     ))}
                   </div>
                 </div>
-                <div className="overflow-hidden rounded-lg border border-slate-200">
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <div className="bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Prioridad
                   </div>
