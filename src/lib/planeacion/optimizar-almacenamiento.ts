@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import sharp from "sharp";
+import { detectarFormatoImagen, LIMITE_PIXELES } from "@/lib/seguridad/imagen";
 
 // Las imágenes de un ítem se muestran como miniatura (40x40) y, al hacer
 // click, ampliadas en un visor — 600px de lado se ve nítido ampliado sin
@@ -10,14 +11,20 @@ const CALIDAD_WEBP = 80;
 
 // Recomprime una imagen extraída del Excel para guardarla en Storage:
 // redimensiona a tamaño de miniatura y la convierte a WebP. Si sharp no
-// puede procesarla (formato raro, buffer corrupto), se sube la original
-// tal cual en vez de fallar toda la carga por una sola imagen.
+// puede procesarla (buffer corrupto), se sube la original tal cual en vez de
+// fallar toda la carga por una sola imagen.
+//
+// Seguridad: el Excel lo sube un usuario, así que sus imágenes no son de fiar.
+// Solo se procesan o guardan JPG, PNG, WebP y GIF por su contenido real; algo
+// distinto (un SVG con scripts, un EMF, un archivo cualquiera renombrado) se
+// descarta (devuelve null) en vez de pasarlo al decodificador o a Storage.
 export async function comprimirImagenItem(
   buffer: Buffer,
   extensionOriginal: string
-): Promise<{ buffer: Buffer; extension: string }> {
+): Promise<{ buffer: Buffer; extension: string } | null> {
+  if (!detectarFormatoImagen(buffer)) return null;
   try {
-    const comprimida = await sharp(buffer)
+    const comprimida = await sharp(buffer, { limitInputPixels: LIMITE_PIXELES })
       .resize({
         width: LADO_MAXIMO_MINIATURA,
         height: LADO_MAXIMO_MINIATURA,
@@ -42,8 +49,9 @@ const CALIDAD_WEBP_GRANDE = 85;
 // Devuelve null si sharp no puede procesar la imagen: la versión grande es un
 // extra, así que en ese caso simplemente no se guarda (se usará la miniatura).
 export async function comprimirImagenGrande(buffer: Buffer): Promise<Buffer | null> {
+  if (!detectarFormatoImagen(buffer)) return null;
   try {
-    return await sharp(buffer)
+    return await sharp(buffer, { limitInputPixels: LIMITE_PIXELES })
       .resize({
         width: LADO_MAXIMO_GRANDE,
         height: LADO_MAXIMO_GRANDE,

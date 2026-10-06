@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { detectarFormatoImagen, LIMITE_PIXELES } from "@/lib/seguridad/imagen";
 
 // Foto de la hoja con los folios de Calidad que sube el encargado al
 // registrar una entrega. Tiene que leerse la letra escrita a mano, así que se
@@ -15,8 +16,10 @@ export const TAMANO_MAXIMO_FOTO = 4 * 1024 * 1024;
 // vienen "acostadas" con una marca de rotación) y la quita de los metadatos.
 // Devuelve null si el archivo no es una imagen que sharp pueda leer.
 export async function comprimirFotoEntrega(buffer: Buffer): Promise<Buffer | null> {
+  // Solo JPG, PNG, WebP o GIF por su contenido real (no por el tipo declarado).
+  if (!detectarFormatoImagen(buffer)) return null;
   try {
-    return await sharp(buffer)
+    return await sharp(buffer, { limitInputPixels: LIMITE_PIXELES })
       .rotate()
       .resize({
         width: LADO_MAXIMO,

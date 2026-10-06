@@ -115,6 +115,8 @@ async function subirImagenesDeItems(
         imagenOriginal.buffer,
         imagenOriginal.extension
       );
+      // Formato que no es una foto válida (ver comprimirImagenItem): se omite.
+      if (!imagen) continue;
       const path = `${carpeta}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
       const error = await subirConReintentos(
         supabase,
