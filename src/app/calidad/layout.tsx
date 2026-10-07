@@ -37,7 +37,7 @@ export default async function CalidadLayout({
   }
 
   // Aviso de recibos por revisar en la pestaña Estimaciones (solo a quien los revisa).
-  const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase) : 0;
+  const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase).catch(() => 0) : 0;
 
   return (
     <div className="min-h-screen">

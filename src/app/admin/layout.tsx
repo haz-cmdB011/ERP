@@ -44,7 +44,7 @@ export default async function AdminLayout({
         userId={user.id}
         avatarPath={user.app_metadata?.avatar_path}
         esDesarrollador
-        porRevisar={await contarPorRevisar(supabase)}
+        porRevisar={await contarPorRevisar(supabase).catch(() => 0)}
       >
         <SubnavLink href="/admin/usuarios" icono="usuarios">
           Usuarios

@@ -68,29 +68,30 @@ export default async function EstimacionesPage() {
   // quien decide discrepancias ve ese contador.
   const reviso = puedeVerPrecioSugerido(perfil);
   const [porRevisar, porPagar, discrepancias] = await Promise.all([
-    reviso ? contarRecibosPorEstado(supabase, "pendiente") : 0,
-    reviso ? contarRecibosPorEstado(supabase, "revisado") : 0,
+    // null = no se pudo contar: la tarjeta se omite en vez de mostrar un 0 falso.
+    reviso ? contarRecibosPorEstado(supabase, "pendiente").catch(() => null) : null,
+    reviso ? contarRecibosPorEstado(supabase, "revisado").catch(() => null) : null,
     puedeDecidirDiscrepancias(perfil)
-      ? listarResumenDiscrepancias(supabase).then(contarPendientes)
+      ? listarResumenDiscrepancias(supabase).then(contarPendientes).catch(() => null)
       : null,
   ]);
   const tarjetasResumen: TarjetaResumen[] = [];
-  if (reviso) {
-    tarjetasResumen.push(
-      {
-        valor: porRevisar,
-        etiqueta: "Recibos por revisar",
-        detalle: "esperan que aceptes o modifiques el precio",
-        href: "/estimaciones/registro?estado=pendiente",
-        tono: "atencion",
-      },
-      {
-        valor: porPagar,
-        etiqueta: "Revisados sin pagar",
-        detalle: "listos para marcar como pagados",
-        href: "/estimaciones/registro?estado=revisado",
-      }
-    );
+  if (porRevisar !== null) {
+    tarjetasResumen.push({
+      valor: porRevisar,
+      etiqueta: "Recibos por revisar",
+      detalle: "esperan que aceptes o modifiques el precio",
+      href: "/estimaciones/registro?estado=pendiente",
+      tono: "atencion",
+    });
+  }
+  if (porPagar !== null) {
+    tarjetasResumen.push({
+      valor: porPagar,
+      etiqueta: "Revisados sin pagar",
+      detalle: "listos para marcar como pagados",
+      href: "/estimaciones/registro?estado=revisado",
+    });
   }
   if (discrepancias !== null) {
     tarjetasResumen.push({

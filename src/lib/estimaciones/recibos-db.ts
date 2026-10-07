@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RenglonHistorico } from "./datos-acabados";
 import { HERRAJES_NO, HERRAJES_SI, type Banda, type Fuente } from "./motor-precio";
+import { paginarTodo } from "@/lib/supabase/paginar";
 
 // Tipo de recibo: comparten tablas (recibos/renglones) y motor de precio.
 export type TipoRecibo = "acabados" | "armado";
@@ -196,18 +197,23 @@ export async function cargarHistoricoDb(
 ): Promise<RenglonHistorico[]> {
   // Cada tipo de recibo tiene su propio histórico: el precio de un armado no
   // sirve de precedente para un acabado ni al revés.
-  const { data, error } = await supabase
-    .from("renglones")
-    .select(
-      "modelo, descripcion_pm, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo, estado)"
-    )
-    .eq("recibos.tipo", tipo)
-    .neq("recibos.estado", "cancelado")
-    .order("creado_en", { ascending: false })
-    .limit(3000)
-    .returns<RenglonConRecibo[]>();
-
-  if (error || !data) return [];
+  // Lanza si falla la lectura: un histórico incompleto cambiaría los precios
+  // sugeridos sin que nadie lo note. Se traen los 20 mil renglones más recientes.
+  const data = await paginarTodo<RenglonConRecibo>(
+    (desde, hasta) =>
+      supabase
+        .from("renglones")
+        .select(
+          "modelo, descripcion_pm, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo, estado)"
+        )
+        .eq("recibos.tipo", tipo)
+        .neq("recibos.estado", "cancelado")
+        .order("creado_en", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<RenglonConRecibo[]>(),
+    { maxFilas: 20000, contexto: "el histórico de precios" }
+  );
 
   return data
     .filter((r) => r.recibos)
@@ -377,35 +383,42 @@ export function compararFolios(a: string, b: string): number {
   return a.localeCompare(b, "es");
 }
 
-export async function listarRecibos(supabase: SupabaseClient): Promise<ReciboResumen[]> {
-  const { data, error } = await supabase
-    .from("recibos")
-    .select(
-      "id, estado, tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
-        "renglones(cantidad, pu_propuesto, pu_aceptado, decision)"
-    )
-    .returns<
-      {
-        id: string;
-        estado: EstadoRecibo;
-        tipo: TipoRecibo;
-        folio: string;
-        fecha_recibo: string;
-        contratista: string;
-        obra: string | null;
-        ot: string | null;
-        prioridad: string;
-        creado_en: string;
-        renglones: {
-          cantidad: number;
-          pu_propuesto: number;
-          pu_aceptado: number;
-          decision: DecisionRenglon;
-        }[];
-      }[]
-    >();
+interface ReciboConRenglones {
+  id: string;
+  estado: EstadoRecibo;
+  tipo: TipoRecibo;
+  folio: string;
+  fecha_recibo: string;
+  contratista: string;
+  obra: string | null;
+  ot: string | null;
+  prioridad: string;
+  creado_en: string;
+  renglones: {
+    cantidad: number;
+    pu_propuesto: number;
+    pu_aceptado: number;
+    decision: DecisionRenglon;
+  }[];
+}
 
-  if (error || !data) return [];
+// Lanza si falla la lectura (la pantalla muestra el error con "Reintentar" en
+// vez de una lista vacía que parezca "no hay recibos").
+export async function listarRecibos(supabase: SupabaseClient): Promise<ReciboResumen[]> {
+  const data = await paginarTodo<ReciboConRenglones>(
+    (desde, hasta) =>
+      supabase
+        .from("recibos")
+        .select(
+          "id, estado, tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
+            "renglones(cantidad, pu_propuesto, pu_aceptado, decision)"
+        )
+        .order("creado_en", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<ReciboConRenglones[]>(),
+    { contexto: "los recibos" }
+  );
 
   const resumenes = data.map((r) => {
     const totalPropuesto = r.renglones.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_propuesto), 0);

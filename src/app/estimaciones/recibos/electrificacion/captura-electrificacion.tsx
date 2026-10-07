@@ -58,6 +58,10 @@ import { generarPdfDesdeElemento } from "../acabados/generar-pdf";
 import DescargarPdfButton from "../acabados/descargar-pdf-button";
 import ReciboFichaElectrificacion from "./recibo-ficha-electrificacion";
 import { avisar } from "@/components/avisos";
+import { sinCamposDePantalla } from "@/lib/estimaciones/borrador";
+import { useBorradorRecibo } from "../use-borrador-recibo";
+import AvisoBorrador from "../aviso-borrador";
+import AvisoHistorico from "../aviso-historico";
 
 interface Charola {
   drivers: number | "";
@@ -170,6 +174,36 @@ export default function CapturaElectrificacion({
   const [numeroInicial, setNumeroInicial] = useState(1);
   const [folioContinuado, setFolioContinuado] = useState(false);
 
+  // Borrador local: lo capturado sobrevive a cerrar la pestaña o perder la red.
+  const borrador = useBorradorRecibo({
+    tipo: "electrificacion",
+    guardarLocal: !reciboExistente,
+    datos: {
+      folio,
+      fecha,
+      contratista: contratistaFijo ? "" : contratista,
+      obra,
+      ot,
+      prioridad,
+      motivo,
+      numeroInicial,
+      folioContinuado,
+      renglones: sinCamposDePantalla(renglones),
+    },
+    restaurar: (d) => {
+      setFolio(d.folio);
+      setFecha(d.fecha);
+      if (!contratistaFijo) setContratista(d.contratista);
+      setObra(d.obra);
+      setOt(d.ot);
+      setPrioridad(d.prioridad);
+      setMotivo(d.motivo);
+      setNumeroInicial(d.numeroInicial);
+      setFolioContinuado(d.folioContinuado);
+      setRenglones(d.renglones.map((r) => nuevoRenglon(r)));
+    },
+  });
+
   const [tarifas, setTarifas] = useState<TarifasElectrificacion>(TARIFAS_ELECTRIFICACION_INICIALES);
   const [parametrosAbiertos, setParametrosAbiertos] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string[] } | null>(null);
@@ -179,10 +213,13 @@ export default function CapturaElectrificacion({
   // ese precio y no el paramétrico (ver motor-electrificacion.ts). Se recarga
   // tras guardar.
   const [pagados, setPagados] = useState<PrecedenteElectrificacion[]>([]);
+  // Si alguna lectura falla no se finge una lista vacía: se avisa.
+  const [historicoFallo, setHistoricoFallo] = useState(false);
   useEffect(() => {
     const supabase = createClient();
-    listarFoliosElectrificacion(supabase).then(setFoliosDb);
-    cargarPreciosPagadosElectrificacion(supabase).then(setPagados);
+    const fallo = () => setHistoricoFallo(true);
+    listarFoliosElectrificacion(supabase).then(setFoliosDb, fallo);
+    cargarPreciosPagadosElectrificacion(supabase).then(setPagados, fallo);
   }, []);
 
   const [reciboGuardado, setReciboGuardado] = useState<ReciboElectrificacionGuardado | null>(null);
@@ -514,7 +551,8 @@ export default function CapturaElectrificacion({
         ? `Recibo ${nuevoRecibo.folio} modificado.`
         : `Recibo ${nuevoRecibo.folio} guardado.`
     );
-    listarFoliosElectrificacion(supabase).then(setFoliosDb);
+    borrador.alGuardar();
+    listarFoliosElectrificacion(supabase).then(setFoliosDb, () => setHistoricoFallo(true));
     recargarModelos();
 
     setResultado({
@@ -556,6 +594,14 @@ export default function CapturaElectrificacion({
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-6 pb-28">
+      {borrador.pendiente && (
+        <AvisoBorrador
+          guardadoEn={borrador.pendiente.guardadoEn}
+          onRecuperar={borrador.recuperar}
+          onDescartar={borrador.descartar}
+        />
+      )}
+      {historicoFallo && <AvisoHistorico />}
       {!puedeVerSugerido && (
         <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
           Captura tu precio propuesto para cada renglón. El personal de Estimaciones lo revisa

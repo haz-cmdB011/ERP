@@ -5,6 +5,8 @@ import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { buscarReciboPorFolio } from "@/lib/estimaciones/recibos-db";
 import { buscarReciboElectrificacionPorFolio } from "@/lib/estimaciones/recibos-electrificacion-db";
 import { esTipoCualquierRecibo } from "@/lib/estimaciones/revision-db";
+import { listarPendientesDeRevision } from "@/lib/estimaciones/por-revisar";
+import { siguienteRecibo } from "@/lib/estimaciones/aceptacion-masiva";
 import { listarDiscrepanciasRecibo, type AreaRecibo } from "@/lib/estimaciones/discrepancias-db";
 import DiscrepanciasRecibo from "../../../discrepancias-recibo";
 import RevisionRecibo from "./revision-recibo";
@@ -27,16 +29,26 @@ export default async function RevisionReciboPage({
     redirect(perfil?.rol === "maquilador" ? "/estimaciones/mis-recibos" : "/estimaciones");
   }
 
+  // El siguiente recibo por revisar, para despachar la bandeja de corrido. Si
+  // la lectura falla, simplemente no se ofrece el atajo.
+  const siguiente = await listarPendientesDeRevision(supabase)
+    .then((pendientes) => siguienteRecibo(pendientes, { tipo, folio }))
+    .catch(() => null);
+
   if (tipo === "electrificacion") {
     const recibo = await buscarReciboElectrificacionPorFolio(supabase, folio);
     if (!recibo) return <NoEncontrado folio={folio} />;
     const discrepancias = await avisoDiscrepancias(supabase, tipo, recibo.id, recibo.estado);
-    return <RevisionRecibo tipo={tipo} recibo={recibo} discrepancias={discrepancias} />;
+    return (
+      <RevisionRecibo tipo={tipo} recibo={recibo} discrepancias={discrepancias} siguiente={siguiente} />
+    );
   }
   const recibo = await buscarReciboPorFolio(supabase, folio, tipo);
   if (!recibo) return <NoEncontrado folio={folio} />;
   const discrepancias = await avisoDiscrepancias(supabase, tipo, recibo.id, recibo.estado);
-  return <RevisionRecibo tipo={tipo} recibo={recibo} discrepancias={discrepancias} />;
+  return (
+    <RevisionRecibo tipo={tipo} recibo={recibo} discrepancias={discrepancias} siguiente={siguiente} />
+  );
 }
 
 // Diferencias con el PM del recibo; mientras no esté pagado se avisa que

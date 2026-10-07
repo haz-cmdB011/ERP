@@ -42,8 +42,14 @@ import {
   marcarReciboPagado,
   type TipoCualquierRecibo,
 } from "@/lib/estimaciones/revision-db";
+import {
+  elegiblesParaAceptarMasivo,
+  resumenAceptacionMasiva,
+  type RefRecibo,
+} from "@/lib/estimaciones/aceptacion-masiva";
 import EstadoReciboBadge from "../../../estado-recibo-badge";
 import { avisar } from "@/components/avisos";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 type Props = (
   | { tipo: TipoRecibo; recibo: ReciboGuardado }
@@ -51,6 +57,8 @@ type Props = (
 ) & {
   // Diferencias con el PM (se arman en el servidor, ver discrepancias-recibo.tsx).
   discrepancias?: React.ReactNode;
+  // Siguiente recibo pendiente de revisión (null si no queda otro).
+  siguiente?: (RefRecibo & { restantes: number }) | null;
 };
 
 // Lo que el motor sugiere para un renglón al momento de revisarlo.
@@ -246,26 +254,91 @@ export default function RevisionRecibo(props: Props) {
   const estado = recibo.estado ?? "pendiente";
   const editable = estado === "pendiente" || estado === "revisado";
 
-  const renglones = useMemo(() => aRenglones(props), [props]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- solo cambia con el recibo
+  const renglones = useMemo(() => aRenglones(props), [props.tipo, props.recibo]);
 
   // Precios ya pagados para los precedentes (Acabados: base + guardados;
   // Armado: solo guardados de armado; Electrificación: sus renglones pagados).
   // El motor solo toma los de recibos pagados.
   const [historico, setHistorico] = useState<RenglonHistorico[]>(tipo === "acabados" ? HISTORICO : []);
   const [pagadosElectrificacion, setPagadosElectrificacion] = useState<PrecedenteElectrificacion[]>([]);
+  // Sin precedentes completos el sugerido no es confiable: mientras no lleguen
+  // (o si la lectura falla) no se ofrece aceptar en bloque.
+  const [precedentesListos, setPrecedentesListos] = useState(false);
+  const [precedentesFallo, setPrecedentesFallo] = useState(false);
   useEffect(() => {
+    const listo = () => setPrecedentesListos(true);
+    const fallo = () => setPrecedentesFallo(true);
     if (tipo === "electrificacion") {
-      cargarPreciosPagadosElectrificacion(createClient()).then(setPagadosElectrificacion);
+      cargarPreciosPagadosElectrificacion(createClient())
+        .then(setPagadosElectrificacion)
+        .then(listo, fallo);
       return;
     }
-    cargarHistoricoDb(createClient(), tipo).then((db) =>
-      setHistorico(tipo === "acabados" ? [...HISTORICO, ...db] : db)
-    );
+    cargarHistoricoDb(createClient(), tipo)
+      .then((db) => setHistorico(tipo === "acabados" ? [...HISTORICO, ...db] : db))
+      .then(listo, fallo);
   }, [tipo]);
   const precedentes = useMemo(
     () => ({ historico, electrificacion: pagadosElectrificacion }),
     [historico, pagadosElectrificacion]
   );
+
+  // Banda de cada renglón con los precedentes de ahora: de ahí salen los que
+  // se pueden aceptar en bloque.
+  const evaluados = useMemo(
+    () =>
+      renglones.map((r) => {
+        const sug = r.sugerir(precedentes);
+        const { banda } = bandaDe(sug.pu, r.propuesto, sug.esManual);
+        return {
+          id: r.id,
+          numero: r.numero,
+          cantidad: r.cantidad,
+          propuesto: r.propuesto,
+          decision: r.decision,
+          banda,
+          sug,
+        };
+      }),
+    [renglones, precedentes]
+  );
+  const elegibles = precedentesListos ? elegiblesParaAceptarMasivo(evaluados) : [];
+  const resumenMasivo = resumenAceptacionMasiva(elegibles);
+  const [confirmandoMasivo, setConfirmandoMasivo] = useState(false);
+  const [aceptandoMasivo, setAceptandoMasivo] = useState(false);
+  const [errorMasivo, setErrorMasivo] = useState<string | null>(null);
+
+  async function aceptarEnBloque() {
+    setAceptandoMasivo(true);
+    setErrorMasivo(null);
+    const supabase = createClient();
+    let hechos = 0;
+    let fallo: string | null = null;
+    for (const r of evaluados.filter((e) => elegibles.some((x) => x.id === e.id))) {
+      const { error } = await decidirRenglon(supabase, tipo as TipoCualquierRecibo, r.id, {
+        aceptado: r.propuesto,
+        puSugerido: r.sug.pu,
+        fuente: r.sug.fuente,
+        banda: r.banda,
+        justificacion: "",
+      });
+      if (error) {
+        fallo = error;
+        break;
+      }
+      hechos += 1;
+    }
+    setAceptandoMasivo(false);
+    setConfirmandoMasivo(false);
+    if (hechos > 0) {
+      avisar(`${hechos} renglón${hechos === 1 ? "" : "es"} aceptado${hechos === 1 ? "" : "s"}.`);
+    }
+    if (fallo) {
+      setErrorMasivo(`Se aceptaron ${hechos} de ${elegibles.length}. Se detuvo por: ${fallo}`);
+    }
+    router.refresh();
+  }
 
   const totales = renglones.reduce(
     (acc, r) => {
@@ -336,10 +409,52 @@ export default function RevisionRecibo(props: Props) {
 
       {props.discrepancias}
 
+      {editable && precedentesFallo && (
+        <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <strong>No se pudo cargar el histórico de precios.</strong> El precio sugerido puede no
+          ser exacto y no se ofrece aceptar en bloque. Recarga la página para reintentar.
+        </div>
+      )}
+      {editable && elegibles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <span>
+            <strong>{elegibles.length}</strong> de {renglones.length} renglones están dentro del precio
+            sugerido (±10 %) · {money(resumenMasivo.importe)}
+          </span>
+          <button
+            type="button"
+            onClick={() => setConfirmandoMasivo(true)}
+            disabled={aceptandoMasivo}
+            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+          >
+            Aceptar los {elegibles.length}
+          </button>
+          <span className="text-xs text-emerald-800">Los demás los decides tú.</span>
+        </div>
+      )}
+      {errorMasivo && (
+        <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+          {errorMasivo}
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmandoMasivo}
+        title="Aceptar renglones dentro de lo sugerido"
+        message={`Se aceptará el precio propuesto de ${resumenMasivo.renglones} renglón${
+          resumenMasivo.renglones === 1 ? "" : "es"
+        } (${money(resumenMasivo.importe)}), porque quedan dentro de ±10 % del sugerido. Después puedes cambiar cualquiera con “Cambiar decisión”.`}
+        confirmLabel={aceptandoMasivo ? "Aceptando…" : `Aceptar ${resumenMasivo.renglones}`}
+        busy={aceptandoMasivo}
+        onConfirm={() => void aceptarEnBloque()}
+        onCancel={() => setConfirmandoMasivo(false)}
+      />
+
       <div className="flex flex-col gap-4">
         {renglones.map((r) => (
           <RenglonRevisionCard
-            key={r.id}
+            // Al cambiar la decisión (p. ej. tras aceptar en bloque) la tarjeta
+            // se rearma con lo guardado en vez de seguir en modo edición.
+            key={`${r.id}-${r.decision ?? "sin"}`}
             tipo={tipo}
             renglon={r}
             precedentes={precedentes}
@@ -356,6 +471,15 @@ export default function RevisionRecibo(props: Props) {
           valor={`${totales.pendientes} de ${renglones.length}`}
         />
         <div className="ml-auto flex flex-col items-end gap-1">
+          {props.siguiente && (
+            <Link
+              href={`/estimaciones/revision/${props.siguiente.tipo}/${encodeURIComponent(props.siguiente.folio)}`}
+              className="text-xs font-medium text-brand-700 hover:underline"
+            >
+              Siguiente por revisar: {props.siguiente.folio} ({props.siguiente.restantes} pendiente
+              {props.siguiente.restantes === 1 ? "" : "s"}) →
+            </Link>
+          )}
           {estado === "pendiente" && (
             <span className="text-xs text-slate-500">
               El recibo pasa a “Revisado” en cuanto decidas todos los renglones.
