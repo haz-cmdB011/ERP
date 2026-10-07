@@ -148,7 +148,41 @@ export interface TableroSemanal {
   // Maquiladores con pago en la semana vista.
   activosSemana: number;
   cambioTotalVsAnterior: number | null;
+  // Contra el promedio de las demás semanas del historial en que se pagó algo.
+  cambioTotalVsPromedio: number | null;
   ticketPromedio: number | null;
+}
+
+// Cambio a partir del cual un maquilador se marca como notable.
+export const UMBRAL_CAMBIO_NOTABLE = 30;
+
+export interface CambioNotable {
+  contratista: string;
+  importeSemana: number;
+  // Contra su promedio de las demás semanas, en %.
+  cambio: number;
+}
+
+// Maquiladores que cobraron mucho más o mucho menos que su promedio, de mayor a
+// menor variación absoluta. Quien no cobró esta semana pero suele cobrar cuenta
+// como una baja del 100%.
+export function cambiosNotables(
+  maquiladores: KpiMaquilador[],
+  umbral: number = UMBRAL_CAMBIO_NOTABLE
+): CambioNotable[] {
+  return maquiladores
+    .flatMap((m) => {
+      const cambio =
+        m.importeSemana > 0
+          ? m.cambioVsPromedio
+          : m.semanasConPago > 0 && m.promedioSemanal > 0
+            ? -100
+            : null;
+      return cambio != null && Math.abs(cambio) >= umbral
+        ? [{ contratista: m.contratista, importeSemana: m.importeSemana, cambio }]
+        : [];
+    })
+    .sort((a, b) => Math.abs(b.cambio) - Math.abs(a.cambio) || a.contratista.localeCompare(b.contratista, "es"));
 }
 
 const porcentajeDeCambio = (actual: number, base: number): number | null =>
@@ -251,6 +285,9 @@ export function armarTablero(
   for (const m of maquiladores) m.lugar = m.importeSemana > 0 ? ++lugar : 0;
 
   const recibosSemana = totales[ultimo].recibos;
+  const otrasSemanas = totales.slice(0, ultimo).filter((t) => t.importe > 0);
+  const promedioOtras =
+    otrasSemanas.length > 0 ? otrasSemanas.reduce((s, t) => s + t.importe, 0) / otrasSemanas.length : 0;
   return {
     semanas,
     totalesPorSemana: totales.map((t) => ({ ...t, importe: redondear(t.importe) })),
@@ -261,6 +298,7 @@ export function armarTablero(
     activosSemana: maquiladores.filter((m) => m.importeSemana > 0).length,
     cambioTotalVsAnterior:
       ultimo > 0 ? porcentajeDeCambio(totales[ultimo].importe, totales[ultimo - 1].importe) : null,
+    cambioTotalVsPromedio: importeSemana > 0 ? porcentajeDeCambio(importeSemana, promedioOtras) : null,
     ticketPromedio: recibosSemana > 0 ? redondear(importeSemana / recibosSemana) : null,
   };
 }

@@ -1,6 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
+import { cargarOtContraCobrado, tieneDiferencias } from "@/lib/estimaciones/pm-cobrado";
+import { ETIQUETA_AREA } from "@/lib/estimaciones/reporte-dashboard";
+import {
+  describirFiltrosReporte,
+  filtrarPagados,
+  hayFiltrosReporte,
+  leerFiltrosReporte,
+} from "@/lib/estimaciones/reporte-control";
 import {
   armarReporte,
   cargarRecibosPagados,
@@ -39,14 +47,39 @@ export async function GET(request: NextRequest) {
   }
   const semana = { anio, semana: numSemana };
 
-  const { recibos, error } = await cargarRecibosPagados(supabase, semana);
-  if (error) {
-    return NextResponse.json({ error }, { status: 500 });
+  // Sin lectura completa no se entrega el Excel: llevaría totales parciales.
+  let recibos;
+  try {
+    recibos = await cargarRecibosPagados(supabase, semana);
+  } catch (e) {
+    const mensaje = e instanceof Error ? e.message : "No se pudo leer el reporte";
+    return NextResponse.json({ error: mensaje }, { status: 500 });
   }
 
-  const [a, m, d] = fechaLocal(new Date()).split("-");
-  const excel = await generarExcelFormato(armarReporte(recibos), semana, `${d}/${m}/${a}`);
-  const nombre = nombreArchivoFormato(semana);
+  // Mismos filtros que la pantalla (area, maquilador, ot).
+  const filtros = leerFiltrosReporte({
+    area: params.get("area") ?? undefined,
+    maquilador: params.get("maquilador") ?? undefined,
+    ot: params.get("ot") ?? undefined,
+  });
+  const filtrados = filtrarPagados(recibos, filtros);
+
+  // Hoja de diferencias contra el PM, solo de las O.T. que salen en el reporte.
+  const pm = await cargarOtContraCobrado(supabase);
+  if (pm.error) {
+    return NextResponse.json({ error: `No se pudo leer el PM contra cobrado: ${pm.error}` }, { status: 500 });
+  }
+  const ots = new Set(filtrados.map((r) => r.ot.trim()).filter(Boolean));
+  const diferenciasPm = pm.filas.filter((f) => ots.has(f.ot) && tieneDiferencias(f));
+
+  const hoy = fechaLocal(new Date());
+  const [a, m, d] = hoy.split("-");
+  const filtrado = hayFiltrosReporte(filtros);
+  const excel = await generarExcelFormato(armarReporte(filtrados), semana, `${d}/${m}/${a}`, {
+    filtro: filtrado ? describirFiltrosReporte(filtros, ETIQUETA_AREA) : undefined,
+    diferenciasPm,
+  });
+  const nombre = nombreArchivoFormato(semana, hoy, filtrado);
 
   return new NextResponse(new Uint8Array(excel), {
     headers: {
