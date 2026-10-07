@@ -18,7 +18,8 @@ export function Girando() {
   );
 }
 
-export const ENLACE_AUTH = "text-sm font-medium text-brand-800 underline-offset-2 hover:underline";
+// min-h-11 (44 px): en el celular un enlace de una línea (20 px) es difícil de acertar con el dedo.
+export const ENLACE_AUTH = "inline-flex min-h-11 items-center text-sm font-medium text-brand-800 underline-offset-2 hover:underline";
 export const AVISO_ERROR_AUTH =
   "rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700";
 
@@ -71,8 +72,8 @@ export default function AuthShell({
             {children}
           </div>
           {!sinAvisoPrivacidad && (
-            <p className="mt-6 text-xs text-slate-600">
-              <Link href="/privacidad" className="underline underline-offset-2 hover:text-slate-900">
+            <p className="mt-2 text-xs text-slate-600">
+              <Link href="/privacidad" className="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-slate-900">
                 Aviso de privacidad
               </Link>
             </p>
