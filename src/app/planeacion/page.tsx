@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
+import PedidosEliminados from "./pedidos-eliminados";
 import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
   agruparPorOrdenTrabajo,
@@ -317,33 +318,16 @@ export default async function PlaneacionListPage({
               <path d="m9 6 6 6-6 6" />
             </svg>
           </summary>
-          <div className="overflow-x-auto border-t border-slate-100">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">Pedido</th>
-                  <th className="px-4 py-3">Proyecto</th>
-                  <th className="px-4 py-3">Cliente</th>
-                  <th className="px-4 py-3">Eliminado el</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {pedidosEliminados.map((p) => (
-                  <tr key={p.id} className="align-top text-slate-500">
-                    <td className="px-4 py-3 font-medium">{p.numero_pedido}</td>
-                    <td className="px-4 py-3">{p.proyectos?.nombre ?? "—"}</td>
-                    <td className="px-4 py-3">{p.proyectos?.cliente ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {formatoFechaHora(p.eliminado_en)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <AccionesPedido pedidoId={p.id} numeroPedido={p.numero_pedido} eliminado={true} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="border-t border-slate-100">
+            <PedidosEliminados
+              pedidos={pedidosEliminados.map((p) => ({
+                id: p.id,
+                numero_pedido: p.numero_pedido,
+                proyecto: p.proyectos?.nombre ?? "—",
+                cliente: p.proyectos?.cliente ?? "—",
+                eliminado_en: formatoFechaHora(p.eliminado_en),
+              }))}
+            />
           </div>
         </details>
       )}

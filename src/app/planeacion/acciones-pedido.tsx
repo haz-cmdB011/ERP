@@ -8,10 +8,18 @@ import { avisar } from "@/components/avisos";
 
 type Accion = "logico" | "definitivo" | "restaurar";
 
-async function llamar(pedidoId: string, accion: Accion): Promise<{ ok: boolean; data: Record<string, unknown> }> {
+async function llamar(
+  pedidoId: string,
+  accion: Accion,
+  contrasena?: string
+): Promise<{ ok: boolean; data: Record<string, unknown> }> {
   const res =
     accion === "definitivo"
-      ? await fetch(`/api/planeacion/pedidos/${pedidoId}`, { method: "DELETE" })
+      ? await fetch(`/api/planeacion/pedidos/${pedidoId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contrasena }),
+        })
       : await fetch(`/api/planeacion/pedidos/${pedidoId}/${accion === "logico" ? "eliminar-logico" : "restaurar"}`, {
           method: "POST",
         });
@@ -24,7 +32,8 @@ async function llamar(pedidoId: string, accion: Accion): Promise<{ ok: boolean; 
 //  - En la lista (eliminado = false) solo está la papelera. Pide confirmar y el
 //    aviso trae "Deshacer".
 //  - En "Pedidos eliminados" (eliminado = true) se puede restaurar o eliminar
-//    definitivamente; esto último exige escribir el número del PM.
+//    definitivamente; esto último exige la contraseña de quien lo hace (el
+//    servidor la comprueba). Para varios a la vez ver pedidos-eliminados.tsx.
 export default function AccionesPedido({
   pedidoId,
   eliminado,
@@ -32,7 +41,7 @@ export default function AccionesPedido({
 }: {
   pedidoId: string;
   eliminado: boolean;
-  // Para nombrarlo en los mensajes y como texto a escribir al eliminar definitivo.
+  // Para nombrarlo en los mensajes.
   numeroPedido?: string;
 }) {
   const router = useRouter();
@@ -52,17 +61,19 @@ export default function AccionesPedido({
     router.refresh();
   }
 
-  async function ejecutar(accion: Accion) {
-    setConfirmando(null);
+  async function ejecutar(accion: Accion, contrasena?: string) {
+    // Lo definitivo deja el diálogo abierto hasta saber si la contraseña sirvió.
+    if (accion !== "definitivo") setConfirmando(null);
     setCargando(accion);
     setError(null);
-    const { ok, data } = await llamar(pedidoId, accion);
+    const { ok, data } = await llamar(pedidoId, accion, contrasena);
     setCargando(null);
 
     if (!ok) {
       setError(String(data.error ?? "Error desconocido."));
       return;
     }
+    setConfirmando(null);
     // eliminar_pedido_definitivo no borra un pedido que ya tiene folio(s)
     // de Calidad — lo deja cancelado en vez de eliminarlo (ver Cancelados).
     // La fila desaparece de la lista, así que el resultado va en un aviso.
@@ -118,7 +129,7 @@ export default function AccionesPedido({
           </button>
         )}
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && confirmando !== "definitivo" && <p className="text-xs text-red-600">{error}</p>}
 
       <ConfirmDialog
         open={confirmando === "logico"}
@@ -133,10 +144,15 @@ export default function AccionesPedido({
         title="Eliminar definitivamente"
         message={`Se borra ${nombre} con todo su historial e imágenes. No se puede deshacer. Si tiene folios de Calidad, se conserva en Cancelados.`}
         confirmLabel="Eliminar definitivamente"
-        confirmText={numeroPedido}
+        pedirContrasena
+        error={confirmando === "definitivo" ? error : null}
+        busy={cargando === "definitivo"}
         destructive
-        onConfirm={() => void ejecutar("definitivo")}
-        onCancel={() => setConfirmando(null)}
+        onConfirm={(contrasena) => void ejecutar("definitivo", contrasena)}
+        onCancel={() => {
+          setConfirmando(null);
+          setError(null);
+        }}
       />
     </div>
   );

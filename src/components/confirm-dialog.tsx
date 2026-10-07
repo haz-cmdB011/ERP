@@ -21,6 +21,8 @@ export default function ConfirmDialog({
   cancelLabel = "Cancelar",
   destructive = false,
   confirmText,
+  pedirContrasena = false,
+  error = null,
   busy = false,
   onConfirm,
   onCancel,
@@ -32,8 +34,13 @@ export default function ConfirmDialog({
   cancelLabel?: string;
   destructive?: boolean;
   confirmText?: string;
+  // Pide la contraseña de quien confirma (se entrega a `onConfirm`); la
+  // comprueba el servidor. Sustituye a `confirmText` en lo más irreversible.
+  pedirContrasena?: boolean;
+  // Fallo del intento anterior (ej. contraseña incorrecta): el diálogo sigue abierto.
+  error?: string | null;
   busy?: boolean;
-  onConfirm: () => void;
+  onConfirm: (contrasena: string) => void;
   onCancel: () => void;
 }) {
   if (!open) return null;
@@ -45,6 +52,8 @@ export default function ConfirmDialog({
       cancelLabel={cancelLabel}
       destructive={destructive}
       confirmText={confirmText}
+      pedirContrasena={pedirContrasena}
+      error={error}
       busy={busy}
       onConfirm={onConfirm}
       onCancel={onCancel}
@@ -60,6 +69,8 @@ function Contenido({
   cancelLabel,
   destructive,
   confirmText,
+  pedirContrasena,
+  error,
   busy,
   onConfirm,
   onCancel,
@@ -70,12 +81,17 @@ function Contenido({
   cancelLabel: string;
   destructive: boolean;
   confirmText?: string;
+  pedirContrasena: boolean;
+  error: string | null;
   busy: boolean;
-  onConfirm: () => void;
+  onConfirm: (contrasena: string) => void;
   onCancel: () => void;
 }) {
   const [escrito, setEscrito] = useState("");
-  const habilitado = !confirmText || normalizar(escrito) === normalizar(confirmText);
+  const [contrasena, setContrasena] = useState("");
+  const habilitado =
+    (!confirmText || normalizar(escrito) === normalizar(confirmText)) &&
+    (!pedirContrasena || contrasena.length > 0);
 
   const dialogo = (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 p-4">
@@ -95,6 +111,27 @@ function Contenido({
             />
           </label>
         )}
+        {pedirContrasena && (
+          <label className="mt-3 flex flex-col gap-1 text-xs font-medium text-gray-700">
+            Escribe tu contraseña para confirmar
+            <input
+              autoFocus
+              type="password"
+              value={contrasena}
+              onChange={(e) => setContrasena(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && habilitado && !busy) onConfirm(contrasena);
+              }}
+              autoComplete="current-password"
+              className="rounded border border-gray-300 px-2 py-2 text-sm font-normal text-gray-900 focus:border-gray-500 focus:outline-none"
+            />
+          </label>
+        )}
+        {error && (
+          <p role="alert" className="mt-2 text-xs text-red-600">
+            {error}
+          </p>
+        )}
         <div className="mt-4 flex justify-end gap-2">
           <button
             type="button"
@@ -106,7 +143,7 @@ function Contenido({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm(contrasena)}
             disabled={!habilitado || busy}
             className={`rounded px-3 py-2 text-sm font-medium disabled:opacity-50 ${
               destructive ? "bg-red-600 text-white" : "bg-brand-500 text-on-brand hover:bg-brand-400"
