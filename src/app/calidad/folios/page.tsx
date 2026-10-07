@@ -1,6 +1,18 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Paginacion, { TAMANO_PAGINA } from "@/components/paginacion";
+import EstadoVacio from "@/components/estado-vacio";
+import { CATEGORIAS_DEFECTO, nombreCategoria } from "@/lib/calidad/categorias";
+import {
+  ESTADOS_FOLIOS,
+  hrefFolios,
+  type EstadoFolios,
+  leerFiltrosFolios,
+  type FiltrosFolios,
+  type ParametrosFolios,
+} from "@/lib/calidad/folios-filtros";
+import { aplicarFiltrosFolios } from "@/lib/calidad/folios-consulta";
+import { formatoFechaHora } from "@/lib/resumen/entrega";
 
 interface ItemVivo {
   id: string;
@@ -30,6 +42,7 @@ interface InformeRow {
   descripcion: string | null;
   elaborado_por: string | null;
   elaborado_en: string;
+  categoria: string | null;
   planeacion_items: ItemVivo | ItemVivo[] | null;
 }
 
@@ -62,39 +75,26 @@ function unico<T>(valor: T | T[] | null): T | null {
   return valor;
 }
 
-const FILTROS: [string, string][] = [
-  ["todos", "Todos"],
-  ["aprobados", "Aprobados"],
-  ["no_aprobados", "No aprobados"],
-  ["cancelados", "Cancelados / eliminados"],
-];
-
 export default async function FoliosCalidadPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string; pagina?: string }>;
+  searchParams: Promise<ParametrosFolios>;
 }) {
-  const { q, estado, pagina: paginaParam } = await searchParams;
-  const termino = (q ?? "").trim();
-  const filtro = FILTROS.some(([v]) => v === estado) ? (estado as string) : "todos";
+  const filtros = leerFiltrosFolios(await searchParams);
+  const { q: termino, estado: filtro } = filtros;
 
   const supabase = await createClient();
 
-  // Escapa los comodines de LIKE para que se busque el texto tal cual.
-  const literal = termino.replace(/[\\%_]/g, (c) => `\\${c}`);
-
-  // Filtra y cuenta en la base (vista informes_calidad_estado: id, folio,
-  // aprobado, elaborado_en y con_situacion), así el buscador escala sin
-  // importar cuántos informes haya: solo se traen los de la página.
-  const contar = async (clave: string) => {
-    let c = supabase
-      .from("informes_calidad_estado")
-      .select("id", { count: "exact", head: true });
-    if (termino) c = c.ilike("folio", `%${literal}%`);
-    if (clave === "aprobados") c = c.eq("aprobado", true);
-    if (clave === "no_aprobados") c = c.eq("aprobado", false);
-    if (clave === "cancelados") c = c.eq("con_situacion", true);
-    const { count, error: errorConteo } = await c;
+  // Filtros comunes a los conteos y a la lista (vista informes_calidad_estado),
+  // así el buscador escala sin importar cuántos informes haya: solo se traen
+  // los de la página.
+  const conFiltros = <T extends Parameters<typeof aplicarFiltrosFolios>[0]>(consulta: T, estado: EstadoFolios): T =>
+    aplicarFiltrosFolios(consulta, filtros, estado);
+  const contar = async (clave: EstadoFolios) => {
+    const { count, error: errorConteo } = await conFiltros(
+      supabase.from("informes_calidad_estado").select("id", { count: "exact", head: true }),
+      clave
+    );
     return { count: count ?? 0, error: errorConteo };
   };
   const [cTodos, cAprobados, cNoAprobados, cCancelados] = await Promise.all([
@@ -109,25 +109,23 @@ export default async function FoliosCalidadPage({
     no_aprobados: cNoAprobados.count,
     cancelados: cCancelados.count,
   };
-  let error = cTodos.error;
+  let error = cTodos.error ?? cAprobados.error ?? cNoAprobados.error ?? cCancelados.error;
 
-  const total = conteo[filtro as keyof typeof conteo];
+  const total = conteo[filtro];
   const totalPaginas = Math.max(1, Math.ceil(total / TAMANO_PAGINA));
-  const pedida = Number.parseInt(paginaParam ?? "1", 10);
-  const pagina = Math.min(Math.max(Number.isFinite(pedida) ? pedida : 1, 1), totalPaginas);
+  const pagina = Math.min(filtros.pagina, totalPaginas);
 
   let data: InformeRow[] | null = [];
   if (total > 0 && !error) {
-    let idsQuery = supabase
-      .from("informes_calidad_estado")
-      .select("id")
-      .order("elaborado_en", { ascending: false })
-      .order("folio", { ascending: false })
-      .range((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA - 1);
-    if (termino) idsQuery = idsQuery.ilike("folio", `%${literal}%`);
-    if (filtro === "aprobados") idsQuery = idsQuery.eq("aprobado", true);
-    if (filtro === "no_aprobados") idsQuery = idsQuery.eq("aprobado", false);
-    if (filtro === "cancelados") idsQuery = idsQuery.eq("con_situacion", true);
+    const idsQuery = conFiltros(
+      supabase
+        .from("informes_calidad_estado")
+        .select("id")
+        .order("elaborado_en", { ascending: false })
+        .order("folio", { ascending: false })
+        .range((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA - 1),
+      filtro
+    );
     const { data: idsPagina, error: errorIds } = await idsQuery.returns<{ id: string }[]>();
     error = errorIds;
 
@@ -136,7 +134,7 @@ export default async function FoliosCalidadPage({
       const { data: detalle, error: errorDetalle } = await supabase
         .from("informes_calidad")
         .select(
-          "id, folio, aprobado, descripcion, elaborado_por, elaborado_en, planeacion_items ( id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, estado_revision, eliminacion_solicitada_en, pedido_versiones ( pedidos ( id, numero_pedido, eliminado_en, cancelado_en, proyectos ( nombre, cliente ) ) ) )"
+          "id, folio, aprobado, descripcion, categoria, elaborado_por, elaborado_en, planeacion_items ( id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, estado_revision, eliminacion_solicitada_en, pedido_versiones ( pedidos ( id, numero_pedido, eliminado_en, cancelado_en, proyectos ( nombre, cliente ) ) ) )"
         )
         .in("id", ids)
         .returns<InformeRow[]>();
@@ -186,14 +184,10 @@ export default async function FoliosCalidadPage({
 
   const visibles = filas;
 
-  const hrefFiltro = (valor: string, numeroPagina = 1) => {
-    const params = new URLSearchParams();
-    if (termino) params.set("q", termino);
-    if (valor !== "todos") params.set("estado", valor);
-    if (numeroPagina > 1) params.set("pagina", String(numeroPagina));
-    const cadena = params.toString();
-    return cadena ? `/calidad/folios?${cadena}` : "/calidad/folios";
-  };
+  const hrefFiltro = (cambios: Partial<FiltrosFolios>) => hrefFolios({ ...filtros, ...cambios });
+  // La descarga en Excel lleva los mismos filtros (sin página).
+  const hayFiltros = !!(termino || filtros.desde || filtros.hasta || filtros.categoria);
+  const hrefExcel = hrefFolios({ ...filtros, pagina: 1 }, "/api/calidad/folios/excel");
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
@@ -206,44 +200,88 @@ export default async function FoliosCalidadPage({
         </p>
       </div>
 
-      <form method="get" action="/calidad/folios" className="flex flex-wrap items-center gap-2">
-        <input
-          type="search"
-          name="q"
-          defaultValue={termino}
-          placeholder="Folio, por ejemplo CAL-000123 o solo 123"
-          autoComplete="off"
-          className="w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
-        />
+      <form method="get" action="/calidad/folios" className="flex flex-wrap items-end gap-3">
         {filtro !== "todos" && <input type="hidden" name="estado" value={filtro} />}
+        <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Folio
+          <input
+            type="search"
+            name="q"
+            defaultValue={termino}
+            placeholder="CAL-000123 o solo 123"
+            autoComplete="off"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 focus:border-slate-400 focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Desde
+          <input
+            type="date"
+            name="desde"
+            defaultValue={filtros.desde ?? ""}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Hasta
+          <input
+            type="date"
+            name="hasta"
+            defaultValue={filtros.hasta ?? ""}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Defecto
+          <select
+            name="categoria"
+            defaultValue={filtros.categoria ?? ""}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
+          >
+            <option value="">Todos</option>
+            {CATEGORIAS_DEFECTO.map((c) => (
+              <option key={c.valor} value={c.valor}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="submit"
           className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
         >
-          Buscar
+          Filtrar
         </button>
-        {termino && (
+        {hayFiltros && (
           <Link
-            href={filtro === "todos" ? "/calidad/folios" : `/calidad/folios?estado=${filtro}`}
-            className="text-sm text-slate-500 underline hover:text-slate-700"
+            href={hrefFolios({ estado: filtro })}
+            className="py-2 text-sm text-slate-500 underline hover:text-slate-700"
           >
             Limpiar
           </Link>
         )}
+        {total > 0 && (
+          <a
+            href={hrefExcel}
+            className="ml-auto rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            Descargar Excel ({total})
+          </a>
+        )}
       </form>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        {FILTROS.map(([valor, etiqueta]) => (
+        {ESTADOS_FOLIOS.map(([valor, etiqueta]) => (
           <Link
             key={valor}
-            href={hrefFiltro(valor)}
+            href={hrefFiltro({ estado: valor, pagina: 1 })}
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-brand-600 bg-brand-500 text-on-brand"
                 : "border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
-            {etiqueta} ({conteo[valor as keyof typeof conteo]})
+            {etiqueta} ({conteo[valor]})
           </Link>
         ))}
       </div>
@@ -255,13 +293,19 @@ export default async function FoliosCalidadPage({
       )}
 
       {!error && visibles.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          {termino
-            ? `No se encontró ningún folio que coincida con "${termino}".`
-            : filtro !== "todos"
-              ? "No hay folios en este filtro."
-              : "Todavía no hay folios: se generan al evaluar un ítem desde un pedido."}
-        </p>
+        <EstadoVacio
+          titulo={hayFiltros || filtro !== "todos" ? "Ningún folio coincide" : "Todavía no hay folios"}
+          descripcion={
+            hayFiltros || filtro !== "todos"
+              ? "Prueba con otras fechas, otro folio o quita los filtros."
+              : "Se generan al evaluar un ítem desde un pedido."
+          }
+          accion={
+            hayFiltros || filtro !== "todos"
+              ? { href: "/calidad/folios", etiqueta: "Quitar filtros" }
+              : { href: "/calidad", etiqueta: "Ir a Pedidos" }
+          }
+        />
       )}
 
       {visibles.length > 0 && (
@@ -308,6 +352,11 @@ export default async function FoliosCalidadPage({
                       >
                         {inf.aprobado ? "Aprobado" : "No aprobado"}
                       </span>
+                      {!inf.aprobado && nombreCategoria(inf.categoria) && (
+                        <p className="mt-1 text-[11px] font-medium text-rose-600">
+                          {nombreCategoria(inf.categoria)}
+                        </p>
+                      )}
                       {situacion && (
                         <p className="mt-1">
                           <span
@@ -353,10 +402,7 @@ export default async function FoliosCalidadPage({
                       {(inf.elaborado_por && autorPorId.get(inf.elaborado_por)) || "—"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-slate-500">
-                      {new Date(inf.elaborado_en).toLocaleString("es-MX", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      })}
+                      {formatoFechaHora(inf.elaborado_en)}
                     </td>
                   </tr>
                 );
@@ -366,7 +412,7 @@ export default async function FoliosCalidadPage({
         </div>
       )}
 
-      <Paginacion pagina={pagina} total={total} href={(n) => hrefFiltro(filtro, n)} />
+      <Paginacion pagina={pagina} total={total} href={(n) => hrefFiltro({ pagina: n })} />
     </main>
   );
 }

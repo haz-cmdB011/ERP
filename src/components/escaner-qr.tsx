@@ -41,10 +41,19 @@ const ESTILO_BOTON_SECUNDARIO =
   "inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50";
 
 // Escáner del QR de la Hoja de Viajero con la cámara del celular. Al leer uno
-// abre la pantalla del mueble para registrar su entrega. Si la cámara no está
+// abre la pantalla del mueble en el área que lo usa (`rutaItem`): Producción
+// para registrar su entrega, Calidad para evaluarlo. Si la cámara no está
 // disponible (sin permiso, navegador sin soporte), se puede tomar una foto del
-// QR o escribir el folio.
-export default function EscanerQr() {
+// QR o escribir el folio (`rutaFolio` dice a dónde se busca).
+export default function EscanerQr({
+  rutaItem,
+  rutaFolio,
+  placeholderFolio,
+}: {
+  rutaItem: (itemId: string) => string;
+  rutaFolio: (folio: string) => string;
+  placeholderFolio: string;
+}) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -60,10 +69,10 @@ export default function EscanerQr() {
       const item = itemDeQrViajero(texto);
       if (!item) return false;
       navigator.vibrate?.(80);
-      router.push(`/produccion/escanear/${item.itemId}`);
+      router.push(rutaItem(item.itemId));
       return true;
     },
-    [router]
+    [router, rutaItem]
   );
 
   useEffect(() => {
@@ -162,7 +171,7 @@ export default function EscanerQr() {
   function buscarFolio(e: React.FormEvent) {
     e.preventDefault();
     const texto = folio.trim();
-    if (texto) router.push(`/produccion?q=${encodeURIComponent(texto)}`);
+    if (texto) router.push(rutaFolio(texto));
   }
 
   const conVideo = estado === "iniciando" || estado === "escaneando";
@@ -230,7 +239,7 @@ export default function EscanerQr() {
             type="search"
             value={folio}
             onChange={(e) => setFolio(e.target.value)}
-            placeholder="O escribe el folio (PRD-000123)"
+            placeholder={placeholderFolio}
             autoComplete="off"
             className="min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 focus:border-slate-400 focus:outline-none sm:text-sm"
           />

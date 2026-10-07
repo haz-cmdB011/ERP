@@ -1,2 +1,2 @@
-// Umbral de días sin evaluar para marcar un ítem como "antiguo" en la tabla.
-export const DIAS_ANTIGUEDAD_ALERTA = 3;
+// El umbral vive con el resto de la lógica de estado de Calidad.
+export { DIAS_ANTIGUEDAD_ALERTA } from "@/lib/calidad/estado-item";

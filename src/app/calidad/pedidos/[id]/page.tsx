@@ -3,6 +3,9 @@ import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import { esUuid } from "@/lib/produccion/qr-viajero";
+import { formatoFechaDMA } from "@/lib/resumen/entrega";
+import { grupoDelItem } from "@/lib/calidad/estado-item";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
 
 interface VersionRow {
@@ -43,6 +46,7 @@ interface InformeRow {
   planeacion_item_id: string;
   elaborado_en: string;
   descripcion: string | null;
+  categoria: string | null;
 }
 
 export const generateMetadata = metadataPedido;
@@ -52,10 +56,10 @@ export default async function PedidoCalidadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ version?: string }>;
+  searchParams: Promise<{ version?: string; item?: string }>;
 }) {
   const { id } = await params;
-  const { version } = await searchParams;
+  const { version, item: itemParam } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -138,7 +142,7 @@ export default async function PedidoCalidadPage({
   const { data: informes } = itemIds.length
     ? await supabase
         .from("informes_calidad")
-        .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion")
+        .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria")
         .in("planeacion_item_id", itemIds)
         .order("elaborado_en", { ascending: false })
         .returns<InformeRow[]>()
@@ -176,8 +180,18 @@ export default async function PedidoCalidadPage({
       aprobado: inf.aprobado,
       elaborado_en: inf.elaborado_en,
       descripcion: inf.descripcion,
+      categoria: inf.categoria,
     })),
   }));
+
+  // Llegó escaneando el QR de un mueble: se muestra solo ese mueble (con sus
+  // componentes) para evaluarlo sin buscarlo entre todo el pedido.
+  const itemEnfocado = itemParam && esUuid(itemParam) ? itemParam : null;
+  const grupoEnfocado = itemEnfocado ? grupoDelItem(itemsConInforme, itemEnfocado) : [];
+  const enfoque = itemEnfocado !== null && grupoEnfocado.length > 0;
+  const hrefTodoElPedido = `/calidad/pedidos/${id}${
+    versionSeleccionada ? `?version=${versionSeleccionada.numero_version}` : ""
+  }`;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
@@ -196,7 +210,7 @@ export default async function PedidoCalidadPage({
       {pedido.cancelado_en && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
           <p className="font-medium text-rose-800">
-            Este pedido fue cancelado el {new Date(pedido.cancelado_en).toLocaleDateString("es-MX")}
+            Este pedido fue cancelado el {formatoFechaDMA(pedido.cancelado_en)}
           </p>
           {pedido.motivo_cancelacion && (
             <p className="mt-1 text-rose-700">Motivo: {pedido.motivo_cancelacion}</p>
@@ -227,8 +241,26 @@ export default async function PedidoCalidadPage({
         <p className="text-sm text-slate-600">Este pedido no tiene versiones.</p>
       )}
 
+      {itemEnfocado && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
+          {enfoque
+            ? "Mostrando el mueble que escaneaste."
+            : "Ese mueble todavía no se ha enviado a producción en esta versión, así que no se puede evaluar."}
+          <Link href={hrefTodoElPedido} className="font-medium underline-offset-2 hover:underline">
+            Ver todo el pedido
+          </Link>
+          <Link href="/calidad/escanear" className="font-medium underline-offset-2 hover:underline">
+            Escanear otro
+          </Link>
+        </p>
+      )}
+
       {versionSeleccionada && (
-        <ItemsCalidadTable items={itemsConInforme} pedidoId={id} puedeEvaluar={puedeEvaluar} />
+        <ItemsCalidadTable
+          items={enfoque ? grupoEnfocado : itemsConInforme}
+          pedidoId={id}
+          puedeEvaluar={puedeEvaluar}
+        />
       )}
     </main>
   );
