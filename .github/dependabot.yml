@@ -1,0 +1,24 @@
+# Dependabot: abre Pull Requests solos cuando hay versiones nuevas o avisos de
+# seguridad en las dependencias. Cada PR pasa por el CI (lint, pruebas y build)
+# antes de poder fusionarse. Los avisos de seguridad llegan aparte y al momento,
+# sin esperar al calendario.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Menores y parches juntos en un solo PR; las versiones mayores (que pueden
+      # romper algo, como Next.js) van cada una por separado.
+      menores-y-parches:
+        update-types: [minor, patch]
+    labels: [dependencias]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencias]

@@ -354,7 +354,7 @@ export default async function BuscarFolioPage({
                 const informes = item ? (informesPorItem.get(item.id) ?? []) : [];
                 const ultimo = informes[0];
                 const calidad = !ultimo ? (
-                  <span className="text-slate-400">Sin evaluar</span>
+                  <span className="text-slate-500">Sin evaluar</span>
                 ) : (
                   <>
                     <span

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
 import { contrasenaFiltrada, MENSAJE_CONTRASENA_FILTRADA } from "@/lib/auth/contrasena-filtrada";
 
 export async function PATCH(
@@ -13,6 +14,10 @@ export async function PATCH(
   const admin = await requireAdmin();
   if (!admin.ok) {
     return NextResponse.json({ error: admin.error }, { status: admin.status });
+  }
+
+  if (!(await consumirLimite({ clave: `admin-password:${admin.user.id}`, maximo: 30, ventanaSegundos: 3600 }))) {
+    return respuestaLimite("Has restablecido muchas contraseñas en poco tiempo. Inténtalo en un rato.", 3600);
   }
 
   const { id } = await params;

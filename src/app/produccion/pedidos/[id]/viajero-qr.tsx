@@ -32,7 +32,7 @@ export default function ViajeroQr({ value, size = 120 }: { value: string; size?:
 
   return (
     <div
-      className="flex items-center justify-center border border-gray-300 text-[10px] text-gray-400"
+      className="flex items-center justify-center border border-gray-300 text-[10px] text-gray-500"
       style={{ height: size, width: size }}
     >
       {dataUrl ? (

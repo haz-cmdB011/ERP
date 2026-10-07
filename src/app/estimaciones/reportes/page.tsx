@@ -588,7 +588,7 @@ export default async function ReporteSemanalPage({
         </SeccionDesplegable>
       )}
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-500">
         Seguro social: todavía no hay datos de IMSS en el ERP, así que no se descuenta y el total a
         pagar es igual al importe. Cuando existan, se cargará por contratista al folio de mayor
         importe.

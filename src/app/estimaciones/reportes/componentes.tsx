@@ -10,7 +10,7 @@ import { BarrasSemanales, colorDe } from "./graficos";
 export const etiquetaCorta = (s: { semana: number }) => `S${s.semana}`;
 
 export function Cambio({ valor, sufijo }: { valor: number | null; sufijo: string }) {
-  if (valor == null) return <span className="text-xs text-slate-400">{`— ${sufijo}`}</span>;
+  if (valor == null) return <span className="text-xs text-slate-500">{`— ${sufijo}`}</span>;
   if (valor === 0) return <span className="text-xs text-slate-500">{`= ${sufijo}`}</span>;
   const sube = valor > 0;
   return (
@@ -105,7 +105,7 @@ export function FilasGrupo({
           ) : null}
           <td className="px-4 py-2 text-slate-700">
             {NOMBRE_TIPO_CUALQUIERA[f.tipo]}
-            <span className="ml-1 text-xs text-slate-400">{f.subcuenta}</span>
+            <span className="ml-1 text-xs text-slate-500">{f.subcuenta}</span>
           </td>
           <td className="px-4 py-2">
             <Link
@@ -124,7 +124,7 @@ export function FilasGrupo({
           </td>
           {mostrarNombre ? (
             <td
-              className="px-4 py-2 text-right font-mono tabular-nums text-slate-400"
+              className="px-4 py-2 text-right font-mono tabular-nums text-slate-500"
               title={f.seguroSocial == null ? "Sin datos de IMSS todavía" : undefined}
             >
               {f.seguroSocial == null ? "—" : money(f.seguroSocial)}
@@ -191,7 +191,7 @@ export function SeccionMaquilador({
           resaltar={indiceVista}
           puntos={puntos}
         />
-        <span aria-hidden="true" className="text-slate-400 transition-transform group-open:rotate-180">
+        <span aria-hidden="true" className="text-slate-500 transition-transform group-open:rotate-180">
           ▾
         </span>
       </summary>

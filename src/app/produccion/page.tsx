@@ -35,17 +35,25 @@ export default async function ProduccionListPage({
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
   const supabase = await createClient();
 
-  // Con texto en el buscador se muestran también muebles/modelos de todos los pedidos.
-  const busqueda = consulta ? await buscarMuebles(supabase, consulta) : null;
-
-  const { data: pedidos, error } = await supabase
-    .from("pedidos")
-    .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
-    .is("eliminado_en", null)
-    // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
-    .is("eliminado_definitivo_en", null)
-    .order("created_at", { ascending: false })
-    .returns<PedidoConOt[]>();
+  // Búsqueda de muebles (con texto en el buscador se muestran también muebles/modelos
+  // de todos los pedidos), pedidos, avance de liberación por pedido (las tarjetas suman
+  // todo lo vigente) y tablero del taller no dependen entre sí: se piden a la vez. El
+  // taller es un resumen: si falla la consulta la pantalla sigue, solo sin esa tarjeta
+  // ni alertas de asignaciones.
+  const hoy = hoyMexico();
+  const [busqueda, { data: pedidos, error }, avance, taller] = await Promise.all([
+    consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null),
+    supabase
+      .from("pedidos")
+      .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
+      .is("eliminado_en", null)
+      // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
+      .is("eliminado_definitivo_en", null)
+      .order("created_at", { ascending: false })
+      .returns<PedidoConOt[]>(),
+    avancePorPedido(supabase, { conCalidad: false }),
+    cargarTaller(supabase, hoy).catch(() => null),
+  ]);
 
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
@@ -54,8 +62,6 @@ export default async function ProduccionListPage({
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
 
-  // Avance de liberación por pedido; las tarjetas suman todo lo vigente.
-  const avance = await avancePorPedido(supabase, { conCalidad: false });
   const total = sumarAvance(avance);
   const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
@@ -64,10 +70,7 @@ export default async function ProduccionListPage({
   const totalOts = filas.filter((f) => f.ot).length;
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
-  // Lo que sigue en el taller y qué va atrasado. Es un resumen: si falla la
-  // consulta la pantalla sigue, solo sin esa tarjeta ni alertas de asignaciones.
-  const hoy = hoyMexico();
-  const taller = await cargarTaller(supabase, hoy).catch(() => null);
+  // Lo que sigue en el taller y qué va atrasado.
   const resumenTaller = taller ? resumirTaller(taller.asignaciones, taller.plazos, hoy) : null;
   const enTallerPorPedido = new Map<string, number>();
   for (const a of taller?.asignaciones ?? []) {

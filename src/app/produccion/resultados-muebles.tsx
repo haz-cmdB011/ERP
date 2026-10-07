@@ -143,7 +143,7 @@ export default function ResultadosMuebles({
                 <EstadoBadge item={g.padre} />
               </div>
               <div className="min-w-24 whitespace-nowrap font-mono text-xs text-slate-800">
-                {g.padre.folio ?? <span className="font-sans text-slate-400">—</span>}
+                {g.padre.folio ?? <span className="font-sans text-slate-500">—</span>}
               </div>
             </div>
 
@@ -181,7 +181,7 @@ export default function ResultadosMuebles({
                           <EstadoBadge item={h} />
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 font-mono text-slate-800">
-                          {h.folio ?? <span className="font-sans font-normal text-slate-400">—</span>}
+                          {h.folio ?? <span className="font-sans font-normal text-slate-500">—</span>}
                         </td>
                       </tr>
                     ))}

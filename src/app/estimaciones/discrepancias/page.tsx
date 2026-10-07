@@ -137,7 +137,7 @@ export default async function DiscrepanciasPage({
             {etiqueta}
           </Link>
         ))}
-        <span className="ml-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Área</span>
+        <span className="ml-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Área</span>
         {[null, ...AREAS].map((a) => (
           <Link
             key={a ?? "todas"}
@@ -232,7 +232,7 @@ export default async function DiscrepanciasPage({
                     {f.estado === "pendiente" ? (
                       <DecidirBotones id={f.id} />
                     ) : (
-                      <div className="flex flex-col items-end gap-0.5 text-[11px] text-slate-400">
+                      <div className="flex flex-col items-end gap-0.5 text-[11px] text-slate-600">
                         <span
                           className={`rounded-full px-2 py-0.5 font-semibold ring-1 ${
                             f.estado === "aceptada"

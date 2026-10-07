@@ -12,6 +12,7 @@ import {
   rutaAvatarValida,
 } from "@/lib/cuenta/avatar";
 import { detectarFormatoImagen, LIMITE_PIXELES } from "@/lib/seguridad/imagen";
+import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
 
 async function usuarioActual() {
   const supabase = await createClient();
@@ -27,6 +28,11 @@ async function usuarioActual() {
 export async function POST(request: Request) {
   const user = await usuarioActual();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+
+  // sharp procesa la imagen: tope por persona para que nadie sature el servidor.
+  if (!(await consumirLimite({ clave: `foto:${user.id}`, maximo: 20, ventanaSegundos: 3600 }))) {
+    return respuestaLimite("Has cambiado la foto muchas veces. Inténtalo en un rato.", 3600);
+  }
 
   const formulario = await request.formData().catch(() => null);
   const archivo = formulario?.get("foto");

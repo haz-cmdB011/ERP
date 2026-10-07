@@ -29,7 +29,7 @@ const FILTROS: [string, string][] = [
 
 const ESTILO_CELDA: Record<EstadoCobro, string> = {
   no_aplica: "text-slate-300",
-  sin_cobro: "text-slate-400",
+  sin_cobro: "text-slate-500",
   parcial: "text-slate-800",
   completo: "font-semibold text-emerald-700",
   excedido: "font-semibold text-rose-700",

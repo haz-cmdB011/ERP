@@ -181,7 +181,7 @@ export default async function CambiosVersiones({
 
       <form method="get" className="flex flex-wrap items-end gap-3">
         <SelectorVersion nombre="de" etiqueta="Versión anterior" versiones={lista} valor={versionDe.numero_version} />
-        <span className="pb-2 text-slate-400" aria-hidden>
+        <span className="pb-2 text-slate-500" aria-hidden>
           →
         </span>
         <SelectorVersion nombre="a" etiqueta="Versión nueva" versiones={lista} valor={versionA.numero_version} />

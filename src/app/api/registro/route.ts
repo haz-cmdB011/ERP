@@ -8,10 +8,14 @@ import {
   emailValido,
   ipDe,
   MAX_ALTAS_POR_HORA,
+  MAX_ALTAS_POR_IP,
   MAX_NOMBRE,
   MAX_PASSWORD,
   MIN_PASSWORD,
+  VENTANA_IP_MS,
 } from "@/lib/seguridad/registro";
+import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
+import { turnstileActivo, verificarTurnstile } from "@/lib/seguridad/turnstile";
 
 // Registro público (sin sesión): a diferencia de /api/admin/usuarios/crear,
 // cualquier trabajador puede llamar esta ruta para darse de alta a sí
@@ -23,7 +27,9 @@ import {
 // Defensas contra altas masivas (esta ruta no pide sesión):
 //  - REGISTRO_DOMINIOS_PERMITIDOS (opcional, "empresa.com,otra.com"): solo
 //    correos de esos dominios;
-//  - tope por IP (en memoria) y tope global por hora (contado en la base).
+//  - Cloudflare Turnstile (opcional, anti-robots; ver src/lib/seguridad/turnstile.ts);
+//  - tope por IP (contado en la base, más uno en memoria de respaldo) y tope global
+//    por hora (contado en la base).
 const excedeLimitePorIp = crearLimitadorPorIp();
 
 export async function POST(request: Request) {
@@ -34,7 +40,32 @@ export async function POST(request: Request) {
     );
   }
 
+  // El tope en memoria de arriba es por instancia; este se cuenta en la base y vale
+  // para todas (misma cantidad y ventana que MAX_ALTAS_POR_IP / VENTANA_IP_MS).
+  if (
+    !(await consumirLimite({
+      clave: `registro:ip:${ipDe(request)}`,
+      maximo: MAX_ALTAS_POR_IP,
+      ventanaSegundos: VENTANA_IP_MS / 1000,
+    }))
+  ) {
+    return respuestaLimite(
+      "Demasiados intentos desde tu conexión. Espera unos minutos e inténtalo de nuevo.",
+      VENTANA_IP_MS / 1000
+    );
+  }
+
   const body = await request.json().catch(() => null);
+
+  // Anti-robots (opcional, ver turnstile.ts): se comprueba antes que lo demás para
+  // que un robot no gaste consultas a la base ni a Pwned Passwords.
+  if (turnstileActivo() && !(await verificarTurnstile(body?.turnstileToken, ipDe(request)))) {
+    return NextResponse.json(
+      { error: "No pudimos verificar que eres una persona. Inténtalo de nuevo." },
+      { status: 400 }
+    );
+  }
+
   const nombres = typeof body?.nombres === "string" ? body.nombres.trim() : "";
   const apellidos = typeof body?.apellidos === "string" ? body.apellidos.trim() : "";
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";

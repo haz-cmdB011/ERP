@@ -213,7 +213,7 @@ export function CampoModeloOt({
                   <span className="truncate text-[11px] text-slate-500">{m.descripcion}</span>
                 )}
                 {variosPm && m.pms && (
-                  <span className="truncate font-mono text-[10px] text-slate-400">{m.pms}</span>
+                  <span className="truncate font-mono text-[10px] text-slate-600">{m.pms}</span>
                 )}
               </button>
             </li>

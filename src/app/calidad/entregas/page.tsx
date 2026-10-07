@@ -91,7 +91,7 @@ export default async function EntregasPorInspeccionarPage() {
                   <tr key={e.itemId} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-900">{e.numeroPedido}</td>
                     <td className="px-4 py-3 text-slate-700">
-                      {e.modelo ?? "—"} <span className="text-xs text-slate-400">· ítem {e.itemCode}</span>
+                      {e.modelo ?? "—"} <span className="text-xs text-slate-500">· ítem {e.itemCode}</span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">
                       {e.entregado} de {e.asignado} {e.unidad ?? ""}

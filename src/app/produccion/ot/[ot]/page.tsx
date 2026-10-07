@@ -164,7 +164,7 @@ export default async function OrdenTrabajoProduccionPage({
                             #{activa.numero_version}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-500">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-slate-700">

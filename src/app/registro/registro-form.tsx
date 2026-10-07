@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Turnstile, { CLAVE_TURNSTILE } from "@/components/turnstile";
 import { createClient } from "@/lib/supabase/client";
 import PasswordStrengthMeter from "@/components/password-strength-meter";
 import {
@@ -20,22 +22,30 @@ export default function RegistroForm() {
   const [password, setPassword] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Comprobación anti-robots (solo si hay clave del sitio): un token sirve una vez.
+  const [tokenCaptcha, setTokenCaptcha] = useState<string | null>(null);
+  const [reinicioCaptcha, setReinicioCaptcha] = useState(0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (CLAVE_TURNSTILE && !tokenCaptcha) {
+      setError("Espera a que termine la verificación de seguridad e inténtalo de nuevo.");
+      return;
+    }
     setEnviando(true);
 
     const res = await fetch("/api/registro", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombres, apellidos, email, password }),
+      body: JSON.stringify({ nombres, apellidos, email, password, turnstileToken: tokenCaptcha }),
     });
     const data = await res.json();
 
     if (!res.ok) {
       setEnviando(false);
       setError(data.error ?? "Error desconocido.");
+      setReinicioCaptcha((n) => n + 1);
       return;
     }
 
@@ -120,6 +130,7 @@ export default function RegistroForm() {
         />
         <PasswordStrengthMeter password={password} />
       </div>
+      <Turnstile alCambiar={setTokenCaptcha} reinicio={reinicioCaptcha} />
       <button type="submit" disabled={enviando} className={BOTON_AUTH}>
         {enviando && <Girando />}
         {enviando ? "Creando cuenta..." : "Crear cuenta"}
@@ -129,6 +140,13 @@ export default function RegistroForm() {
           {error}
         </p>
       )}
+      <p className="text-xs leading-relaxed text-slate-600">
+        Al crear tu cuenta aceptas el{" "}
+        <Link href="/privacidad" className="font-medium text-brand-800 underline underline-offset-2">
+          aviso de privacidad
+        </Link>
+        .
+      </p>
     </form>
   );
 }

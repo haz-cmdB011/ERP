@@ -32,6 +32,12 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      # Falla con avisos de gravedad ALTA o crítica en las dependencias que van a
+      # producción. Los moderados conocidos (uuid dentro de exceljs) están
+      # aceptados en SEGURIDAD.md y no la rompen.
+      - name: Auditoría de dependencias
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Lint
         run: npm run lint
 

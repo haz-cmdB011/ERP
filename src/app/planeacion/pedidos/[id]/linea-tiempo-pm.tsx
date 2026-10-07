@@ -87,7 +87,7 @@ export default function LineaTiempoPm({ tiempo: t }: { tiempo: LineaTiempo }) {
               {paso.titulo}
             </p>
             {paso.vacio ? (
-              <p className="text-xs text-slate-400">{paso.vacio}</p>
+              <p className="text-xs text-slate-500">{paso.vacio}</p>
             ) : (
               paso.lineas.map((l) => (
                 <div key={l.etiqueta} className="flex flex-col gap-1">

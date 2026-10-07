@@ -25,7 +25,7 @@ describe("exigeSegundoPaso", () => {
     }
   });
   it("login, registro y callback quedan libres para poder terminar de entrar", () => {
-    for (const ruta of ["/login", "/registro", "/auth/callback", "/api/registro", "/manifest.webmanifest"]) {
+    for (const ruta of ["/login", "/registro", "/privacidad", "/auth/callback", "/api/registro", "/manifest.webmanifest"]) {
       expect(exigeSegundoPaso(ruta), ruta).toBe(false);
     }
   });
