@@ -52,7 +52,7 @@ export function aReciboListado(f: FilaResumen): ReciboListado {
   };
 }
 
-// Vista `recibos_resumen` (migración 20261007120000): una fila por recibo con los
+// Vista `recibos_resumen` (migración 20261007170630): una fila por recibo con los
 // totales ya calculados. null si la vista aún no existe en la base; cualquier
 // otro fallo se lanza.
 async function listarDesdeVista(supabase: SupabaseClient): Promise<ReciboListado[] | null> {
