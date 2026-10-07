@@ -31,6 +31,11 @@ const MARGEN_PT = 36; // 0.5"
 // lugar de partir la ficha.
 const TOLERANCIA_UNA_HOJA = 1.15;
 const ESCALA_MAXIMA = 3;
+// Las fichas se guardan como JPEG (fondo blanco, sin transparencia): un PNG a escala 3
+// pesaba ~1.3 MB por ficha y un lote de 20 daba PDF de ~28 MB, lento de bajar y
+// imposible de compartir por WhatsApp o correo. Con 0.92 el texto se sigue viendo
+// nítido al imprimir.
+const CALIDAD_JPEG = 0.92;
 // iOS Safari deja en blanco un canvas de más de 16 777 216 píxeles.
 const MAX_PIXELES_CANVAS = 16_000_000;
 
@@ -81,8 +86,8 @@ function agregarFicha(doc: Pdf, canvas: HTMLCanvasElement, nuevaPagina: () => vo
     const ancho = anchoUtil * ajuste;
     nuevaPagina();
     doc.addImage(
-      canvas.toDataURL("image/png"),
-      "PNG",
+      canvas.toDataURL("image/jpeg", CALIDAD_JPEG),
+      "JPEG",
       MARGEN_PT + (anchoUtil - ancho) / 2,
       MARGEN_PT,
       ancho,
@@ -103,7 +108,7 @@ function agregarFicha(doc: Pdf, canvas: HTMLCanvasElement, nuevaPagina: () => vo
       if (!ctx) break;
       ctx.drawImage(canvas, 0, offsetPx, canvas.width, altoFranjaPx, 0, 0, canvas.width, altoFranjaPx);
       nuevaPagina();
-      doc.addImage(franja.toDataURL("image/png"), "PNG", MARGEN_PT, MARGEN_PT, anchoUtil, altoFranjaPx * escala);
+      doc.addImage(franja.toDataURL("image/jpeg", CALIDAD_JPEG), "JPEG", MARGEN_PT, MARGEN_PT, anchoUtil, altoFranjaPx * escala);
     } finally {
       liberar(franja);
     }
