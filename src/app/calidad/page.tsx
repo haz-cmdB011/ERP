@@ -8,7 +8,13 @@ import {
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
 import ResumenInicio from "@/components/resumen-inicio";
-import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
+import {
+  avancePorPedidoEstricto,
+  sumarAvance,
+  sumarAvanceDe,
+  type AvancePedido,
+} from "@/lib/resumen/avance-items";
+import { paginarTodo } from "@/lib/supabase/paginar";
 import EstadoCalidad from "./estado-calidad";
 
 // Igual que en Planeación y Producción: órdenes de trabajo con sus PM. Al
@@ -25,24 +31,39 @@ export default async function CalidadListPage({
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
   const supabase = await createClient();
 
-  const { data: pedidos, error } = await supabase
-    .from("pedidos")
-    .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
-    .is("eliminado_en", null)
-    // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
-    .is("eliminado_definitivo_en", null)
-    .order("created_at", { ascending: false })
-    .returns<PedidoConOt[]>();
+  // Todos los pedidos, por páginas (la API corta en 1000). Si la lectura falla
+  // se lanza y la pantalla ofrece "Reintentar" en vez de mostrar una lista corta.
+  const pedidos = await paginarTodo<PedidoConOt>(
+    (desde, hasta) =>
+      supabase
+        .from("pedidos")
+        .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
+        .is("eliminado_en", null)
+        // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
+        .is("eliminado_definitivo_en", null)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<PedidoConOt[]>(),
+    { contexto: "los pedidos" }
+  );
 
-  const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
+  const filtradas = filtrarOrdenesTrabajo(pedidos, {
     anio: anioFiltro,
     cliente: clienteFiltro,
     busqueda,
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
 
-  // Avance de evaluación por pedido; las tarjetas suman todo lo vigente.
-  const avance = await avancePorPedido(supabase, { conCalidad: true });
+  // Avance de evaluación por pedido; las tarjetas suman todo lo vigente. Si no
+  // se pudo calcular se avisa en vez de mostrar ceros que parezcan reales.
+  let avance = new Map<string, AvancePedido>();
+  let avanceFallo = false;
+  try {
+    avance = await avancePorPedidoEstricto(supabase, { conCalidad: true });
+  } catch {
+    avanceFallo = true;
+  }
   const total = sumarAvance(avance);
   const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
@@ -53,18 +74,25 @@ export default async function CalidadListPage({
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida acciones={[{ href: "/calidad/folios", etiqueta: "Folios de calidad" }]} />
-      <ResumenInicio
-        tarjetas={[
-          {
-            valor: total.porEvaluar,
-            etiqueta: "Ítems por evaluar",
-            detalle: `en ${otsConPendientes} O.T.`,
-            href: "/calidad?f=por-evaluar",
-            tono: "atencion",
-          },
-          { valor: total.liberados, etiqueta: "Ítems en producción", detalle: "liberados por Producción", href: "/calidad" },
-        ]}
-      />
+      {avanceFallo ? (
+        <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          No se pudo calcular cuántos ítems faltan por evaluar. Recarga la página para reintentar; la
+          lista de abajo sí está completa.
+        </p>
+      ) : (
+        <ResumenInicio
+          tarjetas={[
+            {
+              valor: total.porEvaluar,
+              etiqueta: "Ítems por evaluar",
+              detalle: `en ${otsConPendientes} O.T.`,
+              href: "/calidad?f=por-evaluar",
+              tono: "atencion",
+            },
+            { valor: total.liberados, etiqueta: "Ítems en producción", detalle: "liberados por Producción", href: "/calidad" },
+          ]}
+        />
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -75,7 +103,7 @@ export default async function CalidadListPage({
             enviados a producción.
           </p>
         </div>
-        {pedidos && pedidos.length > 0 && (
+        {pedidos.length > 0 && (
           <span className="whitespace-nowrap rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {totalOts} O.T.
           </span>
@@ -111,13 +139,7 @@ export default async function CalidadListPage({
         )}
       </form>
 
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          No se pudieron cargar los pedidos: {error.message}
-        </p>
-      )}
-
-      {!error && (!pedidos || pedidos.length === 0) && (
+      {pedidos.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Todavía no hay pedidos cargados.
         </p>
@@ -141,7 +163,7 @@ export default async function CalidadListPage({
         q={busqueda || undefined}
       />
 
-      {pedidos && pedidos.length > 0 && filas.length === 0 && (
+      {pedidos.length > 0 && filas.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Ninguna O.T. coincide con los filtros.
         </p>

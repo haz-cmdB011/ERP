@@ -1,12 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCancelado, IconoCheck, IconoReloj, IconoX } from "@/components/iconos-estado";
-import { DIAS_ANTIGUEDAD_ALERTA } from "./antiguedad";
+import ConfirmDialog from "@/components/confirm-dialog";
+import { avisar } from "@/components/avisos";
+import {
+  DIAS_ANTIGUEDAD_ALERTA,
+  diasSinEvaluar,
+  estadoDe,
+  funcionNoExiste,
+  idsPorAprobar,
+  type EstadoCalidad,
+} from "@/lib/calidad/estado-item";
 import Colapsable from "@/components/colapsable";
 
 export interface InformeResumen {
@@ -36,25 +45,11 @@ export interface ItemCalidadRow {
   informes: InformeResumen[];
 }
 
-type FiltroCalidad = "todos" | "aprobado" | "no_aprobado" | "sin_evaluar" | "cancelado";
+type FiltroCalidad = "todos" | EstadoCalidad;
 
-// Un ítem cancelado en Planeación/Producción se muestra así aunque ya
-// tenga informes de calidad previos — su historial de folios no se pierde,
-// solo deja de tener sentido seguir evaluándolo.
-function estadoDe(item: ItemCalidadRow): FiltroCalidad {
-  if (item.estadoRevision === "cancelado") return "cancelado";
-  const ultimo = item.informes[0];
-  if (!ultimo) return "sin_evaluar";
-  return ultimo.aprobado ? "aprobado" : "no_aprobado";
-}
-
-// Días sin evaluar desde que se liberó a producción — null si ya tiene
-// informe o si no hay fecha de liberación registrada.
-function diasSinEvaluar(item: ItemCalidadRow): number | null {
-  if (item.informes.length > 0 || !item.liberadoEn) return null;
-  const ms = Date.now() - new Date(item.liberadoEn).getTime();
-  return Math.floor(ms / (1000 * 60 * 60 * 24));
-}
+// Milisegundos que se espera antes de crear el folio de una aprobación: el
+// folio es permanente, así que da tiempo de deshacer un toque accidental.
+const ESPERA_APROBACION_MS = 5000;
 
 export default function ItemsCalidadTable({
   items,
@@ -70,7 +65,11 @@ export default function ItemsCalidadTable({
   const [descripcion, setDescripcion] = useState("");
   const [errorMotivo, setErrorMotivo] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [procesandoId, setProcesandoId] = useState<string | null>(null);
+  // Aprobaciones en espera (con "Deshacer"): id del ítem -> temporizador.
+  const [enEspera, setEnEspera] = useState<Set<string>>(new Set());
+  const temporizadores = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const [confirmandoTodos, setConfirmandoTodos] = useState(false);
+  const [aprobandoTodos, setAprobandoTodos] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
   const [filtroCalidad, setFiltroCalidad] = useState<FiltroCalidad>("todos");
   const [historialAbierto, setHistorialAbierto] = useState<Set<string>>(new Set());
@@ -132,22 +131,117 @@ export default function ItemsCalidadTable({
     });
   }
 
-  // Aprobar no pide motivo: genera el informe de inmediato al hacer clic.
-  async function aprobarDirecto(item: ItemCalidadRow) {
-    setProcesandoId(item.id);
-    setMensaje(null);
+  // Crea el informe aprobado y deja la tabla donde está: el folio nuevo aparece
+  // en su fila y el aviso lleva al informe.
+  async function crearAprobacion(item: ItemCalidadRow) {
     const supabase = createClient();
     const { data, error } = await supabase.rpc("crear_informe_calidad", {
       p_item_id: item.id,
       p_aprobado: true,
       p_descripcion: "",
     });
-    setProcesandoId(null);
     if (error) {
-      setMensaje({ tipo: "error", texto: error.message });
-      return;
+      setMensaje({ tipo: "error", texto: `Ítem ${item.item_code}: ${error.message}` });
+    } else {
+      avisar(`Ítem ${item.item_code} aprobado.`, "exito", {
+        etiqueta: "Ver informe",
+        alHacer: () => router.push(`/calidad/pedidos/${pedidoId}/informe/${data}`),
+      });
     }
-    router.push(`/calidad/pedidos/${pedidoId}/informe/${data}`);
+    router.refresh();
+  }
+
+  // Aprobar no pide motivo, pero el folio es permanente: se espera unos
+  // segundos con "Deshacer" antes de crearlo.
+  function aprobarDirecto(item: ItemCalidadRow) {
+    setMensaje(null);
+    setEnEspera((prev) => new Set(prev).add(item.id));
+    temporizadores.current.set(
+      item.id,
+      setTimeout(() => {
+        temporizadores.current.delete(item.id);
+        setEnEspera((prev) => {
+          const sig = new Set(prev);
+          sig.delete(item.id);
+          return sig;
+        });
+        void crearAprobacion(item);
+      }, ESPERA_APROBACION_MS)
+    );
+  }
+
+  function deshacerAprobacion(itemId: string) {
+    const t = temporizadores.current.get(itemId);
+    if (t) clearTimeout(t);
+    temporizadores.current.delete(itemId);
+    setEnEspera((prev) => {
+      const sig = new Set(prev);
+      sig.delete(itemId);
+      return sig;
+    });
+  }
+
+  // Si se sale de la pantalla con aprobaciones en espera, se envían de una vez:
+  // la persona ya las había pedido.
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  });
+  useEffect(() => {
+    const pendientes = temporizadores.current;
+    return () => {
+      for (const [id, t] of pendientes) {
+        clearTimeout(t);
+        const item = itemsRef.current.find((i) => i.id === id);
+        if (item) {
+          void createClient().rpc("crear_informe_calidad", {
+            p_item_id: item.id,
+            p_aprobado: true,
+            p_descripcion: "",
+          });
+        }
+      }
+      pendientes.clear();
+    };
+  }, []);
+
+  // Aprueba de una vez todos los ítems nunca evaluados que se ven en la tabla.
+  const porAprobar = idsPorAprobar(itemsFiltrados).filter((id) => !enEspera.has(id));
+
+  async function aprobarTodos() {
+    setAprobandoTodos(true);
+    setMensaje(null);
+    const supabase = createClient();
+    let hechos = 0;
+    let fallo: string | null = null;
+    const { data, error } = await supabase.rpc("crear_informes_calidad_aprobados", {
+      p_item_ids: porAprobar,
+    });
+    if (!error) {
+      hechos = Array.isArray(data) ? data.length : porAprobar.length;
+    } else if (funcionNoExiste(error)) {
+      // La migración de aprobación en bloque aún no está en la base: uno por uno.
+      for (const id of porAprobar) {
+        const r = await supabase.rpc("crear_informe_calidad", { p_item_id: id, p_aprobado: true, p_descripcion: "" });
+        if (r.error) {
+          fallo = r.error.message;
+          break;
+        }
+        hechos += 1;
+      }
+    } else {
+      fallo = error.message;
+    }
+    setAprobandoTodos(false);
+    setConfirmandoTodos(false);
+    if (hechos > 0) avisar(`${hechos} ítem${hechos === 1 ? "" : "s"} aprobado${hechos === 1 ? "" : "s"}.`);
+    if (fallo) {
+      setMensaje({
+        tipo: "error",
+        texto: hechos > 0 ? `Se aprobaron ${hechos} de ${porAprobar.length}. Se detuvo por: ${fallo}` : fallo,
+      });
+    }
+    router.refresh();
   }
 
   // No aprobar sí exige el motivo, por eso pasa por el diálogo.
@@ -170,8 +264,13 @@ export default function ItemsCalidadTable({
       setMensaje({ tipo: "error", texto: error.message });
       return;
     }
+    const itemRechazado = dialogo.item;
     cerrarDialogo();
-    router.push(`/calidad/pedidos/${pedidoId}/informe/${data}`);
+    avisar(`Ítem ${itemRechazado.item_code}: informe de no aprobado generado.`, "exito", {
+      etiqueta: "Ver informe",
+      alHacer: () => router.push(`/calidad/pedidos/${pedidoId}/informe/${data}`),
+    });
+    router.refresh();
   }
 
   // Columna "Calidad": solo el estado (Aprobado / No aprobado / Sin evaluar /
@@ -196,7 +295,7 @@ export default function ItemsCalidadTable({
     }
 
     if (!ultimo) {
-      const dias = diasSinEvaluar(item);
+      const dias = diasSinEvaluar(item, new Date());
       const antiguo = dias !== null && dias >= DIAS_ANTIGUEDAD_ALERTA;
       return (
         <div>
@@ -293,7 +392,7 @@ export default function ItemsCalidadTable({
 
   function Fila({ item, indentado }: { item: ItemCalidadRow; indentado: boolean }) {
     const estado = estadoDe(item);
-    const dias = diasSinEvaluar(item);
+    const dias = diasSinEvaluar(item, new Date());
     const antiguo = dias !== null && dias >= DIAS_ANTIGUEDAD_ALERTA;
     const franja =
       estado === "cancelado"
@@ -342,29 +441,34 @@ export default function ItemsCalidadTable({
           <td className="flex flex-wrap gap-2 px-3 py-2">
             {estado === "cancelado" ? (
               <span className="text-xs text-slate-400">—</span>
+            ) : enEspera.has(item.id) ? (
+              <span className="flex items-center gap-2 text-xs font-medium text-emerald-700">
+                Aprobando…
+                <button
+                  type="button"
+                  onClick={() => deshacerAprobacion(item.id)}
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Deshacer
+                </button>
+              </span>
             ) : (
               <>
                 <button
                   type="button"
                   onClick={() => aprobarDirecto(item)}
-                  disabled={procesandoId === item.id}
-                  title={procesandoId === item.id ? "Generando informe..." : "Aprobar"}
+                  title="Aprobar"
                   aria-label={`Aprobar ítem ${item.item_code}`}
-                  className="flex h-8 w-8 items-center justify-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                  className="flex h-8 w-8 items-center justify-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
                 >
-                  {procesandoId === item.id ? (
-                    <span className="text-xs font-semibold">…</span>
-                  ) : (
-                    <IconoCheck />
-                  )}
+                  <IconoCheck />
                 </button>
                 <button
                   type="button"
                   onClick={() => abrirDialogoRechazo(item)}
-                  disabled={procesandoId === item.id}
                   title="No aprobar"
                   aria-label={`No aprobar ítem ${item.item_code}`}
-                  className="flex h-8 w-8 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                  className="flex h-8 w-8 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100"
                 >
                   <IconoX />
                 </button>
@@ -404,6 +508,33 @@ export default function ItemsCalidadTable({
           ))}
         </div>
       )}
+
+      {puedeEvaluar && porAprobar.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <span>
+            <strong>{porAprobar.length}</strong> ítem{porAprobar.length === 1 ? "" : "s"} sin evaluar
+            {filtroCalidad === "todos" ? "" : " en este filtro"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setConfirmandoTodos(true)}
+            disabled={aprobandoTodos}
+            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+          >
+            Aprobar los {porAprobar.length}
+          </button>
+          <span className="text-xs text-emerald-800">Cada uno recibe su propio folio.</span>
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmandoTodos}
+        title={`Aprobar ${porAprobar.length} ítem${porAprobar.length === 1 ? "" : "s"}`}
+        message="Se genera un informe aprobado con folio propio para cada uno. Los folios son permanentes: no se pueden borrar después."
+        confirmLabel={aprobandoTodos ? "Aprobando…" : `Aprobar ${porAprobar.length}`}
+        busy={aprobandoTodos}
+        onConfirm={() => void aprobarTodos()}
+        onCancel={() => setConfirmandoTodos(false)}
+      />
 
       {mensaje && (
         <div

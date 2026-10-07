@@ -5,6 +5,7 @@
 // solicitada.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { paginarTodo } from "@/lib/supabase/paginar";
 
 export interface AvancePedido {
   total: number;
@@ -98,14 +99,41 @@ interface FilaItem {
   } | null;
 }
 
+type Pedir<T> = (
+  desde: number,
+  hasta: number
+) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+type LeerTodo = <T>(pedir: Pedir<T>) => Promise<T[]>;
+
+// Ante un error de consulta devuelve lo que alcanzó a leer.
+const leerTolerante: LeerTodo = (pedir) => paginar(pedir);
+// Ante un error de consulta lanza (ErrorLectura).
+const leerEstricto: LeerTodo = (pedir) => paginarTodo(pedir, { contexto: "el avance de los ítems" });
+
 // Si `conCalidad` es falso no se consultan los informes (Producción no los usa).
-// Ante un error de consulta devuelve lo que alcanzó a leer: es un resumen, no
-// debe tumbar la pantalla.
-export async function avancePorPedido(
+// Es un resumen: ante un error de consulta devuelve lo que alcanzó a leer para
+// no tumbar la pantalla. Quien necesite saber si el número es completo (Calidad)
+// usa `avancePorPedidoEstricto`, que lanza.
+export function avancePorPedido(
   supabase: SupabaseClient,
-  { conCalidad }: { conCalidad: boolean }
+  opciones: { conCalidad: boolean }
 ): Promise<Map<string, AvancePedido>> {
-  const filas = await paginar<FilaItem>((desde, hasta) =>
+  return calcularAvance(supabase, opciones, leerTolerante);
+}
+
+export function avancePorPedidoEstricto(
+  supabase: SupabaseClient,
+  opciones: { conCalidad: boolean }
+): Promise<Map<string, AvancePedido>> {
+  return calcularAvance(supabase, opciones, leerEstricto);
+}
+
+async function calcularAvance(
+  supabase: SupabaseClient,
+  { conCalidad }: { conCalidad: boolean },
+  leer: LeerTodo
+): Promise<Map<string, AvancePedido>> {
+  const filas = await leer<FilaItem>((desde, hasta) =>
     supabase
       .from("planeacion_items")
       .select(
@@ -132,7 +160,7 @@ export async function avancePorPedido(
 
   const conInforme = new Set<string>();
   if (conCalidad) {
-    const informes = await paginar<{ planeacion_item_id: string }>((desde, hasta) =>
+    const informes = await leer<{ planeacion_item_id: string }>((desde, hasta) =>
       supabase
         .from("informes_calidad")
         .select("planeacion_item_id")

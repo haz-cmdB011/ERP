@@ -2,6 +2,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import { RevertirItemBoton, RevertirPedidoBoton } from "@/components/revertir-cancelacion";
+import { paginarTodo } from "@/lib/supabase/paginar";
+
+// Los `.in()` con cientos de ids rompen la URL: se piden en lotes.
+function lotes<T>(items: T[], tamano = 100): T[][] {
+  const salida: T[][] = [];
+  for (let i = 0; i < items.length; i += tamano) salida.push(items.slice(i, i + tamano));
+  return salida;
+}
 
 interface PedidoRow {
   id: string;
@@ -65,17 +73,24 @@ export default async function CanceladosCalidadPage() {
   // solo el desarrollador o el personal de Planeación ven los botones.
   const puedeRevertir = puedeEditarPlaneacion(await getPerfilActual(supabase));
 
-  const { data: pedidos } = await supabase
-    .from("pedidos")
-    .select(
-      "id, numero_pedido, cancelado_en, motivo_cancelacion, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
-    )
-    .is("eliminado_en", null)
-    .order("created_at", { ascending: false })
-    .returns<PedidoRow[]>();
+  // Lanzan si una lectura falla: una lista de cancelados incompleta engaña.
+  const pedidos = await paginarTodo<PedidoRow>(
+    (desde, hasta) =>
+      supabase
+        .from("pedidos")
+        .select(
+          "id, numero_pedido, cancelado_en, motivo_cancelacion, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
+        )
+        .is("eliminado_en", null)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<PedidoRow[]>(),
+    { contexto: "los pedidos" }
+  );
 
   const versionPorPedido = new Map<string, string>();
-  for (const p of pedidos ?? []) {
+  for (const p of pedidos) {
     const activa =
       p.pedido_versiones.find((v) => v.es_version_activa) ??
       [...p.pedido_versiones].sort((a, b) => b.numero_version - a.numero_version)[0];
@@ -83,39 +98,59 @@ export default async function CanceladosCalidadPage() {
   }
   const versionIds = Array.from(versionPorPedido.values());
 
-  const { data: itemsEstado } = versionIds.length
-    ? await supabase
-        .from("planeacion_items")
-        .select(
-          "id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, pedido_version_id, estado_revision, motivo_cancelacion"
+  const itemsEstado = (
+    await Promise.all(
+      lotes(versionIds).map((lote) =>
+        paginarTodo<ItemEstadoRow>(
+          (desde, hasta) =>
+            supabase
+              .from("planeacion_items")
+              .select(
+                "id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, pedido_version_id, estado_revision, motivo_cancelacion"
+              )
+              .in("pedido_version_id", lote)
+              .eq("estado_liberacion", "enviado_a_produccion")
+              .order("id")
+              .range(desde, hasta)
+              .returns<ItemEstadoRow[]>(),
+          { contexto: "los ítems cancelados" }
         )
-        .in("pedido_version_id", versionIds)
-        .eq("estado_liberacion", "enviado_a_produccion")
-        .returns<ItemEstadoRow[]>()
-    : { data: [] as ItemEstadoRow[] };
+      )
+    )
+  ).flat();
 
-  const itemsCanceladosIds = (itemsEstado ?? [])
+  const itemsCanceladosIds = itemsEstado
     .filter((i) => i.estado_revision === "cancelado")
     .map((i) => i.id);
 
-  const { data: informes } = itemsCanceladosIds.length
-    ? await supabase
-        .from("informes_calidad")
-        .select("planeacion_item_id, folio, elaborado_en")
-        .in("planeacion_item_id", itemsCanceladosIds)
-        .order("elaborado_en", { ascending: false })
-        .returns<InformeRow[]>()
-    : { data: [] as InformeRow[] };
+  const informes = (
+    await Promise.all(
+      lotes(itemsCanceladosIds).map((lote) =>
+        paginarTodo<InformeRow>(
+          (desde, hasta) =>
+            supabase
+              .from("informes_calidad")
+              .select("planeacion_item_id, folio, elaborado_en")
+              .in("planeacion_item_id", lote)
+              .order("elaborado_en", { ascending: false })
+              .order("id")
+              .range(desde, hasta)
+              .returns<InformeRow[]>(),
+          { contexto: "los folios de los ítems cancelados" }
+        )
+      )
+    )
+  ).flat();
 
   const folioPorItem = new Map<string, string>();
-  for (const inf of informes ?? []) {
+  for (const inf of informes) {
     if (!folioPorItem.has(inf.planeacion_item_id)) {
       folioPorItem.set(inf.planeacion_item_id, inf.folio);
     }
   }
 
   const conteoPorVersion = new Map<string, { total: number; cancelados: number; items: ItemCancelado[] }>();
-  for (const item of itemsEstado ?? []) {
+  for (const item of itemsEstado) {
     const c = conteoPorVersion.get(item.pedido_version_id) ?? { total: 0, cancelados: 0, items: [] };
     c.total += 1;
     if (item.estado_revision === "cancelado") {

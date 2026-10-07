@@ -70,6 +70,11 @@ const nextConfig: NextConfig = {
         source: "/produccion/escanear/:path*",
         headers: [{ key: "Permissions-Policy", value: `camera=(self), ${permisosBase}` }],
       },
+      // Lo mismo para el escáner de Calidad.
+      {
+        source: "/calidad/escanear/:path*",
+        headers: [{ key: "Permissions-Policy", value: `camera=(self), ${permisosBase}` }],
+      },
     ];
   },
 };
