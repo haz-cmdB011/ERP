@@ -83,7 +83,7 @@ export default function TarjetaPendientesCuenta({
                 </span>
                 <span className="block text-xs text-slate-500">{p.detalle}</span>
               </span>
-              <span className="shrink-0 text-slate-400 group-hover:text-brand-700" aria-hidden="true">
+              <span className="shrink-0 text-slate-500 group-hover:text-brand-700" aria-hidden="true">
                 →
               </span>
             </Link>

@@ -164,7 +164,7 @@ export default function Avisos() {
             <button
               type="button"
               onClick={() => cerrar(aviso.id)}
-              className="-m-1 rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              className="-m-1 rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
               aria-label="Cerrar aviso"
             >
               <svg

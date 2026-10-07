@@ -19,7 +19,7 @@ export default function PlanosItem({ planos }: { planos: PlanoLink[] }) {
         className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-800 hover:bg-brand-100"
       >
         Plano{planos.length > 1 ? `s (${planos.length})` : ""}
-        {origen && <span className="font-normal text-slate-400"> · de {origen}</span>}
+        {origen && <span className="font-normal text-slate-500"> · de {origen}</span>}
         {planos.every((p) => p.cancelada) && (
           <span className="font-normal text-rose-500"> · cancelada</span>
         )}

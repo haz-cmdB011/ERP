@@ -402,7 +402,7 @@ export default function UploadForm() {
           fill="none"
           stroke="currentColor"
           strokeWidth={1.5}
-          className={`h-10 w-10 ${arrastrando ? "text-brand-600" : "text-slate-400"}`}
+          className={`h-10 w-10 ${arrastrando ? "text-brand-700" : "text-slate-500"}`}
           aria-hidden
         >
           <path
@@ -472,7 +472,7 @@ export default function UploadForm() {
                   <button
                     type="button"
                     onClick={() => setCargas((prev) => prev.filter((x) => x.id !== c.id))}
-                    className="text-xs text-slate-400 hover:text-red-600"
+                    className="text-xs text-slate-500 hover:text-red-600"
                     aria-label={`Quitar ${c.file.name}`}
                   >
                     Quitar

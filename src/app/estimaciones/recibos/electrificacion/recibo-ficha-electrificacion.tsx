@@ -43,7 +43,7 @@ export default function ReciboFichaElectrificacion({
         {/* eslint-disable-next-line @next/next/no-img-element -- asset estático simple, no next/image */}
         <img src="/branding/mobiliarium-logo.png" alt="Mobiliarium — creating lifestyle" className="h-10" />
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
             Recibo de Maquila — Electrificación
           </p>
           <h1 className="text-base font-bold tracking-tight text-slate-900">Folio {recibo.folio}</h1>
@@ -126,7 +126,7 @@ export default function ReciboFichaElectrificacion({
 
       {mostrarInterno && recibo.renglones.some((r) => r.banda === "justificar" && r.justificacion) && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">
             Justificaciones
           </p>
           <ul className="mt-0.5 flex flex-col gap-1 text-[10px] text-slate-700">
@@ -156,7 +156,7 @@ export default function ReciboFichaElectrificacion({
       {/* QR abajo a la izquierda, debajo de las firmas. */}
       <div className="mt-2 flex items-end gap-3 border-t border-dashed border-slate-300 pt-3">
         <QrCode value={qrUrl} size={120} />
-        <p className="max-w-[160px] text-[9px] text-slate-400">Escanea para dar seguimiento a este recibo</p>
+        <p className="max-w-[160px] text-[9px] text-slate-600">Escanea para dar seguimiento a este recibo</p>
       </div>
     </article>
   );

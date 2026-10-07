@@ -9,6 +9,8 @@ import {
   quitarImagenesDelExcel,
 } from "@/lib/planeacion/optimizar-almacenamiento";
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
+import { validarContenidoExcel } from "@/lib/seguridad/excel";
+import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
 import { avisoNumeroPM, normalizarNumeroPM, pmDeHojaRepetida } from "@/lib/planeacion/numero-pm";
 import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
 import { analizarImpactoCarga, type HojaParaImpacto } from "@/lib/planeacion/impacto-db";
@@ -177,6 +179,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tu usuario no tiene permiso para cargar pedidos." }, { status: 403 });
   }
 
+  // Analizar un Excel es lo más pesado del servidor: tope por persona.
+  if (!(await consumirLimite({ clave: `upload:${user.id}`, maximo: 15, ventanaSegundos: 600 }))) {
+    return respuestaLimite("Has cargado muchos archivos en poco tiempo. Espera unos minutos e inténtalo de nuevo.", 600);
+  }
+
   // El navegador sube el Excel directo a Storage (carpeta "entrantes/") y
   // aquí solo llega su ruta: Vercel rechaza cuerpos de más de 4.5 MB, y un
   // Excel con muchas imágenes los pasa fácilmente (el navegador lo veía
@@ -252,6 +259,14 @@ export async function POST(request: Request) {
       { error: `El archivo excede el tamaño máximo permitido (${MAX_FILE_BYTES / (1024 * 1024)} MB).` },
       { status: 400 }
     );
+  }
+
+  // Se confía en los bytes, no en la extensión: tiene que ser de verdad un libro
+  // de Excel (ZIP con sus partes) y no una bomba de descompresión.
+  const contenido = validarContenidoExcel(buffer);
+  if (!contenido.ok) {
+    await limpiarEntrante();
+    return NextResponse.json({ error: contenido.motivo }, { status: 400 });
   }
 
   // 1. Parseo y validación de estructura ANTES de tocar la base de datos.

@@ -433,7 +433,7 @@ export default function ItemsCalidadTable({
     const historialAnterior = item.informes.slice(1);
     const abierto = historialAbierto.has(item.id);
 
-    if (!ultimo) return <span className="text-xs text-slate-400">—</span>;
+    if (!ultimo) return <span className="text-xs text-slate-500">—</span>;
 
     return (
       <div>
@@ -449,7 +449,7 @@ export default function ItemsCalidadTable({
             <button
               type="button"
               onClick={() => toggleHistorial(item.id)}
-              className="text-[11px] text-slate-400 underline hover:text-slate-600"
+              className="text-[11px] text-slate-600 underline hover:text-slate-600"
             >
               {abierto ? "Ocultar" : "Ver"} historial ({item.informes.length})
             </button>
@@ -477,7 +477,7 @@ export default function ItemsCalidadTable({
 
   // Botones de aprobar / no aprobar (o "Aprobando… Deshacer" durante la espera).
   function Acciones({ item }: { item: ItemCalidadRow }) {
-    if (estadoDe(item) === "cancelado") return <span className="text-xs text-slate-400">—</span>;
+    if (estadoDe(item) === "cancelado") return <span className="text-xs text-slate-500">—</span>;
     if (enEspera.has(item.id)) {
       return (
         <span className="flex items-center gap-2 text-xs font-medium text-emerald-700">
@@ -847,7 +847,7 @@ export default function ItemsCalidadTable({
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] text-slate-400">Folio {previewInforme.informe.folio}</p>
+                <p className="text-[10px] text-slate-600">Folio {previewInforme.informe.folio}</p>
                 <h3 className="text-sm font-semibold text-slate-900">
                   Ítem {previewInforme.item.item_code}
                   {previewInforme.item.modelo ? ` — ${previewInforme.item.modelo}` : ""}
@@ -856,7 +856,7 @@ export default function ItemsCalidadTable({
               <button
                 type="button"
                 onClick={() => setPreviewInforme(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-500 hover:text-slate-600"
                 aria-label="Cerrar"
               >
                 ✕
@@ -881,7 +881,7 @@ export default function ItemsCalidadTable({
             >
               {previewInforme.informe.aprobado ? "APROBADO" : "NO APROBADO"}
             </p>
-            <p className="text-center text-[11px] text-slate-400">
+            <p className="text-center text-[11px] text-slate-600">
               {formatoFechaHora(previewInforme.informe.elaborado_en)}
             </p>
 

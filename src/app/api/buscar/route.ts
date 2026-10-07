@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual } from "@/lib/auth/get-perfil";
+import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
 import {
   MIN_CARACTERES_BUSQUEDA,
   atajosCoincidentes,
@@ -63,6 +64,11 @@ export async function GET(request: NextRequest) {
   const perfil = await getPerfilActual(supabase);
   if (!perfil) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
+
+  // Se busca mientras se escribe: el tope es holgado, solo frena scripts.
+  if (!(await consumirLimite({ clave: `buscar:${perfil.userId}`, maximo: 120, ventanaSegundos: 60 }))) {
+    return respuestaLimite("Demasiadas búsquedas seguidas. Espera un momento.", 60);
   }
 
   const consulta = (request.nextUrl.searchParams.get("q") ?? "").slice(0, 80);

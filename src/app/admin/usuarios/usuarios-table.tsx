@@ -79,7 +79,7 @@ function ResetPasswordCell({ userId }: { userId: string }) {
             setPassword("");
             setMensaje(null);
           }}
-          className="text-xs text-gray-400 hover:text-black"
+          className="text-xs text-gray-500 hover:text-black"
         >
           Cancelar
         </button>
@@ -154,7 +154,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
       </td>
       <td className="py-2 pr-4">
         {usuario.email}
-        {esYo && <span className="ml-1 text-xs text-gray-400">(tú)</span>}
+        {esYo && <span className="ml-1 text-xs text-gray-500">(tú)</span>}
       </td>
       <td className="py-2 pr-4">
         <select
@@ -194,7 +194,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
             />
           </div>
         ) : (
-          <span className="text-gray-400">—</span>
+          <span className="text-gray-500">—</span>
         )}
       </td>
       <td className="py-2 pr-4">

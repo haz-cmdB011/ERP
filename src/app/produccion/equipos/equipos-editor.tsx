@@ -111,7 +111,7 @@ export default function EquiposEditor({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {equipos.map((e) => (
-              <tr key={e.id} className={e.activo ? "" : "text-slate-400"}>
+              <tr key={e.id} className={e.activo ? "" : "text-slate-500"}>
                 <td className="px-4 py-3 font-medium">{e.nombre}</td>
                 <td className="px-4 py-3">{e.encargado ?? "—"}</td>
                 <td className="px-4 py-3">{e.procesos.map((p) => PROCESO_LABELS[p]).join(", ")}</td>

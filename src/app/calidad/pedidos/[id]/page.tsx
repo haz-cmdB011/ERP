@@ -62,25 +62,22 @@ export default async function PedidoCalidadPage({
   const { version, item: itemParam } = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: perfil } = user
-    ? await supabase
-        .from("perfiles")
-        .select("rol, area")
-        .eq("id", user.id)
-        .maybeSingle<{ rol: string; area: string | null }>()
-    : { data: null };
+  // Perfil, pedido y versiones no dependen entre sí: se piden a la vez (un solo
+  // viaje a la base en vez de tres seguidos).
+  const perfilPromesa = (async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await supabase
+      .from("perfiles")
+      .select("rol, area")
+      .eq("id", user.id)
+      .maybeSingle<{ rol: string; area: string | null }>();
+    return data;
+  })();
 
-  // Refleja is_calidad() del lado del servidor (ver migración
-  // informes_calidad): solo controla qué botones se muestran — el permiso
-  // real lo sigue exigiendo el RPC crear_informe_calidad en la base.
-  const puedeEvaluar =
-    perfil?.rol === "desarrollador" ||
-    (perfil?.area === "calidad" && (perfil.rol === "administrador" || perfil.rol === "trabajador"));
-
-  const { data: pedido } = await supabase
+  const pedidoPromesa = supabase
     .from("pedidos")
     .select(
       "id, numero_pedido, fecha_pedido, fecha_entrega, estado, eliminado_en, cancelado_en, motivo_cancelacion, proyectos ( nombre, cliente )"
@@ -98,14 +95,7 @@ export default async function PedidoCalidadPage({
       proyectos: { nombre: string; cliente: string } | null;
     }>();
 
-  // Un pedido eliminado (papelera de Planeación) deja de existir para
-  // Calidad — en cuanto se restaure desde Planeación, vuelve a aparecer
-  // como un pedido normal sin ningún paso extra.
-  if (!pedido || pedido.eliminado_en) {
-    notFound();
-  }
-
-  const { data: versiones } = await supabase
+  const versionesPromesa = supabase
     .from("pedido_versiones")
     .select(
       "id, numero_version, es_version_activa, notas, created_at, cargas_archivo:carga_id ( nombre_archivo, filas_totales, filas_exitosas, estado )"
@@ -113,6 +103,26 @@ export default async function PedidoCalidadPage({
     .eq("pedido_id", id)
     .order("numero_version", { ascending: false })
     .returns<VersionRow[]>();
+
+  const [perfil, { data: pedido }, { data: versiones }] = await Promise.all([
+    perfilPromesa,
+    pedidoPromesa,
+    versionesPromesa,
+  ]);
+
+  // Refleja is_calidad() del lado del servidor (ver migración
+  // informes_calidad): solo controla qué botones se muestran — el permiso
+  // real lo sigue exigiendo el RPC crear_informe_calidad en la base.
+  const puedeEvaluar =
+    perfil?.rol === "desarrollador" ||
+    (perfil?.area === "calidad" && (perfil.rol === "administrador" || perfil.rol === "trabajador"));
+
+  // Un pedido eliminado (papelera de Planeación) deja de existir para
+  // Calidad — en cuanto se restaure desde Planeación, vuelve a aparecer
+  // como un pedido normal sin ningún paso extra.
+  if (!pedido || pedido.eliminado_en) {
+    notFound();
+  }
 
   const versionSeleccionada =
     (version && versiones?.find((v) => String(v.numero_version) === version)) ||
@@ -139,14 +149,18 @@ export default async function PedidoCalidadPage({
   const items = itemsEnviados ?? [];
   const itemIds = items.map((i) => i.id);
 
-  const { data: informes } = itemIds.length
-    ? await supabase
-        .from("informes_calidad")
-        .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria")
-        .in("planeacion_item_id", itemIds)
-        .order("elaborado_en", { ascending: false })
-        .returns<InformeRow[]>()
-    : { data: [] as InformeRow[] };
+  // Informes e imágenes de los ítems se piden a la vez.
+  const [{ data: informes }, imagenesPorItem] = await Promise.all([
+    itemIds.length
+      ? supabase
+          .from("informes_calidad")
+          .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria")
+          .in("planeacion_item_id", itemIds)
+          .order("elaborado_en", { ascending: false })
+          .returns<InformeRow[]>()
+      : Promise.resolve({ data: [] as InformeRow[] }),
+    getImagenesConGrandePorItem(supabase, itemIds),
+  ]);
 
   // Cada item_id agrupa su historial completo, ya ordenado desc (más
   // reciente primero) porque la consulta de arriba ordena por elaborado_en.
@@ -156,8 +170,6 @@ export default async function PedidoCalidadPage({
     lista.push(inf);
     informesPorItem.set(inf.planeacion_item_id, lista);
   }
-
-  const imagenesPorItem = await getImagenesConGrandePorItem(supabase, itemIds);
 
   const itemsConInforme: ItemCalidadRow[] = items.map((item) => ({
     id: item.id,

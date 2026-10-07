@@ -547,7 +547,7 @@ export default function ItemsLiberacionTable({
               {item.folio}
             </span>
           ) : (
-            <span className="text-xs text-slate-400" title="Se asigna al liberarlo a producción">
+            <span className="text-xs text-slate-500" title="Se asigna al liberarlo a producción">
               —
             </span>
           )}
@@ -768,7 +768,7 @@ export default function ItemsLiberacionTable({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
                 aria-hidden="true"
               >
                 <circle cx="11" cy="11" r="7" />
@@ -807,7 +807,7 @@ export default function ItemsLiberacionTable({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Material
             </span>
             <button
@@ -878,7 +878,7 @@ export default function ItemsLiberacionTable({
                 }}
                 className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   seleccionados.size === 0
-                    ? "pointer-events-none border-slate-200 text-slate-400"
+                    ? "pointer-events-none border-slate-200 text-slate-500"
                     : "border-brand-600 text-slate-900 hover:bg-brand-500 hover:text-on-brand"
                 }`}
               >

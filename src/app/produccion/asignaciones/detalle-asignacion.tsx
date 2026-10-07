@@ -59,7 +59,7 @@ export default function DetalleAsignacion({
               {e.fotoUrl ? (
                 <ImagenAmpliable url={e.fotoUrl} alt="Foto de los folios de Calidad" className="h-16 w-16" />
               ) : (
-                <span className="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-400">
+                <span className="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-600">
                   Sin foto
                 </span>
               )}

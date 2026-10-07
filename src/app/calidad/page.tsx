@@ -29,22 +29,28 @@ export default async function CalidadListPage({
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
   const supabase = await createClient();
 
-  // Todos los pedidos, por páginas (la API corta en 1000). Si la lectura falla
-  // se lanza y la pantalla ofrece "Reintentar" en vez de mostrar una lista corta.
-  const pedidos = await paginarTodo<PedidoConOt>(
-    (desde, hasta) =>
-      supabase
-        .from("pedidos")
-        .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
-        .is("eliminado_en", null)
-        // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
-        .is("eliminado_definitivo_en", null)
-        .order("created_at", { ascending: false })
-        .order("id")
-        .range(desde, hasta)
-        .returns<PedidoConOt[]>(),
-    { contexto: "los pedidos" }
-  );
+  // Los pedidos y el resumen de evaluación no dependen entre sí: se piden a la vez.
+  // Pedidos: todos, por páginas (la API corta en 1000); si la lectura falla se lanza y
+  // la pantalla ofrece "Reintentar" en vez de mostrar una lista corta. Resumen de
+  // evaluación (por evaluar, antiguos, por reinspeccionar, tasa de aprobación): si no
+  // se pudo calcular se avisa en vez de mostrar ceros que parezcan reales.
+  const [pedidos, resumen] = await Promise.all([
+    paginarTodo<PedidoConOt>(
+      (desde, hasta) =>
+        supabase
+          .from("pedidos")
+          .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
+          .is("eliminado_en", null)
+          // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
+          .is("eliminado_definitivo_en", null)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(desde, hasta)
+          .returns<PedidoConOt[]>(),
+      { contexto: "los pedidos" }
+    ),
+    cargarResumenCalidad(supabase).catch((): ResumenCalidad | null => null),
+  ]);
 
   const filtradas = filtrarOrdenesTrabajo(pedidos, {
     anio: anioFiltro,
@@ -53,15 +59,6 @@ export default async function CalidadListPage({
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
 
-  // Resumen de evaluación (por evaluar, antiguos, por reinspeccionar, tasa de
-  // aprobación). Si no se pudo calcular se avisa en vez de mostrar ceros que
-  // parezcan reales.
-  let resumen: ResumenCalidad | null = null;
-  try {
-    resumen = await cargarResumenCalidad(supabase);
-  } catch {
-    resumen = null;
-  }
   const sinResumen = resumen === null;
   const pedidoIdsDe = (fila: (typeof filtradas.filas)[number]) => fila.pedidos.map((p) => p.id);
   // Avance de una O.T. con la forma que espera la etiqueta de estado.

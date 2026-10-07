@@ -51,7 +51,7 @@ export default function SeccionDesplegable({
         )}
         <span
           aria-hidden="true"
-          className="text-slate-400 transition-transform group-open:rotate-180"
+          className="text-slate-500 transition-transform group-open:rotate-180"
         >
           ▾
         </span>

@@ -83,6 +83,8 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
       ["eliminar_recibo_definitivo", { p_tipo: "electrificacion", p_recibo_id: UUID_NULO }],
       ["decidir_discrepancia_pm", { p_id: UUID_NULO, p_decision: "aceptada", p_nota: "" }],
       ["listar_ots_recibos", {}],
+      // Contador del límite de intentos: solo el servidor (service_role) lo llama.
+      ["consumir_limite", { p_clave: "prueba", p_maximo: 1, p_ventana_segundos: 60 }],
       ["listar_modelos_ot_recibos", { p_ot: "X" }],
       ["listar_ots_electrificacion", {}],
       ["listar_modelos_ot_electrificacion", { p_ot: "X" }],

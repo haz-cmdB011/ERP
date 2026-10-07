@@ -762,7 +762,7 @@ export default function CapturaArmado({
                 <svg
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform ${
+                  className={`h-3.5 w-3.5 flex-shrink-0 text-slate-500 transition-transform ${
                     r.colapsado ? "-rotate-90" : ""
                   }`}
                 >
@@ -951,7 +951,7 @@ export default function CapturaArmado({
                     <div className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
                       <div
                         className={`text-3xl font-semibold tracking-tight tabular-nums ${
-                          sugerido == null ? "text-slate-400" : "text-slate-900"
+                          sugerido == null ? "text-slate-500" : "text-slate-900"
                         }`}
                       >
                         {sugerido == null ? "Sin sugerencia" : money(sugerido)}
@@ -1150,7 +1150,7 @@ export default function CapturaArmado({
             className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-900"
           >
             Parámetros del motor
-            <span className="text-slate-400">{parametrosAbiertos ? "−" : "+"}</span>
+            <span className="text-slate-500">{parametrosAbiertos ? "−" : "+"}</span>
           </button>
           {parametrosAbiertos && (
             <div className="flex flex-col gap-4 border-t border-slate-100 p-4">

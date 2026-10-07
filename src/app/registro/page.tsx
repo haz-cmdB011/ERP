@@ -9,6 +9,7 @@ export default function RegistroPage() {
   return (
     <AuthShell
       titulo="Crear cuenta"
+      sinAvisoPrivacidad
       descripcion="Tu cuenta se crea con el nivel de acceso más básico. Un administrador podrá asignarte un rol y área después."
       pie={
         <Link href="/login" className={`${ENLACE_AUTH} w-fit`}>

@@ -73,7 +73,7 @@ export default function InformeFicha({
       <header className="flex flex-col items-center gap-2 text-center">
         <LogoMobiliarium />
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
             Informe de Calidad
           </p>
           <h1 className="text-base font-bold tracking-tight text-slate-900">
@@ -117,7 +117,7 @@ export default function InformeFicha({
       </div>
 
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">
           Descripción del ítem
         </p>
         <p className="mt-0.5 whitespace-pre-wrap text-xs text-slate-700">{item.descripcion}</p>
@@ -125,7 +125,7 @@ export default function InformeFicha({
 
       {informe.descripcion && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">
             Hallazgos / Observaciones de calidad
           </p>
           <p className="mt-0.5 whitespace-pre-wrap text-xs text-slate-700">{informe.descripcion}</p>
@@ -154,7 +154,7 @@ export default function InformeFicha({
       {/* QR abajo a la izquierda, debajo de las firmas (si las hay). */}
       <div className="mt-2 flex items-end gap-3 border-t border-dashed border-slate-300 pt-3">
         <QrCode value={qrUrl} size={120} />
-        <p className="max-w-[160px] text-[9px] text-slate-400">Escanea para rastrear este informe</p>
+        <p className="max-w-[160px] text-[9px] text-slate-600">Escanea para rastrear este informe</p>
       </div>
     </article>
   );

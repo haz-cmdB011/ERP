@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
+import PedidosEliminados from "./pedidos-eliminados";
 import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
   agruparPorOrdenTrabajo,
@@ -54,39 +55,41 @@ export default async function PlaneacionListPage({
   const anioParam = anioFiltro ? String(anioFiltro) : undefined;
   const clienteParam = clienteFiltro || undefined;
   const supabase = await createClient();
-  const perfil = await getPerfilActual(supabase);
+  // Perfil, cookie del filtro, búsqueda de muebles (solo con texto en el buscador:
+  // se buscan también muebles y modelos en todos los pedidos, no solo O.T., PM,
+  // proyecto o cliente) y lista de pedidos no dependen entre sí: se piden a la vez.
+  const [perfil, cookieStore, busquedaMuebles, { data: pedidos, error }] = await Promise.all([
+    getPerfilActual(supabase),
+    cookies(),
+    busqueda ? buscarMuebles(supabase, busqueda) : Promise.resolve(null),
+    supabase
+      .from("pedidos")
+      .select(COLUMNAS)
+      .is("eliminado_en", null)
+      // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
+      .is("eliminado_definitivo_en", null)
+      .order("created_at", { ascending: false })
+      .returns<PedidoRow[]>(),
+  ]);
   const esAdmin = puedeAdministrarPlaneacion(perfil);
-  const filtroGuardado = leerFiltroGuardado((await cookies()).get(COOKIE_FILTRO_PEDIDOS)?.value);
+  const filtroGuardado = leerFiltroGuardado(cookieStore.get(COOKIE_FILTRO_PEDIDOS)?.value);
   const filtroActual: FiltroGuardado = { anio: anioParam, cliente: clienteParam };
 
-  // Con texto en el buscador se buscan también muebles y modelos en todos los
-  // pedidos (no solo O.T., PM, proyecto o cliente).
-  const busquedaMuebles = busqueda ? await buscarMuebles(supabase, busqueda) : null;
-
-  const { data: pedidos, error } = await supabase
-    .from("pedidos")
-    .select(COLUMNAS)
-    .is("eliminado_en", null)
-    // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
-    .is("eliminado_definitivo_en", null)
-    .order("created_at", { ascending: false })
-    .returns<PedidoRow[]>();
-
-  const { data: pedidosEliminados } = esAdmin
-    ? await supabase
-        .from("pedidos")
-        .select(COLUMNAS)
-        .not("eliminado_en", "is", null)
-        .order("eliminado_en", { ascending: false })
-        .returns<PedidoRow[]>()
-    : { data: null };
-
-  // Avance de cada PM (liberados, en revisión, cancelados). Es un resumen: si
-  // falla la consulta, la lista sigue sin la columna llena.
-  const avance =
+  // La papelera (solo administradores) y el avance de cada PM se piden a la vez. El
+  // avance es un resumen: si falla la consulta, la lista sigue sin la columna llena.
+  const [{ data: pedidosEliminados }, avance] = await Promise.all([
+    esAdmin
+      ? supabase
+          .from("pedidos")
+          .select(COLUMNAS)
+          .not("eliminado_en", "is", null)
+          .order("eliminado_en", { ascending: false })
+          .returns<PedidoRow[]>()
+      : Promise.resolve({ data: null }),
     pedidos && pedidos.length > 0
-      ? await avancePlaneacionPorPedido(supabase).catch(() => new Map<string, AvancePlan>())
-      : new Map<string, AvancePlan>();
+      ? avancePlaneacionPorPedido(supabase).catch(() => new Map<string, AvancePlan>())
+      : Promise.resolve(new Map<string, AvancePlan>()),
+  ]);
 
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
@@ -311,39 +314,22 @@ export default async function PlaneacionListPage({
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90"
+              className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-90"
               aria-hidden="true"
             >
               <path d="m9 6 6 6-6 6" />
             </svg>
           </summary>
-          <div className="overflow-x-auto border-t border-slate-100">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">Pedido</th>
-                  <th className="px-4 py-3">Proyecto</th>
-                  <th className="px-4 py-3">Cliente</th>
-                  <th className="px-4 py-3">Eliminado el</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {pedidosEliminados.map((p) => (
-                  <tr key={p.id} className="align-top text-slate-500">
-                    <td className="px-4 py-3 font-medium">{p.numero_pedido}</td>
-                    <td className="px-4 py-3">{p.proyectos?.nombre ?? "—"}</td>
-                    <td className="px-4 py-3">{p.proyectos?.cliente ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {formatoFechaHora(p.eliminado_en)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <AccionesPedido pedidoId={p.id} numeroPedido={p.numero_pedido} eliminado={true} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="border-t border-slate-100">
+            <PedidosEliminados
+              pedidos={pedidosEliminados.map((p) => ({
+                id: p.id,
+                numero_pedido: p.numero_pedido,
+                proyecto: p.proyectos?.nombre ?? "—",
+                cliente: p.proyectos?.cliente ?? "—",
+                eliminado_en: formatoFechaHora(p.eliminado_en),
+              }))}
+            />
           </div>
         </details>
       )}

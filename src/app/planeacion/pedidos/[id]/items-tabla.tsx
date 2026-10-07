@@ -247,7 +247,7 @@ export default function ItemsTabla({
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           {materiales.length > 1 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Material</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Material</span>
               <button
                 type="button"
                 onClick={() => aplicarFiltros(filtro, null, estadoFiltro)}
@@ -269,7 +269,7 @@ export default function ItemsTabla({
           )}
           {conteoEstado.enRevision > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Estado</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estado</span>
               {(
                 [
                   ["todos", "Todos"],
@@ -410,7 +410,7 @@ export default function ItemsTabla({
                           seleccion.has(m.id) ? "bg-brand-50" : colorFilaEstadoRevision(m.estado_revision)
                         }`}
                       >
-                        <td className="py-2 pl-3 text-slate-400">
+                        <td className="py-2 pl-3 text-slate-500">
                           {hijos.length > 0 && <Chevron abierto={abierto} />}
                         </td>
                         {puedeEditar && (
@@ -446,7 +446,7 @@ export default function ItemsTabla({
                         <td className="hidden px-3 py-2 lg:table-cell">
                           {m.descripcion}
                           {hijos.length > 0 && (
-                            <span className="ml-2 text-xs font-normal text-slate-400">
+                            <span className="ml-2 text-xs font-normal text-slate-500">
                               ({hijos.length} componentes)
                             </span>
                           )}
@@ -578,7 +578,7 @@ function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: bool
       />
     );
   }
-  if (!item.estado_revision) return <span className="text-slate-400">—</span>;
+  if (!item.estado_revision) return <span className="text-slate-500">—</span>;
   return <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>;
 }
 
@@ -604,7 +604,7 @@ function ImagenesItem({
           title="Ver imagen"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image */}
-          <img src={url} alt="" className="h-10 w-10 rounded border border-slate-200 object-cover" />
+          <img src={url} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded border border-slate-200 object-cover" />
         </button>
       ))}
     </div>

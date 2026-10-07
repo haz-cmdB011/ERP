@@ -17,19 +17,21 @@ const esDespliegueDeProduccion = process.env.VERCEL_ENV === "production" || (esP
 const supabase = "https://*.supabase.co";
 const supabaseWs = "wss://*.supabase.co";
 // En las vistas previas de Vercel se inyecta la barra de comentarios (vercel.live).
+// Cloudflare Turnstile (anti-robots del registro): su script, su iframe y su verificación.
+const turnstile = "https://challenges.cloudflare.com";
 const vercelLive = esDespliegueDeProduccion ? "" : " https://vercel.live";
 
 const csp = [
   "default-src 'self'",
   // 'unsafe-eval' solo en desarrollo (React/Next lo usan para depurar).
-  `script-src 'self' 'unsafe-inline'${esProduccion ? "" : " 'unsafe-eval'"}${vercelLive}`,
+  `script-src 'self' 'unsafe-inline'${esProduccion ? "" : " 'unsafe-eval'"} ${turnstile}${vercelLive}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${supabase}${vercelLive}`,
   "font-src 'self' data:",
-  `connect-src 'self' blob: ${supabase} ${supabaseWs}${vercelLive}`,
+  `connect-src 'self' blob: ${supabase} ${supabaseWs} ${turnstile}${vercelLive}`,
   "media-src 'self' blob: data:",
   "worker-src 'self' blob:",
-  `frame-src 'self' blob:${vercelLive}`,
+  `frame-src 'self' blob: ${turnstile}${vercelLive}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -57,12 +59,21 @@ const cabecerasSeguridad = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
 ];
 
+// Logo e iconos de la app (public/): no llevan huella en el nombre, así que Next
+// los sirve con max-age=0 y el navegador los revalida en cada página. Un día de
+// caché (y una semana sirviendo el viejo mientras se actualiza) evita esos viajes.
+const cacheEstaticos = [
+  { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+];
+
 const nextConfig: NextConfig = {
   // No anunciar la tecnología del servidor.
   poweredByHeader: false,
   async headers() {
     return [
       { source: "/:path*", headers: cabecerasSeguridad },
+      { source: "/branding/:path*", headers: cacheEstaticos },
+      { source: "/icons/:path*", headers: cacheEstaticos },
       // Escáner de QR (/produccion/escanear): la cámara en vivo solo se permite
       // aquí y solo para el propio sitio. Si dos reglas fijan la misma
       // cabecera gana la última, así que esta reemplaza a la de arriba.
