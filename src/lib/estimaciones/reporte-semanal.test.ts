@@ -199,6 +199,36 @@ describe("armarReporte", () => {
   });
 });
 
+describe("generarExcelFormato: hojas adicionales", () => {
+  it("añade el resumen y avisa si el reporte está filtrado", async () => {
+    const rep = armarReporte([
+      r({ contratista: "ANA", tipo: "acabados", folio: "1", importe: 100, piezas: 4 }),
+      r({ contratista: "LUIS", tipo: "electrificacion", folio: "2", importe: 300, piezas: 6 }),
+    ]);
+    const buffer = await generarExcelFormato(rep, { anio: 2026, semana: 38 }, "23/09/2026", {
+      filtro: "Armado",
+    });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["SEMANA 038", "Resumen"]);
+    expect(wb.worksheets[0].getRow(1).getCell(4).value).toBe("REPORTE FILTRADO: Armado");
+    const resumen = wb.getWorksheet("Resumen")!;
+    const texto = JSON.stringify(resumen.getSheetValues());
+    expect(texto).toContain("REPORTE FILTRADO: Armado");
+    expect(texto).toContain("Electrificación");
+    expect(texto).toContain("TOTAL");
+  });
+
+  it("sin diferencias contra el PM no crea la hoja", async () => {
+    const buffer = await generarExcelFormato(armarReporte([]), { anio: 2026, semana: 38 }, "23/09/2026", {
+      diferenciasPm: [],
+    });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+    expect(wb.getWorksheet("Diferencias PM")).toBeUndefined();
+  });
+});
+
 describe("generarExcelFormato", () => {
   it("escribe las columnas del FORMATO MAQUILA", async () => {
     const rep = armarReporte(

@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   compararConCierre,
+  consultaFiltrosReporte,
+  filtrarPagados,
+  hayFiltrosReporte,
   instantaneaDeSemana,
   interpretarSemana,
+  leerFiltrosReporte,
+  maquiladoresDe,
+  SIN_FILTROS,
   resumenFechasPago,
   resumirCompromiso,
   type ReciboPorPagar,
@@ -51,6 +57,45 @@ describe("interpretarSemana", () => {
     expect(interpretarSemana("2026", "2.5", AHORA).aviso).not.toBeNull();
     // Falta el año pero hay semana: tampoco se adivina.
     expect(interpretarSemana(undefined, "3", AHORA).aviso).not.toBeNull();
+  });
+});
+
+describe("filtros del reporte", () => {
+  const lista = [
+    pagado({ folio: "1", tipo: "acabados", contratista: "Juan Pérez", ot: "193-24" }),
+    pagado({ folio: "2", tipo: "armado", contratista: "JUAN PEREZ", ot: "200-24" }),
+    pagado({ folio: "3", tipo: "electrificacion", contratista: "", ot: "193-25" }),
+  ];
+
+  it("lee solo valores válidos", () => {
+    expect(leerFiltrosReporte({ area: "armado", maquilador: "  Ana   Ruiz ", ot: " 19 " })).toEqual({
+      area: "armado",
+      maquilador: "Ana Ruiz",
+      ot: "19",
+    });
+    expect(leerFiltrosReporte({ area: "finanzas" }).area).toBeNull();
+    expect(hayFiltrosReporte(leerFiltrosReporte({}))).toBe(false);
+  });
+
+  it("filtra por área, maquilador (sin acentos ni mayúsculas) y O.T. parcial", () => {
+    expect(filtrarPagados(lista, { area: "armado", maquilador: "", ot: "" }).map((r) => r.folio)).toEqual(["2"]);
+    expect(filtrarPagados(lista, { area: null, maquilador: "juan pérez", ot: "" }).map((r) => r.folio)).toEqual([
+      "1",
+      "2",
+    ]);
+    expect(filtrarPagados(lista, { area: null, maquilador: "", ot: "193" }).map((r) => r.folio)).toEqual(["1", "3"]);
+    expect(filtrarPagados(lista, { area: null, maquilador: "Sin contratista", ot: "" }).map((r) => r.folio)).toEqual([
+      "3",
+    ]);
+    expect(filtrarPagados(lista, SIN_FILTROS)).toBe(lista);
+  });
+
+  it("arma la consulta de la URL y la lista de maquiladores sin repetir", () => {
+    expect(consultaFiltrosReporte({ area: "armado", maquilador: "Ana Ruiz", ot: "" })).toBe(
+      "&area=armado&maquilador=Ana+Ruiz"
+    );
+    expect(consultaFiltrosReporte(SIN_FILTROS)).toBe("");
+    expect(maquiladoresDe(lista)).toEqual(["Juan Pérez", "Sin contratista"]);
   });
 });
 

@@ -4,13 +4,14 @@
 // vive en reporte-compromiso-db.ts y reporte-cierres-db.ts.
 
 import {
+  claveContratista,
   fechaLocal,
   semanaPorReportar,
   semanasDelAnio,
   type ReciboPagado,
   type Semana,
 } from "./reporte-semanal";
-import type { TipoCualquierRecibo } from "./revision-db";
+import { esTipoCualquierRecibo, type TipoCualquierRecibo } from "./revision-db";
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
 
@@ -40,6 +41,70 @@ export function interpretarSemana(
     };
   }
   return { semana: { anio: a, semana: s }, aviso: null };
+}
+
+// --- Filtros del reporte ----------------------------------------------------
+
+export interface FiltrosReporte {
+  area: TipoCualquierRecibo | null;
+  // Nombre tal cual (se compara sin mayúsculas ni acentos).
+  maquilador: string;
+  ot: string;
+}
+
+export const SIN_FILTROS: FiltrosReporte = { area: null, maquilador: "", ot: "" };
+
+const MAX_FILTRO = 80;
+
+export function leerFiltrosReporte(p: { area?: string; maquilador?: string; ot?: string }): FiltrosReporte {
+  return {
+    area: p.area && esTipoCualquierRecibo(p.area) ? p.area : null,
+    maquilador: (p.maquilador ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_FILTRO),
+    ot: (p.ot ?? "").trim().slice(0, MAX_FILTRO),
+  };
+}
+
+export const hayFiltrosReporte = (f: FiltrosReporte) => Boolean(f.area || f.maquilador || f.ot);
+
+// Parámetros de URL de los filtros activos ("&area=armado&ot=193"), listos para
+// añadir a la consulta de la semana.
+export function consultaFiltrosReporte(f: FiltrosReporte): string {
+  const qs = new URLSearchParams();
+  if (f.area) qs.set("area", f.area);
+  if (f.maquilador) qs.set("maquilador", f.maquilador);
+  if (f.ot) qs.set("ot", f.ot);
+  const s = qs.toString();
+  return s ? `&${s}` : "";
+}
+
+// "Armado · Juan Pérez · O.T. 193" para avisos y para el Excel.
+export function describirFiltrosReporte(f: FiltrosReporte, etiquetaArea: Record<TipoCualquierRecibo, string>): string {
+  return [f.area ? etiquetaArea[f.area] : "", f.maquilador, f.ot ? `O.T. ${f.ot}` : ""]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+export function filtrarPagados(recibos: ReciboPagado[], f: FiltrosReporte): ReciboPagado[] {
+  if (!hayFiltrosReporte(f)) return recibos;
+  const maquilador = f.maquilador ? claveContratista(f.maquilador) : "";
+  const ot = f.ot.toUpperCase();
+  return recibos.filter((r) => {
+    if (f.area && r.tipo !== f.area) return false;
+    if (maquilador && claveContratista(r.contratista.trim() || "Sin contratista") !== maquilador) return false;
+    if (ot && !r.ot.trim().toUpperCase().includes(ot)) return false;
+    return true;
+  });
+}
+
+// Maquiladores con pagos en `recibos`, sin repetir por mayúsculas o acentos.
+export function maquiladoresDe(recibos: ReciboPagado[]): string[] {
+  const porClave = new Map<string, string>();
+  for (const r of recibos) {
+    const nombre = r.contratista.trim() || "Sin contratista";
+    const clave = claveContratista(nombre);
+    if (!porClave.has(clave)) porClave.set(clave, nombre);
+  }
+  return [...porClave.values()].sort((a, b) => a.localeCompare(b, "es"));
 }
 
 // --- Fechas de pago ---------------------------------------------------------

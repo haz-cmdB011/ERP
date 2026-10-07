@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agruparEnOtros,
   armarTablero,
+  cambiosNotables,
   repartoPorArea,
   repartoPorMaquilador,
   semanaDeReporteDe,
@@ -42,6 +43,34 @@ describe("semana de reporte de un recibo", () => {
 
   it("cruza el año", () => {
     expect(semanaDeReporteDe("2027-01-06T18:00:00Z")).toEqual({ anio: 2026, semana: 53 });
+  });
+});
+
+describe("comparación contra el promedio", () => {
+  it("compara el total y marca los cambios notables", () => {
+    const t = armarTablero(
+      [
+        recibo({ contratista: "Ana", importe: 1000, pagadoEn: "2026-09-02T18:00:00Z" }),
+        recibo({ contratista: "Ana", importe: 1000, pagadoEn: "2026-09-09T18:00:00Z" }),
+        recibo({ contratista: "Luis", importe: 1000, pagadoEn: "2026-09-02T18:00:00Z" }),
+        recibo({ contratista: "Ana", importe: 2000, pagadoEn: PAGO_SEM_38 }),
+        recibo({ contratista: "Pedro", importe: 500, pagadoEn: PAGO_SEM_38 }),
+      ],
+      SEM_38
+    );
+    // Semanas anteriores con pago: 2.000 (S35) y 1.000 (S36) → promedio 1.500; hoy 2.500.
+    expect(t.cambioTotalVsPromedio).toBe(66.7);
+    const n = cambiosNotables(t.maquiladores);
+    // Ana: 2000 contra su promedio 1000 (+100%); Luis no cobró hoy (-100%); Pedro es nuevo (sin base).
+    expect(n.map((x) => [x.contratista, x.cambio])).toEqual([
+      ["Ana", 100],
+      ["Luis", -100],
+    ]);
+  });
+
+  it("sin pagos esta semana no hay comparación", () => {
+    expect(armarTablero([], SEM_38).cambioTotalVsPromedio).toBeNull();
+    expect(cambiosNotables([])).toEqual([]);
   });
 });
 
