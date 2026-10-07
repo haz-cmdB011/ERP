@@ -7,9 +7,10 @@ import {
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ChipEntrega from "@/components/chip-entrega";
-import { estadoEntrega } from "@/lib/resumen/entrega";
+import { estadoEntrega, formatoFechaDMA } from "@/lib/resumen/entrega";
 
-// Chips de año + filtro de cliente de la lista de Pedidos por O.T.
+// Chips de año + filtro de cliente de la lista de Pedidos por O.T. Conservan la
+// búsqueda y, si la lista la tiene, la entrega elegida.
 export function FiltrosOrdenesTrabajo({
   base,
   anios,
@@ -17,6 +18,7 @@ export function FiltrosOrdenesTrabajo({
   clientes,
   cliente,
   q,
+  entrega,
 }: {
   base: string;
   anios: number[];
@@ -24,6 +26,7 @@ export function FiltrosOrdenesTrabajo({
   clientes: string[];
   cliente: string;
   q?: string;
+  entrega?: string;
 }) {
   if (anios.length === 0) return null;
   const anioParam = anio ? String(anio) : undefined;
@@ -37,7 +40,7 @@ export function FiltrosOrdenesTrabajo({
           return (
             <Link
               key={a ?? "todos"}
-              href={hrefListaPedidos(base, { q, anio: a ? String(a) : undefined, cliente: clienteParam })}
+              href={hrefListaPedidos(base, { q, anio: a ? String(a) : undefined, cliente: clienteParam, entrega })}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 activo
                   ? "border-brand-600 bg-brand-500 text-on-brand"
@@ -49,7 +52,7 @@ export function FiltrosOrdenesTrabajo({
           );
         })}
       </div>
-      <FiltroCliente base={base} clientes={clientes} valor={cliente} q={q} anio={anioParam} />
+      <FiltroCliente base={base} clientes={clientes} valor={cliente} q={q} anio={anioParam} entrega={entrega} />
     </div>
   );
 }
@@ -64,6 +67,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   accion,
   columnaEstado,
   hoy,
+  chipEntrega,
 }: {
   filas: FilaOrdenTrabajo<P>[];
   hrefOt: (ot: string) => string;
@@ -74,6 +78,9 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   columnaEstado?: { titulo: string; celda: (fila: FilaOrdenTrabajo<P>) => React.ReactNode };
   // Fecha de hoy (YYYY-MM-DD): si se da, la entrega lleva una etiqueta de estado.
   hoy?: string;
+  // Etiqueta propia junto a la fecha de entrega (en vez de la de `hoy`): para
+  // áreas que saben si todavía queda trabajo pendiente, como Producción.
+  chipEntrega?: (fila: FilaOrdenTrabajo<P>) => React.ReactNode;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -124,8 +131,10 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                   )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                  <span className="mr-2">{ultimaEntrega(fila.pedidos) ?? "—"}</span>
-                  {hoy && <ChipEntrega estado={estadoEntrega(ultimaEntrega(fila.pedidos), hoy)} />}
+                  <span className="mr-2">{formatoFechaDMA(ultimaEntrega(fila.pedidos))}</span>
+                  {chipEntrega
+                    ? chipEntrega(fila)
+                    : hoy && <ChipEntrega estado={estadoEntrega(ultimaEntrega(fila.pedidos), hoy)} />}
                 </td>
                 {columnaEstado && <td className="px-4 py-3">{columnaEstado.celda(fila)}</td>}
                 {accion && <td className="px-4 py-3">{accion(fila)}</td>}

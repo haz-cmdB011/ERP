@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { money } from "@/lib/estimaciones/motor-precio";
 import type { Porcion } from "@/lib/estimaciones/reporte-dashboard";
 
@@ -22,12 +23,15 @@ export function Pastel({
   titulo,
   centro,
   apilado = false,
+  enlace,
 }: {
   porciones: Porcion[];
   titulo: string;
   centro: string;
   // Leyenda debajo de la dona (para paneles angostos).
   apilado?: boolean;
+  // Adónde lleva el nombre de una porción (null: sin enlace).
+  enlace?: (p: Porcion) => string | null;
 }) {
   const total = porciones.reduce((s, p) => s + p.importe, 0);
   const R = 70;
@@ -94,9 +98,19 @@ export function Pastel({
               className="h-3 w-3 shrink-0 rounded-sm"
               style={{ background: colorDe(porciones, i) }}
             />
-            <span className="min-w-0 flex-1 truncate text-slate-700" title={p.etiqueta}>
-              {p.etiqueta}
-            </span>
+            {enlace?.(p) ? (
+              <Link
+                href={enlace(p)!}
+                className="min-w-0 flex-1 truncate text-slate-700 hover:text-brand-700 hover:underline"
+                title={`${p.etiqueta}: ver sus recibos pagados`}
+              >
+                {p.etiqueta}
+              </Link>
+            ) : (
+              <span className="min-w-0 flex-1 truncate text-slate-700" title={p.etiqueta}>
+                {p.etiqueta}
+              </span>
+            )}
             <span className="font-mono text-xs tabular-nums text-slate-500">{money(p.importe)}</span>
             <span className="w-14 text-right font-mono text-sm font-semibold tabular-nums text-slate-900">
               {fmtPorcentaje(p.porcentaje)}

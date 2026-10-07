@@ -30,7 +30,24 @@ export default function EliminarItemBoton({ itemId }: { itemId: string }) {
       return;
     }
     setConfirmando(false);
-    avisar("Ítem enviado a la papelera.");
+    avisar("Ítem enviado a la papelera.", "exito", {
+      etiqueta: "Deshacer",
+      alHacer: deshacer,
+    });
+    router.refresh();
+  }
+
+  // Desde el aviso: saca el ítem de la papelera (mismo RPC que "Restaurar" en
+  // Producción).
+  async function deshacer() {
+    const { error: rpcError } = await createClient().rpc("cancelar_solicitud_eliminacion_item", {
+      p_item_id: itemId,
+    });
+    if (rpcError) {
+      avisar(rpcError.message, "error");
+      return;
+    }
+    avisar("Ítem restaurado.", "info");
     router.refresh();
   }
 
@@ -68,7 +85,7 @@ export default function EliminarItemBoton({ itemId }: { itemId: string }) {
       onClick={() => setConfirmando(true)}
       title="Eliminar"
       aria-label="Eliminar ítem"
-      className="flex h-7 w-7 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100"
+      className="flex h-7 w-7 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 pointer-coarse:h-11 pointer-coarse:w-11"
     >
       <IconoPapelera />
     </button>

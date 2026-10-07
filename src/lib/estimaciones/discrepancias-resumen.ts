@@ -4,6 +4,7 @@
 // maquilador solo las de sus propios recibos.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { paginarTodo } from "@/lib/supabase/paginar";
 import type { EstadoDiscrepancia } from "./discrepancias-db";
 
 export interface ResumenDiscrepancia {
@@ -13,22 +14,28 @@ export interface ResumenDiscrepancia {
   estadoRecibo: string | null;
 }
 
+// Lanza si falla la lectura. Quien solo pinta un contador (menú, panel) lo
+// atrapa con `.catch` para no tumbar la pantalla por un número.
 export async function listarResumenDiscrepancias(
   supabase: SupabaseClient
 ): Promise<ResumenDiscrepancia[]> {
-  const { data, error } = await supabase
-    .from("discrepancias_pm")
-    .select("recibo_id, recibo_electrificacion_id, estado, recibos(estado), recibos_electrificacion(estado)")
-    .returns<
-      {
-        recibo_id: string | null;
-        recibo_electrificacion_id: string | null;
-        estado: EstadoDiscrepancia;
-        recibos: { estado: string } | null;
-        recibos_electrificacion: { estado: string } | null;
-      }[]
-    >();
-  if (error || !data) return [];
+  type Fila = {
+    recibo_id: string | null;
+    recibo_electrificacion_id: string | null;
+    estado: EstadoDiscrepancia;
+    recibos: { estado: string } | null;
+    recibos_electrificacion: { estado: string } | null;
+  };
+  const data = await paginarTodo<Fila>(
+    (desde, hasta) =>
+      supabase
+        .from("discrepancias_pm")
+        .select("recibo_id, recibo_electrificacion_id, estado, recibos(estado), recibos_electrificacion(estado)")
+        .order("id")
+        .range(desde, hasta)
+        .returns<Fila[]>(),
+    { contexto: "las discrepancias" }
+  );
   return data.map((d) => ({
     reciboId: (d.recibo_electrificacion_id ?? d.recibo_id) as string,
     estado: d.estado,

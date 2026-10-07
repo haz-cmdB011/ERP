@@ -113,6 +113,16 @@ export default function ItemsLiberacionTable({
     [itemsActivos]
   );
 
+  // Atajo para liberar de un golpe: todo lo que ya está listo (ingeniería,
+  // suministro y lista de insumos) y sigue pendiente, sin importar el filtro.
+  const idsListosPorLiberar = useMemo(
+    () =>
+      itemsActivos
+        .filter((i) => esListo(i) && i.estado_liberacion === "pendiente")
+        .map((i) => i.id),
+    [itemsActivos]
+  );
+
   const itemsFiltrados = useMemo(() => {
     return itemsActivos.filter((item) => {
       if (filtroEstado === "listos" && !esListo(item)) return false;
@@ -232,22 +242,50 @@ export default function ItemsLiberacionTable({
     });
   }
 
+  // Deshacer desde el aviso: llama al endpoint contrario con los mismos ítems.
+  async function deshacerLiberacion(
+    ruta: "liberar" | "revertir",
+    itemIds: string[],
+    mensajeOk: string
+  ) {
+    try {
+      const res = await fetch(`/api/produccion/items/${ruta}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        avisar(data.error ?? "No se pudo deshacer.", "error");
+        return;
+      }
+      avisar(mensajeOk, "info");
+      router.refresh();
+    } catch {
+      avisar("Error de red al deshacer.", "error");
+    }
+  }
+
   async function liberarSeleccion() {
     if (seleccionados.size === 0) return;
     setLiberando(true);
     setMensaje(null);
+    const itemIds = Array.from(seleccionados);
     try {
       const res = await fetch("/api/produccion/items/liberar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIds: Array.from(seleccionados) }),
+        body: JSON.stringify({ itemIds }),
       });
       const data = await res.json();
       if (!res.ok) {
         setMensaje({ tipo: "error", texto: data.error ?? "No se pudo liberar la selección." });
         return;
       }
-      avisar(`${data.liberados} ítem(s) liberado(s) a producción.`);
+      avisar(`${data.liberados} ítem(s) liberado(s) a producción.`, "exito", {
+        etiqueta: "Deshacer",
+        alHacer: () => deshacerLiberacion("revertir", itemIds, "Liberación deshecha."),
+      });
       setSeleccionados(new Set());
       router.refresh();
     } catch {
@@ -261,18 +299,22 @@ export default function ItemsLiberacionTable({
     if (seleccionados.size === 0) return;
     setRevirtiendo(true);
     setMensaje(null);
+    const itemIds = Array.from(seleccionados);
     try {
       const res = await fetch("/api/produccion/items/revertir", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIds: Array.from(seleccionados) }),
+        body: JSON.stringify({ itemIds }),
       });
       const data = await res.json();
       if (!res.ok) {
         setMensaje({ tipo: "error", texto: data.error ?? "No se pudo revertir la selección." });
         return;
       }
-      avisar(`${data.revertidos} ítem(s) revertido(s) a pendiente.`);
+      avisar(`${data.revertidos} ítem(s) revertido(s) a pendiente.`, "exito", {
+        etiqueta: "Deshacer",
+        alHacer: () => deshacerLiberacion("liberar", itemIds, "Ítems liberados de nuevo."),
+      });
       setSeleccionados(new Set());
       router.refresh();
     } catch {
@@ -292,7 +334,10 @@ export default function ItemsLiberacionTable({
       setMensaje({ tipo: "error", texto: error.message });
       return;
     }
-    avisar(`Ítem ${item.item_code} movido a la papelera. Puedes restaurarlo desde ahí.`);
+    avisar(`Ítem ${item.item_code} movido a la papelera.`, "exito", {
+      etiqueta: "Deshacer",
+      alHacer: () => cancelarSolicitud(item),
+    });
     setSeleccionados((prev) => {
       const next = new Set(prev);
       next.delete(item.id);
@@ -624,8 +669,7 @@ export default function ItemsLiberacionTable({
       {vistaPapelera ? (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-slate-600">
-            Ítems con eliminación solicitada. Se pueden restaurar mientras no se confirme la
-            eliminación definitiva.
+            Se pueden restaurar hasta confirmar la eliminación definitiva.
           </p>
           {itemsPapelera.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
@@ -806,6 +850,24 @@ export default function ItemsLiberacionTable({
               Seleccionar todos los filtrados ({idsFiltrados.length})
             </label>
             <span className="text-slate-500">{seleccionados.size} seleccionado(s)</span>
+            <button
+              type="button"
+              onClick={() => setSeleccionados(new Set(idsListosPorLiberar))}
+              disabled={idsListosPorLiberar.length === 0}
+              title="Marca todos los ítems listos que siguen pendientes, aunque haya un filtro puesto"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
+            >
+              Marcar listos por liberar ({idsListosPorLiberar.length})
+            </button>
+            {seleccionados.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setSeleccionados(new Set())}
+                className="text-sm text-slate-500 underline hover:text-slate-700"
+              >
+                Quitar selección
+              </button>
+            )}
             <div className="ml-auto flex flex-wrap gap-2">
               <a
                 href={`/produccion/pedidos/${pedidoId}/viajero-lote?ids=${Array.from(seleccionados).join(",")}`}

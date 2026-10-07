@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { traerTodo } from "@/lib/supabase/traer-todo";
+import { ErrorLectura } from "@/lib/supabase/paginar";
 
 interface PedidoOt {
   id: string;
@@ -61,7 +62,8 @@ export default async function OrdenTrabajoCalidadPage({
     .is("eliminado_definitivo_en", null)
     .returns<PedidoOt[]>();
 
-  if (!error && (!pedidos || pedidos.length === 0)) notFound();
+  if (error) throw new ErrorLectura(`No se pudo leer la O.T.: ${error.message}`);
+  if (!pedidos || pedidos.length === 0) notFound();
 
   const pms = (pedidos ?? []).sort((a, b) =>
     a.numero_pedido.localeCompare(b.numero_pedido, "es", { numeric: true })
@@ -75,7 +77,7 @@ export default async function OrdenTrabajoCalidadPage({
   // Ítems vigentes (no cancelados) enviados a producción de la versión activa
   // y sus informes; se filtra por versión y no por id de ítem para no mandar
   // cientos de ids en la URL.
-  const [{ data: items }, { data: informes }] = idsVersiones.length
+  const [{ data: items, error: errorItems }, { data: informes, error: errorInformes }] = idsVersiones.length
     ? await Promise.all([
         traerTodo<ItemEnviado>((desde, hasta) =>
           supabase
@@ -99,7 +101,14 @@ export default async function OrdenTrabajoCalidadPage({
             .returns<InformeResumen[]>()
         ),
       ])
-    : [{ data: [] as ItemEnviado[] }, { data: [] as InformeResumen[] }];
+    : [
+        { data: [] as ItemEnviado[], error: null },
+        { data: [] as InformeResumen[], error: null },
+      ];
+  // Un avance con lecturas incompletas parecería real: mejor el aviso con "Reintentar".
+  if (errorItems || errorInformes) {
+    throw new ErrorLectura(`No se pudo leer el avance de la O.T.: ${errorItems ?? errorInformes}`);
+  }
 
   // Vienen del más reciente al más antiguo: el primero de cada ítem manda.
   const ultimoInforme = new Map<string, boolean>();
@@ -129,12 +138,6 @@ export default async function OrdenTrabajoCalidadPage({
           </p>
         )}
       </div>
-
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          No se pudieron cargar los PM: {error.message}
-        </p>
-      )}
 
       {pms.length > 0 && (
         <div className="flex flex-col gap-3">

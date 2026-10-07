@@ -1,3 +1,5 @@
+import { formatoFechaDMA, formatoFechaHora } from "@/lib/resumen/entrega";
+import { nombreCategoria } from "@/lib/calidad/categorias";
 import QrCode from "./qr-code";
 
 export interface InformeFichaPedido {
@@ -19,6 +21,8 @@ export interface InformeFichaInforme {
   descripcion: string | null;
   elaborado_en: string;
   elaboradoPorNombre: string | null;
+  // Tipo de defecto de un informe no aprobado (ver lib/calidad/categorias.ts).
+  categoria?: string | null;
 }
 
 function Campo({ label, valor }: { label: string; valor: string }) {
@@ -61,7 +65,8 @@ export default function InformeFicha({
   // Folio PRD-… del ítem (trazabilidad Producción → Calidad), si ya tiene.
   folioProduccion?: string | null;
 }) {
-  const fechaInforme = new Date(informe.elaborado_en).toLocaleString("es-MX");
+  // En la zona de la empresa (no la del servidor, que da UTC).
+  const fechaInforme = formatoFechaHora(informe.elaborado_en);
 
   return (
     <article data-informe className="mx-auto flex w-full max-w-sm flex-col gap-3 bg-white p-4">
@@ -102,10 +107,13 @@ export default function InformeFicha({
         <Campo label="No. Pedido" valor={pedido.numero_pedido} />
         <Campo label="Cliente" valor={pedido.proyectos?.cliente ?? "—"} />
         <Campo label="Proyecto" valor={pedido.proyectos?.nombre ?? "—"} />
-        <Campo label="Fecha inicio" valor={pedido.fecha_pedido ?? "—"} />
-        <Campo label="Fecha término" valor={pedido.fecha_entrega ?? "—"} />
+        <Campo label="Fecha inicio" valor={formatoFechaDMA(pedido.fecha_pedido)} />
+        <Campo label="Fecha término" valor={formatoFechaDMA(pedido.fecha_entrega)} />
         <Campo label="Fecha del informe" valor={fechaInforme} />
         <Campo label="Elaboró" valor={informe.elaboradoPorNombre ?? "—"} />
+        {!informe.aprobado && nombreCategoria(informe.categoria) && (
+          <Campo label="Tipo de defecto" valor={nombreCategoria(informe.categoria) ?? "—"} />
+        )}
       </div>
 
       <div>

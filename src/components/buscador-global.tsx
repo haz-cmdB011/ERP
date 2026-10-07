@@ -204,8 +204,9 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
         type="button"
         onClick={() => setAbierto(true)}
         className="group inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-lg sm:h-10 sm:w-10 xl:w-auto text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 xl:border xl:border-nav-line xl:px-3"
-        aria-label={`Buscar (${atajo})`}
-        aria-keyshortcuts="Control+K Meta+K"
+        aria-label={`Buscar (${atajo} o /)`}
+        title={`Buscar en toda el área: ${atajo} o la tecla /`}
+        aria-keyshortcuts="Control+K Meta+K /"
       >
         <IconoLupa className="h-[18px] w-[18px] transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-125" />
         <span className="hidden xl:inline">Buscar…</span>

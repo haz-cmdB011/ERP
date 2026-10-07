@@ -1,13 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCancelado, IconoCheck, IconoReloj, IconoX } from "@/components/iconos-estado";
-import { DIAS_ANTIGUEDAD_ALERTA } from "./antiguedad";
+import ConfirmDialog from "@/components/confirm-dialog";
+import { avisar } from "@/components/avisos";
 import Colapsable from "@/components/colapsable";
+import {
+  DIAS_ANTIGUEDAD_ALERTA,
+  diasSinEvaluar,
+  estadoDe,
+  funcionNoExiste,
+  idsPorAprobar,
+  type EstadoCalidad,
+} from "@/lib/calidad/estado-item";
+import { CATEGORIAS_DEFECTO, nombreCategoria, type CategoriaDefecto } from "@/lib/calidad/categorias";
+import {
+  cambiosDesdeLaPantalla,
+  mensajeEvaluacionNueva,
+  ultimosInformes,
+} from "@/lib/calidad/verificar-evaluacion";
+import { formatoFechaDMA, formatoFechaHora } from "@/lib/resumen/entrega";
 
 export interface InformeResumen {
   id: string;
@@ -15,6 +31,7 @@ export interface InformeResumen {
   aprobado: boolean;
   elaborado_en: string;
   descripcion: string | null;
+  categoria: string | null;
 }
 
 export interface ItemCalidadRow {
@@ -36,24 +53,22 @@ export interface ItemCalidadRow {
   informes: InformeResumen[];
 }
 
-type FiltroCalidad = "todos" | "aprobado" | "no_aprobado" | "sin_evaluar" | "cancelado";
+type FiltroCalidad = "todos" | EstadoCalidad;
+type Orden = "codigo" | "antiguos";
 
-// Un ítem cancelado en Planeación/Producción se muestra así aunque ya
-// tenga informes de calidad previos — su historial de folios no se pierde,
-// solo deja de tener sentido seguir evaluándolo.
-function estadoDe(item: ItemCalidadRow): FiltroCalidad {
-  if (item.estadoRevision === "cancelado") return "cancelado";
-  const ultimo = item.informes[0];
-  if (!ultimo) return "sin_evaluar";
-  return ultimo.aprobado ? "aprobado" : "no_aprobado";
-}
+// Milisegundos que se espera antes de crear el folio de una aprobación: el
+// folio es permanente, así que da tiempo de deshacer un toque accidental.
+const ESPERA_APROBACION_MS = 5000;
 
-// Días sin evaluar desde que se liberó a producción — null si ya tiene
-// informe o si no hay fecha de liberación registrada.
-function diasSinEvaluar(item: ItemCalidadRow): number | null {
-  if (item.informes.length > 0 || !item.liberadoEn) return null;
-  const ms = Date.now() - new Date(item.liberadoEn).getTime();
-  return Math.floor(ms / (1000 * 60 * 60 * 24));
+const BOTON_ICONO =
+  "flex h-8 w-8 items-center justify-center rounded border transition-colors max-md:h-11 max-md:w-11";
+
+function coincide(item: ItemCalidadRow, texto: string): boolean {
+  if (!texto) return true;
+  const t = texto.toLowerCase();
+  return [String(item.item_code), item.modelo, item.descripcion, item.tipo_material].some((v) =>
+    (v ?? "").toLowerCase().includes(t)
+  );
 }
 
 export default function ItemsCalidadTable({
@@ -68,11 +83,18 @@ export default function ItemsCalidadTable({
   const router = useRouter();
   const [dialogo, setDialogo] = useState<{ item: ItemCalidadRow } | null>(null);
   const [descripcion, setDescripcion] = useState("");
+  const [categoria, setCategoria] = useState<CategoriaDefecto | "">("");
   const [errorMotivo, setErrorMotivo] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [procesandoId, setProcesandoId] = useState<string | null>(null);
+  // Aprobaciones en espera (con "Deshacer"): id del ítem -> temporizador.
+  const [enEspera, setEnEspera] = useState<Set<string>>(new Set());
+  const temporizadores = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const [confirmandoTodos, setConfirmandoTodos] = useState(false);
+  const [aprobandoTodos, setAprobandoTodos] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
   const [filtroCalidad, setFiltroCalidad] = useState<FiltroCalidad>("todos");
+  const [busqueda, setBusqueda] = useState("");
+  const [orden, setOrden] = useState<Orden>("codigo");
   const [historialAbierto, setHistorialAbierto] = useState<Set<string>>(new Set());
   const [previewInforme, setPreviewInforme] = useState<{
     item: ItemCalidadRow;
@@ -91,12 +113,23 @@ export default function ItemsCalidadTable({
   );
 
   const itemsFiltrados = useMemo(
-    () => (filtroCalidad === "todos" ? items : items.filter((i) => estadoDe(i) === filtroCalidad)),
-    [items, filtroCalidad]
+    () =>
+      items.filter(
+        (i) => (filtroCalidad === "todos" || estadoDe(i) === filtroCalidad) && coincide(i, busqueda.trim())
+      ),
+    [items, filtroCalidad, busqueda]
   );
 
   // Agrupación visual MO -> FU, mismo patrón que Producción.
-  const mo = itemsFiltrados.filter((i) => i.tipo_registro === "MO");
+  const moBase = itemsFiltrados.filter((i) => i.tipo_registro === "MO");
+  // "Más antiguos primero": los sin evaluar que llevan más días esperando arriba.
+  const mo =
+    orden === "antiguos"
+      ? [...moBase].sort(
+          (a, b) =>
+            (diasSinEvaluar(b, new Date()) ?? -1) - (diasSinEvaluar(a, new Date()) ?? -1)
+        )
+      : moBase;
   const fuPorPadre = new Map<string, ItemCalidadRow[]>();
   const idsEnGrupos = new Set<string>();
   for (const item of itemsFiltrados) {
@@ -120,6 +153,7 @@ export default function ItemsCalidadTable({
   function cerrarDialogo() {
     setDialogo(null);
     setDescripcion("");
+    setCategoria("");
     setErrorMotivo(false);
   }
 
@@ -132,22 +166,152 @@ export default function ItemsCalidadTable({
     });
   }
 
-  // Aprobar no pide motivo: genera el informe de inmediato al hacer clic.
-  async function aprobarDirecto(item: ItemCalidadRow) {
-    setProcesandoId(item.id);
-    setMensaje(null);
+  // Compara lo que mostraba la pantalla con la base: si alguien más ya evaluó
+  // alguno de estos ítems, no se genera otro folio a ciegas. Devuelve true si se
+  // puede seguir. Si no se puede comprobar (sin red), tampoco se sigue.
+  async function sinEvaluacionAjena(lista: ItemCalidadRow[]): Promise<boolean> {
+    try {
+      const actuales = await ultimosInformes(
+        createClient(),
+        lista.map((i) => i.id)
+      );
+      const vistos = new Map(lista.map((i) => [i.id, i.informes[0]?.id ?? null]));
+      const cambios = cambiosDesdeLaPantalla(vistos, actuales);
+      if (cambios.length === 0) return true;
+      const codigo = new Map(lista.map((i) => [i.id, i.item_code]));
+      setMensaje({
+        tipo: "error",
+        texto: mensajeEvaluacionNueva(cambios, (id) => codigo.get(id) ?? "", new Date()),
+      });
+      router.refresh();
+      return false;
+    } catch {
+      setMensaje({
+        tipo: "error",
+        texto: "No se pudo comprobar si alguien más ya evaluó. Revisa tu conexión e inténtalo de nuevo.",
+      });
+      return false;
+    }
+  }
+
+  // Crea el informe aprobado y deja la tabla donde está: el folio nuevo aparece
+  // en su fila y el aviso lleva al informe.
+  async function crearAprobacion(item: ItemCalidadRow) {
+    if (!(await sinEvaluacionAjena([item]))) return;
     const supabase = createClient();
     const { data, error } = await supabase.rpc("crear_informe_calidad", {
       p_item_id: item.id,
       p_aprobado: true,
       p_descripcion: "",
     });
-    setProcesandoId(null);
     if (error) {
-      setMensaje({ tipo: "error", texto: error.message });
+      setMensaje({ tipo: "error", texto: `Ítem ${item.item_code}: ${error.message}` });
+    } else {
+      avisar(`Ítem ${item.item_code} aprobado.`, "exito", {
+        etiqueta: "Ver informe",
+        alHacer: () => router.push(`/calidad/pedidos/${pedidoId}/informe/${data}`),
+      });
+    }
+    router.refresh();
+  }
+
+  // Aprobar no pide motivo, pero el folio es permanente: se espera unos
+  // segundos con "Deshacer" antes de crearlo.
+  function aprobarDirecto(item: ItemCalidadRow) {
+    setMensaje(null);
+    setEnEspera((prev) => new Set(prev).add(item.id));
+    temporizadores.current.set(
+      item.id,
+      setTimeout(() => {
+        temporizadores.current.delete(item.id);
+        setEnEspera((prev) => {
+          const sig = new Set(prev);
+          sig.delete(item.id);
+          return sig;
+        });
+        void crearAprobacion(item);
+      }, ESPERA_APROBACION_MS)
+    );
+  }
+
+  function deshacerAprobacion(itemId: string) {
+    const t = temporizadores.current.get(itemId);
+    if (t) clearTimeout(t);
+    temporizadores.current.delete(itemId);
+    setEnEspera((prev) => {
+      const sig = new Set(prev);
+      sig.delete(itemId);
+      return sig;
+    });
+  }
+
+  // Si se sale de la pantalla con aprobaciones en espera, se envían de una vez:
+  // la persona ya las había pedido.
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  });
+  useEffect(() => {
+    const pendientes = temporizadores.current;
+    return () => {
+      for (const [id, t] of pendientes) {
+        clearTimeout(t);
+        const item = itemsRef.current.find((i) => i.id === id);
+        if (item) {
+          void createClient().rpc("crear_informe_calidad", {
+            p_item_id: item.id,
+            p_aprobado: true,
+            p_descripcion: "",
+          });
+        }
+      }
+      pendientes.clear();
+    };
+  }, []);
+
+  // Aprueba de una vez todos los ítems nunca evaluados que se ven en la tabla.
+  const idsAprobables = idsPorAprobar(itemsFiltrados).filter((id) => !enEspera.has(id));
+
+  async function aprobarTodos() {
+    const lista = items.filter((i) => idsAprobables.includes(i.id));
+    setAprobandoTodos(true);
+    setMensaje(null);
+    if (!(await sinEvaluacionAjena(lista))) {
+      setAprobandoTodos(false);
+      setConfirmandoTodos(false);
       return;
     }
-    router.push(`/calidad/pedidos/${pedidoId}/informe/${data}`);
+    const supabase = createClient();
+    let hechos = 0;
+    let fallo: string | null = null;
+    const { data, error } = await supabase.rpc("crear_informes_calidad_aprobados", {
+      p_item_ids: idsAprobables,
+    });
+    if (!error) {
+      hechos = Array.isArray(data) ? data.length : idsAprobables.length;
+    } else if (funcionNoExiste(error)) {
+      // La migración de aprobación en bloque aún no está en la base: uno por uno.
+      for (const id of idsAprobables) {
+        const r = await supabase.rpc("crear_informe_calidad", { p_item_id: id, p_aprobado: true, p_descripcion: "" });
+        if (r.error) {
+          fallo = r.error.message;
+          break;
+        }
+        hechos += 1;
+      }
+    } else {
+      fallo = error.message;
+    }
+    setAprobandoTodos(false);
+    setConfirmandoTodos(false);
+    if (hechos > 0) avisar(`${hechos} ítem${hechos === 1 ? "" : "s"} aprobado${hechos === 1 ? "" : "s"}.`);
+    if (fallo) {
+      setMensaje({
+        tipo: "error",
+        texto: hechos > 0 ? `Se aprobaron ${hechos} de ${idsAprobables.length}. Se detuvo por: ${fallo}` : fallo,
+      });
+    }
+    router.refresh();
   }
 
   // No aprobar sí exige el motivo, por eso pasa por el diálogo.
@@ -159,23 +323,38 @@ export default function ItemsCalidadTable({
     }
     setEnviando(true);
     setMensaje(null);
+    const itemRechazado = dialogo.item;
+    if (!(await sinEvaluacionAjena([itemRechazado]))) {
+      setEnviando(false);
+      cerrarDialogo();
+      return;
+    }
     const supabase = createClient();
-    const { data, error } = await supabase.rpc("crear_informe_calidad", {
-      p_item_id: dialogo.item.id,
-      p_aprobado: false,
-      p_descripcion: descripcion,
+    const base = { p_item_id: itemRechazado.id, p_aprobado: false, p_descripcion: descripcion };
+    let { data, error } = await supabase.rpc("crear_informe_calidad", {
+      ...base,
+      ...(categoria ? { p_categoria: categoria } : {}),
     });
+    // Si la base aún no conoce la categoría, se guarda el informe sin ella.
+    if (error && categoria && funcionNoExiste(error)) {
+      ({ data, error } = await supabase.rpc("crear_informe_calidad", base));
+    }
     setEnviando(false);
     if (error) {
       setMensaje({ tipo: "error", texto: error.message });
       return;
     }
+    const informeId = data;
     cerrarDialogo();
-    router.push(`/calidad/pedidos/${pedidoId}/informe/${data}`);
+    avisar(`Ítem ${itemRechazado.item_code}: informe de no aprobado generado.`, "exito", {
+      etiqueta: "Ver informe",
+      alHacer: () => router.push(`/calidad/pedidos/${pedidoId}/informe/${informeId}`),
+    });
+    router.refresh();
   }
 
-  // Columna "Calidad": solo el estado (Aprobado / No aprobado / Sin evaluar /
-  // Cancelado). El folio y el historial de folios viven en la columna "Folio".
+  // Estado del ítem: Aprobado / No aprobado / Sin evaluar / Cancelado. El folio
+  // y el historial de folios viven aparte (FolioCelda).
   function EstadoBadge({ item }: { item: ItemCalidadRow }) {
     const ultimo = item.informes[0];
 
@@ -196,7 +375,7 @@ export default function ItemsCalidadTable({
     }
 
     if (!ultimo) {
-      const dias = diasSinEvaluar(item);
+      const dias = diasSinEvaluar(item, new Date());
       const antiguo = dias !== null && dias >= DIAS_ANTIGUEDAD_ALERTA;
       return (
         <div>
@@ -228,6 +407,11 @@ export default function ItemsCalidadTable({
           {ultimo.aprobado ? <IconoCheck /> : <IconoX />}
           {ultimo.aprobado ? "Aprobado" : "No aprobado"}
         </Link>
+        {!ultimo.aprobado && (
+          <p className="mt-0.5 text-[11px] font-medium text-rose-600">
+            {nombreCategoria(ultimo.categoria) ?? "Por reinspeccionar"}
+          </p>
+        )}
         {!ultimo.aprobado && ultimo.descripcion && (
           <button
             type="button"
@@ -241,9 +425,9 @@ export default function ItemsCalidadTable({
     );
   }
 
-  // Columna "Folio": el folio (CAL-…) del último informe del ítem, enlazado a
-  // su ficha, y el historial de los folios anteriores (un ítem puede evaluarse
-  // varias veces; ninguno se pierde, tampoco si el ítem se cancela).
+  // El folio (CAL-…) del último informe del ítem, enlazado a su ficha, y el
+  // historial de los folios anteriores (un ítem puede evaluarse varias veces;
+  // ninguno se pierde, tampoco si el ítem se cancela).
   function FolioCelda({ item }: { item: ItemCalidadRow }) {
     const ultimo = item.informes[0];
     const historialAnterior = item.informes.slice(1);
@@ -279,7 +463,7 @@ export default function ItemsCalidadTable({
                       className="text-left text-[11px] text-slate-500 underline hover:text-slate-700"
                     >
                       {inf.folio} · {inf.aprobado ? "Aprobado" : "No aprobado"} —{" "}
-                      {new Date(inf.elaborado_en).toLocaleDateString("es-MX")}
+                      {formatoFechaDMA(inf.elaborado_en)}
                     </button>
                   </li>
                 ))}
@@ -291,37 +475,83 @@ export default function ItemsCalidadTable({
     );
   }
 
-  function Fila({ item, indentado }: { item: ItemCalidadRow; indentado: boolean }) {
-    const estado = estadoDe(item);
-    const dias = diasSinEvaluar(item);
-    const antiguo = dias !== null && dias >= DIAS_ANTIGUEDAD_ALERTA;
-    const franja =
-      estado === "cancelado"
-        ? "border-l-slate-400"
-        : antiguo
-          ? "border-l-amber-400"
-          : estado === "aprobado"
-            ? "border-l-emerald-400"
-            : estado === "no_aprobado"
-              ? "border-l-rose-400"
-              : "border-l-slate-200";
+  // Botones de aprobar / no aprobar (o "Aprobando… Deshacer" durante la espera).
+  function Acciones({ item }: { item: ItemCalidadRow }) {
+    if (estadoDe(item) === "cancelado") return <span className="text-xs text-slate-500">—</span>;
+    if (enEspera.has(item.id)) {
+      return (
+        <span className="flex items-center gap-2 text-xs font-medium text-emerald-700">
+          Aprobando…
+          <button
+            type="button"
+            onClick={() => deshacerAprobacion(item.id)}
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 max-md:min-h-11 max-md:px-4"
+          >
+            Deshacer
+          </button>
+        </span>
+      );
+    }
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => aprobarDirecto(item)}
+          title="Aprobar"
+          aria-label={`Aprobar ítem ${item.item_code}`}
+          className={`${BOTON_ICONO} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
+        >
+          <IconoCheck />
+        </button>
+        <button
+          type="button"
+          onClick={() => abrirDialogoRechazo(item)}
+          title="No aprobar"
+          aria-label={`No aprobar ítem ${item.item_code}`}
+          className={`${BOTON_ICONO} border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100`}
+        >
+          <IconoX />
+        </button>
+      </>
+    );
+  }
 
+  function franjaDe(item: ItemCalidadRow): string {
+    const estado = estadoDe(item);
+    const dias = diasSinEvaluar(item, new Date());
+    const antiguo = dias !== null && dias >= DIAS_ANTIGUEDAD_ALERTA;
+    return estado === "cancelado"
+      ? "border-l-slate-400"
+      : antiguo
+        ? "border-l-amber-400"
+        : estado === "aprobado"
+          ? "border-l-emerald-400"
+          : estado === "no_aprobado"
+            ? "border-l-rose-400"
+            : "border-l-slate-200";
+  }
+
+  function Miniatura({ item, clase }: { item: ItemCalidadRow; clase: string }) {
+    return item.imagenUrl ? (
+      <ImagenAmpliable
+        url={item.imagenUrl}
+        urlGrande={item.imagenGrandeUrl}
+        alt={`Ítem ${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`}
+        className={clase}
+      />
+    ) : (
+      <div className={`${clase} rounded border border-dashed border-slate-200 bg-slate-50`} />
+    );
+  }
+
+  function Fila({ item, indentado }: { item: ItemCalidadRow; indentado: boolean }) {
     return (
       <tr
         key={item.id}
         className={`transition-colors hover:bg-slate-50 ${indentado ? "border-t border-slate-100" : "text-sm font-medium text-slate-900"}`}
       >
-        <td className={`border-l-4 py-2 pl-2 pr-1 ${franja}`}>
-          {item.imagenUrl ? (
-            <ImagenAmpliable
-              url={item.imagenUrl}
-              urlGrande={item.imagenGrandeUrl}
-              alt={`Ítem ${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`}
-              className="h-8 w-8"
-            />
-          ) : (
-            <div className="h-8 w-8 rounded border border-dashed border-slate-200 bg-slate-50" />
-          )}
+        <td className={`border-l-4 py-2 pl-2 pr-1 ${franjaDe(item)}`}>
+          <Miniatura item={item} clase="h-8 w-8" />
         </td>
         <td className="px-3 py-2 text-slate-700">{item.item_code}</td>
         <td className="px-3 py-2 text-slate-700">{item.modelo}</td>
@@ -332,54 +562,63 @@ export default function ItemsCalidadTable({
         <td className="px-3 py-2 text-slate-700">
           {item.cantidad_total} {item.unidad}
         </td>
-        <td className="px-3 py-2">
-          {EstadoBadge({ item })}
-        </td>
-        <td className="px-3 py-2">
-          {FolioCelda({ item })}
-        </td>
-        {puedeEvaluar && (
-          <td className="flex flex-wrap gap-2 px-3 py-2">
-            {estado === "cancelado" ? (
-              <span className="text-xs text-slate-500">—</span>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => aprobarDirecto(item)}
-                  disabled={procesandoId === item.id}
-                  title={procesandoId === item.id ? "Generando informe..." : "Aprobar"}
-                  aria-label={`Aprobar ítem ${item.item_code}`}
-                  className="flex h-8 w-8 items-center justify-center rounded border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
-                >
-                  {procesandoId === item.id ? (
-                    <span className="text-xs font-semibold">…</span>
-                  ) : (
-                    <IconoCheck />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => abrirDialogoRechazo(item)}
-                  disabled={procesandoId === item.id}
-                  title="No aprobar"
-                  aria-label={`No aprobar ítem ${item.item_code}`}
-                  className="flex h-8 w-8 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
-                >
-                  <IconoX />
-                </button>
-              </>
-            )}
-          </td>
-        )}
+        <td className="px-3 py-2">{EstadoBadge({ item })}</td>
+        <td className="px-3 py-2">{FolioCelda({ item })}</td>
+        {puedeEvaluar && <td className="flex flex-wrap gap-2 px-3 py-2">{Acciones({ item })}</td>}
       </tr>
     );
   }
 
+  // Misma información que la fila, en tarjeta para el celular o la tableta.
+  function Tarjeta({ item, indentado }: { item: ItemCalidadRow; indentado: boolean }) {
+    return (
+      <li
+        key={item.id}
+        className={`flex flex-col gap-3 border-l-4 p-3 ${franjaDe(item)} ${indentado ? "ml-4 border-t border-slate-100" : ""}`}
+      >
+        <div className="flex items-start gap-3">
+          <Miniatura item={item} clase="h-12 w-12 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-slate-900">
+              Ítem {item.item_code}
+              {item.modelo ? ` · ${item.modelo}` : ""}
+            </p>
+            <p className="line-clamp-2 text-xs text-slate-600">{item.descripcion?.split("\n")[0]}</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {item.cantidad_total} {item.unidad}
+              {item.tipo_material ? ` · ${item.tipo_material}` : ""}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {EstadoBadge({ item })}
+          {FolioCelda({ item })}
+        </div>
+        {puedeEvaluar && <div className="flex flex-wrap gap-2">{Acciones({ item })}</div>}
+      </li>
+    );
+  }
+
+  const ENCABEZADO = (
+    <thead>
+      <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <th className="px-3 py-2.5"></th>
+        <th className="px-3 py-2.5">Item</th>
+        <th className="px-3 py-2.5">Modelo</th>
+        <th className="px-3 py-2.5">Material</th>
+        <th className="px-3 py-2.5">Descripción</th>
+        <th className="px-3 py-2.5">Cant.</th>
+        <th className="px-3 py-2.5">Calidad</th>
+        <th className="px-3 py-2.5">Folio</th>
+        {puedeEvaluar && <th className="px-3 py-2.5">Aprobación</th>}
+      </tr>
+    </thead>
+  );
+
   const chips: [FiltroCalidad, string][] = [
     ["todos", `Todos (${conteos.todos})`],
     ["aprobado", `Aprobados (${conteos.aprobado})`],
-    ["no_aprobado", `No aprobados (${conteos.no_aprobado})`],
+    ["no_aprobado", `Por reinspeccionar (${conteos.no_aprobado})`],
     ["sin_evaluar", `Sin evaluar (${conteos.sin_evaluar})`],
     ["cancelado", `Cancelados (${conteos.cancelado})`],
   ];
@@ -387,26 +626,75 @@ export default function ItemsCalidadTable({
   return (
     <div className="flex flex-col gap-4">
       {items.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          {chips.map(([valor, etiqueta]) => (
-            <button
-              key={valor}
-              type="button"
-              onClick={() => setFiltroCalidad(valor)}
-              className={`rounded border px-3 py-1 font-medium transition-colors ${
-                filtroCalidad === valor
-                  ? "border-brand-600 bg-brand-500 text-on-brand"
-                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {etiqueta}
-            </button>
-          ))}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            {chips.map(([valor, etiqueta]) => (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => setFiltroCalidad(valor)}
+                className={`rounded border px-3 py-1 font-medium transition-colors max-md:min-h-11 ${
+                  filtroCalidad === valor
+                    ? "border-brand-600 bg-brand-500 text-on-brand"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar ítem, modelo o descripción…"
+              aria-label="Buscar en los ítems"
+              className="min-h-10 w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-brand-600 focus:outline-none"
+            />
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={orden === "antiguos"}
+                onChange={(e) => setOrden(e.target.checked ? "antiguos" : "codigo")}
+                className="h-4 w-4 accent-brand-600"
+              />
+              Más antiguos sin evaluar primero
+            </label>
+          </div>
         </div>
       )}
 
+      {puedeEvaluar && idsAprobables.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <span>
+            <strong>{idsAprobables.length}</strong> ítem{idsAprobables.length === 1 ? "" : "s"} sin evaluar
+            {filtroCalidad === "todos" && !busqueda.trim() ? "" : " en esta vista"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setConfirmandoTodos(true)}
+            disabled={aprobandoTodos}
+            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 max-md:min-h-11 max-md:px-4"
+          >
+            Aprobar los {idsAprobables.length}
+          </button>
+          <span className="text-xs text-emerald-800">Cada uno recibe su propio folio.</span>
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmandoTodos}
+        title={`Aprobar ${idsAprobables.length} ítem${idsAprobables.length === 1 ? "" : "s"}`}
+        message="Se genera un informe aprobado con folio propio para cada uno. Los folios son permanentes: no se pueden borrar después."
+        confirmLabel={aprobandoTodos ? "Aprobando…" : `Aprobar ${idsAprobables.length}`}
+        busy={aprobandoTodos}
+        onConfirm={() => void aprobarTodos()}
+        onCancel={() => setConfirmandoTodos(false)}
+      />
+
       {mensaje && (
         <div
+          role={mensaje.tipo === "error" ? "alert" : "status"}
           className={`rounded-lg border p-3 text-sm ${
             mensaje.tipo === "ok"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -438,57 +726,41 @@ export default function ItemsCalidadTable({
         </div>
       ) : itemsFiltrados.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Ningún ítem coincide con el filtro seleccionado.
+          Ningún ítem coincide con lo que elegiste.
         </p>
       ) : (
         <div className="flex flex-col gap-4">
           {mo.map((m) => (
-            <div
-              key={m.id}
-              className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm"
-            >
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2.5"></th>
-                    <th className="px-3 py-2.5">Item</th>
-                    <th className="px-3 py-2.5">Modelo</th>
-                    <th className="px-3 py-2.5">Material</th>
-                    <th className="px-3 py-2.5">Descripción</th>
-                    <th className="px-3 py-2.5">Cant.</th>
-                    <th className="px-3 py-2.5">Calidad</th>
-                    <th className="px-3 py-2.5">Folio</th>
-                    {puedeEvaluar && <th className="px-3 py-2.5">Aprobación</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {Fila({ item: m, indentado: false })}
-                  {(fuPorPadre.get(m.id) ?? []).map((f) => Fila({ item: f, indentado: true }))}
-                </tbody>
-              </table>
+            <div key={m.id} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-left text-xs">
+                  {ENCABEZADO}
+                  <tbody className="divide-y divide-slate-100">
+                    {Fila({ item: m, indentado: false })}
+                    {(fuPorPadre.get(m.id) ?? []).map((f) => Fila({ item: f, indentado: true }))}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="md:hidden">
+                {Tarjeta({ item: m, indentado: false })}
+                {(fuPorPadre.get(m.id) ?? []).map((f) => Tarjeta({ item: f, indentado: true }))}
+              </ul>
             </div>
           ))}
 
           {fuSueltos.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2.5"></th>
-                    <th className="px-3 py-2.5">Item</th>
-                    <th className="px-3 py-2.5">Modelo</th>
-                    <th className="px-3 py-2.5">Material</th>
-                    <th className="px-3 py-2.5">Descripción</th>
-                    <th className="px-3 py-2.5">Cant.</th>
-                    <th className="px-3 py-2.5">Calidad</th>
-                    <th className="px-3 py-2.5">Folio</th>
-                    {puedeEvaluar && <th className="px-3 py-2.5">Aprobación</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {fuSueltos.map((f) => Fila({ item: f, indentado: false }))}
-                </tbody>
-              </table>
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-left text-xs">
+                  {ENCABEZADO}
+                  <tbody className="divide-y divide-slate-100">
+                    {fuSueltos.map((f) => Fila({ item: f, indentado: false }))}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="divide-y divide-slate-100 md:hidden">
+                {fuSueltos.map((f) => Tarjeta({ item: f, indentado: false }))}
+              </ul>
             </div>
           )}
         </div>
@@ -504,6 +776,28 @@ export default function ItemsCalidadTable({
               Indica el motivo por el que no se aprueba. Se genera un informe de calidad nuevo con
               folio propio.
             </p>
+            <fieldset className="mt-3">
+              <legend className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                Tipo de defecto (opcional)
+              </legend>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {CATEGORIAS_DEFECTO.map((c) => (
+                  <button
+                    key={c.valor}
+                    type="button"
+                    aria-pressed={categoria === c.valor}
+                    onClick={() => setCategoria(categoria === c.valor ? "" : c.valor)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      categoria === c.valor
+                        ? "border-rose-500 bg-rose-50 text-rose-700"
+                        : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {c.nombre}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
             <textarea
               value={descripcion}
               onChange={(e) => {
@@ -588,13 +882,16 @@ export default function ItemsCalidadTable({
               {previewInforme.informe.aprobado ? "APROBADO" : "NO APROBADO"}
             </p>
             <p className="text-center text-[11px] text-slate-600">
-              {new Date(previewInforme.informe.elaborado_en).toLocaleDateString("es-MX")}
+              {formatoFechaHora(previewInforme.informe.elaborado_en)}
             </p>
 
             {!previewInforme.informe.aprobado && previewInforme.informe.descripcion && (
               <div className="mt-3 rounded-lg bg-rose-50 p-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-500">
                   Motivo
+                  {nombreCategoria(previewInforme.informe.categoria)
+                    ? ` · ${nombreCategoria(previewInforme.informe.categoria)}`
+                    : ""}
                 </p>
                 <p className="mt-0.5 text-xs text-rose-700">{previewInforme.informe.descripcion}</p>
               </div>

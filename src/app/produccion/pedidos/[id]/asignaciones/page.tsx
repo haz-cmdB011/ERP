@@ -16,6 +16,7 @@ import {
 } from "@/lib/produccion/asignaciones";
 import { entregasPorAsignacion, type EntregaConFoto } from "@/lib/produccion/consultar-asignaciones";
 import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
+import AsignarLote, { type MuebleParaLote } from "@/app/produccion/asignaciones/asignar-lote";
 import DetalleAsignacion, {
   EstadoAsignacionBadge,
 } from "@/app/produccion/asignaciones/detalle-asignacion";
@@ -118,20 +119,33 @@ export default async function AsignacionesPedidoPage({
 
   const pedidoCancelado = !!pedido.cancelado_en;
 
+  // Para asignar varios muebles de una vez: lo que falta de cada uno.
+  const paraLote: MuebleParaLote[] = liberados.map((m) => ({
+    id: m.id,
+    item_code: m.item_code,
+    modelo: m.modelo,
+    unidad: m.unidad,
+    disponible: disponibleDe(Number(m.cantidad_total), resumenPorProceso(porItem.get(m.id) ?? [])),
+  }));
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Asignar a equipos — {pedido.numero_pedido}
-        </h1>
-        <p className="text-sm text-slate-600">
-          {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
-          {version ? ` · versión ${version.numero_version}` : ""}
-        </p>
-        <p className="mt-2 text-sm text-slate-500">
-          Un mueble se puede repartir entre varios equipos o con la planta. Cada proceso (armado y barniz)
-          se asigna por separado.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            Asignar a equipos — {pedido.numero_pedido}
+          </h1>
+          <p className="text-sm text-slate-600">
+            {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
+            {version ? ` · versión ${version.numero_version}` : ""}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">
+            Un mueble puede repartirse entre varios equipos. Armado y barniz se asignan por separado.
+          </p>
+        </div>
+        {puedeEditar && !pedidoCancelado && liberados.length > 1 && (
+          <AsignarLote muebles={paraLote} equipos={equipos ?? []} />
+        )}
       </div>
 
       {pedidoCancelado && (
@@ -156,25 +170,18 @@ export default async function AsignacionesPedidoPage({
       )}
 
       {liberados.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          No hay muebles liberados a producción en la versión activa.
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          <p>Aún no hay muebles liberados para asignar.</p>
+          <Link href={`/produccion/pedidos/${pedido.id}`} className="font-medium text-brand-700 hover:underline">
+            Ir a liberar ítems →
+          </Link>
+        </div>
       ) : (
         <ul className="flex flex-col gap-3">
           {liberados.map((m) => {
             const lista = porItem.get(m.id) ?? [];
-            const activas = lista.filter((a) => !a.cancelada_en);
-            const resumen = Object.fromEntries(
-              PROCESOS.map((p) => {
-                const deP = activas.filter((a) => a.proceso === p);
-                const asignado = deP.reduce((s, a) => s + Number(a.cantidad), 0);
-                const entregado = deP.reduce((s, a) => s + Number(a.entregado), 0);
-                return [p, { asignado, entregado }];
-              })
-            ) as Record<Proceso, { asignado: number; entregado: number }>;
-            const disponible = Object.fromEntries(
-              PROCESOS.map((p) => [p, Math.round((Number(m.cantidad_total) - resumen[p].asignado) * 100) / 100])
-            ) as Record<Proceso, number>;
+            const resumen = resumenPorProceso(lista);
+            const disponible = disponibleDe(Number(m.cantidad_total), resumen);
             const descripcion = `${pedido.numero_pedido} · ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`;
 
             return (
@@ -252,6 +259,31 @@ export default async function AsignacionesPedidoPage({
       )}
     </main>
   );
+}
+
+// Asignado y entregado por proceso, sin contar las asignaciones canceladas.
+function resumenPorProceso(
+  asignaciones: AsignacionResumen[]
+): Record<Proceso, { asignado: number; entregado: number }> {
+  const activas = asignaciones.filter((a) => !a.cancelada_en);
+  return Object.fromEntries(
+    PROCESOS.map((p) => {
+      const deP = activas.filter((a) => a.proceso === p);
+      const asignado = deP.reduce((s, a) => s + Number(a.cantidad), 0);
+      const entregado = deP.reduce((s, a) => s + Number(a.entregado), 0);
+      return [p, { asignado, entregado }];
+    })
+  ) as Record<Proceso, { asignado: number; entregado: number }>;
+}
+
+// Lo que falta por asignar de cada proceso.
+function disponibleDe(
+  cantidadTotal: number,
+  resumen: Record<Proceso, { asignado: number }>
+): Record<Proceso, number> {
+  return Object.fromEntries(
+    PROCESOS.map((p) => [p, Math.round((cantidadTotal - resumen[p].asignado) * 100) / 100])
+  ) as Record<Proceso, number>;
 }
 
 function FilaAsignacion({

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import TablaPedidos, { type PedidoLista } from "../../tabla-pedidos";
 import { CLASE_MIGA, FlechaRegresar } from "@/components/regresar-estilo";
+import { hoyEnEmpresa } from "@/lib/resumen/entrega";
 
 interface ResultadoModeloRow {
   id: string;
@@ -204,7 +205,7 @@ export default async function OrdenTrabajoPage({
           <h2 className="text-sm font-semibold text-slate-600">
             {pms.length} PM en esta O.T.
           </h2>
-          <TablaPedidos pedidos={pms} esAdmin={esAdmin} />
+          <TablaPedidos pedidos={pms} esAdmin={esAdmin} hoy={hoyEnEmpresa()} />
         </div>
       )}
     </main>

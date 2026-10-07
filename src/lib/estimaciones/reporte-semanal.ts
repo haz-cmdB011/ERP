@@ -16,6 +16,7 @@
 // ERP: sin ellos el seguro queda en null y el total a pagar es el importe.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { paginarTodo } from "@/lib/supabase/paginar";
 import { compararFolios } from "./recibos-db";
 import type { TipoCualquierRecibo } from "./revision-db";
 
@@ -264,29 +265,15 @@ const aRecibo = (r: FilaDb, tipo: TipoCualquierRecibo, rs: RenglonDb[]): ReciboP
   piezas: piezasDe(rs),
 });
 
-const PAGINA = 1000;
-
-// Todas las filas de una consulta (la API corta cada respuesta en 1000).
-async function paginar<T>(
-  pedir: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
-): Promise<{ filas: T[]; error: string | null }> {
-  const filas: T[] = [];
-  for (let desde = 0; ; desde += PAGINA) {
-    const { data, error } = await pedir(desde, desde + PAGINA - 1);
-    if (error) return { filas, error: error.message };
-    filas.push(...(data ?? []));
-    if ((data ?? []).length < PAGINA) return { filas, error: null };
-  }
-}
-
 // Recibos pagados entre dos fechas locales "AAAA-MM-DD" (ambas incluidas), de
 // todas las áreas. RLS decide qué se ve. Se pide un día de margen por lado en
-// UTC y se recorta con la fecha local.
+// UTC y se recorta con la fecha local. Si una lectura falla LANZA ErrorLectura:
+// un reporte con totales parciales parecería real y se reparte fuera de la app.
 export async function cargarRecibosPagadosEntre(
   supabase: SupabaseClient,
   desde: string,
   hasta: string
-): Promise<{ recibos: ReciboPagado[]; error: string | null }> {
+): Promise<ReciboPagado[]> {
   const margenDesde = fechaUTC(desde);
   margenDesde.setUTCDate(margenDesde.getUTCDate() - 1);
   const margenHasta = fechaUTC(hasta);
@@ -295,44 +282,47 @@ export async function cargarRecibosPagadosEntre(
   const fin = margenHasta.toISOString();
 
   const [aa, el] = await Promise.all([
-    paginar<FilaDb & { tipo: TipoCualquierRecibo; renglones: RenglonDb[] }>((d, h) =>
-      supabase
-        .from("recibos")
-        .select("tipo, folio, contratista, ot, obra, pagado_en, renglones(cantidad, pu_aceptado)")
-        .eq("estado", "pagado")
-        .gte("pagado_en", inicio)
-        .lt("pagado_en", fin)
-        .order("pagado_en")
-        .order("folio")
-        .range(d, h)
-        .returns<(FilaDb & { tipo: TipoCualquierRecibo; renglones: RenglonDb[] })[]>()
+    paginarTodo<FilaDb & { tipo: TipoCualquierRecibo; renglones: RenglonDb[] }>(
+      (d, h) =>
+        supabase
+          .from("recibos")
+          .select("tipo, folio, contratista, ot, obra, pagado_en, renglones(cantidad, pu_aceptado)")
+          .eq("estado", "pagado")
+          .gte("pagado_en", inicio)
+          .lt("pagado_en", fin)
+          .order("pagado_en")
+          .order("folio")
+          .order("id")
+          .range(d, h)
+          .returns<(FilaDb & { tipo: TipoCualquierRecibo; renglones: RenglonDb[] })[]>(),
+      { contexto: "los recibos pagados de Acabados y Armado" }
     ),
-    paginar<FilaDb & { renglones_electrificacion: RenglonDb[] }>((d, h) =>
-      supabase
-        .from("recibos_electrificacion")
-        .select(
-          "folio, contratista, ot, obra, pagado_en, renglones_electrificacion(cantidad, pu_aceptado)"
-        )
-        .eq("estado", "pagado")
-        .gte("pagado_en", inicio)
-        .lt("pagado_en", fin)
-        .order("pagado_en")
-        .order("folio")
-        .range(d, h)
-        .returns<(FilaDb & { renglones_electrificacion: RenglonDb[] })[]>()
+    paginarTodo<FilaDb & { renglones_electrificacion: RenglonDb[] }>(
+      (d, h) =>
+        supabase
+          .from("recibos_electrificacion")
+          .select(
+            "folio, contratista, ot, obra, pagado_en, renglones_electrificacion(cantidad, pu_aceptado)"
+          )
+          .eq("estado", "pagado")
+          .gte("pagado_en", inicio)
+          .lt("pagado_en", fin)
+          .order("pagado_en")
+          .order("folio")
+          .order("id")
+          .range(d, h)
+          .returns<(FilaDb & { renglones_electrificacion: RenglonDb[] })[]>(),
+      { contexto: "los recibos pagados de Electrificación" }
     ),
   ]);
 
-  const error = aa.error ?? el.error ?? null;
-  const recibos = [
-    ...aa.filas.map((r) => aRecibo(r, r.tipo, r.renglones)),
-    ...el.filas.map((r) => aRecibo(r, "electrificacion", r.renglones_electrificacion)),
+  return [
+    ...aa.map((r) => aRecibo(r, r.tipo, r.renglones)),
+    ...el.map((r) => aRecibo(r, "electrificacion", r.renglones_electrificacion)),
   ].filter((r) => {
     const dia = fechaLocal(r.pagadoEn);
     return dia >= desde && dia <= hasta;
   });
-
-  return { recibos, error };
 }
 
 // Recibos pagados que corresponden a la semana (todas las áreas): los que se
@@ -340,7 +330,7 @@ export async function cargarRecibosPagadosEntre(
 export async function cargarRecibosPagados(
   supabase: SupabaseClient,
   semana: Semana
-): Promise<{ recibos: ReciboPagado[]; error: string | null }> {
+): Promise<ReciboPagado[]> {
   const { desde, hasta } = rangoSemana(semanaDePago(semana));
   return cargarRecibosPagadosEntre(supabase, desde, hasta);
 }

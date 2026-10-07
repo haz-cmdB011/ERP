@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
+import { textoCancelacion, type ResumenCancelacion } from "@/lib/planeacion/resumen-cancelacion";
 
 export interface CancelacionPedido {
   cancelado_en: string | null;
@@ -21,10 +22,14 @@ export default function CancelarPedido({
   pedidoId,
   cancelacion,
   puedeEditar,
+  resumen = null,
 }: {
   pedidoId: string;
   cancelacion: CancelacionPedido;
   puedeEditar: boolean;
+  // Lo que se cancelaría (ítems vigentes de la versión activa), para decirlo
+  // antes de confirmar.
+  resumen?: ResumenCancelacion | null;
 }) {
   const router = useRouter();
   const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
@@ -131,8 +136,11 @@ export default function CancelarPedido({
   if (pidiendoMotivo) {
     return (
       <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs text-gray-600">
-          Se cancelará el pedido completo y todos sus ítems.
+        <p className="text-sm font-medium text-slate-800">
+          Vas a cancelar el pedido completo.{" "}
+          <span className="font-normal text-slate-600">
+            {resumen ? textoCancelacion(resumen) : "Se cancelarán todos sus ítems."}
+          </span>
         </p>
         <textarea
           value={motivo}
@@ -145,12 +153,12 @@ export default function CancelarPedido({
           className={`rounded border p-2 text-sm ${errorMotivo ? "border-red-400" : "border-gray-300"}`}
         />
         {errorMotivo && <p className="text-xs text-red-600">Debes indicar el motivo.</p>}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={confirmarCancelacion}
             disabled={enviando}
-            className="text-xs font-medium text-red-700 underline disabled:opacity-50"
+            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
           >
             {enviando ? "Cancelando..." : "Confirmar cancelación"}
           </button>
@@ -161,9 +169,9 @@ export default function CancelarPedido({
               setMotivo("");
               setErrorMotivo(false);
             }}
-            className="text-xs text-gray-500 underline"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
           >
-            Cerrar
+            Volver
           </button>
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}

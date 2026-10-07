@@ -37,7 +37,7 @@ export default async function CalidadLayout({
   }
 
   // Aviso de recibos por revisar en la pestaña Estimaciones (solo a quien los revisa).
-  const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase) : 0;
+  const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase).catch(() => 0) : 0;
 
   return (
     <div className="min-h-screen">
@@ -51,6 +51,12 @@ export default async function CalidadLayout({
       >
         <SubnavLink href="/calidad" icono="pedidos" tambien={["/calidad/pedidos", "/calidad/ot"]}>
           Pedidos
+        </SubnavLink>
+        <SubnavLink href="/calidad/entregas" icono="por_revisar">
+          Entregas por inspeccionar
+        </SubnavLink>
+        <SubnavLink href="/calidad/escanear" icono="escanear">
+          Escanear QR
         </SubnavLink>
         <SubnavLink href="/calidad/cancelados" icono="cancelados">
           Cancelados

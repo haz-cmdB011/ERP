@@ -42,6 +42,13 @@ const TRAZOS = {
       <rect x="3" y="16" width="7" height="5" rx="1" />
     </>
   ),
+  // Esquinas de visor con una línea al centro: escanear un código.
+  escanear: (
+    <>
+      <path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" />
+      <path d="M7 12h10" />
+    </>
+  ),
   recibo: (
     <>
       <path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z" />

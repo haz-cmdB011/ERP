@@ -37,7 +37,7 @@ export default async function ProduccionLayout({
   }
 
   // Aviso de recibos por revisar en la pestaña Estimaciones (solo a quien los revisa).
-  const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase) : 0;
+  const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase).catch(() => 0) : 0;
 
   return (
     <div className="min-h-screen">
@@ -52,8 +52,14 @@ export default async function ProduccionLayout({
         <SubnavLink href="/produccion" icono="pedidos" tambien={["/produccion/pedidos", "/produccion/ot"]}>
           Pedidos
         </SubnavLink>
+        <SubnavLink href="/produccion/tablero" icono="panel">
+          Tablero del taller
+        </SubnavLink>
         <SubnavLink href="/produccion/asignaciones" icono="asignaciones">
           Asignaciones
+        </SubnavLink>
+        <SubnavLink href="/produccion/escanear" icono="escanear">
+          Escanear QR
         </SubnavLink>
         <SubnavLink href="/produccion/cancelados" icono="cancelados">
           Cancelados / Eliminados

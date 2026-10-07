@@ -7,7 +7,8 @@ import {
   puedeDecidirDiscrepancias,
   puedeVerPrecioSugerido,
 } from "@/lib/auth/get-perfil";
-import { contarRecibosPorEstado } from "@/lib/estimaciones/por-revisar";
+import { contarRecibosPorEstado, listarAntiguedadPendientes } from "@/lib/estimaciones/por-revisar";
+import { detallePendientes, resumirPendientes } from "@/lib/estimaciones/resumen-pendientes";
 import { contarPendientes, listarResumenDiscrepancias } from "@/lib/estimaciones/discrepancias-resumen";
 import ResumenInicio, { type TarjetaResumen } from "@/components/resumen-inicio";
 import Bienvenida from "@/components/bienvenida";
@@ -52,7 +53,7 @@ const TARJETAS: {
     href: "/estimaciones/reportes",
     titulo: "Reporte semanal",
     descripcion:
-      "Dashboard de la semana: lo pagado por maquilador y área, el rendimiento de cada maquilador en las últimas semanas y el PM contra cobrado por O.T. Los recibos pagados se descargan en Excel con el formato de maquila para Finanzas.",
+      "Lo pagado por maquilador y área, el PM contra cobrado por O.T. y el Excel con el formato de maquila para Finanzas.",
     icono: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   },
 ];
@@ -67,30 +68,35 @@ export default async function EstimacionesPage() {
   // Números del panel. Solo quien ve el precio sugerido revisa recibos; solo
   // quien decide discrepancias ve ese contador.
   const reviso = puedeVerPrecioSugerido(perfil);
-  const [porRevisar, porPagar, discrepancias] = await Promise.all([
-    reviso ? contarRecibosPorEstado(supabase, "pendiente") : 0,
-    reviso ? contarRecibosPorEstado(supabase, "revisado") : 0,
+  const [pendientes, porPagar, discrepancias] = await Promise.all([
+    // null = no se pudo contar: la tarjeta se omite en vez de mostrar un 0 falso.
+    reviso
+      ? listarAntiguedadPendientes(supabase)
+          .then((filas) => resumirPendientes(filas, new Date()))
+          .catch(() => null)
+      : null,
+    reviso ? contarRecibosPorEstado(supabase, "revisado").catch(() => null) : null,
     puedeDecidirDiscrepancias(perfil)
-      ? listarResumenDiscrepancias(supabase).then(contarPendientes)
+      ? listarResumenDiscrepancias(supabase).then(contarPendientes).catch(() => null)
       : null,
   ]);
   const tarjetasResumen: TarjetaResumen[] = [];
-  if (reviso) {
-    tarjetasResumen.push(
-      {
-        valor: porRevisar,
-        etiqueta: "Recibos por revisar",
-        detalle: "esperan que aceptes o modifiques el precio",
-        href: "/estimaciones/registro?estado=pendiente",
-        tono: "atencion",
-      },
-      {
-        valor: porPagar,
-        etiqueta: "Revisados sin pagar",
-        detalle: "listos para marcar como pagados",
-        href: "/estimaciones/registro?estado=revisado",
-      }
-    );
+  if (pendientes !== null) {
+    tarjetasResumen.push({
+      valor: pendientes.total,
+      etiqueta: "Recibos por revisar",
+      detalle: detallePendientes(pendientes),
+      href: "/estimaciones/registro?estado=pendiente",
+      tono: "atencion",
+    });
+  }
+  if (porPagar !== null) {
+    tarjetasResumen.push({
+      valor: porPagar,
+      etiqueta: "Revisados sin pagar",
+      detalle: "listos para marcar como pagados",
+      href: "/estimaciones/registro?estado=revisado",
+    });
   }
   if (discrepancias !== null) {
     tarjetasResumen.push({

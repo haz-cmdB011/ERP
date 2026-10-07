@@ -13,6 +13,7 @@ import { validarContenidoExcel } from "@/lib/seguridad/excel";
 import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
 import { avisoNumeroPM, normalizarNumeroPM, pmDeHojaRepetida } from "@/lib/planeacion/numero-pm";
 import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
+import { analizarImpactoCarga, type HojaParaImpacto } from "@/lib/planeacion/impacto-db";
 
 export const runtime = "nodejs";
 // Un Excel grande (muchas imágenes que se comprimen y suben por tandas) tarda.
@@ -192,6 +193,9 @@ export async function POST(request: Request) {
   let tamanoBytes: number;
   let buffer: Buffer;
   let rutaEntrante: string | null = null;
+  // La persona ya vio qué trabajo en marcha deja atrás la versión nueva y
+  // confirmó cargarla (ver el aviso 409 más abajo).
+  let confirmarImpacto = false;
 
   if ((request.headers.get("content-type") ?? "").includes("application/json")) {
     const body = await request.json().catch(() => null);
@@ -201,6 +205,13 @@ export async function POST(request: Request) {
     if (!storagePath.startsWith(`${user.id}/entrantes/`) || storagePath.includes("..") || !nombreArchivo) {
       return NextResponse.json({ error: "Archivo no válido." }, { status: 400 });
     }
+    // La persona decidió no cargar el archivo que esperaba su confirmación: se
+    // quita de "entrantes/" (service role: el usuario no puede borrar en Storage).
+    if (body?.descartar === true) {
+      await createAdminClient().storage.from("cargas-excel").remove([storagePath]);
+      return NextResponse.json({ ok: true, descartado: true });
+    }
+    confirmarImpacto = body?.confirmarImpacto === true;
     const { data: descargado, error: descargaError } = await supabase.storage
       .from("cargas-excel")
       .download(storagePath);
@@ -322,6 +333,35 @@ export async function POST(request: Request) {
     hojaPorPm.set(pm, hoja.nombreHoja);
   }
   const filasTotales = libro.hojas.reduce((suma, h) => suma + h.resultado.filasTotales, 0);
+
+  // 1b. Antes de escribir nada: si algún PM del archivo ya tiene trabajo en
+  //     marcha (liberado a Producción, asignado o evaluado por Calidad), la
+  //     versión nueva lo deja atrás —sus ítems nacen pendientes—, así que se
+  //     avisa y se espera la confirmación (409). El Excel se queda en
+  //     "entrantes/" para no tener que subirlo otra vez. Solo con el archivo ya
+  //     en Storage (la carga de siempre) y si el análisis falla, se carga igual.
+  if (erroresValidacion.length === 0 && !confirmarImpacto && rutaEntrante) {
+    try {
+      const hojasPm: HojaParaImpacto[] = [];
+      for (const hoja of libro.hojas) {
+        if (!hoja.resultado.ok) continue;
+        hojasPm.push({
+          nombreHoja: hoja.nombreHoja,
+          numeroPedido: hoja.resultado.metadata.numero_pedido,
+          items: hoja.resultado.items,
+        });
+      }
+      const impactos = await analizarImpactoCarga(supabase, hojasPm);
+      if (impactos.length > 0) {
+        return NextResponse.json(
+          { requiereConfirmacion: true, impactos, storagePath: rutaEntrante },
+          { status: 409 }
+        );
+      }
+    } catch (err) {
+      console.error("No se pudo analizar el impacto de la carga; se carga sin preguntar.", err);
+    }
+  }
 
   // 2. Subir a Storage, para auditoría y siempre (haya sido válido o no),
   //    una copia del archivo SIN las imágenes embebidas: son puro peso

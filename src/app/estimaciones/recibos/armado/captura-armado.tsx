@@ -56,6 +56,13 @@ import { generarPdfDesdeElemento } from "../acabados/generar-pdf";
 import DescargarPdfButton from "../acabados/descargar-pdf-button";
 import ReciboFichaArmado from "./recibo-ficha-armado";
 import { avisar } from "@/components/avisos";
+import { sinCamposDePantalla } from "@/lib/estimaciones/borrador";
+import { pendientesDeCaptura } from "@/lib/estimaciones/pendientes-captura";
+import { guardarVerificando } from "@/lib/estimaciones/verificar-guardado";
+import { useBorradorRecibo } from "../use-borrador-recibo";
+import AvisoBorrador from "../aviso-borrador";
+import AvisoHistorico from "../aviso-historico";
+import AvisosCaptura from "../avisos-captura";
 
 interface Renglon {
   id: number;
@@ -189,6 +196,36 @@ export default function CapturaArmado({
   const [numeroInicial, setNumeroInicial] = useState(1);
   const [folioContinuado, setFolioContinuado] = useState(false);
 
+  // Borrador local: lo capturado sobrevive a cerrar la pestaña o perder la red.
+  const borrador = useBorradorRecibo({
+    tipo: "armado",
+    guardarLocal: !reciboExistente,
+    datos: {
+      folio,
+      fecha,
+      contratista: contratistaFijo ? "" : contratista,
+      obra,
+      ot,
+      prioridad,
+      motivo,
+      numeroInicial,
+      folioContinuado,
+      renglones: sinCamposDePantalla(renglones),
+    },
+    restaurar: (d) => {
+      setFolio(d.folio);
+      setFecha(d.fecha);
+      if (!contratistaFijo) setContratista(d.contratista);
+      setObra(d.obra);
+      setOt(d.ot);
+      setPrioridad(d.prioridad);
+      setMotivo(d.motivo);
+      setNumeroInicial(d.numeroInicial);
+      setFolioContinuado(d.folioContinuado);
+      setRenglones(d.renglones.map((r) => nuevoRenglon(r)));
+    },
+  });
+
   const [nivel3Visible, setNivel3Visible] = useState(false);
   const [tarifasProyecto, setTarifasProyecto] = useState<TarifaProyecto[]>([]);
   const [tpModelo, setTpModelo] = useState("");
@@ -202,9 +239,13 @@ export default function CapturaArmado({
   // que se recarga después de cada guardado.
   const [historico, setHistoricoDb] = useState<RenglonHistorico[]>([]);
 
+  // Si la lectura falla no se finge un histórico vacío: se avisa que el precio
+  // sugerido puede estar incompleto.
+  const [historicoFallo, setHistoricoFallo] = useState(false);
+
   useEffect(() => {
     const supabase = createClient();
-    cargarHistoricoDb(supabase, "armado").then(setHistoricoDb);
+    cargarHistoricoDb(supabase, "armado").then(setHistoricoDb, () => setHistoricoFallo(true));
   }, []);
 
   const [reciboGuardado, setReciboGuardado] = useState<ReciboGuardado | null>(null);
@@ -289,6 +330,19 @@ export default function CapturaArmado({
   const recorte = totales.propuesto - totales.aceptado;
   const recortePct = totales.propuesto > 0 ? (recorte / totales.propuesto) * 100 : 0;
 
+  // Lo que falta antes de guardar; la banda solo la calcula quien ve el sugerido.
+  const pendientesCaptura = pendientesDeCaptura(
+    renglones.map((r) => {
+      let banda: Banda | null = null;
+      if (puedeVerSugerido) {
+        const res = resolver(aEntrada(r), recibo, cfg, historico);
+        const esManual = res.fuente === "manual" || res.sombra;
+        banda = bandaDe(esManual ? null : res.pu, Number(r.propuesto) || 0, esManual).banda;
+      }
+      return { propuesto: r.propuesto, banda, justificacion: r.justificacion };
+    })
+  );
+
   // Piezas contra los PM de la OT, con la misma regla que aplica la base al
   // guardar (ver conciliacion-pm.ts): los reprocesos no cuentan. Los renglones
   // que no concuerdan piden motivo antes de guardar.
@@ -336,6 +390,8 @@ export default function CapturaArmado({
   }
 
   async function guardar() {
+    // Un segundo clic mientras se guarda duplicaría los renglones.
+    if (guardando) return;
     const problemas: string[] = [];
     if (!folio.trim()) problemas.push("Falta el folio.");
     if (!fecha.trim()) problemas.push("Falta la fecha del recibo.");
@@ -459,11 +515,11 @@ export default function CapturaArmado({
     };
     const { error } = reciboExistente
       ? await modificarReciboEnDb(supabase, "armado", reciboExistente.id!, datosRecibo, renglonesParaDb)
-      : await guardarReciboEnDb(
+      : await guardarVerificando(
           supabase,
-          { folio: folio.trim(), ...datosRecibo },
-          renglonesParaDb,
-          "armado"
+          { tabla: "recibos", tipo: "armado", folio: folio.trim() },
+          renglonesParaDb.length,
+          () => guardarReciboEnDb(supabase, { folio: folio.trim(), ...datosRecibo }, renglonesParaDb, "armado")
         );
     setGuardando(false);
 
@@ -498,7 +554,11 @@ export default function CapturaArmado({
         ? `Recibo ${nuevoRecibo.folio} modificado.`
         : `Recibo ${nuevoRecibo.folio} guardado.`
     );
-    cargarHistoricoDb(supabase, "armado").then(setHistoricoDb);
+    borrador.alGuardar();
+    cargarHistoricoDb(supabase, "armado").then((h) => {
+      setHistoricoDb(h);
+      setHistoricoFallo(false);
+    }, () => setHistoricoFallo(true));
     seleccionOt.recargar();
 
     setResultado({
@@ -527,6 +587,14 @@ export default function CapturaArmado({
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-6 pb-28">
+      {borrador.pendiente && (
+        <AvisoBorrador
+          guardadoEn={borrador.pendiente.guardadoEn}
+          onRecuperar={borrador.recuperar}
+          onDescartar={borrador.descartar}
+        />
+      )}
+      {historicoFallo && <AvisoHistorico />}
       {!puedeVerSugerido && (
         <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
           Captura tu precio propuesto para cada renglón. El personal de Estimaciones lo revisa
@@ -1178,6 +1246,7 @@ export default function CapturaArmado({
               />
             </>
           )}
+          <AvisosCaptura pendientes={pendientesCaptura} descuadres={descuadres.length} />
           <button
             type="button"
             onClick={() => void guardar()}
