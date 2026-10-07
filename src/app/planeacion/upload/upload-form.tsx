@@ -75,6 +75,9 @@ interface Carga {
   estado: "pendiente" | "procesando" | "confirmando" | "terminado";
   // Solo mientras espera la confirmación.
   impactos?: ImpactoPm[];
+  // 0-100: subida del archivo y procesamiento (ver PORCENTAJE_SUBIDA).
+  progreso: number;
+  fase?: "subiendo" | "procesando";
   resultado?: UploadResult | UploadOmitido;
 }
 
@@ -131,9 +134,51 @@ async function descartarEntrante(storagePath: string, nombreArchivo: string): Pr
   }
 }
 
+// La barra reparte el avance: subir el archivo ocupa hasta el 90 % y el resto
+// es el procesamiento en el servidor, que no reporta avance (sube despacio
+// hasta 99 % mientras responde).
+const PORCENTAJE_SUBIDA = 90;
+
+type AlProgresar = (porcentaje: number, fase: "subiendo" | "procesando") => void;
+
+// PUT del archivo a la URL firmada de Storage midiendo los bytes enviados.
+// Devuelve el mensaje de error, o null si salió bien.
+function subirConAvance(url: string, file: File, onProgreso: AlProgresar): Promise<string | null> {
+  return new Promise((resolver) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgreso(Math.round((e.loaded / e.total) * PORCENTAJE_SUBIDA), "subiendo");
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolver(null);
+      let mensaje = `error ${xhr.status}`;
+      try {
+        const cuerpo = JSON.parse(xhr.responseText);
+        mensaje = cuerpo.message ?? cuerpo.error ?? mensaje;
+      } catch {
+        // La respuesta no era JSON: se queda el código de estado.
+      }
+      resolver(mensaje);
+    };
+    xhr.onerror = () => resolver("error de red");
+    const cuerpo = new FormData();
+    cuerpo.append("cacheControl", "3600");
+    cuerpo.append("", file);
+    onProgreso(0, "subiendo");
+    xhr.send(cuerpo);
+  });
+}
+
 // Sube un Excel y lo manda procesar. Nunca lanza: los errores vuelven como
 // UploadError para mostrarse junto a su archivo.
-async function subirArchivo(file: File): Promise<UploadResult | RequiereConfirmacion> {
+async function subirArchivo(
+  file: File,
+  onProgreso: AlProgresar
+): Promise<UploadResult | RequiereConfirmacion> {
   if (!esExcel(file.name)) {
     return { error: "Solo se aceptan archivos de Excel .xlsx o .xlsm." };
   }
@@ -154,19 +199,20 @@ async function subirArchivo(file: File): Promise<UploadResult | RequiereConfirma
     const conMacros = file.name.toLowerCase().endsWith(".xlsm");
     // El sufijo aleatorio evita choques si se suben dos en el mismo milisegundo.
     const storagePath = `${user.id}/entrantes/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${conMacros ? "xlsm" : "xlsx"}`;
-    const { error: subidaError } = await supabase.storage
-      .from("cargas-excel")
-      .upload(storagePath, file, {
-        contentType: conMacros
-          ? "application/vnd.ms-excel.sheet.macroEnabled.12"
-          : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        upsert: false,
-      });
+    const bucket = supabase.storage.from("cargas-excel");
+    // fetch no reporta el avance de la subida; XMLHttpRequest sí. Se usa una URL
+    // firmada de Storage (mismos permisos que upload) para poder medirlo.
+    const { data: firmada, error: firmaError } = await bucket.createSignedUploadUrl(storagePath);
+    if (firmaError || !firmada) {
+      return { error: `No se pudo subir el archivo: ${firmaError?.message ?? "sin respuesta"}` };
+    }
+    const subidaError = await subirConAvance(firmada.signedUrl, file, onProgreso);
     if (subidaError) {
-      return { error: `No se pudo subir el archivo: ${subidaError.message}` };
+      return { error: `No se pudo subir el archivo: ${subidaError}` };
     }
 
     // 2. El servidor lo toma de Storage y lo procesa (o pide confirmar antes).
+    onProgreso(PORCENTAJE_SUBIDA, "procesando");
     return await procesarEnServidor(storagePath, file.name);
   } catch {
     return { error: "Error de red al subir el archivo." };
@@ -204,6 +250,7 @@ export default function UploadForm() {
       id: crypto.randomUUID(),
       file,
       estado: "pendiente",
+      progreso: 0,
       // Los que no son Excel se marcan de una vez, sin intentar subirlos.
       ...(esExcel(file.name)
         ? {}
@@ -245,29 +292,51 @@ export default function UploadForm() {
     let conError = 0;
     let omitidos = 0;
     for (const carga of pendientes) {
-      actualizar(carga.id, { estado: "procesando" });
+      actualizar(carga.id, { estado: "procesando", progreso: 0, fase: "subiendo" });
+      // Mientras el servidor procesa no hay avance real: la barra sigue
+      // subiendo despacio sin llegar al 100 % hasta que responda. No avanza
+      // mientras se espera la decisión de la persona (estado "confirmando").
+      const avance = setInterval(() => {
+        setCargas((prev) =>
+          prev.map((c) =>
+            c.id === carga.id && c.estado === "procesando" && c.fase === "procesando" && c.progreso < 99
+              ? { ...c, progreso: c.progreso + 1 }
+              : c
+          )
+        );
+      }, 700);
       let resultado: UploadResult | UploadOmitido;
-      const primero = await subirArchivo(carga.file);
-      if (pideConfirmacion(primero)) {
-        // El PM ya tiene trabajo en marcha: se muestra qué deja atrás la versión
-        // nueva y se espera la decisión.
-        actualizar(carga.id, { estado: "confirmando", impactos: primero.impactos });
-        const decision = await esperarDecision(carga.id);
-        if (decision === "cargar") {
-          const confirmado = await procesarEnServidor(primero.storagePath, carga.file.name, true);
-          resultado = pideConfirmacion(confirmado)
-            ? { error: "El servidor volvió a pedir confirmación; intenta de nuevo." }
-            : confirmado;
+      try {
+        const primero = await subirArchivo(carga.file, (progreso, fase) =>
+          actualizar(carga.id, { progreso, fase })
+        );
+        if (pideConfirmacion(primero)) {
+          // El PM ya tiene trabajo en marcha: se muestra qué deja atrás la versión
+          // nueva y se espera la decisión.
+          actualizar(carga.id, { estado: "confirmando", impactos: primero.impactos });
+          const decision = await esperarDecision(carga.id);
+          if (decision === "cargar") {
+            const confirmado = await procesarEnServidor(primero.storagePath, carga.file.name, true);
+            resultado = pideConfirmacion(confirmado)
+              ? { error: "El servidor volvió a pedir confirmación; intenta de nuevo." }
+              : confirmado;
+          } else {
+            await descartarEntrante(primero.storagePath, carga.file.name);
+            resultado = { omitido: true };
+          }
         } else {
-          await descartarEntrante(primero.storagePath, carga.file.name);
-          resultado = { omitido: true };
+          resultado = primero;
         }
-      } else {
-        resultado = primero;
+      } finally {
+        clearInterval(avance);
       }
       if (esOmitido(resultado)) omitidos++;
       else if (esError(resultado)) conError++;
-      actualizar(carga.id, { estado: "terminado", resultado });
+      actualizar(carga.id, {
+        estado: "terminado",
+        resultado,
+        progreso: esError(resultado) || esOmitido(resultado) ? 0 : 100,
+      });
     }
     setEnviando(false);
     // Resumen breve: el detalle (PM, versiones, avisos) queda en cada archivo.
@@ -416,6 +485,27 @@ export default function UploadForm() {
                   onCargar={() => decidir(c.id, "cargar")}
                   onOmitir={() => decidir(c.id, "omitir")}
                 />
+              )}
+              {c.estado === "procesando" && (
+                <div className="mt-3">
+                  <div className="mb-1 flex justify-between text-xs text-slate-600">
+                    <span>{c.fase === "procesando" ? "Procesando el pedido…" : "Subiendo archivo…"}</span>
+                    <span className="font-medium tabular-nums">{c.progreso}%</span>
+                  </div>
+                  <div
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={c.progreso}
+                    aria-label={`Progreso de ${c.file.name}`}
+                    className="h-2 overflow-hidden rounded-full bg-slate-100"
+                  >
+                    <div
+                      className="h-full rounded-full bg-brand-500 transition-[width] duration-300"
+                      style={{ width: `${c.progreso}%` }}
+                    />
+                  </div>
+                </div>
               )}
               {c.resultado && <ResultadoCarga resultado={c.resultado} />}
             </li>
