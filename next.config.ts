@@ -37,6 +37,8 @@ const csp = [
   ...(esProduccion ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
+const permisosBase = "microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()";
+
 const cabecerasSeguridad = [
   {
     key: process.env.CSP_SOLO_REPORTE === "1" ? "Content-Security-Policy-Report-Only" : "Content-Security-Policy",
@@ -47,12 +49,10 @@ const cabecerasSeguridad = [
   // El navegador no adivina el tipo de un archivo distinto al declarado.
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // La app no usa cámara en vivo, micrófono ni ubicación (subir foto desde la
-  // cámara pasa por el selector de archivos del sistema, no por esta API).
-  {
-    key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
-  },
+  // En general la app no usa cámara en vivo, micrófono ni ubicación (subir foto
+  // desde la cámara pasa por el selector de archivos del sistema, no por esta
+  // API). La única excepción es el escáner de QR de Producción, abajo.
+  { key: "Permissions-Policy", value: `camera=(), ${permisosBase}` },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
 ];
@@ -61,7 +61,16 @@ const nextConfig: NextConfig = {
   // No anunciar la tecnología del servidor.
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: cabecerasSeguridad }];
+    return [
+      { source: "/:path*", headers: cabecerasSeguridad },
+      // Escáner de QR (/produccion/escanear): la cámara en vivo solo se permite
+      // aquí y solo para el propio sitio. Si dos reglas fijan la misma
+      // cabecera gana la última, así que esta reemplaza a la de arriba.
+      {
+        source: "/produccion/escanear/:path*",
+        headers: [{ key: "Permissions-Policy", value: `camera=(self), ${permisosBase}` }],
+      },
+    ];
   },
 };
 

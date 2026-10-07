@@ -4,14 +4,21 @@ import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
 import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
   filtrarOrdenesTrabajo,
-  hrefListaPedidos,
+  ultimaEntrega,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 import Bienvenida from "@/components/bienvenida";
-import ResumenInicio from "@/components/resumen-inicio";
+import ResumenInicio, { type TarjetaResumen } from "@/components/resumen-inicio";
+import ChipEntrega from "@/components/chip-entrega";
 import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
+import { estadoEntrega } from "@/lib/resumen/entrega";
+import { hoyMexico } from "@/lib/produccion/asignaciones";
+import { esAlerta, otConPendientes, plazoDePedido, resumirTaller } from "@/lib/produccion/atrasos";
+import { cargarTaller } from "@/lib/produccion/cargar-taller";
 import EstadoLiberacion from "./estado-liberacion";
+import BuscadorOt from "./buscador-ot";
+import ChipPlazo from "./chip-plazo";
 
 // Igual que en Planeación: órdenes de trabajo con sus PM. Al entrar a una O.T.
 // se ven sus PM; el buscador además encuentra muebles y modelos en todos los
@@ -57,34 +64,58 @@ export default async function ProduccionListPage({
   const totalOts = filas.filter((f) => f.ot).length;
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
+  // Lo que sigue en el taller y qué va atrasado. Es un resumen: si falla la
+  // consulta la pantalla sigue, solo sin esa tarjeta ni alertas de asignaciones.
+  const hoy = hoyMexico();
+  const taller = await cargarTaller(supabase, hoy).catch(() => null);
+  const resumenTaller = taller ? resumirTaller(taller.asignaciones, taller.plazos, hoy) : null;
+  const enTallerPorPedido = new Map<string, number>();
+  for (const a of taller?.asignaciones ?? []) {
+    if (a.pedido_id) enTallerPorPedido.set(a.pedido_id, (enTallerPorPedido.get(a.pedido_id) ?? 0) + 1);
+  }
+
+  const tarjetas: TarjetaResumen[] = [
+    {
+      valor: total.porLiberar,
+      etiqueta: "Ítems por liberar",
+      detalle: `en ${otsConPendientes} O.T.`,
+      href: "/produccion?f=por-liberar",
+      tono: "atencion",
+    },
+    { valor: total.liberados, etiqueta: "Ítems liberados", detalle: "ya enviados a producción" },
+    {
+      valor: new Set((pedidos ?? []).map((p) => p.orden_trabajo ?? p.id)).size,
+      etiqueta: "O.T. vigentes",
+      href: "/produccion",
+    },
+  ];
+  if (resumenTaller) {
+    tarjetas.push({
+      valor: resumenTaller.atrasadas.length,
+      etiqueta: "Asignaciones atrasadas",
+      detalle: `de ${resumenTaller.total} en taller`,
+      href: "/produccion/tablero#atrasadas",
+      tono: "atencion",
+    });
+  }
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida acciones={[{ href: "/produccion/folios", etiqueta: "Folios de producción" }]} />
-      <ResumenInicio
-        tarjetas={[
-          {
-            valor: total.porLiberar,
-            etiqueta: "Ítems por liberar",
-            detalle: `en ${otsConPendientes} O.T.`,
-            href: "/produccion?f=por-liberar",
-            tono: "atencion",
-          },
-          { valor: total.liberados, etiqueta: "Ítems liberados", detalle: "ya enviados a producción" },
-          {
-            valor: new Set((pedidos ?? []).map((p) => p.orden_trabajo ?? p.id)).size,
-            etiqueta: "O.T. vigentes",
-            href: "/produccion",
-          },
+      <Bienvenida
+        acciones={[
+          { href: "/produccion/escanear", etiqueta: "Escanear QR" },
+          { href: "/produccion/tablero", etiqueta: "Tablero del taller" },
+          { href: "/produccion/folios", etiqueta: "Folios de producción" },
         ]}
       />
+      <ResumenInicio tarjetas={tarjetas} />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Producción
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Órdenes de trabajo con sus PM. Entra a una O.T. para ver sus PM, liberar ítems, generar
-            viajeros y asignar a equipos.
+            Entra a una O.T. para liberar ítems, generar viajeros y asignar a equipos.
           </p>
         </div>
         {pedidos && pedidos.length > 0 && (
@@ -94,50 +125,18 @@ export default async function ProduccionListPage({
         )}
       </div>
 
-      <form method="get" action="/produccion" className="flex flex-wrap items-center gap-2">
-        {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
-        {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
-        <div className="relative min-w-0 flex-1">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-          <input
-            type="search"
-            name="q"
-            defaultValue={consulta}
-            placeholder="Buscar O.T., PM, cliente, mueble o modelo (ej. 134-26, pérgola, PRD-000123)"
-            autoComplete="off"
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
-        >
-          Buscar
-        </button>
-        {consulta && (
-          <Link
-            href={hrefListaPedidos("/produccion", {
-              anio: anioFiltro ? String(anioFiltro) : undefined,
-              cliente: clienteFiltro || undefined,
-            })}
-            className="text-sm text-slate-500 underline hover:text-slate-700"
-          >
-            Limpiar
-          </Link>
-        )}
-      </form>
+      <BuscadorOt
+        opciones={(pedidos ?? []).map((p) => ({
+          ot: p.orden_trabajo,
+          pm: p.numero_pedido,
+          pedidoId: p.id,
+          cliente: p.proyectos?.cliente ?? "—",
+          proyecto: p.proyectos?.nombre ?? "—",
+        }))}
+        consulta={consulta}
+        anio={anioFiltro}
+        cliente={clienteFiltro || undefined}
+      />
 
       <FiltrosOrdenesTrabajo
         base="/produccion"
@@ -156,7 +155,7 @@ export default async function ProduccionListPage({
 
       {!error && (!pedidos || pedidos.length === 0) && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Todavía no hay pedidos cargados.
+          Todavía no hay pedidos. Aparecerán aquí cuando Planeación suba su Excel.
         </p>
       )}
 
@@ -177,14 +176,36 @@ export default async function ProduccionListPage({
             </h2>
           )}
           {filas.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-              {hayFiltros ? "Ninguna O.T. coincide con los filtros." : "No hay pedidos."}
-            </p>
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+              <p>
+                {soloPorLiberar
+                  ? "No hay ítems por liberar. Todo está al día."
+                  : hayFiltros
+                    ? "Ninguna O.T. coincide con los filtros."
+                    : "No hay pedidos."}
+              </p>
+              {(soloPorLiberar || hayFiltros) && (
+                <Link href="/produccion" className="font-medium text-brand-700 hover:underline">
+                  {soloPorLiberar ? "Ver todas las O.T. →" : "Quitar filtros →"}
+                </Link>
+              )}
+            </div>
           ) : (
             <TablaOrdenesTrabajo
               filas={filas}
               hrefOt={(ot) => `/produccion/ot/${encodeURIComponent(ot)}`}
               hrefPedido={(id) => `/produccion/pedidos/${id}`}
+              chipEntrega={(fila) => {
+                // Vencida o por vencer solo alerta si aún queda trabajo: sin
+                // él, se queda como la etiqueta normal por fecha.
+                const fecha = ultimaEntrega(fila.pedidos);
+                const plazo = plazoDePedido(fecha, hoy);
+                const enTaller = fila.pedidos.reduce((s, p) => s + (enTallerPorPedido.get(p.id) ?? 0), 0);
+                if (esAlerta(plazo) && otConPendientes(avanceDe(fila).porLiberar, enTaller)) {
+                  return <ChipPlazo plazo={plazo} fecha={fecha} />;
+                }
+                return <ChipEntrega estado={estadoEntrega(fecha, hoy)} />;
+              }}
               columnaEstado={{
                 titulo: "Liberación",
                 celda: (fila) => <EstadoLiberacion cancelado={false} avance={avanceDe(fila)} />,
@@ -199,12 +220,12 @@ export default async function ProduccionListPage({
           <h2 className="text-sm font-semibold text-slate-600">Muebles y modelos</h2>
           <p className="text-sm text-slate-600">
             {busqueda.totalGrupos === 0
-              ? `Ningún mueble ni modelo coincide con "${consulta}".`
+              ? `Ningún mueble ni modelo coincide con "${consulta}". Revisa la ortografía o busca por modelo o folio.`
               : `${busqueda.totalGrupos} mueble${busqueda.totalGrupos === 1 ? "" : "s"} encontrado${
                   busqueda.totalGrupos === 1 ? "" : "s"
                 } para "${consulta}"${
-                  busqueda.truncado ? " — se muestran los primeros 40, afina la búsqueda para ver el resto" : ""
-                }. Haz clic en un mueble para ver sus componentes.`}
+                  busqueda.truncado ? " (primeros 40: afina la búsqueda)" : ""
+                }. Haz clic en uno para ver sus componentes.`}
           </p>
           {busqueda.grupos.length > 0 && <ResultadosMuebles grupos={busqueda.grupos} />}
         </section>

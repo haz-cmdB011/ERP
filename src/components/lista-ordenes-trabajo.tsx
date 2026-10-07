@@ -64,6 +64,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   accion,
   columnaEstado,
   hoy,
+  chipEntrega,
 }: {
   filas: FilaOrdenTrabajo<P>[];
   hrefOt: (ot: string) => string;
@@ -74,6 +75,9 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   columnaEstado?: { titulo: string; celda: (fila: FilaOrdenTrabajo<P>) => React.ReactNode };
   // Fecha de hoy (YYYY-MM-DD): si se da, la entrega lleva una etiqueta de estado.
   hoy?: string;
+  // Etiqueta propia junto a la fecha de entrega (en vez de la de `hoy`): para
+  // áreas que saben si todavía queda trabajo pendiente, como Producción.
+  chipEntrega?: (fila: FilaOrdenTrabajo<P>) => React.ReactNode;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -125,7 +129,9 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                   <span className="mr-2">{ultimaEntrega(fila.pedidos) ?? "—"}</span>
-                  {hoy && <ChipEntrega estado={estadoEntrega(ultimaEntrega(fila.pedidos), hoy)} />}
+                  {chipEntrega
+                    ? chipEntrega(fila)
+                    : hoy && <ChipEntrega estado={estadoEntrega(ultimaEntrega(fila.pedidos), hoy)} />}
                 </td>
                 {columnaEstado && <td className="px-4 py-3">{columnaEstado.celda(fila)}</td>}
                 {accion && <td className="px-4 py-3">{accion(fila)}</td>}

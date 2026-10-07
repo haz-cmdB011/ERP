@@ -22,7 +22,10 @@ Resumen de las defensas del sistema, qué hay que mantener al día y qué pasos 
    imágenes de pedidos.
 5. **Navegador.** Cabeceras en `next.config.ts`: CSP, `X-Frame-Options: DENY` (anti-clickjacking),
    `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP y HSTS. Si una función legítima chocara con
-   la CSP: `CSP_SOLO_REPORTE=1` en Vercel la deja en modo "solo reporte" sin tocar código.
+   la CSP: `CSP_SOLO_REPORTE=1` en Vercel la deja en modo "solo reporte" sin tocar código. La cámara
+   está bloqueada en toda la app salvo en `/produccion/escanear` (escáner de QR de las hojas de
+   viajero), donde `Permissions-Policy` la permite solo para el propio sitio; el escáner nunca abre
+   la URL que lee, solo extrae los ids y navega a una ruta propia (`src/lib/produccion/qr-viajero.ts`).
 6. **Redirecciones.** `/auth/callback` solo acepta destinos internos (`rutaInternaSegura`).
 7. **Verificación en dos pasos (opcional).** Cada persona la activa en *Mi perfil* con una app de
    autenticación. Quien la activa no puede usar la app ni `/api/*` hasta poner su código (se exige en
