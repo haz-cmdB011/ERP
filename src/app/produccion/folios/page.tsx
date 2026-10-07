@@ -251,9 +251,8 @@ export default async function BuscarFolioPage({
           Folios de producción
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Cada ítem recibe un folio único al enviarse a producción. El folio no cambia ni se pierde:
-          si el ítem o el pedido se borran, el folio sigue existiendo y aquí aparece como eliminado;
-          si se restauran, conservan el mismo folio.
+          Cada ítem recibe un folio único al enviarse a producción. Nunca cambia ni se pierde, aunque
+          el ítem se elimine o se restaure.
         </p>
       </div>
 
