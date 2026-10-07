@@ -14,6 +14,10 @@ import {
   listarRecibosElectrificacion,
 } from "../src/lib/estimaciones/recibos-electrificacion-db";
 import { listarResumenDiscrepancias } from "../src/lib/estimaciones/discrepancias-resumen";
+import { listarTodosLosRecibos } from "../src/lib/estimaciones/listado-recibos";
+import { buscarReciboPorFolio } from "../src/lib/estimaciones/recibos-db";
+import { buscarReciboElectrificacionPorFolio } from "../src/lib/estimaciones/recibos-electrificacion-db";
+import { listarAntiguedadPendientes } from "../src/lib/estimaciones/por-revisar";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -63,5 +67,54 @@ describe.skipIf(!hayVariables)("lecturas de Estimaciones (solo lectura)", () => 
     await expect(cargarHistoricoDb(servicio, "armado")).resolves.toBeInstanceOf(Array);
     await expect(cargarPreciosPagadosElectrificacion(servicio)).resolves.toBeInstanceOf(Array);
     await expect(listarFoliosElectrificacion(servicio)).resolves.toBeInstanceOf(Array);
+  });
+
+  it("el listado unificado trae todos los recibos (con la vista o sin ella)", async () => {
+    const [lista, a, e] = await Promise.all([
+      listarTodosLosRecibos(servicio),
+      contar("recibos"),
+      contar("recibos_electrificacion"),
+    ]);
+    expect(lista).toHaveLength(a + e);
+  });
+
+  it("si la vista recibos_resumen existe, sus totales coinciden con el cálculo anterior", async () => {
+    const { error } = await servicio.from("recibos_resumen").select("id").limit(1);
+    if (error) {
+      console.warn("La vista recibos_resumen aún no está en la base: se omite la comparación.");
+      return;
+    }
+    const [vista, anterior] = await Promise.all([
+      listarTodosLosRecibos(servicio),
+      Promise.all([listarRecibos(servicio), listarRecibosElectrificacion(servicio)]).then(([x, y]) => [...x, ...y]),
+    ]);
+    const claves = (l: { id: string; totalPropuesto: number; totalAceptado: number; numPendientes: number }[]) =>
+      l
+        .map((r) => `${r.id}|${r.totalPropuesto.toFixed(2)}|${r.totalAceptado.toFixed(2)}|${r.numPendientes}`)
+        .sort();
+    expect(claves(vista)).toEqual(claves(anterior));
+  });
+
+  it("la antigüedad de pendientes coincide con el contador", async () => {
+    const [lista, contador] = await Promise.all([
+      listarAntiguedadPendientes(servicio),
+      contarRecibosPorEstado(servicio, "pendiente"),
+    ]);
+    expect(lista).toHaveLength(contador);
+  });
+
+  it("la ficha de un recibo trae las fechas de cada paso", async () => {
+    const { data: aa } = await servicio.from("recibos").select("folio, tipo").limit(1);
+    if (aa?.[0]) {
+      const r = await buscarReciboPorFolio(servicio, aa[0].folio, aa[0].tipo);
+      expect(r).not.toBeNull();
+      expect(r).toHaveProperty("pagadoEn");
+    }
+    const { data: el } = await servicio.from("recibos_electrificacion").select("folio").limit(1);
+    if (el?.[0]) {
+      const r = await buscarReciboElectrificacionPorFolio(servicio, el[0].folio);
+      expect(r).not.toBeNull();
+      expect(r).toHaveProperty("canceladoEn");
+    }
   });
 });

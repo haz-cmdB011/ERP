@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ErrorLectura, paginarTodo } from "@/lib/supabase/paginar";
 import type { RefRecibo } from "./aceptacion-masiva";
+import type { PendienteAntiguedad } from "./resumen-pendientes";
 import type { EstadoRecibo } from "./recibos-db";
 import type { TipoCualquierRecibo } from "./revision-db";
 
@@ -57,6 +58,28 @@ export async function listarPendientesDeRevision(supabase: SupabaseClient): Prom
     ...aa.map((r) => ({ tipo: r.tipo, folio: r.folio })),
     ...el.map((r) => ({ tipo: "electrificacion" as const, folio: r.folio })),
   ];
+}
+
+// Prioridad y fecha de captura de cada recibo pendiente, para medir cuánto
+// esperan. Lanza si falla la lectura.
+export async function listarAntiguedadPendientes(
+  supabase: SupabaseClient
+): Promise<PendienteAntiguedad[]> {
+  type Fila = { prioridad: string; creado_en: string };
+  const leer = (tabla: "recibos" | "recibos_electrificacion") =>
+    paginarTodo<Fila>(
+      (desde, hasta) =>
+        supabase
+          .from(tabla)
+          .select("prioridad, creado_en")
+          .eq("estado", "pendiente")
+          .order("id")
+          .range(desde, hasta)
+          .returns<Fila[]>(),
+      { contexto: "los recibos por revisar" }
+    );
+  const [aa, el] = await Promise.all([leer("recibos"), leer("recibos_electrificacion")]);
+  return [...aa, ...el].map((f) => ({ prioridad: f.prioridad, creadoEn: f.creado_en }));
 }
 
 // Recibos de maquiladores esperando que Estimaciones acepte o modifique su precio.

@@ -56,9 +56,12 @@ import ReciboFicha from "./recibo-ficha";
 import DescargarPdfButton from "./descargar-pdf-button";
 import { avisar } from "@/components/avisos";
 import { sinCamposDePantalla } from "@/lib/estimaciones/borrador";
+import { pendientesDeCaptura } from "@/lib/estimaciones/pendientes-captura";
+import { guardarVerificando } from "@/lib/estimaciones/verificar-guardado";
 import { useBorradorRecibo } from "../use-borrador-recibo";
 import AvisoBorrador from "../aviso-borrador";
 import AvisoHistorico from "../aviso-historico";
+import AvisosCaptura from "../avisos-captura";
 
 interface Renglon {
   id: number;
@@ -332,6 +335,19 @@ export default function CapturaAcabados({
   const recorte = totales.propuesto - totales.aceptado;
   const recortePct = totales.propuesto > 0 ? (recorte / totales.propuesto) * 100 : 0;
 
+  // Lo que falta antes de guardar; la banda solo la calcula quien ve el sugerido.
+  const pendientesCaptura = pendientesDeCaptura(
+    renglones.map((r) => {
+      let banda: Banda | null = null;
+      if (puedeVerSugerido) {
+        const res = resolver(r, recibo, cfg, historico);
+        const esManual = res.fuente === "manual" || res.sombra;
+        banda = bandaDe(esManual ? null : res.pu, Number(r.propuesto) || 0, esManual).banda;
+      }
+      return { propuesto: r.propuesto, banda, justificacion: r.justificacion };
+    })
+  );
+
   // Piezas contra los PM de la OT, con la misma regla que aplica la base al
   // guardar (ver conciliacion-pm.ts): los reprocesos no cuentan. Los renglones
   // que no concuerdan piden motivo antes de guardar.
@@ -379,6 +395,8 @@ export default function CapturaAcabados({
   }
 
   async function guardar() {
+    // Un segundo clic mientras se guarda duplicaría los renglones.
+    if (guardando) return;
     const problemas: string[] = [];
     if (!folio.trim()) problemas.push("Falta el folio.");
     if (!fecha.trim()) problemas.push("Falta la fecha del recibo.");
@@ -497,7 +515,12 @@ export default function CapturaAcabados({
     };
     const { error } = reciboExistente
       ? await modificarReciboEnDb(supabase, "acabados", reciboExistente.id!, datosRecibo, renglonesParaDb)
-      : await guardarReciboEnDb(supabase, { folio: folio.trim(), ...datosRecibo }, renglonesParaDb);
+      : await guardarVerificando(
+          supabase,
+          { tabla: "recibos", tipo: "acabados", folio: folio.trim() },
+          renglonesParaDb.length,
+          () => guardarReciboEnDb(supabase, { folio: folio.trim(), ...datosRecibo }, renglonesParaDb)
+        );
     setGuardando(false);
 
     if (error) {
@@ -1253,6 +1276,7 @@ export default function CapturaAcabados({
               />
             </>
           )}
+          <AvisosCaptura pendientes={pendientesCaptura} descuadres={descuadres.length} />
           <button
             type="button"
             onClick={() => void guardar()}

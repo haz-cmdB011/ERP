@@ -59,9 +59,12 @@ import DescargarPdfButton from "../acabados/descargar-pdf-button";
 import ReciboFichaElectrificacion from "./recibo-ficha-electrificacion";
 import { avisar } from "@/components/avisos";
 import { sinCamposDePantalla } from "@/lib/estimaciones/borrador";
+import { pendientesDeCaptura } from "@/lib/estimaciones/pendientes-captura";
+import { guardarVerificando } from "@/lib/estimaciones/verificar-guardado";
 import { useBorradorRecibo } from "../use-borrador-recibo";
 import AvisoBorrador from "../aviso-borrador";
 import AvisoHistorico from "../aviso-historico";
+import AvisosCaptura from "../avisos-captura";
 
 interface Charola {
   drivers: number | "";
@@ -358,6 +361,15 @@ export default function CapturaElectrificacion({
   const recorte = totales.propuesto - totales.aceptado;
   const recortePct = totales.propuesto > 0 ? (recorte / totales.propuesto) * 100 : 0;
 
+  // Lo que falta antes de guardar; la banda solo la calcula quien ve el sugerido.
+  const pendientesCaptura = pendientesDeCaptura(
+    renglones.map((r) => ({
+      propuesto: r.propuesto,
+      banda: puedeVerSugerido ? evaluar(r).b.banda : null,
+      justificacion: r.justificacion,
+    }))
+  );
+
   async function generarPdfAutomatico(nombreArchivo: string) {
     setGenerandoPdf(true);
     try {
@@ -405,6 +417,8 @@ export default function CapturaElectrificacion({
   );
 
   async function guardar() {
+    // Un segundo clic mientras se guarda duplicaría los renglones.
+    if (guardando) return;
     const problemas: string[] = [];
     if (!folio.trim()) problemas.push("Falta el folio.");
     if (!fecha.trim()) problemas.push("Falta la fecha del recibo.");
@@ -517,7 +531,13 @@ export default function CapturaElectrificacion({
     };
     const { error } = reciboExistente
       ? await modificarReciboElectrificacionEnDb(supabase, reciboExistente.id!, datosRecibo, renglonesParaDb)
-      : await guardarReciboElectrificacionEnDb(supabase, { folio: folio.trim(), ...datosRecibo }, renglonesParaDb);
+      : await guardarVerificando(
+          supabase,
+          { tabla: "recibos_electrificacion", tipo: "electrificacion", folio: folio.trim() },
+          renglonesParaDb.length,
+          () =>
+            guardarReciboElectrificacionEnDb(supabase, { folio: folio.trim(), ...datosRecibo }, renglonesParaDb)
+        );
     setGuardando(false);
 
     if (error) {
@@ -1366,6 +1386,7 @@ export default function CapturaElectrificacion({
               />
             </>
           )}
+          <AvisosCaptura pendientes={pendientesCaptura} descuadres={descuadres.length} />
           <button
             type="button"
             onClick={() => void guardar()}

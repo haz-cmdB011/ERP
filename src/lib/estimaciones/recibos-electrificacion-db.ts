@@ -16,6 +16,7 @@ import type {
 import {
   compararFolios,
   elegirVigente,
+  resumirRecibo,
   type DecisionRenglon,
   type EstadoRecibo,
   type ReciboResumen,
@@ -60,6 +61,10 @@ export interface ReciboElectrificacionGuardado {
   prioridad: string;
   motivo: string;
   guardadoEn: string;
+  // Fechas de cada paso (null si aún no ocurre); alimentan la línea de tiempo.
+  revisadoEn?: string | null;
+  pagadoEn?: string | null;
+  canceladoEn?: string | null;
   renglones: RenglonElectrificacionGuardado[];
 }
 
@@ -298,6 +303,9 @@ interface ReciboDbRow {
   prioridad: string;
   motivo_prioridad: string | null;
   creado_en: string;
+  revisado_en: string | null;
+  pagado_en: string | null;
+  cancelado_en: string | null;
   renglones_electrificacion: RenglonDbRow[];
 }
 
@@ -309,6 +317,7 @@ export async function buscarReciboElectrificacionPorFolio(
     .from("recibos_electrificacion")
     .select(
       "id, estado, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
+        "revisado_en, pagado_en, cancelado_en, " +
         "renglones_electrificacion(id, numero, modelo, descripcion_pm, cantidad, metros_led, complejidad_led, nota, pu_sugerido, " +
         "fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision, " +
         "charolas_electrificacion(numero, drivers, categoria))"
@@ -331,6 +340,9 @@ export async function buscarReciboElectrificacionPorFolio(
     prioridad: data.prioridad,
     motivo: data.motivo_prioridad ?? "",
     guardadoEn: data.creado_en,
+    revisadoEn: data.revisado_en,
+    pagadoEn: data.pagado_en,
+    canceladoEn: data.cancelado_en,
     renglones: [...data.renglones_electrificacion]
       .sort((a, b) => a.numero - b.numero)
       .map((r) => ({
@@ -414,25 +426,7 @@ export async function listarRecibosElectrificacion(
   );
 
   return data
-    .map((r) => {
-      const rs = r.renglones_electrificacion;
-      return {
-        id: r.id,
-        estado: r.estado,
-        tipo: "electrificacion" as const,
-        folio: r.folio,
-        fecha: r.fecha_recibo,
-        contratista: r.contratista,
-        obra: r.obra ?? "",
-        ot: r.ot ?? "",
-        prioridad: r.prioridad,
-        guardadoEn: r.creado_en,
-        numRenglones: rs.length,
-        numPendientes: rs.filter((x) => x.decision == null).length,
-        totalPropuesto: rs.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_propuesto), 0),
-        totalAceptado: rs.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_aceptado), 0),
-      };
-    })
+    .map((r) => resumirRecibo({ ...r, tipo: "electrificacion" as const, renglones: r.renglones_electrificacion }))
     .sort((a, b) => compararFolios(a.folio, b.folio));
 }
 

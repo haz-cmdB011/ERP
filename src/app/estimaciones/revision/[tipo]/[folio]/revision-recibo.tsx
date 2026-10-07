@@ -275,7 +275,7 @@ export default function RevisionRecibo(props: Props) {
         .then(listo, fallo);
       return;
     }
-    cargarHistoricoDb(createClient(), tipo)
+    cargarHistoricoDb(createClient(), tipo, { soloPagados: true })
       .then((db) => setHistorico(tipo === "acabados" ? [...HISTORICO, ...db] : db))
       .then(listo, fallo);
   }, [tipo]);
@@ -353,15 +353,15 @@ export default function RevisionRecibo(props: Props) {
   const [pagando, setPagando] = useState(false);
   const [errorPago, setErrorPago] = useState<string | null>(null);
 
+  const [confirmandoPago, setConfirmandoPago] = useState(false);
+
   async function pagar() {
     if (!recibo.id) return;
-    if (!window.confirm(`¿Marcar el recibo ${recibo.folio} como pagado? Ya no se podrá modificar.`)) {
-      return;
-    }
     setPagando(true);
     setErrorPago(null);
     const { error } = await marcarReciboPagado(createClient(), tipo as TipoCualquierRecibo, recibo.id);
     setPagando(false);
+    setConfirmandoPago(false);
     if (error) {
       setErrorPago(error);
       return;
@@ -438,6 +438,15 @@ export default function RevisionRecibo(props: Props) {
         </div>
       )}
       <ConfirmDialog
+        open={confirmandoPago}
+        title={`Marcar el recibo ${recibo.folio} como pagado`}
+        message={`Se pagan ${money(totales.aceptado)} y el recibo ya no se podrá modificar.`}
+        confirmLabel="Marcar como pagado"
+        busy={pagando}
+        onConfirm={() => void pagar()}
+        onCancel={() => setConfirmandoPago(false)}
+      />
+      <ConfirmDialog
         open={confirmandoMasivo}
         title="Aceptar renglones dentro de lo sugerido"
         message={`Se aceptará el precio propuesto de ${resumenMasivo.renglones} renglón${
@@ -488,7 +497,7 @@ export default function RevisionRecibo(props: Props) {
           {estado === "revisado" && (
             <button
               type="button"
-              onClick={() => void pagar()}
+              onClick={() => setConfirmandoPago(true)}
               disabled={pagando}
               className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
             >
@@ -671,7 +680,14 @@ function RenglonRevisionCard({
                   onChange={(e) =>
                     setAceptado(e.target.value === "" ? "" : Number(e.target.value))
                   }
+                  // Enter decide: acepta el propuesto, o modifica si se cambió el precio.
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" || guardando || aceptado === "") return;
+                    e.preventDefault();
+                    void decidir(Number(aceptado));
+                  }}
                 />
+                <span className="text-[11px] font-normal text-slate-400">Enter para guardar</span>
               </label>
               {b.banda === "justificar" && (
                 <textarea
