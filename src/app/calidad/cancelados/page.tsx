@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import { RevertirItemBoton, RevertirPedidoBoton } from "@/components/revertir-cancelacion";
 import { paginarTodo } from "@/lib/supabase/paginar";
+import { formatoFechaDMA } from "@/lib/resumen/entrega";
 
 // Los `.in()` con cientos de ids rompen la URL: se piden en lotes.
 function lotes<T>(items: T[], tamano = 100): T[][] {
@@ -221,9 +222,7 @@ export default async function CanceladosCalidadPage() {
               href={`/calidad/pedidos/${p.id}`}
               encabezado={
                 p.cancelado_en
-                  ? `Motivo: ${p.motivoCancelacionPedido ?? "—"} · Cancelado el ${new Date(
-                      p.cancelado_en
-                    ).toLocaleDateString("es-MX")}`
+                  ? `Motivo: ${p.motivoCancelacionPedido ?? "—"} · Cancelado el ${formatoFechaDMA(p.cancelado_en)}`
                   : "Todos los ítems cancelados"
               }
             />

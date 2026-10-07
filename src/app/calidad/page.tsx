@@ -8,12 +8,10 @@ import {
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
 import ResumenInicio from "@/components/resumen-inicio";
-import {
-  avancePorPedidoEstricto,
-  sumarAvance,
-  sumarAvanceDe,
-  type AvancePedido,
-} from "@/lib/resumen/avance-items";
+import { cargarResumenCalidad } from "@/lib/calidad/resumen-db";
+import { detallePorEvaluar, type ResumenCalidad } from "@/lib/calidad/resumen";
+import type { AvancePedido } from "@/lib/resumen/avance-items";
+import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import EstadoCalidad from "./estado-calidad";
 
@@ -25,7 +23,7 @@ export default async function CalidadListPage({
   searchParams: Promise<{ q?: string; anio?: string; cliente?: string; f?: string }>;
 }) {
   const { q, anio, cliente, f } = await searchParams;
-  const soloPorEvaluar = f === "por-evaluar";
+  const filtroEstado = f === "por-evaluar" || f === "reinspeccion" ? f : null;
   const busqueda = q?.trim() ?? "";
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
@@ -55,41 +53,83 @@ export default async function CalidadListPage({
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
 
-  // Avance de evaluación por pedido; las tarjetas suman todo lo vigente. Si no
-  // se pudo calcular se avisa en vez de mostrar ceros que parezcan reales.
-  let avance = new Map<string, AvancePedido>();
-  let avanceFallo = false;
+  // Resumen de evaluación (por evaluar, antiguos, por reinspeccionar, tasa de
+  // aprobación). Si no se pudo calcular se avisa en vez de mostrar ceros que
+  // parezcan reales.
+  let resumen: ResumenCalidad | null = null;
   try {
-    avance = await avancePorPedidoEstricto(supabase, { conCalidad: true });
+    resumen = await cargarResumenCalidad(supabase);
   } catch {
-    avanceFallo = true;
+    resumen = null;
   }
-  const total = sumarAvance(avance);
-  const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
-    sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
+  const sinResumen = resumen === null;
+  const pedidoIdsDe = (fila: (typeof filtradas.filas)[number]) => fila.pedidos.map((p) => p.id);
+  // Avance de una O.T. con la forma que espera la etiqueta de estado.
+  const avanceDe = (fila: (typeof filtradas.filas)[number]): AvancePedido => {
+    const suma = { total: 0, liberados: 0, porLiberar: 0, evaluados: 0, porEvaluar: 0 };
+    for (const id of pedidoIdsDe(fila)) {
+      const r = resumen?.porPedido.get(id);
+      if (!r) continue;
+      suma.total += r.liberados;
+      suma.liberados += r.liberados;
+      suma.evaluados += r.evaluados;
+      suma.porEvaluar += r.porEvaluar;
+    }
+    return suma;
+  };
+  const reinspeccionDe = (fila: (typeof filtradas.filas)[number]) =>
+    pedidoIdsDe(fila).reduce((n, id) => n + (resumen?.porPedido.get(id)?.porReinspeccionar ?? 0), 0);
   const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porEvaluar > 0).length;
-  const filas = filtradas.filas.filter((fila) => !soloPorEvaluar || avanceDe(fila).porEvaluar > 0);
+  const otsConReinspeccion = filtradas.filas.filter((fila) => reinspeccionDe(fila) > 0).length;
+  const filas = filtradas.filas.filter(
+    (fila) =>
+      !filtroEstado ||
+      (filtroEstado === "por-evaluar" ? avanceDe(fila).porEvaluar > 0 : reinspeccionDe(fila) > 0)
+  );
   const totalOts = filas.filter((f) => f.ot).length;
+  const hoy = hoyMexico();
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida acciones={[{ href: "/calidad/folios", etiqueta: "Folios de calidad" }]} />
-      {avanceFallo ? (
+      {sinResumen ? (
         <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          No se pudo calcular cuántos ítems faltan por evaluar. Recarga la página para reintentar; la
-          lista de abajo sí está completa.
+          No se pudieron calcular los números del panel. Recarga la página para reintentar; la lista de
+          abajo sí está completa.
         </p>
       ) : (
         <ResumenInicio
           tarjetas={[
             {
-              valor: total.porEvaluar,
+              valor: resumen!.porEvaluar,
               etiqueta: "Ítems por evaluar",
-              detalle: `en ${otsConPendientes} O.T.`,
+              detalle: `en ${otsConPendientes} O.T. · ${detallePorEvaluar(resumen!)}`,
               href: "/calidad?f=por-evaluar",
               tono: "atencion",
             },
-            { valor: total.liberados, etiqueta: "Ítems en producción", detalle: "liberados por Producción", href: "/calidad" },
+            {
+              valor: resumen!.porReinspeccionar,
+              etiqueta: "Por reinspeccionar",
+              detalle: `no aprobados, en ${otsConReinspeccion} O.T.`,
+              href: "/calidad?f=reinspeccion",
+              tono: "atencion",
+            },
+            {
+              valor: resumen!.tasaAprobacion ?? 0,
+              etiqueta: "% de aprobación",
+              detalle:
+                resumen!.tasaAprobacion === null
+                  ? "sin evaluaciones en 30 días"
+                  : `${resumen!.evaluaciones30d} evaluaciones en 30 días`,
+              tono: "suave",
+            },
+            {
+              valor: resumen!.liberados,
+              etiqueta: "Ítems en producción",
+              detalle: "liberados por Producción",
+              href: "/calidad",
+              tono: "suave",
+            },
           ]}
         />
       )}
@@ -145,9 +185,12 @@ export default async function CalidadListPage({
         </p>
       )}
 
-      {soloPorEvaluar && (
+      {filtroEstado && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
-          Mostrando solo las O.T. con ítems por evaluar ({filas.length}).
+          {filtroEstado === "por-evaluar"
+            ? "Mostrando solo las O.T. con ítems por evaluar"
+            : "Mostrando solo las O.T. con ítems no aprobados por reinspeccionar"}{" "}
+          ({filas.length}).
           <Link href="/calidad" className="font-medium underline-offset-2 hover:underline">
             Ver todas
           </Link>
@@ -174,9 +217,19 @@ export default async function CalidadListPage({
           filas={filas}
           hrefOt={(ot) => `/calidad/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/calidad/pedidos/${id}`}
+          hoy={hoy}
           columnaEstado={{
             titulo: "Evaluación",
-            celda: (fila) => <EstadoCalidad cancelado={false} avance={avanceDe(fila)} />,
+            celda: (fila) => (
+              <div className="flex flex-col items-start gap-1">
+                <EstadoCalidad cancelado={false} avance={sinResumen ? undefined : avanceDe(fila)} />
+                {!sinResumen && reinspeccionDe(fila) > 0 && (
+                  <span className="text-[11px] font-medium text-rose-700">
+                    {reinspeccionDe(fila)} por reinspeccionar
+                  </span>
+                )}
+              </div>
+            ),
           }}
         />
       )}

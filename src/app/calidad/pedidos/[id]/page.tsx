@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { esUuid } from "@/lib/produccion/qr-viajero";
+import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import { grupoDelItem } from "@/lib/calidad/estado-item";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
 
@@ -45,6 +46,7 @@ interface InformeRow {
   planeacion_item_id: string;
   elaborado_en: string;
   descripcion: string | null;
+  categoria: string | null;
 }
 
 export const generateMetadata = metadataPedido;
@@ -140,7 +142,7 @@ export default async function PedidoCalidadPage({
   const { data: informes } = itemIds.length
     ? await supabase
         .from("informes_calidad")
-        .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion")
+        .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria")
         .in("planeacion_item_id", itemIds)
         .order("elaborado_en", { ascending: false })
         .returns<InformeRow[]>()
@@ -178,6 +180,7 @@ export default async function PedidoCalidadPage({
       aprobado: inf.aprobado,
       elaborado_en: inf.elaborado_en,
       descripcion: inf.descripcion,
+      categoria: inf.categoria,
     })),
   }));
 
@@ -207,7 +210,7 @@ export default async function PedidoCalidadPage({
       {pedido.cancelado_en && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
           <p className="font-medium text-rose-800">
-            Este pedido fue cancelado el {new Date(pedido.cancelado_en).toLocaleDateString("es-MX")}
+            Este pedido fue cancelado el {formatoFechaDMA(pedido.cancelado_en)}
           </p>
           {pedido.motivo_cancelacion && (
             <p className="mt-1 text-rose-700">Motivo: {pedido.motivo_cancelacion}</p>

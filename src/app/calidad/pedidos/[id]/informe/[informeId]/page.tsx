@@ -18,6 +18,7 @@ interface InformeRow {
   elaborado_por: string | null;
   elaborado_en: string;
   planeacion_item_id: string;
+  categoria: string | null;
 }
 
 interface ItemConVersion extends InformeFichaItem {
@@ -45,7 +46,7 @@ export default async function InformeCalidadPage({
 
   const { data: informe } = await supabase
     .from("informes_calidad")
-    .select("id, folio, aprobado, descripcion, elaborado_por, elaborado_en, planeacion_item_id")
+    .select("id, folio, aprobado, descripcion, elaborado_por, elaborado_en, planeacion_item_id, categoria")
     .eq("id", informeId)
     .maybeSingle<InformeRow>();
 
@@ -106,6 +107,7 @@ export default async function InformeCalidadPage({
           descripcion: informe.descripcion,
           elaborado_en: informe.elaborado_en,
           elaboradoPorNombre,
+          categoria: informe.categoria,
         }}
         imagenUrls={imagenesPorItem.get(item.id) ?? []}
         folioProduccion={folioProd?.folio ?? null}
