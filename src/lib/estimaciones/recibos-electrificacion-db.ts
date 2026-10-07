@@ -6,6 +6,7 @@
 // importe es cantidad × pu_aceptado.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { paginarTodo } from "@/lib/supabase/paginar";
 import type { Banda } from "./motor-precio";
 import type {
   CategoriaCharola,
@@ -15,6 +16,7 @@ import type {
 import {
   compararFolios,
   elegirVigente,
+  resumirRecibo,
   type DecisionRenglon,
   type EstadoRecibo,
   type ReciboResumen,
@@ -59,6 +61,10 @@ export interface ReciboElectrificacionGuardado {
   prioridad: string;
   motivo: string;
   guardadoEn: string;
+  // Fechas de cada paso (null si aún no ocurre); alimentan la línea de tiempo.
+  revisadoEn?: string | null;
+  pagadoEn?: string | null;
+  canceladoEn?: string | null;
   renglones: RenglonElectrificacionGuardado[];
 }
 
@@ -237,20 +243,26 @@ export interface FolioElectrificacionExistente {
 export async function listarFoliosElectrificacion(
   supabase: SupabaseClient
 ): Promise<FolioElectrificacionExistente[]> {
-  const { data, error } = await supabase
-    .from("recibos_electrificacion")
-    .select("folio, fecha_recibo, obra, ot, renglones_electrificacion(count)")
-    .neq("estado", "cancelado")
-    .returns<
-      {
-        folio: string;
-        fecha_recibo: string;
-        obra: string | null;
-        ot: string | null;
-        renglones_electrificacion: { count: number }[];
-      }[]
-    >();
-  if (error || !data) return [];
+  // Lanza si falla la lectura: sin la lista, el aviso de "folio ya existe" no sirve.
+  type Fila = {
+    folio: string;
+    fecha_recibo: string;
+    obra: string | null;
+    ot: string | null;
+    renglones_electrificacion: { count: number }[];
+  };
+  const data = await paginarTodo<Fila>(
+    (desde, hasta) =>
+      supabase
+        .from("recibos_electrificacion")
+        .select("folio, fecha_recibo, obra, ot, renglones_electrificacion(count)")
+        .neq("estado", "cancelado")
+        .order("creado_en", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<Fila[]>(),
+    { contexto: "los folios de Electrificación" }
+  );
   return data.map((r) => ({
     folio: r.folio,
     fecha: r.fecha_recibo,
@@ -291,6 +303,9 @@ interface ReciboDbRow {
   prioridad: string;
   motivo_prioridad: string | null;
   creado_en: string;
+  revisado_en: string | null;
+  pagado_en: string | null;
+  cancelado_en: string | null;
   renglones_electrificacion: RenglonDbRow[];
 }
 
@@ -302,6 +317,7 @@ export async function buscarReciboElectrificacionPorFolio(
     .from("recibos_electrificacion")
     .select(
       "id, estado, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
+        "revisado_en, pagado_en, cancelado_en, " +
         "renglones_electrificacion(id, numero, modelo, descripcion_pm, cantidad, metros_led, complejidad_led, nota, pu_sugerido, " +
         "fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision, " +
         "charolas_electrificacion(numero, drivers, categoria))"
@@ -324,6 +340,9 @@ export async function buscarReciboElectrificacionPorFolio(
     prioridad: data.prioridad,
     motivo: data.motivo_prioridad ?? "",
     guardadoEn: data.creado_en,
+    revisadoEn: data.revisado_en,
+    pagadoEn: data.pagado_en,
+    canceladoEn: data.cancelado_en,
     renglones: [...data.renglones_electrificacion]
       .sort((a, b) => a.numero - b.numero)
       .map((r) => ({
@@ -356,54 +375,58 @@ export type ReciboResumenElectrificacion = Omit<ReciboResumen, "tipo"> & {
 export async function listarRecibosElectrificacion(
   supabase: SupabaseClient
 ): Promise<ReciboResumenElectrificacion[]> {
-  const { data, error } = await supabase
-    .from("recibos_electrificacion")
-    .select(
-      "id, estado, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
-        "renglones_electrificacion(cantidad, pu_propuesto, pu_aceptado, decision)"
-    )
-    .returns<
-      {
-        id: string;
-        estado: EstadoRecibo;
-        folio: string;
-        fecha_recibo: string;
-        contratista: string;
-        obra: string | null;
-        ot: string | null;
-        prioridad: string;
-        creado_en: string;
-        renglones_electrificacion: {
-          cantidad: number;
-          pu_propuesto: number;
-          pu_aceptado: number;
-          decision: DecisionRenglon;
-        }[];
-      }[]
-    >();
-
-  if (error || !data) return [];
+  // Lanza si falla la lectura (ver listarRecibos).
+  const data = await paginarTodo<{
+    id: string;
+    estado: EstadoRecibo;
+    folio: string;
+    fecha_recibo: string;
+    contratista: string;
+    obra: string | null;
+    ot: string | null;
+    prioridad: string;
+    creado_en: string;
+    renglones_electrificacion: {
+      cantidad: number;
+      pu_propuesto: number;
+      pu_aceptado: number;
+      decision: DecisionRenglon;
+    }[];
+  }>(
+    (desde, hasta) =>
+      supabase
+        .from("recibos_electrificacion")
+        .select(
+          "id, estado, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
+            "renglones_electrificacion(cantidad, pu_propuesto, pu_aceptado, decision)"
+        )
+        .order("creado_en", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<
+          {
+            id: string;
+            estado: EstadoRecibo;
+            folio: string;
+            fecha_recibo: string;
+            contratista: string;
+            obra: string | null;
+            ot: string | null;
+            prioridad: string;
+            creado_en: string;
+            renglones_electrificacion: {
+              cantidad: number;
+              pu_propuesto: number;
+              pu_aceptado: number;
+              decision: DecisionRenglon;
+            }[];
+          }[]
+        >(),
+    { contexto: "los recibos de Electrificación" }
+  );
 
   return data
-    .map((r) => {
-      const rs = r.renglones_electrificacion;
-      return {
-        id: r.id,
-        estado: r.estado,
-        tipo: "electrificacion" as const,
-        folio: r.folio,
-        fecha: r.fecha_recibo,
-        contratista: r.contratista,
-        obra: r.obra ?? "",
-        ot: r.ot ?? "",
-        prioridad: r.prioridad,
-        guardadoEn: r.creado_en,
-        numRenglones: rs.length,
-        numPendientes: rs.filter((x) => x.decision == null).length,
-        totalPropuesto: rs.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_propuesto), 0),
-        totalAceptado: rs.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_aceptado), 0),
-      };
-    })
+    .map((r) => resumirRecibo({ ...r, tipo: "electrificacion" as const, renglones: r.renglones_electrificacion }))
     .sort((a, b) => compararFolios(a.folio, b.folio));
 }
 
@@ -425,25 +448,29 @@ export interface PrecioPagadoElectrificacion {
 export async function cargarPreciosPagadosElectrificacion(
   supabase: SupabaseClient
 ): Promise<PrecioPagadoElectrificacion[]> {
-  const { data, error } = await supabase
-    .from("renglones_electrificacion")
-    .select(
-      "modelo, descripcion_pm, cantidad, pu_aceptado, recibos_electrificacion!inner(folio, fecha_recibo, ot, estado)"
-    )
-    .eq("recibos_electrificacion.estado", "pagado")
-    .gt("pu_aceptado", 0)
-    .order("creado_en", { ascending: false })
-    .limit(3000)
-    .returns<
-      {
-        modelo: string;
-        descripcion_pm: string | null;
-        cantidad: number;
-        pu_aceptado: number;
-        recibos_electrificacion: { folio: string; fecha_recibo: string; ot: string | null } | null;
-      }[]
-    >();
-  if (error || !data) return [];
+  // Lanza si falla la lectura: precedentes incompletos cambian el sugerido.
+  type Fila = {
+    modelo: string;
+    descripcion_pm: string | null;
+    cantidad: number;
+    pu_aceptado: number;
+    recibos_electrificacion: { folio: string; fecha_recibo: string; ot: string | null } | null;
+  };
+  const data = await paginarTodo<Fila>(
+    (desde, hasta) =>
+      supabase
+        .from("renglones_electrificacion")
+        .select(
+          "modelo, descripcion_pm, cantidad, pu_aceptado, recibos_electrificacion!inner(folio, fecha_recibo, ot, estado)"
+        )
+        .eq("recibos_electrificacion.estado", "pagado")
+        .gt("pu_aceptado", 0)
+        .order("creado_en", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<Fila[]>(),
+    { maxFilas: 20000, contexto: "los precios pagados de Electrificación" }
+  );
   return data
     .filter((r) => r.recibos_electrificacion)
     .map((r) => ({

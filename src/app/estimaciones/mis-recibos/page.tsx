@@ -9,7 +9,9 @@ import {
   listarResumenDiscrepancias,
 } from "@/lib/estimaciones/discrepancias-resumen";
 import { NOMBRE_TIPO_CUALQUIERA } from "@/lib/estimaciones/revision-db";
-import { money, fechaCorta } from "@/lib/estimaciones/motor-precio";
+import { money } from "@/lib/estimaciones/motor-precio";
+import { formatoFechaDMA } from "@/lib/resumen/entrega";
+import EstadoVacio from "@/components/estado-vacio";
 import EstadoReciboBadge from "../estado-recibo-badge";
 import CancelarReciboBoton from "../cancelar-recibo-boton";
 
@@ -69,16 +71,70 @@ export default async function MisRecibosPage() {
       )}
 
       {recibos.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Todavía no has capturado recibos.{" "}
-          <Link href="/estimaciones/recibos" className="font-medium text-brand-700 hover:underline">
-            Capturar uno
-          </Link>
-        </p>
+        <EstadoVacio
+          titulo="Todavía no has capturado recibos"
+          descripcion="Cuando captures uno, aquí verás en qué estado va y cuánto se te pagará."
+          accion={{ href: "/estimaciones/recibos", etiqueta: "Capturar un recibo" }}
+        />
       )}
 
       {recibos.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <ul className="flex flex-col gap-3 md:hidden">
+          {recibos.map((r) => {
+            const sinRevisar = r.numPendientes === r.numRenglones;
+            const disc = discrepanciasPorRecibo.get(r.id);
+            return (
+              <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <Link
+                    href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}
+                    className="font-mono text-base font-semibold text-slate-900 hover:text-brand-700 hover:underline"
+                  >
+                    {r.folio}
+                  </Link>
+                  <EstadoReciboBadge estado={r.estado} />
+                </div>
+                <p className="mt-1 text-sm text-slate-700">
+                  {NOMBRE_TIPO_CUALQUIERA[r.tipo]} · {formatoFechaDMA(r.fecha)}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {r.obra || "Sin obra"} · OT {r.ot || "—"} · {r.numRenglones} renglón
+                  {r.numRenglones === 1 ? "" : "es"}
+                </p>
+                {r.estado !== "cancelado" && ((disc?.rechazadas ?? 0) > 0 || (disc?.pendientes ?? 0) > 0) && (
+                  <p className="mt-1 text-xs font-semibold text-rose-700">
+                    {(disc?.rechazadas ?? 0) > 0 ? "Motivo de descuadre no aceptado" : "Descuadre en revisión"}
+                  </p>
+                )}
+                <div className="mt-2 flex items-end justify-between gap-3">
+                  <div className="font-mono text-xs tabular-nums text-slate-600">
+                    <div>Propuesto {money(r.totalPropuesto)}</div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      Aceptado {r.estado === "revisado" || r.estado === "pagado" ? money(r.totalAceptado) : "—"}
+                    </div>
+                  </div>
+                  {r.estado === "pendiente" && sinRevisar && (
+                    <div className="flex flex-col items-end gap-1">
+                      <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
+                      {puedeCapturarTipo(perfil, r.tipo) && (
+                        <Link
+                          href={`/estimaciones/mis-recibos/${r.tipo}/${encodeURIComponent(r.folio)}/modificar`}
+                          className="text-xs font-medium text-slate-500 hover:text-brand-700"
+                        >
+                          Modificar
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {recibos.length > 0 && (
+        <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm md:block">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -108,7 +164,7 @@ export default async function MisRecibosPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{NOMBRE_TIPO_CUALQUIERA[r.tipo]}</td>
-                    <td className="px-4 py-3 text-slate-700">{fechaCorta(r.fecha)}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatoFechaDMA(r.fecha)}</td>
                     <td className="px-4 py-3 text-slate-700">{r.obra || "—"}</td>
                     <td className="px-4 py-3 font-mono text-slate-700">{r.ot || "—"}</td>
                     <td className="px-4 py-3">
