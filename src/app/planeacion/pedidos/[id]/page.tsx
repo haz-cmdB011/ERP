@@ -10,6 +10,12 @@ import CancelarPedido from "./cancelar-pedido";
 import ItemsTabla, { type MuebleTabla } from "./items-tabla";
 import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
 import { getPlanosPorItem } from "@/lib/planos/planos-por-item";
+import { resumirCancelacion, type ItemParaCancelar } from "@/lib/planeacion/resumen-cancelacion";
+import LineaTiempoPm from "./linea-tiempo-pm";
+import { armarLineaTiempo, type LineaTiempo } from "@/lib/planeacion/linea-tiempo";
+import { asignacionesDePedido, idsConInformeDeCalidad } from "@/lib/planeacion/linea-tiempo-db";
+import ChipEntrega from "@/components/chip-entrega";
+import { estadoEntrega, formatoFechaDMA, formatoFechaHora, hoyEnEmpresa } from "@/lib/resumen/entrega";
 
 interface VersionRow {
   id: string;
@@ -37,6 +43,7 @@ interface ItemRow {
   cantidad_total: number;
   parent_item_id: string | null;
   fila_excel_origen: number | null;
+  estado_liberacion: string;
   estado_revision: EstadoRevision;
   motivo_cancelacion: string | null;
   eliminacion_solicitada_en: string | null;
@@ -98,16 +105,48 @@ export default async function PedidoDetailPage({
     versiones?.[0] ||
     null;
 
+  // Para decir qué se cancelaría antes de confirmar (siempre sobre la versión
+  // activa, aunque se esté viendo otra). Solo lo necesita quien puede cancelar.
+  const versionActiva = versiones?.find((v) => v.es_version_activa) ?? versiones?.[0] ?? null;
+  const { data: itemsParaCancelar } =
+    puedeEditar && !pedido.cancelado_en && versionActiva
+      ? await supabase
+          .from("planeacion_items")
+          .select("tipo_registro, estado_liberacion, estado_revision, eliminacion_solicitada_en")
+          .eq("pedido_version_id", versionActiva.id)
+          .returns<ItemParaCancelar[]>()
+      : { data: null };
+  const resumenCancelacion = itemsParaCancelar ? resumirCancelacion(itemsParaCancelar) : null;
+
   const { data: items } = versionSeleccionada
     ? await supabase
         .from("planeacion_items")
         .select(
-          "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, estado_revision, motivo_cancelacion, eliminacion_solicitada_en"
+          "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, estado_liberacion, estado_revision, motivo_cancelacion, eliminacion_solicitada_en"
         )
         .eq("pedido_version_id", versionSeleccionada.id)
         .order("fila_excel_origen")
         .returns<ItemRow[]>()
     : { data: null };
+
+  // Seguimiento del PM (liberado, asignado, entregado, evaluado): solo tiene
+  // sentido para la versión activa, que es la que Producción y Calidad usan.
+  let tiempo: LineaTiempo | null = null;
+  if (versionSeleccionada?.es_version_activa && items && items.length > 0) {
+    const liberadosIds = items
+      .filter(
+        (i) =>
+          i.estado_liberacion === "enviado_a_produccion" &&
+          i.estado_revision !== "cancelado" &&
+          !i.eliminacion_solicitada_en
+      )
+      .map((i) => i.id);
+    const [asignaciones, conInforme] = await Promise.all([
+      asignacionesDePedido(supabase, id),
+      idsConInformeDeCalidad(supabase, liberadosIds),
+    ]);
+    tiempo = armarLineaTiempo(items, asignaciones, conInforme);
+  }
 
   const itemIds = (items ?? []).map((i) => i.id);
   const [imagenesPorItem, planosPorItem] = await Promise.all([
@@ -174,8 +213,9 @@ export default async function PedidoDetailPage({
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
-        <p className="mt-1 text-xs font-medium text-slate-500">
-          Entrega: {pedido.fecha_entrega ?? "—"}
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+          Entrega: {formatoFechaDMA(pedido.fecha_entrega)}
+          <ChipEntrega estado={estadoEntrega(pedido.fecha_entrega, hoyEnEmpresa())} />
         </p>
       </div>
 
@@ -187,7 +227,10 @@ export default async function PedidoDetailPage({
           eliminado_definitivo_en: pedido.eliminado_definitivo_en,
         }}
         puedeEditar={puedeEditar}
+        resumen={resumenCancelacion}
       />
+
+      {tiempo && <LineaTiempoPm tiempo={tiempo} />}
 
       {versiones && versiones.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
@@ -222,7 +265,7 @@ export default async function PedidoDetailPage({
         <p className="text-xs text-slate-500">
           Archivo: {versionSeleccionada.cargas_archivo.nombre_archivo} ·{" "}
           {versionSeleccionada.cargas_archivo.filas_exitosas ?? 0} filas
-          ingeridas · {new Date(versionSeleccionada.created_at).toLocaleString()}
+          ingeridas · {formatoFechaHora(versionSeleccionada.created_at)}
         </p>
       )}
 

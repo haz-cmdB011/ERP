@@ -191,8 +191,8 @@ export default function MfaForm() {
       ) : (
         <>
           <p className="text-sm text-slate-600">
-            Agrega una capa más de seguridad: además de tu contraseña, se te pedirá un código de 6 dígitos de una app
-            en tu teléfono. Recomendado, sobre todo para cuentas de desarrollador.
+            Además de tu contraseña, se pide un código de 6 dígitos de una app en tu teléfono. Recomendado,
+            sobre todo para desarrolladores.
           </p>
           <button type="button" onClick={empezarAlta} disabled={trabajando} className={`${boton} w-fit bg-brand-500 text-on-brand shadow-sm hover:bg-brand-400`}>
             {trabajando ? "Preparando..." : "Activar verificación en dos pasos"}

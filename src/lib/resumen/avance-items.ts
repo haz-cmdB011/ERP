@@ -70,7 +70,7 @@ export function sumarAvanceDe(mapa: Map<string, AvancePedido>, pedidoIds: string
 // PostgREST devuelve máximo 1000 filas por consulta: se pide por páginas.
 const PAGINA = 1000;
 
-async function paginar<T>(
+export async function paginar<T>(
   pedir: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null }>
 ): Promise<T[]> {
   const filas: T[] = [];

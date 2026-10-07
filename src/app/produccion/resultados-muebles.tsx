@@ -42,10 +42,24 @@ function Miniatura({ item, grande }: { item: ItemBusqueda; grande: boolean }) {
   );
 }
 
+// Pantalla a la que lleva el PM de cada mueble según el área (en Planeación, con
+// el modelo ya filtrado para ubicarlo entre los ítems del pedido).
+function hrefPedido(area: "produccion" | "planeacion", g: GrupoBusqueda): string {
+  if (area === "produccion") return `/produccion/pedidos/${g.pedidoId}`;
+  const modelo = g.padre.modelo ? `?modelo=${encodeURIComponent(g.padre.modelo)}` : "";
+  return `/planeacion/pedidos/${g.pedidoId}${modelo}`;
+}
+
 // Resultados de la búsqueda de muebles/modelos: cada tarjeta es un mueble (ítem
 // padre) con su pedido; al hacer clic se despliegan sus componentes (hijos). Si
 // el mueble apareció porque coincidió un componente, ya sale desplegado.
-export default function ResultadosMuebles({ grupos }: { grupos: GrupoBusqueda[] }) {
+export default function ResultadosMuebles({
+  grupos,
+  area = "produccion",
+}: {
+  grupos: GrupoBusqueda[];
+  area?: "produccion" | "planeacion";
+}) {
   // Sin entrada, cada tarjeta decide sola (cerrada, salvo que coincidió un hijo).
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({});
   const estaAbierto = (g: GrupoBusqueda) => abiertos[g.padre.id] ?? g.abrirPorBusqueda;
@@ -112,7 +126,7 @@ export default function ResultadosMuebles({ grupos }: { grupos: GrupoBusqueda[] 
 
               <div className="flex min-w-40 flex-col text-xs" onClick={(e) => e.stopPropagation()}>
                 <Link
-                  href={`/produccion/pedidos/${g.pedidoId}`}
+                  href={hrefPedido(area, g)}
                   className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                 >
                   {g.numeroPedido}
