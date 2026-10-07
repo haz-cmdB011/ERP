@@ -16,15 +16,24 @@ Resumen de las defensas del sistema, qué hay que mantener al día y qué pasos 
 3. **Registro público acotado.** Tope por IP y tope global por hora (`/api/registro`), correos de
    dominios permitidos opcionales (`REGISTRO_DOMINIOS_PERMITIDOS`), errores genéricos que no revelan
    qué correos existen. La cuenta nace con rol `usuario` (pendiente de aprobación).
+   **Límite de intentos en la base** (`consumir_limite`, tabla `limites_tasa`, `src/lib/seguridad/limite-tasa.ts`):
+   cuenta compartida por todas las instancias de Vercel, a diferencia de un contador en memoria. Se aplica
+   al registro (por IP), la carga de Excel, la foto de perfil, el buscador y la creación de cuentas / cambio de
+   contraseñas desde Administración (por usuario). Si la base no responde **no bloquea** a nadie (es un freno
+   contra abusos, no un control de acceso). Los topes se ajustan en cada ruta.
 4. **Archivos.** Los buckets son privados. Las imágenes (foto de perfil, foto de entrega, imágenes del
    Excel) se validan por su **contenido real** antes de pasar a `sharp` (solo JPG/PNG/WebP/GIF, con tope de
    píxeles): un SVG disfrazado de PNG no llega al decodificador. Solo Planeación puede subir Excel e
-   imágenes de pedidos.
-5. **Navegador.** Cabeceras en `next.config.ts`: CSP, `X-Frame-Options: DENY` (anti-clickjacking),
+   imágenes de pedidos. El Excel (`.xlsx`/`.xlsm`) también se valida por su contenido antes de `exceljs`
+   (`src/lib/seguridad/excel.ts`): tiene que ser un ZIP con las partes de un libro, con topes de partes y de
+   tamaño descomprimido (anti "bomba zip"; ver sus límites en el propio archivo).
+5. **Dependencias.** Dependabot (`.github/dependabot.yml`) abre PR semanales y por avisos de seguridad; el CI
+   corre `npm audit --omit=dev --audit-level=high` y falla con avisos altos o críticos.
+6. **Navegador.** Cabeceras en `next.config.ts`: CSP, `X-Frame-Options: DENY` (anti-clickjacking),
    `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP y HSTS. Si una función legítima chocara con
    la CSP: `CSP_SOLO_REPORTE=1` en Vercel la deja en modo "solo reporte" sin tocar código.
-6. **Redirecciones.** `/auth/callback` solo acepta destinos internos (`rutaInternaSegura`).
-7. **Verificación en dos pasos (opcional).** Cada persona la activa en *Mi perfil* con una app de
+7. **Redirecciones.** `/auth/callback` solo acepta destinos internos (`rutaInternaSegura`).
+8. **Verificación en dos pasos (opcional).** Cada persona la activa en *Mi perfil* con una app de
    autenticación. Quien la activa no puede usar la app ni `/api/*` hasta poner su código (se exige en
    `src/lib/supabase/middleware.ts`). Se recomienda para todas las cuentas de **desarrollador**.
 

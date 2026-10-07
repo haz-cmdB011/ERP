@@ -8,10 +8,13 @@ import {
   emailValido,
   ipDe,
   MAX_ALTAS_POR_HORA,
+  MAX_ALTAS_POR_IP,
   MAX_NOMBRE,
   MAX_PASSWORD,
   MIN_PASSWORD,
+  VENTANA_IP_MS,
 } from "@/lib/seguridad/registro";
+import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
 
 // Registro público (sin sesión): a diferencia de /api/admin/usuarios/crear,
 // cualquier trabajador puede llamar esta ruta para darse de alta a sí
@@ -23,7 +26,8 @@ import {
 // Defensas contra altas masivas (esta ruta no pide sesión):
 //  - REGISTRO_DOMINIOS_PERMITIDOS (opcional, "empresa.com,otra.com"): solo
 //    correos de esos dominios;
-//  - tope por IP (en memoria) y tope global por hora (contado en la base).
+//  - tope por IP (contado en la base, más uno en memoria de respaldo) y tope global
+//    por hora (contado en la base).
 const excedeLimitePorIp = crearLimitadorPorIp();
 
 export async function POST(request: Request) {
@@ -31,6 +35,21 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Demasiados intentos desde tu conexión. Espera unos minutos e inténtalo de nuevo." },
       { status: 429 }
+    );
+  }
+
+  // El tope en memoria de arriba es por instancia; este se cuenta en la base y vale
+  // para todas (misma cantidad y ventana que MAX_ALTAS_POR_IP / VENTANA_IP_MS).
+  if (
+    !(await consumirLimite({
+      clave: `registro:ip:${ipDe(request)}`,
+      maximo: MAX_ALTAS_POR_IP,
+      ventanaSegundos: VENTANA_IP_MS / 1000,
+    }))
+  ) {
+    return respuestaLimite(
+      "Demasiados intentos desde tu conexión. Espera unos minutos e inténtalo de nuevo.",
+      VENTANA_IP_MS / 1000
     );
   }
 
