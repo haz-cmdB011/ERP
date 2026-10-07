@@ -285,7 +285,7 @@ function ImagenesItem({
           title="Ver imagen"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image */}
-          <img src={url} alt="" className="h-10 w-10 rounded border border-slate-200 object-cover" />
+          <img src={url} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded border border-slate-200 object-cover" />
         </button>
       ))}
     </div>

@@ -36,28 +36,22 @@ export default async function PedidoProduccionPage({
   const { version } = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: perfil } = user
-    ? await supabase
-        .from("perfiles")
-        .select("rol, area")
-        .eq("id", user.id)
-        .maybeSingle<{ rol: string; area: string | null }>()
-    : { data: null };
+  // Perfil, pedido y versiones no dependen entre sí: se piden a la vez (un solo
+  // viaje a la base en vez de tres seguidos).
+  const perfilPromesa = (async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await supabase
+      .from("perfiles")
+      .select("rol, area")
+      .eq("id", user.id)
+      .maybeSingle<{ rol: string; area: string | null }>();
+    return data;
+  })();
 
-  // Refleja is_produccion()/is_admin_area('produccion') del lado del
-  // servidor (ver migración planeacion_items_borrado_produccion): solo
-  // controla qué botones se muestran — el permiso real lo sigue exigiendo
-  // el RPC en la base.
-  const esDesarrollador = perfil?.rol === "desarrollador";
-  const puedeSolicitarEliminacion =
-    esDesarrollador || (perfil?.area === "produccion" && (perfil.rol === "administrador" || perfil.rol === "trabajador"));
-  const puedeEliminarDefinitivo =
-    esDesarrollador || (perfil?.area === "produccion" && perfil.rol === "administrador");
-
-  const { data: pedido } = await supabase
+  const pedidoPromesa = supabase
     .from("pedidos")
     .select(
       "id, numero_pedido, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente )"
@@ -73,14 +67,7 @@ export default async function PedidoProduccionPage({
       proyectos: { nombre: string; cliente: string } | null;
     }>();
 
-  // Un pedido eliminado (papelera de Planeación) deja de existir para
-  // Producción — en cuanto se restaure desde Planeación, vuelve a
-  // aparecer como un pedido normal sin ningún paso extra.
-  if (!pedido || pedido.eliminado_en) {
-    notFound();
-  }
-
-  const { data: versiones } = await supabase
+  const versionesPromesa = supabase
     .from("pedido_versiones")
     .select(
       "id, numero_version, es_version_activa, notas, created_at, cargas_archivo:carga_id ( nombre_archivo, filas_totales, filas_exitosas, estado )"
@@ -88,6 +75,29 @@ export default async function PedidoProduccionPage({
     .eq("pedido_id", id)
     .order("numero_version", { ascending: false })
     .returns<VersionRow[]>();
+
+  const [perfil, { data: pedido }, { data: versiones }] = await Promise.all([
+    perfilPromesa,
+    pedidoPromesa,
+    versionesPromesa,
+  ]);
+
+  // Refleja is_produccion()/is_admin_area('produccion') del lado del
+  // servidor (ver migración planeacion_items_borrado_produccion): solo
+  // controla qué botones se muestran — el permiso real lo sigue exigiendo
+  // el RPC en la base.
+  const esDesarrollador = perfil?.rol === "desarrollador";
+  const puedeSolicitarEliminacion =
+    esDesarrollador || (perfil?.area === "produccion" && (perfil.rol === "administrador" || perfil.rol === "trabajador"));
+  const puedeEliminarDefinitivo =
+    esDesarrollador || (perfil?.area === "produccion" && perfil.rol === "administrador");
+
+  // Un pedido eliminado (papelera de Planeación) deja de existir para
+  // Producción — en cuanto se restaure desde Planeación, vuelve a
+  // aparecer como un pedido normal sin ningún paso extra.
+  if (!pedido || pedido.eliminado_en) {
+    notFound();
+  }
 
   const versionSeleccionada =
     (version && versiones?.find((v) => String(v.numero_version) === version)) ||
@@ -108,18 +118,19 @@ export default async function PedidoProduccionPage({
 
   // Folio único de producción de cada ítem (se asigna al liberarlo y no cambia).
   const idsItems = (itemsBase ?? []).map((i) => i.id);
-  const { data: folios } = idsItems.length
-    ? await supabase
-        .from("folios_produccion")
-        .select("planeacion_item_id, folio")
-        .in("planeacion_item_id", idsItems)
-        .returns<{ planeacion_item_id: string; folio: string }[]>()
-    : { data: [] as { planeacion_item_id: string; folio: string }[] };
-  const folioPorItem = new Map((folios ?? []).map((f) => [f.planeacion_item_id, f.folio]));
-
   // Miniatura de cada ítem: la primera imagen guardada (URL firmada del bucket
-  // privado, mismo helper que usan Planeación y Calidad).
-  const imagenesPorItem = await getImagenesConGrandePorItem(supabase, idsItems);
+  // privado, mismo helper que usan Planeación y Calidad). Se piden a la vez que los folios.
+  const [{ data: folios }, imagenesPorItem] = await Promise.all([
+    idsItems.length
+      ? supabase
+          .from("folios_produccion")
+          .select("planeacion_item_id, folio")
+          .in("planeacion_item_id", idsItems)
+          .returns<{ planeacion_item_id: string; folio: string }[]>()
+      : Promise.resolve({ data: [] as { planeacion_item_id: string; folio: string }[] }),
+    getImagenesConGrandePorItem(supabase, idsItems),
+  ]);
+  const folioPorItem = new Map((folios ?? []).map((f) => [f.planeacion_item_id, f.folio]));
 
   const items: ItemLiberacionRow[] | null = itemsBase
     ? itemsBase.map((i) => ({

@@ -141,7 +141,7 @@ export default function ImagenAmpliable({
         className={`block shrink-0 cursor-zoom-in overflow-hidden rounded border border-slate-200 bg-papel transition hover:border-slate-400 hover:shadow ${className}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image */}
-        <img src={url} alt={alt} className="h-full w-full object-cover" />
+        <img src={url} alt={alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
       </button>
 
       {abierta && (

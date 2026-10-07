@@ -54,13 +54,11 @@ export default async function PedidoDetailPage({
   const { id } = await params;
   const { version, modelo } = await searchParams;
   const supabase = await createClient();
-  const perfil = await getPerfilActual(supabase);
-  const puedeEditar = puedeEditarPlaneacion(perfil);
-  // Enviar un ítem a la papelera lo puede hacer quien edita en Planeación (la
-  // eliminación definitiva sigue siendo de los administradores de Producción).
-  const puedeEliminar = puedeEditar;
+  // Perfil, pedido y versiones no dependen entre sí: se piden a la vez (un solo
+  // viaje a la base en vez de tres seguidos).
+  const perfilPromesa = getPerfilActual(supabase);
 
-  const { data: pedido } = await supabase
+  const pedidoPromesa = supabase
     .from("pedidos")
     .select(
       "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, estado, cancelado_en, motivo_cancelacion, eliminado_definitivo_en, proyectos ( nombre, cliente )"
@@ -79,11 +77,7 @@ export default async function PedidoDetailPage({
       proyectos: { nombre: string; cliente: string } | null;
     }>();
 
-  if (!pedido) {
-    notFound();
-  }
-
-  const { data: versiones } = await supabase
+  const versionesPromesa = supabase
     .from("pedido_versiones")
     .select(
       "id, numero_version, es_version_activa, notas, created_at, cargas_archivo:carga_id ( nombre_archivo, filas_totales, filas_exitosas, estado )"
@@ -91,6 +85,20 @@ export default async function PedidoDetailPage({
     .eq("pedido_id", id)
     .order("numero_version", { ascending: false })
     .returns<VersionRow[]>();
+
+  const [perfil, { data: pedido }, { data: versiones }] = await Promise.all([
+    perfilPromesa,
+    pedidoPromesa,
+    versionesPromesa,
+  ]);
+  const puedeEditar = puedeEditarPlaneacion(perfil);
+  // Enviar un ítem a la papelera lo puede hacer quien edita en Planeación (la
+  // eliminación definitiva sigue siendo de los administradores de Producción).
+  const puedeEliminar = puedeEditar;
+
+  if (!pedido) {
+    notFound();
+  }
 
   const versionSeleccionada =
     (version && versiones?.find((v) => String(v.numero_version) === version)) ||

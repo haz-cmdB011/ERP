@@ -38,10 +38,10 @@ export default async function PlaneacionListPage({
   const anioParam = anioFiltro ? String(anioFiltro) : undefined;
   const clienteParam = clienteFiltro || undefined;
   const supabase = await createClient();
-  const perfil = await getPerfilActual(supabase);
-  const esAdmin = puedeAdministrarPlaneacion(perfil);
-
-  const { data: pedidos, error } = await supabase
+  // El perfil y la lista de pedidos no dependen entre sí: se piden a la vez. La
+  // papelera sí necesita saber antes si es administrador.
+  const perfilPromesa = getPerfilActual(supabase);
+  const pedidosPromesa = supabase
     .from("pedidos")
     .select(COLUMNAS)
     .is("eliminado_en", null)
@@ -49,6 +49,9 @@ export default async function PlaneacionListPage({
     .is("eliminado_definitivo_en", null)
     .order("created_at", { ascending: false })
     .returns<PedidoRow[]>();
+
+  const [perfil, { data: pedidos, error }] = await Promise.all([perfilPromesa, pedidosPromesa]);
+  const esAdmin = puedeAdministrarPlaneacion(perfil);
 
   const { data: pedidosEliminados } = esAdmin
     ? await supabase

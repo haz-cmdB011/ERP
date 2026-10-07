@@ -28,10 +28,14 @@ export default async function ProduccionListPage({
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
   const supabase = await createClient();
 
-  // Con texto en el buscador se muestran también muebles/modelos de todos los pedidos.
-  const busqueda = consulta ? await buscarMuebles(supabase, consulta) : null;
+  // Búsqueda de muebles (solo con texto en el buscador: se muestran también
+  // muebles/modelos de todos los pedidos), pedidos y avance no dependen entre sí:
+  // se piden a la vez.
+  const busquedaPromesa = consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null);
+  // Avance de liberación por pedido; las tarjetas suman todo lo vigente.
+  const avancePromesa = avancePorPedido(supabase, { conCalidad: false });
 
-  const { data: pedidos, error } = await supabase
+  const pedidosPromesa = supabase
     .from("pedidos")
     .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
     .is("eliminado_en", null)
@@ -40,6 +44,12 @@ export default async function ProduccionListPage({
     .order("created_at", { ascending: false })
     .returns<PedidoConOt[]>();
 
+  const [busqueda, { data: pedidos, error }, avance] = await Promise.all([
+    busquedaPromesa,
+    pedidosPromesa,
+    avancePromesa,
+  ]);
+
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
     cliente: clienteFiltro,
@@ -47,8 +57,6 @@ export default async function ProduccionListPage({
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
 
-  // Avance de liberación por pedido; las tarjetas suman todo lo vigente.
-  const avance = await avancePorPedido(supabase, { conCalidad: false });
   const total = sumarAvance(avance);
   const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));

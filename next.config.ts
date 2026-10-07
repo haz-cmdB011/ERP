@@ -59,11 +59,22 @@ const cabecerasSeguridad = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
 ];
 
+// Logo e iconos de la app (public/): no llevan huella en el nombre, así que Next
+// los sirve con max-age=0 y el navegador los revalida en cada página. Un día de
+// caché (y una semana sirviendo el viejo mientras se actualiza) evita esos viajes.
+const cacheEstaticos = [
+  { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+];
+
 const nextConfig: NextConfig = {
   // No anunciar la tecnología del servidor.
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: cabecerasSeguridad }];
+    return [
+      { source: "/:path*", headers: cabecerasSeguridad },
+      { source: "/branding/:path*", headers: cacheEstaticos },
+      { source: "/icons/:path*", headers: cacheEstaticos },
+    ];
   },
 };
 

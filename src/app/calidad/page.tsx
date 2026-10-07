@@ -25,7 +25,10 @@ export default async function CalidadListPage({
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
   const supabase = await createClient();
 
-  const { data: pedidos, error } = await supabase
+  // Pedidos y avance de evaluación (las tarjetas suman todo lo vigente) no
+  // dependen entre sí: se piden a la vez.
+  const avancePromesa = avancePorPedido(supabase, { conCalidad: true });
+  const pedidosPromesa = supabase
     .from("pedidos")
     .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
     .is("eliminado_en", null)
@@ -34,6 +37,8 @@ export default async function CalidadListPage({
     .order("created_at", { ascending: false })
     .returns<PedidoConOt[]>();
 
+  const [{ data: pedidos, error }, avance] = await Promise.all([pedidosPromesa, avancePromesa]);
+
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
     cliente: clienteFiltro,
@@ -41,8 +46,6 @@ export default async function CalidadListPage({
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
 
-  // Avance de evaluación por pedido; las tarjetas suman todo lo vigente.
-  const avance = await avancePorPedido(supabase, { conCalidad: true });
   const total = sumarAvance(avance);
   const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));

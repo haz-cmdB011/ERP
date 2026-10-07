@@ -17,6 +17,7 @@ export default function Avatar({
       <img
         src={url}
         alt=""
+        decoding="async"
         className={`${tamano} shrink-0 rounded-full bg-brand-100 object-cover ring-2 ring-brand-500/70`}
       />
     );
