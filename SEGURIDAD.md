@@ -63,6 +63,33 @@ Resumen de las defensas del sistema, qué hay que mantener al día y qué pasos 
 - El `.env.local` de cada laptop apunta a **producción** y trae la clave `service_role`, que se salta todos los
   permisos. Si una laptop se pierde o se infecta, hay que **rotar esa clave** (Supabase → Settings → API).
   Lo recomendable es un proyecto de Supabase aparte para pruebas y usar producción solo en el despliegue.
+
+### Rotar la clave secreta (`SUPABASE_SERVICE_ROLE_KEY`)
+
+Se hace a mano (no hay forma de hacerlo desde el código) cuando una laptop se pierde o se infecta, cuando alguien
+con acceso deja el equipo, o cada cierto tiempo. El proyecto usa las claves nuevas (`sb_secret_...`), que se
+pueden cambiar sin dejar a nadie fuera:
+
+1. **Supabase → Project Settings → API Keys → Secret keys:** crear una clave nueva (con otro nombre) sin borrar la
+   actual. Copiarla directo a Vercel; **no pegarla en chats, issues ni commits**.
+2. **Vercel → Environment Variables:** reemplazar `SUPABASE_SERVICE_ROLE_KEY` en Production (y Preview si la tiene) y
+   **redesplegar**.
+3. Comprobar en el sitio desplegado algo que use la clave: crear un usuario de prueba desde *Administración* o
+   registrarse en `/registro`. Si falla, la clave vieja sigue activa y se puede volver atrás.
+4. **Borrar la clave vieja** en Supabase. Desde ese momento la clave que traen las laptops viejas ya no sirve.
+5. Cada persona que necesite correr en local pone la clave nueva en su `.env.local` (o, mejor, usa la base de pruebas
+   de abajo y nunca la de producción).
+6. Las claves heredadas (`anon` y `service_role`, basadas en el JWT secret) siguen funcionando hasta que se
+   desactiven y **no se pueden rotar**: cuando la app esté comprobada con las nuevas, desactivarlas en el panel
+   (sección de claves heredadas). Si no, una laptop con la `service_role` vieja seguiría teniendo acceso total.
+
+### Base de pruebas para las laptops (pendiente)
+
+Hoy todas las laptops apuntan a **producción** (ver `CLAUDE.md`). Quedó pospuesto: Supabase no deja crear un
+segundo proyecto gratuito porque la cuenta ya tiene 2 proyectos activos (límite del plan gratuito). Opciones cuando
+se retome: pausar el otro proyecto gratuito y crear `erp-becario-pruebas` (costo 0, misma región), usar Supabase
+local con Docker, o pasar a Pro. Al tenerla: aplicar las migraciones de `supabase/migrations/`, comprobar con
+`npm run db:verificar` y repartir a las laptops solo las claves de esa base.
 - Nunca subir `.env*` (ya está en `.gitignore`) ni pegar claves en el chat, issues o commits.
 - Antes de fusionar: `npm test`, `npm run lint` y `npm audit --omit=dev`.
 - Cambios de permisos en la base: siempre como migración en `supabase/migrations/` (ver `CLAUDE.md`).
