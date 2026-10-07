@@ -73,4 +73,10 @@ describe("ultimaEntrega y hrefListaPedidos", () => {
     expect(hrefListaPedidos("/produccion", {})).toBe("/produccion");
     expect(hrefListaPedidos("/produccion", { q: "x", anio: "2026" })).toBe("/produccion?q=x&anio=2026");
   });
+  it("conserva también el filtro de entrega", () => {
+    expect(hrefListaPedidos("/planeacion", { anio: "2026", entrega: "semana" })).toBe(
+      "/planeacion?anio=2026&entrega=semana"
+    );
+    expect(hrefListaPedidos("/planeacion", { entrega: "sin-fecha" })).toBe("/planeacion?entrega=sin-fecha");
+  });
 });

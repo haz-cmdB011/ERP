@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
+import { describirCambios, type ImpactoPm } from "@/lib/planeacion/impacto-version";
 
 // Mismo límite que la ruta /api/planeacion/upload.
 const MAX_FILE_BYTES = 40 * 1024 * 1024;
@@ -42,15 +43,39 @@ interface UploadError {
 
 type UploadResult = UploadOk | UploadError;
 
-function esError(r: UploadResult): r is UploadError {
+// El servidor encontró un PM del archivo con trabajo en marcha (liberado,
+// asignado, evaluado) y espera confirmación antes de cargar. El Excel sigue en
+// Storage en `storagePath`.
+interface RequiereConfirmacion {
+  requiereConfirmacion: true;
+  impactos: ImpactoPm[];
+  storagePath: string;
+}
+
+// La persona decidió no cargar el archivo tras ver el aviso.
+interface UploadOmitido {
+  omitido: true;
+}
+
+function esError(r: UploadResult | UploadOmitido): r is UploadError {
   return "error" in r;
+}
+
+function esOmitido(r: UploadResult | UploadOmitido): r is UploadOmitido {
+  return "omitido" in r;
+}
+
+function pideConfirmacion(r: UploadResult | RequiereConfirmacion): r is RequiereConfirmacion {
+  return "requiereConfirmacion" in r;
 }
 
 interface Carga {
   id: string;
   file: File;
-  estado: "pendiente" | "procesando" | "terminado";
-  resultado?: UploadResult;
+  estado: "pendiente" | "procesando" | "confirmando" | "terminado";
+  // Solo mientras espera la confirmación.
+  impactos?: ImpactoPm[];
+  resultado?: UploadResult | UploadOmitido;
 }
 
 function esExcel(nombre: string): boolean {
@@ -64,9 +89,51 @@ function formatoTamano(bytes: number): string {
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+// Manda al servidor procesar un Excel que ya está en Storage. Con
+// `confirmarImpacto` la persona ya vio el aviso de trabajo en marcha. Nunca
+// lanza: los errores vuelven como UploadError.
+async function procesarEnServidor(
+  storagePath: string,
+  nombreArchivo: string,
+  confirmarImpacto = false
+): Promise<UploadResult | RequiereConfirmacion> {
+  try {
+    const res = await fetch("/api/planeacion/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storagePath, nombreArchivo, confirmarImpacto }),
+    });
+    const data: UploadResult | RequiereConfirmacion | null = await res.json().catch(() => null);
+    if (res.status === 409 && data && pideConfirmacion(data)) return data;
+    return (
+      data ?? {
+        error:
+          res.status === 504
+            ? "El archivo tardó demasiado en procesarse. Intenta de nuevo."
+            : `El servidor respondió con un error (${res.status}).`,
+      }
+    );
+  } catch {
+    return { error: "Error de red al subir el archivo." };
+  }
+}
+
+// Quita de Storage un archivo que esperaba confirmación y no se va a cargar.
+async function descartarEntrante(storagePath: string, nombreArchivo: string): Promise<void> {
+  try {
+    await fetch("/api/planeacion/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storagePath, nombreArchivo, descartar: true }),
+    });
+  } catch {
+    // Si falla, a lo más queda un archivo suelto en "entrantes/".
+  }
+}
+
 // Sube un Excel y lo manda procesar. Nunca lanza: los errores vuelven como
 // UploadError para mostrarse junto a su archivo.
-async function subirArchivo(file: File): Promise<UploadResult> {
+async function subirArchivo(file: File): Promise<UploadResult | RequiereConfirmacion> {
   if (!esExcel(file.name)) {
     return { error: "Solo se aceptan archivos de Excel .xlsx o .xlsm." };
   }
@@ -99,21 +166,8 @@ async function subirArchivo(file: File): Promise<UploadResult> {
       return { error: `No se pudo subir el archivo: ${subidaError.message}` };
     }
 
-    // 2. El servidor lo toma de Storage y lo procesa.
-    const res = await fetch("/api/planeacion/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storagePath, nombreArchivo: file.name }),
-    });
-    const data: UploadResult | null = await res.json().catch(() => null);
-    return (
-      data ?? {
-        error:
-          res.status === 504
-            ? "El archivo tardó demasiado en procesarse. Intenta de nuevo."
-            : `El servidor respondió con un error (${res.status}).`,
-      }
-    );
+    // 2. El servidor lo toma de Storage y lo procesa (o pide confirmar antes).
+    return await procesarEnServidor(storagePath, file.name);
   } catch {
     return { error: "Error de red al subir el archivo." };
   }
@@ -127,6 +181,8 @@ export default function UploadForm() {
   // Cuenta entradas/salidas de arrastre: dragleave también se dispara al
   // pasar sobre los elementos hijos de la zona.
   const profundidadArrastre = useRef(0);
+  // Archivos que esperan que la persona confirme (por id de carga).
+  const decisiones = useRef(new Map<string, (decision: "cargar" | "omitir") => void>());
 
   // Si se suelta un archivo fuera de la zona, el navegador lo abre o lo
   // descarga y se sale de la página: se evita en toda la ventana.
@@ -163,6 +219,23 @@ export default function UploadForm() {
     setCargas((prev) => prev.map((c) => (c.id === id ? { ...c, ...cambios } : c)));
   }
 
+  // Espera a que la persona decida qué hacer con un archivo que cambia un PM con
+  // trabajo en marcha. El bucle de carga se detiene aquí; los demás archivos
+  // esperan su turno.
+  function esperarDecision(id: string): Promise<"cargar" | "omitir"> {
+    return new Promise((resolver) => {
+      decisiones.current.set(id, resolver);
+    });
+  }
+
+  function decidir(id: string, decision: "cargar" | "omitir") {
+    const resolver = decisiones.current.get(id);
+    decisiones.current.delete(id);
+    // Al decidir deja de estar "confirmando": el bucle sigue (cargar) o termina el archivo.
+    actualizar(id, { estado: "procesando", impactos: undefined });
+    resolver?.(decision);
+  }
+
   async function subirPendientes() {
     const pendientes = cargas.filter((c) => c.estado === "pendiente");
     if (pendientes.length === 0) return;
@@ -170,17 +243,38 @@ export default function UploadForm() {
     // Uno por uno: cada archivo ya sube muchas imágenes en paralelo, y dos
     // versiones del mismo PM deben quedar en el orden en que se eligieron.
     let conError = 0;
+    let omitidos = 0;
     for (const carga of pendientes) {
       actualizar(carga.id, { estado: "procesando" });
-      const resultado = await subirArchivo(carga.file);
-      if (esError(resultado)) conError++;
+      let resultado: UploadResult | UploadOmitido;
+      const primero = await subirArchivo(carga.file);
+      if (pideConfirmacion(primero)) {
+        // El PM ya tiene trabajo en marcha: se muestra qué deja atrás la versión
+        // nueva y se espera la decisión.
+        actualizar(carga.id, { estado: "confirmando", impactos: primero.impactos });
+        const decision = await esperarDecision(carga.id);
+        if (decision === "cargar") {
+          const confirmado = await procesarEnServidor(primero.storagePath, carga.file.name, true);
+          resultado = pideConfirmacion(confirmado)
+            ? { error: "El servidor volvió a pedir confirmación; intenta de nuevo." }
+            : confirmado;
+        } else {
+          await descartarEntrante(primero.storagePath, carga.file.name);
+          resultado = { omitido: true };
+        }
+      } else {
+        resultado = primero;
+      }
+      if (esOmitido(resultado)) omitidos++;
+      else if (esError(resultado)) conError++;
       actualizar(carga.id, { estado: "terminado", resultado });
     }
     setEnviando(false);
     // Resumen breve: el detalle (PM, versiones, avisos) queda en cada archivo.
-    const cargados = pendientes.length - conError;
+    const cargados = pendientes.length - conError - omitidos;
     if (conError === 0) {
-      avisar(cargados === 1 ? "Archivo cargado." : `${cargados} archivos cargados.`);
+      if (cargados > 0) avisar(cargados === 1 ? "Archivo cargado." : `${cargados} archivos cargados.`);
+      else avisar("No se cargó ningún archivo.", "info");
     } else {
       avisar(
         cargados
@@ -316,6 +410,13 @@ export default function UploadForm() {
                   </button>
                 )}
               </div>
+              {c.estado === "confirmando" && c.impactos && (
+                <ConfirmarImpacto
+                  impactos={c.impactos}
+                  onCargar={() => decidir(c.id, "cargar")}
+                  onOmitir={() => decidir(c.id, "omitir")}
+                />
+              )}
               {c.resultado && <ResultadoCarga resultado={c.resultado} />}
             </li>
           ))}
@@ -335,6 +436,12 @@ function EstadoCarga({ carga }: { carga: Carga }) {
       <span className={`${base} animate-pulse bg-brand-50 text-brand-800`}>Procesando...</span>
     );
   }
+  if (carga.estado === "confirmando") {
+    return <span className={`${base} bg-amber-50 text-amber-800`}>Espera tu confirmación</span>;
+  }
+  if (carga.resultado && esOmitido(carga.resultado)) {
+    return <span className={`${base} bg-slate-100 text-slate-600`}>Omitido</span>;
+  }
   return carga.resultado && !esError(carga.resultado) ? (
     <span className={`${base} bg-green-50 text-green-700`}>Listo</span>
   ) : (
@@ -342,7 +449,112 @@ function EstadoCarga({ carga }: { carga: Carga }) {
   );
 }
 
-function ResultadoCarga({ resultado }: { resultado: UploadResult }) {
+function plural(n: number, uno: string, varios: string): string {
+  return `${n} ${n === 1 ? uno : varios}`;
+}
+
+// Aviso antes de cargar un Excel sobre un PM que ya tiene trabajo en marcha:
+// la versión nueva empieza con todo pendiente y lo liberado, asignado y
+// evaluado se queda en la versión anterior.
+function ConfirmarImpacto({
+  impactos,
+  onCargar,
+  onOmitir,
+}: {
+  impactos: ImpactoPm[];
+  onCargar: () => void;
+  onOmitir: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="mt-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+    >
+      <p className="font-medium">
+        {impactos.length === 1
+          ? "Este PM ya tiene trabajo en marcha."
+          : `${impactos.length} PM de este archivo ya tienen trabajo en marcha.`}
+      </p>
+      <ul className="mt-2 flex flex-col gap-3">
+        {impactos.map((i) => {
+          const m = i.enMarcha;
+          const detalle = [
+            m.itemsLiberados > 0 ? `${plural(m.itemsLiberados, "ítem liberado", "ítems liberados")} a Producción` : null,
+            m.asignaciones > 0
+              ? `${plural(m.asignaciones, "asignación", "asignaciones")}${
+                  m.asignacionesConEntregas > 0 ? ` (${m.asignacionesConEntregas} con entregas)` : ""
+                }`
+              : null,
+            m.itemsEvaluados > 0 ? `${plural(m.itemsEvaluados, "ítem evaluado", "ítems evaluados")} por Calidad` : null,
+          ].filter(Boolean);
+          return (
+            <li key={`${i.hoja}-${i.numeroPedido}`}>
+              <p className="font-medium">
+                <span className="font-mono">{i.numeroPedido}</span> · v{i.versionActiva} → v{i.versionNueva}
+                {impactos.length > 1 && <span className="font-normal text-amber-800"> · hoja “{i.hoja}”</span>}
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+                <li>
+                  {i.igual
+                    ? "El Excel es igual a la versión activa, pero cargarlo igual reinicia la liberación."
+                    : `Cambios: ${describirCambios(i.cambios)}.`}
+                </li>
+                {i.mueblesLiberadosQueCambian + i.mueblesLiberadosQuitados > 0 && (
+                  <li>
+                    De los muebles ya liberados:{" "}
+                    {[
+                      i.mueblesLiberadosQueCambian > 0 ? `${i.mueblesLiberadosQueCambian} cambian` : null,
+                      i.mueblesLiberadosQuitados > 0 ? `${i.mueblesLiberadosQuitados} se quitan` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" y ")}
+                    .
+                  </li>
+                )}
+                {i.mueblesAsignadosQuitados > 0 && (
+                  <li>
+                    {plural(i.mueblesAsignadosQuitados, "mueble con asignaciones", "muebles con asignaciones")} ya no{" "}
+                    {i.mueblesAsignadosQuitados === 1 ? "está" : "están"} en el Excel.
+                  </li>
+                )}
+                <li>Hoy hay: {detalle.join(", ")}.</li>
+              </ul>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-xs">
+        La versión nueva empieza con todo pendiente: hay que volver a liberarla y recibirá folios nuevos. Lo
+        liberado, asignado y evaluado queda en la versión anterior.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onCargar}
+          className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+        >
+          Cargar de todos modos
+        </button>
+        <button
+          type="button"
+          onClick={onOmitir}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          Omitir este archivo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ResultadoCarga({ resultado }: { resultado: UploadResult | UploadOmitido }) {
+  if (esOmitido(resultado)) {
+    return (
+      <p className="mt-2 rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+        No se cargó: lo omitiste. El PM sigue en su versión actual.
+      </p>
+    );
+  }
   if (esError(resultado)) {
     return (
       <div className="mt-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">

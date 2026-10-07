@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
@@ -11,9 +12,24 @@ import {
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
+import PendientesCuenta from "@/components/pendientes-cuenta";
 import ResumenInicio from "@/components/resumen-inicio";
 import EstadoVacio from "@/components/estado-vacio";
-import { estadoEntrega, hoyEnEmpresa } from "@/lib/resumen/entrega";
+import { estadoEntrega, formatoFechaHora, hoyEnEmpresa } from "@/lib/resumen/entrega";
+import FiltroRecordado from "@/components/filtro-recordado";
+import {
+  COOKIE_FILTRO_PEDIDOS,
+  leerFiltroGuardado,
+  type FiltroGuardado,
+} from "@/lib/planeacion/filtro-guardado";
+import AvanceOt from "./avance-ot";
+import {
+  avancePlaneacionPorPedido,
+  sumarAvancePlan,
+  type AvancePlan,
+} from "@/lib/planeacion/avance-planeacion";
+import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
+import ResultadosMuebles from "@/app/produccion/resultados-muebles";
 
 interface PedidoRow extends PedidoConOt {
   estado: string;
@@ -40,6 +56,12 @@ export default async function PlaneacionListPage({
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
   const esAdmin = puedeAdministrarPlaneacion(perfil);
+  const filtroGuardado = leerFiltroGuardado((await cookies()).get(COOKIE_FILTRO_PEDIDOS)?.value);
+  const filtroActual: FiltroGuardado = { anio: anioParam, cliente: clienteParam };
+
+  // Con texto en el buscador se buscan también muebles y modelos en todos los
+  // pedidos (no solo O.T., PM, proyecto o cliente).
+  const busquedaMuebles = busqueda ? await buscarMuebles(supabase, busqueda) : null;
 
   const { data: pedidos, error } = await supabase
     .from("pedidos")
@@ -59,6 +81,13 @@ export default async function PlaneacionListPage({
         .returns<PedidoRow[]>()
     : { data: null };
 
+  // Avance de cada PM (liberados, en revisión, cancelados). Es un resumen: si
+  // falla la consulta, la lista sigue sin la columna llena.
+  const avance =
+    pedidos && pedidos.length > 0
+      ? await avancePlaneacionPorPedido(supabase).catch(() => new Map<string, AvancePlan>())
+      : new Map<string, AvancePlan>();
+
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
     cliente: clienteFiltro,
@@ -74,10 +103,20 @@ export default async function PlaneacionListPage({
   const todas = agruparPorOrdenTrabajo(pedidos ?? []);
   const conEstado = (e: string) =>
     todas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
+  // Números de los atajos de entrega: sobre lo que dejan año, cliente y búsqueda.
+  const conEntrega = (e: string) =>
+    filtradas.filas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
+  const atajosEntrega: { valor: "semana" | "sin-fecha" | null; etiqueta: string }[] = [
+    { valor: null, etiqueta: "Todas" },
+    { valor: "semana", etiqueta: `Esta semana (${conEntrega("semana")})` },
+    { valor: "sin-fecha", etiqueta: `Sin fecha (${conEntrega("sin-fecha")})` },
+  ];
+  const hayMuebles = (busquedaMuebles?.grupos.length ?? 0) > 0;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida />
+      <PendientesCuenta />
       {pedidos && pedidos.length > 0 && (
         <ResumenInicio
           tarjetas={[
@@ -105,7 +144,7 @@ export default async function PlaneacionListPage({
             Pedidos — Planeación
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Órdenes de trabajo con sus PM. Entra a una O.T. para ver sus pedidos y buscar modelos.
+            Entra a una O.T. para ver sus PM y buscar modelos.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -126,11 +165,12 @@ export default async function PlaneacionListPage({
       <form action="/planeacion" className="flex gap-2">
         {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
         {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
+        {entregaFiltro && <input type="hidden" name="entrega" value={entregaFiltro} />}
         <input
           type="search"
           name="q"
           defaultValue={busqueda}
-          placeholder="Buscar O.T., PM, proyecto o cliente..."
+          placeholder="Buscar O.T., PM, proyecto, cliente o modelo..."
           className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:outline-none"
         />
         <button
@@ -141,7 +181,11 @@ export default async function PlaneacionListPage({
         </button>
         {busqueda && (
           <Link
-            href={hrefListaPedidos("/planeacion", { anio: anioParam, cliente: clienteParam })}
+            href={hrefListaPedidos("/planeacion", {
+              anio: anioParam,
+              cliente: clienteParam,
+              entrega: entregaFiltro ?? undefined,
+            })}
             className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
           >
             Limpiar
@@ -163,16 +207,38 @@ export default async function PlaneacionListPage({
         />
       )}
 
-      {entregaFiltro && (
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
-          {entregaFiltro === "semana"
-            ? "Mostrando solo las O.T. que entregan en los próximos 7 días"
-            : "Mostrando solo las O.T. sin fecha de entrega"}{" "}
-          ({filas.length}).
-          <Link href="/planeacion" className="font-medium underline-offset-2 hover:underline">
-            Ver todas
-          </Link>
-        </p>
+      <FiltroRecordado
+        actual={filtroActual}
+        guardado={filtroGuardado}
+        href={hrefListaPedidos("/planeacion", { anio: filtroGuardado?.anio, cliente: filtroGuardado?.cliente })}
+      />
+
+      {pedidos && pedidos.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Entrega</span>
+          {atajosEntrega.map((a) => {
+            const activo = (entregaFiltro ?? null) === a.valor;
+            return (
+              <Link
+                key={a.valor ?? "todas"}
+                href={hrefListaPedidos("/planeacion", {
+                  q: busqueda || undefined,
+                  anio: anioParam,
+                  cliente: clienteParam,
+                  entrega: a.valor ?? undefined,
+                })}
+                aria-current={activo ? "true" : undefined}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  activo
+                    ? "border-brand-600 bg-brand-500 text-on-brand"
+                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {a.etiqueta}
+              </Link>
+            );
+          })}
+        </div>
       )}
 
       <FiltrosOrdenesTrabajo
@@ -182,11 +248,14 @@ export default async function PlaneacionListPage({
         clientes={clientesDisponibles}
         cliente={clienteFiltro}
         q={busqueda || undefined}
+        entrega={entregaFiltro ?? undefined}
       />
 
-      {pedidos && pedidos.length > 0 && filas.length === 0 && (
+      {/* Sin O.T. que coincidan pero con muebles encontrados, el aviso de
+          abajo lo explica: no se dice "nada coincide". */}
+      {pedidos && pedidos.length > 0 && filas.length === 0 && !hayMuebles && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          {busqueda ? `Ninguna O.T. coincide con “${busqueda}”` : "No hay pedidos"}
+          {busqueda ? `Ninguna O.T. ni modelo coincide con “${busqueda}”` : "No hay pedidos"}
           {clienteFiltro ? ` de ${clienteFiltro}` : ""}
           {anioFiltro ? ` en ${anioFiltro}` : ""}.
         </p>
@@ -198,21 +267,57 @@ export default async function PlaneacionListPage({
           hoy={hoy}
           hrefOt={(ot) => `/planeacion/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/planeacion/pedidos/${id}`}
+          columnaEstado={{
+            titulo: "Avance",
+            celda: (fila) => <AvanceOt avance={sumarAvancePlan(avance, fila.pedidos.map((p) => p.id))} />,
+          }}
           accion={
             esAdmin
               ? (fila) =>
-                  !fila.ot && <AccionesPedido pedidoId={fila.pedidos[0].id} eliminado={false} />
+                  !fila.ot && (
+                    <AccionesPedido
+                      pedidoId={fila.pedidos[0].id}
+                      numeroPedido={fila.pedidos[0].numero_pedido}
+                      eliminado={false}
+                    />
+                  )
               : undefined
           }
         />
       )}
 
+      {busquedaMuebles && hayMuebles && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-slate-600">Muebles y modelos</h2>
+          <p className="text-sm text-slate-600">
+            {busquedaMuebles.totalGrupos} mueble{busquedaMuebles.totalGrupos === 1 ? "" : "s"} encontrado
+            {busquedaMuebles.totalGrupos === 1 ? "" : "s"} en todos los pedidos
+            {busquedaMuebles.truncado ? " (primeros 40: afina la búsqueda)" : ""}. Haz clic en uno para ver
+            sus componentes.
+          </p>
+          <ResultadosMuebles grupos={busquedaMuebles.grupos} area="planeacion" />
+        </section>
+      )}
+
+      {/* Plegada por defecto: casi nunca se usa y no debe empujar la lista. */}
       {esAdmin && pedidosEliminados && pedidosEliminados.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-slate-600">
-            Pedidos eliminados ({pedidosEliminados.length})
-          </h2>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <details className="group rounded-xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900 [&::-webkit-details-marker]:hidden">
+            <span>Pedidos eliminados ({pedidosEliminados.length})</span>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90"
+              aria-hidden="true"
+            >
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </summary>
+          <div className="overflow-x-auto border-t border-slate-100">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -230,17 +335,17 @@ export default async function PlaneacionListPage({
                     <td className="px-4 py-3">{p.proyectos?.nombre ?? "—"}</td>
                     <td className="px-4 py-3">{p.proyectos?.cliente ?? "—"}</td>
                     <td className="px-4 py-3">
-                      {p.eliminado_en ? new Date(p.eliminado_en).toLocaleString() : "—"}
+                      {formatoFechaHora(p.eliminado_en)}
                     </td>
                     <td className="px-4 py-3">
-                      <AccionesPedido pedidoId={p.id} eliminado={true} />
+                      <AccionesPedido pedidoId={p.id} numeroPedido={p.numero_pedido} eliminado={true} />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </details>
       )}
     </main>
   );
