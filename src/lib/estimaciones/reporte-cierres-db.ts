@@ -1,5 +1,5 @@
 // Cierre del reporte semanal (tabla reporte_semanal_cierres, ver
-// supabase/migrations/20261007180000_cierre_reporte_semanal.sql): copia de lo
+// supabase/migrations/20261007190328_cierre_reporte_semanal.sql): copia de lo
 // reportado en una semana para detectar cambios posteriores.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
