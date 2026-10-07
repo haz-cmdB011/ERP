@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Scripts sueltos de cada persona (no se suben a Git, ver .gitignore).
+    ".scratch/**",
   ]),
 ]);
 
