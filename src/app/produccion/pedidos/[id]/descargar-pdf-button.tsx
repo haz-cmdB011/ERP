@@ -16,6 +16,8 @@ export default function DescargarPdfButton({
 }) {
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Fichas ya capturadas / total: con un lote grande se ve que avanza y no que se trabó.
+  const [progreso, setProgreso] = useState<{ hechas: number; total: number } | null>(null);
 
   async function descargar() {
     setGenerando(true);
@@ -27,11 +29,14 @@ export default function DescargarPdfButton({
         return;
       }
 
-      await generarPdfCarta(fichas, nombreArchivo);
+      await generarPdfCarta(fichas, nombreArchivo, {
+        alProgreso: (hechas, total) => setProgreso({ hechas, total }),
+      });
     } catch {
       setError("No se pudo generar el PDF.");
     } finally {
       setGenerando(false);
+      setProgreso(null);
     }
   }
 
@@ -43,7 +48,11 @@ export default function DescargarPdfButton({
         disabled={generando}
         className="rounded border border-brand-700 px-3 py-2 text-sm font-medium text-brand-800 hover:bg-brand-50 disabled:opacity-50"
       >
-        {generando ? "Generando PDF..." : "Descargar PDF"}
+        {generando
+          ? progreso && progreso.total > 1
+            ? `Generando PDF... ${progreso.hechas} de ${progreso.total}`
+            : "Generando PDF..."
+          : "Descargar PDF"}
       </button>
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
