@@ -303,7 +303,7 @@ export default function RevisionRecibo(props: Props) {
     <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Revisión · {NOMBRE_TIPO_CUALQUIERA[tipo]}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -487,7 +487,7 @@ function RenglonRevisionCard({
           <span className={ETIQUETA}>Sugerido · {sug.fuenteNombre}</span>
           <span
             className={`text-2xl font-semibold tabular-nums ${
-              sug.pu == null ? "text-slate-400" : "text-slate-900"
+              sug.pu == null ? "text-slate-500" : "text-slate-900"
             }`}
           >
             {sug.pu == null ? "Sin sugerencia" : money(sug.pu)}

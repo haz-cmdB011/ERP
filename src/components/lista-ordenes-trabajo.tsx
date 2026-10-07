@@ -107,7 +107,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                         {primero.numero_pedido}
                       </span>
                     )}
-                    <span className="text-slate-400 group-hover:text-brand-700" aria-hidden>
+                    <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
                       →
                     </span>
                   </Link>
@@ -120,7 +120,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                       {fila.pedidos.length} PM
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-400">Sin O.T.</span>
+                    <span className="text-xs text-slate-500">Sin O.T.</span>
                   )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">

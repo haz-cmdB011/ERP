@@ -659,7 +659,7 @@ export default function CapturaElectrificacion({
                 </option>
               ))}
             </select>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-slate-600">
               Solo se muestran las OT y los modelos que incluyen iluminación.
             </span>
           </label>
@@ -744,7 +744,7 @@ export default function CapturaElectrificacion({
                 <svg
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className={`h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform ${
+                  className={`h-3.5 w-3.5 flex-shrink-0 text-slate-500 transition-transform ${
                     r.colapsado ? "-rotate-90" : ""
                   }`}
                 >
@@ -850,7 +850,7 @@ export default function CapturaElectrificacion({
                                       <span className="truncate text-[11px] text-slate-500">{m.descripcion}</span>
                                     )}
                                     {(otElegida?.numPms ?? 0) > 1 && m.pms && (
-                                      <span className="truncate font-mono text-[10px] text-slate-400">
+                                      <span className="truncate font-mono text-[10px] text-slate-600">
                                         {m.pms}
                                       </span>
                                     )}
@@ -1015,7 +1015,7 @@ export default function CapturaElectrificacion({
                     <div className="flex flex-col gap-2 self-start rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
                       <div
                         className={`text-3xl font-semibold tracking-tight tabular-nums ${
-                          sugerido == null ? "text-slate-400" : "text-slate-900"
+                          sugerido == null ? "text-slate-500" : "text-slate-900"
                         }`}
                       >
                         {sugerido == null ? "Sin sugerencia" : money(sugerido)}
@@ -1208,7 +1208,7 @@ export default function CapturaElectrificacion({
             className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-900"
           >
             Parámetros del motor
-            <span className="text-slate-400">{parametrosAbiertos ? "−" : "+"}</span>
+            <span className="text-slate-500">{parametrosAbiertos ? "−" : "+"}</span>
           </button>
           {parametrosAbiertos && (
             <div className="flex flex-col gap-4 border-t border-slate-100 p-4">
@@ -1224,7 +1224,7 @@ export default function CapturaElectrificacion({
                   onChange={(e) => setTarifas((t) => ({ ...t, aplicarVolumen: e.target.checked }))}
                 />
                 Aplicar escalón de volumen de Acabados al precio por pieza
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-500">
                   ({VOLUMEN.map((v) => `${v.clave} ×${v.valor.toFixed(2)}`).join(" · ")})
                 </span>
               </label>
@@ -1263,7 +1263,7 @@ export default function CapturaElectrificacion({
                       <label key={k} className="flex items-center justify-between gap-3 text-xs">
                         <span className="text-slate-700">
                           {CATEGORIA_NOMBRE[k]}{" "}
-                          <span className="text-slate-400">({CATEGORIA_RANGO[k]})</span>
+                          <span className="text-slate-500">({CATEGORIA_RANGO[k]})</span>
                         </span>
                         <input
                           type="number"

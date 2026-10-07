@@ -25,7 +25,7 @@ export default function ResumenInicio({ tarjetas }: { tarjetas: TarjetaResumen[]
           <>
             <span
               className={`text-3xl font-semibold tabular-nums tracking-tight ${
-                activa ? "text-brand-800" : t.valor > 0 ? "text-slate-900" : "text-slate-400"
+                activa ? "text-brand-800" : t.valor > 0 ? "text-slate-900" : "text-slate-500"
               }`}
             >
               <NumeroAnimado valor={t.valor} />

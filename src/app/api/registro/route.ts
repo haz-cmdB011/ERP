@@ -15,6 +15,7 @@ import {
   VENTANA_IP_MS,
 } from "@/lib/seguridad/registro";
 import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
+import { turnstileActivo, verificarTurnstile } from "@/lib/seguridad/turnstile";
 
 // Registro público (sin sesión): a diferencia de /api/admin/usuarios/crear,
 // cualquier trabajador puede llamar esta ruta para darse de alta a sí
@@ -26,6 +27,7 @@ import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
 // Defensas contra altas masivas (esta ruta no pide sesión):
 //  - REGISTRO_DOMINIOS_PERMITIDOS (opcional, "empresa.com,otra.com"): solo
 //    correos de esos dominios;
+//  - Cloudflare Turnstile (opcional, anti-robots; ver src/lib/seguridad/turnstile.ts);
 //  - tope por IP (contado en la base, más uno en memoria de respaldo) y tope global
 //    por hora (contado en la base).
 const excedeLimitePorIp = crearLimitadorPorIp();
@@ -54,6 +56,16 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
+
+  // Anti-robots (opcional, ver turnstile.ts): se comprueba antes que lo demás para
+  // que un robot no gaste consultas a la base ni a Pwned Passwords.
+  if (turnstileActivo() && !(await verificarTurnstile(body?.turnstileToken, ipDe(request)))) {
+    return NextResponse.json(
+      { error: "No pudimos verificar que eres una persona. Inténtalo de nuevo." },
+      { status: 400 }
+    );
+  }
+
   const nombres = typeof body?.nombres === "string" ? body.nombres.trim() : "";
   const apellidos = typeof body?.apellidos === "string" ? body.apellidos.trim() : "";
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";

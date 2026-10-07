@@ -62,7 +62,7 @@ export default function TablaPedidos({
                       )}
                     </span>
                   ) : (
-                    <span className="text-slate-400">—</span>
+                    <span className="text-slate-500">—</span>
                   )}
                 </td>
                 {esAdmin && (

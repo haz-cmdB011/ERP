@@ -59,7 +59,7 @@ export default function SubnavLink({
     >
       <IconoMenu
         nombre={icono}
-        className={`h-5 w-5 shrink-0 ${activo ? "text-brand-700" : "text-slate-400"}`}
+        className={`h-5 w-5 shrink-0 ${activo ? "text-brand-700" : "text-slate-500"}`}
       />
       <span className="flex min-w-0 flex-1 items-center justify-between gap-2">{children}</span>
     </Link>

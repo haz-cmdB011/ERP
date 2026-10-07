@@ -60,13 +60,13 @@ export default function SelectMenu({
           mono ? "font-mono" : ""
         } ${className}`}
       >
-        <span className={seleccionada?.value ? "" : "text-slate-400"}>
+        <span className={seleccionada?.value ? "" : "text-slate-500"}>
           {seleccionada ? seleccionada.label : (placeholder ?? "— elegir —")}
         </span>
         <svg
           viewBox="0 0 20 20"
           fill="currentColor"
-          className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${abierto ? "rotate-180" : ""}`}
+          className={`h-4 w-4 flex-shrink-0 text-slate-500 transition-transform ${abierto ? "rotate-180" : ""}`}
         >
           <path
             fillRule="evenodd"
@@ -91,7 +91,7 @@ export default function SelectMenu({
                 o.value === value
                   ? "bg-brand-50 font-medium text-brand-800"
                   : o.value === ""
-                    ? "text-slate-400"
+                    ? "text-slate-500"
                     : "text-slate-900"
               }`}
             >

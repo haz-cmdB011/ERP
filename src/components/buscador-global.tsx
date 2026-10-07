@@ -228,14 +228,14 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
             className="flex max-h-[75vh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
           >
             <div className="flex items-center gap-2 border-b border-slate-200 px-4">
-              <IconoLupa className="h-5 w-5 shrink-0 text-slate-400" />
+              <IconoLupa className="h-5 w-5 shrink-0 text-slate-500" />
               <input
                 ref={campo}
                 value={consulta}
                 onChange={(e) => setConsulta(e.target.value)}
                 onKeyDown={alTeclearEnCampo}
                 placeholder="O.T., PM, modelo, folio, proyecto o pantalla…"
-                className="w-full bg-transparent py-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                className="w-full bg-transparent py-3.5 text-base text-slate-900 placeholder:text-slate-500 focus:outline-none"
                 role="combobox"
                 aria-expanded={resultados.length > 0}
                 aria-controls={idLista}
@@ -292,7 +292,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
                   aria-label={grupo.titulo}
                   className="pb-1"
                 >
-                  <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                     {grupo.titulo}
                   </p>
                   {grupo.resultados.map((r, j) => {
@@ -311,7 +311,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
                           elegido ? "bg-brand-50" : ""
                         }`}
                       >
-                        <span className="w-14 shrink-0 text-[11px] sm:w-20 font-medium uppercase tracking-wide text-slate-400">
+                        <span className="w-14 shrink-0 text-[11px] sm:w-20 font-medium uppercase tracking-wide text-slate-600">
                           {ETIQUETA_TIPO[r.tipo]}
                         </span>
                         <span className="min-w-0 flex-1">
@@ -330,7 +330,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
                         </span>
                         {elegido && (
                           <span
-                            className="hidden shrink-0 text-xs text-slate-400 sm:inline"
+                            className="hidden shrink-0 text-xs text-slate-500 sm:inline"
                             aria-hidden="true"
                           >
                             ↵

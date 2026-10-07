@@ -164,7 +164,7 @@ export default function ItemsTabla({
                       aria-expanded={abierto}
                       className={`cursor-pointer border-t border-slate-200 align-top text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${colorFilaEstadoRevision(m.estado_revision)}`}
                     >
-                      <td className="py-2 pl-3 text-slate-400">
+                      <td className="py-2 pl-3 text-slate-500">
                         {hijos.length > 0 && <Chevron abierto={abierto} />}
                       </td>
                       <td className="px-3 py-2">
@@ -179,7 +179,7 @@ export default function ItemsTabla({
                       <td className="px-3 py-2">
                         {m.descripcion}
                         {hijos.length > 0 && (
-                          <span className="ml-2 text-xs font-normal text-slate-400">
+                          <span className="ml-2 text-xs font-normal text-slate-500">
                             ({hijos.length} componentes)
                           </span>
                         )}
@@ -259,7 +259,7 @@ function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: bool
       />
     );
   }
-  if (!item.estado_revision) return <span className="text-slate-400">—</span>;
+  if (!item.estado_revision) return <span className="text-slate-500">—</span>;
   return <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>;
 }
 

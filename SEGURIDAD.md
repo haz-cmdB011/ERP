@@ -21,6 +21,9 @@ Resumen de las defensas del sistema, qué hay que mantener al día y qué pasos 
    al registro (por IP), la carga de Excel, la foto de perfil, el buscador y la creación de cuentas / cambio de
    contraseñas desde Administración (por usuario). Si la base no responde **no bloquea** a nadie (es un freno
    contra abusos, no un control de acceso). Los topes se ajustan en cada ruta.
+   **Anti-robots (opcional):** Cloudflare Turnstile en el registro (`src/lib/seguridad/turnstile.ts`). Se activa con
+   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY`; con el captcha activo, un token ausente o una falla de
+   Cloudflare cuentan como rechazo. Sin la clave secreta, el registro solo tiene sus topes.
 4. **Archivos.** Los buckets son privados. Las imágenes (foto de perfil, foto de entrega, imágenes del
    Excel) se validan por su **contenido real** antes de pasar a `sharp` (solo JPG/PNG/WebP/GIF, con tope de
    píxeles): un SVG disfrazado de PNG no llega al decodificador. Solo Planeación puede subir Excel e
@@ -47,6 +50,10 @@ Resumen de las defensas del sistema, qué hay que mantener al día y qué pasos 
 - [ ] **Authentication → URL Configuration:** dejar solo las URL reales del sitio en *Redirect URLs*.
 - [ ] **Vercel → Environment Variables:** definir `NEXT_PUBLIC_SITE_URL` (URL pública) y, si el registro
       solo debe ser para correos de la empresa, `REGISTRO_DOMINIOS_PERMITIDOS`.
+- [ ] **Turnstile (opcional):** crear el widget en dash.cloudflare.com > Turnstile (dominio del sitio) y definir
+      `NEXT_PUBLIC_TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY` en Vercel; redesplegar.
+- [ ] **Aviso de privacidad (`/privacidad`):** es un borrador. Que lo revise quien corresponda en la empresa y definir
+      `NEXT_PUBLIC_PRIVACIDAD_RESPONSABLE` (razón social) y `NEXT_PUBLIC_PRIVACIDAD_CORREO` (contacto ARCO) en Vercel.
 - [ ] **Activar la verificación en dos pasos** en las 3 cuentas de desarrollador (*Mi perfil*).
 - [ ] **Cuentas:** revisar *Administración → Usuarios* de vez en cuando; una cuenta con rol `usuario` que
       nadie reconoce se elimina.

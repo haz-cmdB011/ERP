@@ -183,7 +183,7 @@ export default async function OrdenTrabajoCalidadPage({
                             #{activa.numero_version}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-500">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-slate-700">{a?.enviados ?? 0}</td>

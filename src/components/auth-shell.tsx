@@ -1,9 +1,10 @@
+import Link from "next/link";
 import Marca, { EstrellaMarca } from "./marca";
 
 // Estilos compartidos por las pantallas de acceso (login, registro). 16 px de
 // letra en los campos: con menos, iOS hace zoom al enfocarlos.
 export const CAMPO_AUTH =
-  "h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-base text-slate-900 shadow-sm placeholder:text-slate-400 transition-colors focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40";
+  "h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-base text-slate-900 shadow-sm placeholder:text-slate-500 transition-colors focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40";
 export const ETIQUETA_AUTH = "text-sm font-medium text-slate-700";
 export const BOTON_AUTH =
   "inline-flex h-11 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:opacity-50";
@@ -29,11 +30,14 @@ export default function AuthShell({
   descripcion,
   children,
   pie,
+  sinAvisoPrivacidad,
 }: {
   titulo: string;
   descripcion?: string;
   children: React.ReactNode;
   pie?: React.ReactNode;
+  // La pantalla ya trae su propio enlace al aviso (registro).
+  sinAvisoPrivacidad?: boolean;
 }) {
   return (
     <main className="grid min-h-dvh grid-rows-[auto_1fr] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-rows-1">
@@ -66,6 +70,13 @@ export default function AuthShell({
           <div className="anim-aparecer mt-7" style={{ "--d": "260ms" } as React.CSSProperties}>
             {children}
           </div>
+          {!sinAvisoPrivacidad && (
+            <p className="mt-6 text-xs text-slate-600">
+              <Link href="/privacidad" className="underline underline-offset-2 hover:text-slate-900">
+                Aviso de privacidad
+              </Link>
+            </p>
+          )}
           {pie && (
             <div
               className="anim-aparecer mt-6 flex flex-col gap-2 border-t border-slate-200 pt-5"

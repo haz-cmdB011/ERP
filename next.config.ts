@@ -17,19 +17,21 @@ const esDespliegueDeProduccion = process.env.VERCEL_ENV === "production" || (esP
 const supabase = "https://*.supabase.co";
 const supabaseWs = "wss://*.supabase.co";
 // En las vistas previas de Vercel se inyecta la barra de comentarios (vercel.live).
+// Cloudflare Turnstile (anti-robots del registro): su script, su iframe y su verificación.
+const turnstile = "https://challenges.cloudflare.com";
 const vercelLive = esDespliegueDeProduccion ? "" : " https://vercel.live";
 
 const csp = [
   "default-src 'self'",
   // 'unsafe-eval' solo en desarrollo (React/Next lo usan para depurar).
-  `script-src 'self' 'unsafe-inline'${esProduccion ? "" : " 'unsafe-eval'"}${vercelLive}`,
+  `script-src 'self' 'unsafe-inline'${esProduccion ? "" : " 'unsafe-eval'"} ${turnstile}${vercelLive}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${supabase}${vercelLive}`,
   "font-src 'self' data:",
-  `connect-src 'self' blob: ${supabase} ${supabaseWs}${vercelLive}`,
+  `connect-src 'self' blob: ${supabase} ${supabaseWs} ${turnstile}${vercelLive}`,
   "media-src 'self' blob: data:",
   "worker-src 'self' blob:",
-  `frame-src 'self' blob:${vercelLive}`,
+  `frame-src 'self' blob: ${turnstile}${vercelLive}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

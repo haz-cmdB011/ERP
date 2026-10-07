@@ -128,12 +128,12 @@ export default function ViajeroFicha({
         {item.observaciones && (
           <p className="mt-1 text-sm text-gray-700">{item.observaciones}</p>
         )}
-        <div className="mt-2 h-20 rounded border border-dashed border-gray-400 p-2 text-xs text-gray-400">
+        <div className="mt-2 h-20 rounded border border-dashed border-gray-400 p-2 text-xs text-gray-500">
           Notas del operario
         </div>
       </section>
 
-      <footer className="border-t border-gray-300 pt-2 text-left text-xs text-gray-400">
+      <footer className="border-t border-gray-300 pt-2 text-left text-xs text-gray-500">
         Generado: {generadoEn}
       </footer>
     </article>
