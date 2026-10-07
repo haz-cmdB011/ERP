@@ -47,9 +47,11 @@ export default function PanelPmCobrado({
   const totalConDiferencias = useMemo(() => resumenes.filter(conDiferencias).length, [resumenes]);
   const visibles = useMemo(() => {
     const busqueda = texto.trim();
+    // Las O.T. con diferencias por revisar van primero (el sort es estable).
     return resumenes
       .filter((r) => !busqueda || coincide(r, busqueda))
-      .filter((r) => !soloDiferencias || conDiferencias(r));
+      .filter((r) => !soloDiferencias || conDiferencias(r))
+      .sort((a, b) => Number(conDiferencias(b)) - Number(conDiferencias(a)));
   }, [resumenes, texto, soloDiferencias]);
 
   return (

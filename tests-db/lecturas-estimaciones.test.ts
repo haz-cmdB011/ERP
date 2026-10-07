@@ -18,6 +18,8 @@ import { listarTodosLosRecibos } from "../src/lib/estimaciones/listado-recibos";
 import { buscarReciboPorFolio } from "../src/lib/estimaciones/recibos-db";
 import { buscarReciboElectrificacionPorFolio } from "../src/lib/estimaciones/recibos-electrificacion-db";
 import { listarAntiguedadPendientes } from "../src/lib/estimaciones/por-revisar";
+import { cargarRevisadosSinPagar } from "../src/lib/estimaciones/reporte-compromiso-db";
+import { cargarRecibosPagadosEntre } from "../src/lib/estimaciones/reporte-semanal";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -116,5 +118,44 @@ describe.skipIf(!hayVariables)("lecturas de Estimaciones (solo lectura)", () => 
       expect(r).not.toBeNull();
       expect(r).toHaveProperty("canceladoEn");
     }
+  });
+
+  it("el reporte semanal trae todos los recibos pagados y su importe cuadra con el guardado", async () => {
+    const recibos = await cargarRecibosPagadosEntre(servicio, "2000-01-01", "2100-12-31");
+    const [pa, pe] = await Promise.all([
+      servicio.from("recibos").select("id", { count: "exact", head: true }).eq("estado", "pagado"),
+      servicio.from("recibos_electrificacion").select("id", { count: "exact", head: true }).eq("estado", "pagado"),
+    ]);
+    expect(pa.error).toBeNull();
+    expect(pe.error).toBeNull();
+    expect(recibos).toHaveLength((pa.count ?? 0) + (pe.count ?? 0));
+
+    // Pagados sin fecha de pago no entrarían a ninguna semana.
+    const sinFecha = await Promise.all([
+      servicio.from("recibos").select("id", { count: "exact", head: true }).eq("estado", "pagado").is("pagado_en", null),
+      servicio.from("recibos_electrificacion").select("id", { count: "exact", head: true }).eq("estado", "pagado").is("pagado_en", null),
+    ]);
+    expect((sinFecha[0].count ?? 0) + (sinFecha[1].count ?? 0)).toBe(0);
+
+    // El importe del reporte coincide con el de la vista de totales.
+    const { data: vista, error } = await servicio
+      .from("recibos_resumen")
+      .select("total_aceptado")
+      .eq("estado", "pagado");
+    if (error) {
+      console.warn("La vista recibos_resumen aún no está en la base: se omite la suma.");
+      return;
+    }
+    const sumaVista = (vista ?? []).reduce((s, r) => s + Number(r.total_aceptado), 0);
+    const sumaReporte = recibos.reduce((s, r) => s + r.importe, 0);
+    expect(sumaReporte).toBeCloseTo(sumaVista, 2);
+  });
+
+  it("los revisados sin pagar coinciden con el conteo por estado", async () => {
+    const [lista, total] = await Promise.all([
+      cargarRevisadosSinPagar(servicio),
+      contarRecibosPorEstado(servicio, "revisado"),
+    ]);
+    expect(lista).toHaveLength(total);
   });
 });

@@ -1,12 +1,29 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { esMaquilador, getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
+import {
+  esMaquilador,
+  getPerfilActual,
+  puedeDecidirDiscrepancias,
+  puedeVerPrecioSugerido,
+} from "@/lib/auth/get-perfil";
 import { money } from "@/lib/estimaciones/motor-precio";
 import { cargarOtContraCobrado, resumirPorOt } from "@/lib/estimaciones/pm-cobrado";
+import { cargarCierre } from "@/lib/estimaciones/reporte-cierres-db";
+import { cargarRevisadosSinPagar } from "@/lib/estimaciones/reporte-compromiso-db";
+import {
+  compararConCierre,
+  DIAS_ATRASO_PAGO,
+  instantaneaDeSemana,
+  interpretarSemana,
+  resumenFechasPago,
+  resumirCompromiso,
+} from "@/lib/estimaciones/reporte-control";
+import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import {
   agruparEnOtros,
   armarTablero,
+  ETIQUETA_AREA,
   repartoPorArea,
   repartoPorMaquilador,
   semanaDeReporteDe,
@@ -25,6 +42,7 @@ import {
   semanaVecina,
   type Semana,
 } from "@/lib/estimaciones/reporte-semanal";
+import CierreSemana from "./cierre-semana";
 import {
   colorMaquilador,
   FilasGrupo,
@@ -39,20 +57,6 @@ import PanelPmCobrado from "./panel-pm-cobrado";
 import SeccionDesplegable from "./seccion-desplegable";
 
 export const metadata = { title: "Reporte semanal" };
-
-// Día-mes-año (ej. "14-09-2026").
-function fechaNumerica(iso: string): string {
-  const [anio, mes, dia] = iso.split("-");
-  return `${dia}-${mes}-${anio}`;
-}
-
-function leerSemana(anio?: string, semana?: string): Semana {
-  const a = Number(anio);
-  const s = Number(semana);
-  if (!Number.isInteger(a) || a < 2000 || a > 2100) return semanaPorReportar();
-  if (!Number.isInteger(s) || s < 1 || s > semanasDelAnio(a)) return { anio: a, semana: 1 };
-  return { anio: a, semana: s };
-}
 
 const consulta = (s: Semana) => `anio=${s.anio}&semana=${s.semana}`;
 const hrefSemana = (s: Semana) => `/estimaciones/reportes?${consulta(s)}`;
@@ -76,16 +80,20 @@ export default async function ReporteSemanalPage({
   const verPm = puedeVerPrecioSugerido(perfil);
 
   const params = await searchParams;
-  const semana = leerSemana(params.anio, params.semana);
+  const { semana, aviso: avisoSemana } = interpretarSemana(params.anio, params.semana);
   const trabajo = rangoSemana(semana);
   const pago = rangoSemana(semanaDePago(semana));
 
-  // Historial: las últimas semanas hasta la vista, en una sola consulta.
+  // Historial: las últimas semanas hasta la vista, en una sola consulta. Si una
+  // lectura falla se lanza el error (error.tsx con "Reintentar"): nunca se
+  // muestran totales parciales como si fueran completos.
   const tableroVacio = armarTablero([], semana);
   const { primera, ultima } = semanasDePagoDelHistorial(tableroVacio.semanas);
-  const [{ recibos: recibosHistorial, error }, pm] = await Promise.all([
+  const [recibosHistorial, pm, porPagar, estadoCierre] = await Promise.all([
     cargarRecibosPagadosEntre(supabase, rangoSemana(primera).desde, rangoSemana(ultima).hasta),
     verPm ? cargarOtContraCobrado(supabase) : Promise.resolve(null),
+    cargarRevisadosSinPagar(supabase),
+    cargarCierre(supabase, semana),
   ]);
 
   const tablero = armarTablero(recibosHistorial, semana);
@@ -94,11 +102,17 @@ export default async function ReporteSemanalPage({
     return s.anio === semana.anio && s.semana === semana.semana;
   });
   const reporte = armarReporte(recibos);
+  const fechasPago = resumenFechasPago(recibos);
+  const compromiso = resumirCompromiso(porPagar);
+  const instantanea = instantaneaDeSemana(recibos);
+  const cierre = estadoCierre.cierre;
+  const diferenciaCierre = cierre ? compararConCierre(cierre, instantanea) : null;
   const gruposPorClave = new Map(reporte.grupos.map((g) => [claveContratista(g.contratista), g]));
 
   const porMaquilador = agruparEnOtros(repartoPorMaquilador(recibos), 8);
   const porArea = repartoPorArea(recibos);
-  const resumenesPm = pm ? resumirPorOt(pm.filas) : null;
+  // Con error no se enseña un avance parcial: el panel solo muestra el aviso.
+  const resumenesPm = pm ? (pm.error ? [] : resumirPorOt(pm.filas)) : null;
 
   const anterior = semanaVecina(semana, -1);
   const siguiente = semanaVecina(semana, 1);
@@ -114,8 +128,8 @@ export default async function ReporteSemanalPage({
             Reporte semanal · Semana {semana.semana} de {semana.anio}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Semana del {fechaNumerica(trabajo.desde)} al {fechaNumerica(trabajo.hasta)}. Recibos
-            pagados del {fechaNumerica(pago.desde)} al {fechaNumerica(pago.hasta)} en Acabados,
+            Semana del {formatoFechaDMA(trabajo.desde)} al {formatoFechaDMA(trabajo.hasta)}. Recibos
+            pagados del {formatoFechaDMA(pago.desde)} al {formatoFechaDMA(pago.hasta)} en Acabados,
             Armado y Electrificación.
           </p>
         </div>
@@ -184,10 +198,23 @@ export default async function ReporteSemanalPage({
         </a>
       </div>
 
-      {error && (
-        <p className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          No se pudieron leer los recibos: {error}
+      {avisoSemana && (
+        <p
+          role="status"
+          className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          {avisoSemana}
         </p>
+      )}
+
+      {estadoCierre.disponible && (
+        <CierreSemana
+          semana={semana}
+          actual={instantanea}
+          cierre={cierre}
+          diferencia={diferenciaCierre}
+          puedeCerrar={puedeDecidirDiscrepancias(perfil)}
+        />
       )}
 
       {/* KPI de la semana */}
@@ -222,7 +249,52 @@ export default async function ReporteSemanalPage({
         />
       </div>
 
-      {!error && reporte.numRecibos === 0 && (
+      {fechasPago.length > 0 && (
+        <p className="text-xs text-slate-500">
+          Pagado en {fechasPago.length === 1 ? "la fecha" : `${fechasPago.length} fechas`}:{" "}
+          {fechasPago
+            .map(
+              (f) =>
+                `${formatoFechaDMA(f.fecha)} (${f.recibos} recibo${f.recibos === 1 ? "" : "s"}, ${money(f.importe)})`
+            )
+            .join(" · ")}
+        </p>
+      )}
+
+      <section
+        aria-label="Recibos revisados por pagar"
+        className="rounded-xl border border-slate-200 bg-white p-4"
+      >
+        <h2 className="text-sm font-semibold text-slate-900">Compromiso: revisado y sin pagar</h2>
+        {compromiso.numRecibos === 0 ? (
+          <p className="mt-1 text-sm text-slate-500">No hay recibos revisados esperando pago.</p>
+        ) : (
+          <div className="mt-1 flex flex-col gap-1 text-sm text-slate-700">
+            <p>
+              <span className="font-semibold text-slate-900">
+                {compromiso.numRecibos} recibo{compromiso.numRecibos === 1 ? "" : "s"}
+              </span>{" "}
+              por <span className="font-semibold text-slate-900">{money(compromiso.importe)}</span> ·{" "}
+              {compromiso.porArea
+                .map((a) => `${ETIQUETA_AREA[a.tipo]}: ${a.recibos} (${money(a.importe)})`)
+                .join(" · ")}
+            </p>
+            {compromiso.masAntiguo && (
+              <p
+                className={`text-xs ${compromiso.atrasados > 0 ? "font-medium text-amber-800" : "text-slate-500"}`}
+              >
+                El más antiguo: {ETIQUETA_AREA[compromiso.masAntiguo.tipo]} {compromiso.masAntiguo.folio}{" "}
+                de {compromiso.masAntiguo.contratista}, revisado hace {compromiso.masAntiguo.dias}{" "}
+                día{compromiso.masAntiguo.dias === 1 ? "" : "s"}.
+                {compromiso.atrasados > 0 &&
+                  ` ${compromiso.atrasados} llevan ${DIAS_ATRASO_PAGO} días o más sin pagarse.`}
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+
+      {reporte.numRecibos === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           No hay recibos pagados para esta semana.
         </p>
@@ -294,7 +366,7 @@ export default async function ReporteSemanalPage({
           id="pm-cobrado"
           titulo="PM contra cobrado"
           descripcion="Lo que Planeación declaró en los PM de cada O.T. contra lo ya capturado en recibos vigentes."
-          resumen={`${resumenesPm.length} O.T.`}
+          resumen={pm?.error ? "No se pudo leer" : `${resumenesPm.length} O.T.`}
         >
           <PanelPmCobrado resumenes={resumenesPm} error={pm?.error ?? null} />
         </SeccionDesplegable>

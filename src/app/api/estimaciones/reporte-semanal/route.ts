@@ -39,9 +39,13 @@ export async function GET(request: NextRequest) {
   }
   const semana = { anio, semana: numSemana };
 
-  const { recibos, error } = await cargarRecibosPagados(supabase, semana);
-  if (error) {
-    return NextResponse.json({ error }, { status: 500 });
+  // Sin lectura completa no se entrega el Excel: llevaría totales parciales.
+  let recibos;
+  try {
+    recibos = await cargarRecibosPagados(supabase, semana);
+  } catch (e) {
+    const mensaje = e instanceof Error ? e.message : "No se pudo leer el reporte";
+    return NextResponse.json({ error: mensaje }, { status: 500 });
   }
 
   const [a, m, d] = fechaLocal(new Date()).split("-");
