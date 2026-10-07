@@ -4,10 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type TipoAviso = "exito" | "error" | "info";
 
+// Botón dentro del aviso (ej. "Deshacer"). Al pulsarlo se ejecuta y el aviso se cierra.
+export interface AccionAviso {
+  etiqueta: string;
+  alHacer: () => void | Promise<void>;
+}
+
 interface Aviso {
   id: number;
   mensaje: string;
   tipo: TipoAviso;
+  accion?: AccionAviso;
 }
 
 const EVENTO = "erp:aviso";
@@ -23,11 +30,12 @@ const DURACION_MS: Record<TipoAviso, number> = {
 // Se puede llamar desde cualquier componente de cliente; sobrevive a
 // router.refresh() y a la navegación porque <Avisos /> vive en el layout raíz
 // (útil cuando la acción hace desaparecer el propio botón, como al eliminar
-// una fila).
-export function avisar(mensaje: string, tipo: TipoAviso = "exito") {
+// una fila). Con `accion` el aviso lleva un botón y dura más para dar tiempo
+// de pulsarlo.
+export function avisar(mensaje: string, tipo: TipoAviso = "exito", accion?: AccionAviso) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
-    new CustomEvent<Omit<Aviso, "id">>(EVENTO, { detail: { mensaje, tipo } }),
+    new CustomEvent<Omit<Aviso, "id">>(EVENTO, { detail: { mensaje, tipo, accion } }),
   );
 }
 
@@ -80,7 +88,10 @@ export default function Avisos() {
       clearTimeout(temporizadores.current.get(aviso.id));
       temporizadores.current.set(
         aviso.id,
-        setTimeout(() => cerrar(aviso.id), DURACION_MS[aviso.tipo]),
+        setTimeout(
+          () => cerrar(aviso.id),
+          aviso.accion ? Math.max(DURACION_MS[aviso.tipo], 8000) : DURACION_MS[aviso.tipo],
+        ),
       );
     },
     [cerrar],
@@ -89,9 +100,9 @@ export default function Avisos() {
   useEffect(() => {
     const mapa = temporizadores.current;
     function recibir(evento: Event) {
-      const { mensaje, tipo } = (evento as CustomEvent<Omit<Aviso, "id">>)
+      const { mensaje, tipo, accion } = (evento as CustomEvent<Omit<Aviso, "id">>)
         .detail;
-      const aviso = { id: siguienteId.current++, mensaje, tipo };
+      const aviso = { id: siguienteId.current++, mensaje, tipo, accion };
       setAvisos((lista) => [...lista, aviso].slice(-MAX_VISIBLES));
       programarCierre(aviso);
     }
@@ -138,6 +149,18 @@ export default function Avisos() {
               {estilo.ruta}
             </svg>
             <p className="flex-1 break-words">{aviso.mensaje}</p>
+            {aviso.accion && (
+              <button
+                type="button"
+                onClick={() => {
+                  cerrar(aviso.id);
+                  void aviso.accion?.alHacer();
+                }}
+                className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+              >
+                {aviso.accion.etiqueta}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => cerrar(aviso.id)}

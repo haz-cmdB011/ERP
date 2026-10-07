@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RenglonHistorico } from "./datos-acabados";
 import { HERRAJES_NO, HERRAJES_SI, type Banda, type Fuente } from "./motor-precio";
+import { paginarTodo } from "@/lib/supabase/paginar";
 
 // Tipo de recibo: comparten tablas (recibos/renglones) y motor de precio.
 export type TipoRecibo = "acabados" | "armado";
@@ -74,6 +75,10 @@ export interface ReciboGuardado {
   prioridad: string;
   motivo: string;
   guardadoEn: string;
+  // Fechas de cada paso (null si aún no ocurre); alimentan la línea de tiempo.
+  revisadoEn?: string | null;
+  pagadoEn?: string | null;
+  canceladoEn?: string | null;
   renglones: RenglonGuardado[];
 }
 
@@ -190,24 +195,37 @@ interface RenglonConRecibo {
 // corresponde, así que aquí se manda todo). Se vuelve a pedir después de
 // cada guardado para que un recibo recién guardado sirva de precedente al
 // siguiente renglón capturado.
+// `soloPagados`: solo lo que el motor usa como precedente (recibos pagados con
+// precio aceptado); la revisión no necesita bajar el resto. La captura sí trae
+// todo, porque también avisa de folios ya capturados.
 export async function cargarHistoricoDb(
   supabase: SupabaseClient,
-  tipo: TipoRecibo = "acabados"
+  tipo: TipoRecibo = "acabados",
+  { soloPagados = false }: { soloPagados?: boolean } = {}
 ): Promise<RenglonHistorico[]> {
   // Cada tipo de recibo tiene su propio histórico: el precio de un armado no
   // sirve de precedente para un acabado ni al revés.
-  const { data, error } = await supabase
-    .from("renglones")
-    .select(
-      "modelo, descripcion_pm, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo, estado)"
-    )
-    .eq("recibos.tipo", tipo)
-    .neq("recibos.estado", "cancelado")
-    .order("creado_en", { ascending: false })
-    .limit(3000)
-    .returns<RenglonConRecibo[]>();
-
-  if (error || !data) return [];
+  // Lanza si falla la lectura: un histórico incompleto cambiaría los precios
+  // sugeridos sin que nadie lo note. Se traen los 20 mil renglones más recientes.
+  const data = await paginarTodo<RenglonConRecibo>(
+    (desde, hasta) => {
+      const base = supabase
+        .from("renglones")
+        .select(
+          "modelo, descripcion_pm, familia, acabado, acabado_2, tipo_armado, colocacion_herrajes, cantidad, pu_propuesto, pu_aceptado, recibos!inner(folio, fecha_recibo, obra, ot, tipo, estado)"
+        )
+        .eq("recibos.tipo", tipo);
+      return (soloPagados
+        ? base.eq("recibos.estado", "pagado").gt("pu_aceptado", 0)
+        : base.neq("recibos.estado", "cancelado")
+      )
+        .order("creado_en", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<RenglonConRecibo[]>();
+    },
+    { maxFilas: 20000, contexto: "el histórico de precios" }
+  );
 
   return data
     .filter((r) => r.recibos)
@@ -269,6 +287,9 @@ interface ReciboDbRow {
   prioridad: string;
   motivo_prioridad: string | null;
   creado_en: string;
+  revisado_en: string | null;
+  pagado_en: string | null;
+  cancelado_en: string | null;
   renglones: RenglonDbRow[];
 }
 
@@ -295,6 +316,7 @@ export async function buscarReciboPorFolio(
     .from("recibos")
     .select(
       "id, estado, tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, motivo_prioridad, creado_en, " +
+        "revisado_en, pagado_en, cancelado_en, " +
         "renglones(id, numero, modelo, descripcion_pm, familia, tamano, cantidad, acabado, acabado_2, tipo_armado, colocacion_herrajes, tipo_trabajo, " +
         "causa_reproceso, fases, nota, pu_sugerido, fuente_sugerido, banda, pu_propuesto, pu_aceptado, importe, justificacion, decision)"
     )
@@ -318,6 +340,9 @@ export async function buscarReciboPorFolio(
     prioridad: data.prioridad,
     motivo: data.motivo_prioridad ?? "",
     guardadoEn: data.creado_en,
+    revisadoEn: data.revisado_en,
+    pagadoEn: data.pagado_en,
+    canceladoEn: data.cancelado_en,
     renglones: [...data.renglones]
       .sort((a, b) => a.numero - b.numero)
       .map((r) => ({
@@ -377,57 +402,67 @@ export function compararFolios(a: string, b: string): number {
   return a.localeCompare(b, "es");
 }
 
+export interface ReciboConRenglones<T extends string = TipoRecibo> {
+  id: string;
+  estado: EstadoRecibo;
+  tipo: T;
+  folio: string;
+  fecha_recibo: string;
+  contratista: string;
+  obra: string | null;
+  ot: string | null;
+  prioridad: string;
+  creado_en: string;
+  renglones: {
+    cantidad: number;
+    pu_propuesto: number;
+    pu_aceptado: number;
+    decision: DecisionRenglon;
+  }[];
+}
+
+// Totales de un recibo a partir de sus renglones (el mismo cálculo que hace la
+// vista `recibos_resumen` en la base).
+export function resumirRecibo<T extends string>(
+  r: ReciboConRenglones<T>
+): Omit<ReciboResumen, "tipo"> & { tipo: T } {
+  return {
+    id: r.id,
+    estado: r.estado,
+    tipo: r.tipo,
+    folio: r.folio,
+    fecha: r.fecha_recibo,
+    contratista: r.contratista,
+    obra: r.obra ?? "",
+    ot: r.ot ?? "",
+    prioridad: r.prioridad,
+    guardadoEn: r.creado_en,
+    numRenglones: r.renglones.length,
+    numPendientes: r.renglones.filter(esPendienteRevision).length,
+    totalPropuesto: r.renglones.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_propuesto), 0),
+    totalAceptado: r.renglones.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_aceptado), 0),
+  };
+}
+
+// Lanza si falla la lectura (la pantalla muestra el error con "Reintentar" en
+// vez de una lista vacía que parezca "no hay recibos").
 export async function listarRecibos(supabase: SupabaseClient): Promise<ReciboResumen[]> {
-  const { data, error } = await supabase
-    .from("recibos")
-    .select(
-      "id, estado, tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
-        "renglones(cantidad, pu_propuesto, pu_aceptado, decision)"
-    )
-    .returns<
-      {
-        id: string;
-        estado: EstadoRecibo;
-        tipo: TipoRecibo;
-        folio: string;
-        fecha_recibo: string;
-        contratista: string;
-        obra: string | null;
-        ot: string | null;
-        prioridad: string;
-        creado_en: string;
-        renglones: {
-          cantidad: number;
-          pu_propuesto: number;
-          pu_aceptado: number;
-          decision: DecisionRenglon;
-        }[];
-      }[]
-    >();
+  const data = await paginarTodo<ReciboConRenglones>(
+    (desde, hasta) =>
+      supabase
+        .from("recibos")
+        .select(
+          "id, estado, tipo, folio, fecha_recibo, contratista, obra, ot, prioridad, creado_en, " +
+            "renglones(cantidad, pu_propuesto, pu_aceptado, decision)"
+        )
+        .order("creado_en", { ascending: false })
+        .order("id")
+        .range(desde, hasta)
+        .returns<ReciboConRenglones[]>(),
+    { contexto: "los recibos" }
+  );
 
-  if (error || !data) return [];
-
-  const resumenes = data.map((r) => {
-    const totalPropuesto = r.renglones.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_propuesto), 0);
-    const totalAceptado = r.renglones.reduce((s, x) => s + Number(x.cantidad) * Number(x.pu_aceptado), 0);
-    const numPendientes = r.renglones.filter(esPendienteRevision).length;
-    return {
-      id: r.id,
-      estado: r.estado,
-      tipo: r.tipo,
-      folio: r.folio,
-      fecha: r.fecha_recibo,
-      contratista: r.contratista,
-      obra: r.obra ?? "",
-      ot: r.ot ?? "",
-      prioridad: r.prioridad,
-      guardadoEn: r.creado_en,
-      numRenglones: r.renglones.length,
-      numPendientes,
-      totalPropuesto,
-      totalAceptado,
-    };
-  });
+  const resumenes = data.map(resumirRecibo);
 
   return resumenes.sort((a, b) => compararFolios(a.folio, b.folio));
 }

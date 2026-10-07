@@ -1,47 +1,40 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esMaquilador, getPerfilActual } from "@/lib/auth/get-perfil";
 import { ESTADO_NOMBRE } from "@/lib/estimaciones/recibos-db";
+import { ESTADOS_FILTRO, listarTodosLosRecibos } from "@/lib/estimaciones/listado-recibos";
+import { NOMBRE_TIPO_CUALQUIERA, type TipoCualquierRecibo } from "@/lib/estimaciones/revision-db";
 import {
-  ESTADOS_FILTRO,
-  esEstadoRecibo,
-  listarTodosLosRecibos,
-} from "@/lib/estimaciones/listado-recibos";
-import { NOMBRE_TIPO_CUALQUIERA } from "@/lib/estimaciones/revision-db";
-import { money } from "@/lib/estimaciones/motor-precio";
-import EstadoReciboBadge from "../estado-recibo-badge";
-import CancelarReciboBoton from "../cancelar-recibo-boton";
-import EliminarReciboDefinitivoBoton from "../eliminar-recibo-definitivo-boton";
+  COOKIE_FILTRO_REGISTRO,
+  contratistasDe,
+  filtrarRecibos,
+  hrefRegistro,
+  leerFiltroRegistroGuardado,
+  leerFiltros,
+  ordenarParaRevision,
+  paginar,
+  type ParametrosRegistro,
+} from "@/lib/estimaciones/filtros-registro";
+import EstadoVacio from "@/components/estado-vacio";
+import TablaRegistro from "./tabla-registro";
+import FiltroRegistroRecordado from "./filtro-registro-recordado";
 
-// Fecha numérica día-mes-año (ej. "31-08-2026"), solo para esta tabla.
-function fechaNumerica(iso: string): string {
-  const [anio, mes, dia] = String(iso).split("-");
-  return `${dia}-${mes}-${anio}`;
-}
-
-const PRIORIDAD_COLOR: Record<string, string> = {
-  urgente: "bg-red-500",
-  preferente: "bg-amber-400",
-  normal: "bg-emerald-500",
-};
-
-const PRIORIDAD_NOMBRE: Record<string, string> = {
-  urgente: "Urgente",
-  preferente: "Preferente",
-  normal: "Normal",
-};
+const TIPOS: TipoCualquierRecibo[] = ["acabados", "armado", "electrificacion"];
 
 // Registro de recibos: todos los recibos guardados (Acabados, Armado y
 // Electrificación), ordenados por folio de menor a mayor (numéricos
 // primero, en orden; los que llevan letras o guiones van después). Se
-// filtra por estado (?estado=pendiente es la bandeja "Por revisar"). RLS ya
-// filtra por is_estimaciones(), así que quien no tiene acceso al área
-// simplemente ve la lista vacía; el maquilador tiene su propia vista.
+// busca por folio, contratista, OT u obra y se filtra por estado, tipo y
+// contratista (?estado=pendiente es la bandeja "Por revisar", con lo urgente y
+// lo más antiguo primero). RLS ya filtra por is_estimaciones(), así que quien
+// no tiene acceso al área simplemente ve la lista vacía; el maquilador tiene su
+// propia vista.
 export default async function RegistroRecibosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>;
+  searchParams: Promise<ParametrosRegistro>;
 }) {
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
@@ -51,135 +44,161 @@ export default async function RegistroRecibosPage({
   // Solo el desarrollador elimina recibos definitivamente (la base también lo exige).
   const esDesarrollador = perfil?.rol === "desarrollador";
 
-  const { estado } = await searchParams;
-  const filtro = esEstadoRecibo(estado) ? estado : null;
+  const filtros = leerFiltros(await searchParams);
+  const guardado = leerFiltroRegistroGuardado((await cookies()).get(COOKIE_FILTRO_REGISTRO)?.value);
 
   const todos = await listarTodosLosRecibos(supabase);
-  // Sin filtro no se muestran los cancelados (quedan en su propio filtro).
-  const recibos = todos.filter((r) => (filtro ? r.estado === filtro : r.estado !== "cancelado"));
   const conteo = Object.fromEntries(
     ESTADOS_FILTRO.map((e) => [e, todos.filter((r) => r.estado === e).length])
   );
+  const contratistas = contratistasDe(todos);
+
+  const coincidencias = filtrarRecibos(todos, filtros);
+  const ordenadas = filtros.estado === "pendiente" ? ordenarParaRevision(coincidencias) : coincidencias;
+  const pagina = paginar(ordenadas, filtros.pagina);
+  const hayFiltros = !!(filtros.q || filtros.tipo || filtros.contratista);
+  // Conserva lo demás al cambiar de estado.
+  const conEstado = (estado: typeof filtros.estado) =>
+    hrefRegistro({ ...filtros, estado, pagina: 1 });
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
+    <main className="mx-auto flex max-w-7xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            {filtro === "pendiente" ? "Por revisar" : "Registro de recibos"}
+            {filtros.estado === "pendiente" ? "Por revisar" : "Registro de recibos"}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {filtro === "pendiente"
-              ? "Recibos con precios sin decidir. Al maquilador no se le paga hasta que el recibo queda revisado."
+            {filtros.estado === "pendiente"
+              ? "Lo urgente y lo que más espera, primero. Al maquilador no se le paga hasta que el recibo queda revisado."
               : "Recibos de maquila (Acabados, Armado y Electrificación), ordenados por folio."}
           </p>
         </div>
-        {recibos.length > 0 && (
+        {pagina.total > 0 && (
           <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {recibos.length} recibo{recibos.length === 1 ? "" : "s"}
+            {pagina.total} recibo{pagina.total === 1 ? "" : "s"}
           </span>
         )}
       </div>
 
+      <form method="get" action="/estimaciones/registro" className="flex flex-wrap items-end gap-3">
+        {filtros.estado && <input type="hidden" name="estado" value={filtros.estado} />}
+        <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Buscar
+          <input
+            type="search"
+            name="q"
+            defaultValue={filtros.q}
+            placeholder="Folio, contratista, OT u obra"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Tipo
+          <select
+            name="tipo"
+            defaultValue={filtros.tipo ?? ""}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
+          >
+            <option value="">Todos</option>
+            {TIPOS.map((t) => (
+              <option key={t} value={t}>
+                {NOMBRE_TIPO_CUALQUIERA[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Contratista
+          <select
+            name="contratista"
+            defaultValue={filtros.contratista}
+            className="max-w-[16rem] rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
+          >
+            <option value="">Todos</option>
+            {contratistas.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          className="rounded-md bg-brand-500 px-4 py-2 text-sm font-semibold text-on-brand hover:bg-brand-400"
+        >
+          Filtrar
+        </button>
+        {hayFiltros && (
+          <Link
+            href={hrefRegistro({ estado: filtros.estado })}
+            className="py-2 text-sm text-slate-500 hover:text-slate-900 hover:underline"
+          >
+            Limpiar
+          </Link>
+        )}
+      </form>
+
+      <FiltroRegistroRecordado
+        actual={{ tipo: filtros.tipo ?? undefined, contratista: filtros.contratista || undefined }}
+        guardado={guardado}
+        href={hrefRegistro({ estado: filtros.estado, tipo: guardado?.tipo, contratista: guardado?.contratista })}
+      />
+
       <nav className="flex flex-wrap gap-2 text-sm">
-        <Filtro href="/estimaciones/registro" activo={!filtro} etiqueta="Vigentes" />
+        <Filtro href={conEstado(null)} activo={!filtros.estado} etiqueta="Vigentes" />
         {ESTADOS_FILTRO.map((e) => (
           <Filtro
             key={e}
-            href={`/estimaciones/registro?estado=${e}`}
-            activo={filtro === e}
+            href={conEstado(e)}
+            activo={filtros.estado === e}
             etiqueta={`${ESTADO_NOMBRE[e]} (${conteo[e]})`}
           />
         ))}
       </nav>
 
-      {recibos.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          {filtro === "pendiente" ? "No hay recibos por revisar." : "No hay recibos en esta vista."}
-        </p>
+      {pagina.total === 0 ? (
+        <EstadoVacio
+          titulo={
+            hayFiltros
+              ? "Ningún recibo coincide con tu búsqueda"
+              : filtros.estado === "pendiente"
+                ? "No hay recibos por revisar"
+                : "No hay recibos en esta vista"
+          }
+          descripcion={hayFiltros ? "Prueba con otro folio, contratista u OT, o quita los filtros." : undefined}
+          accion={hayFiltros ? { href: hrefRegistro({ estado: filtros.estado }), etiqueta: "Quitar filtros" } : undefined}
+        />
+      ) : (
+        <TablaRegistro recibos={pagina.items} esDesarrollador={esDesarrollador} />
       )}
 
-      {recibos.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-3">Folio</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Fecha</th>
-                <th className="px-4 py-3">Contratista</th>
-                <th className="px-4 py-3">OT</th>
-                <th className="px-4 py-3">Prioridad</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3 text-right">Propuesto</th>
-                <th className="px-4 py-3 text-right">Aceptado</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {recibos.map((r) => {
-                const folioUrl = encodeURIComponent(r.folio);
-                return (
-                  <tr key={r.id} className="transition-colors hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/estimaciones/recibos/${r.tipo}/recibo/${folioUrl}`}
-                        className="font-mono font-medium text-slate-900 hover:text-brand-700 hover:underline"
-                      >
-                        {r.folio}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{NOMBRE_TIPO_CUALQUIERA[r.tipo]}</td>
-                    <td className="px-4 py-3 font-mono text-slate-700">{fechaNumerica(r.fecha)}</td>
-                    <td className="px-4 py-3 text-slate-700">{r.contratista || "—"}</td>
-                    <td className="px-4 py-3 font-mono text-slate-700">{r.ot || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        title={PRIORIDAD_NOMBRE[r.prioridad] ?? r.prioridad}
-                        className={`inline-block h-3 w-3 rounded-full ${
-                          PRIORIDAD_COLOR[r.prioridad] ?? "bg-slate-300"
-                        }`}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <EstadoReciboBadge estado={r.estado} />
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-700">
-                      {money(r.totalPropuesto)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-900">
-                      {r.estado === "pendiente" ? "—" : money(r.totalAceptado)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        {(r.estado === "pendiente" || r.estado === "revisado") && (
-                          <Link
-                            href={`/estimaciones/revision/${r.tipo}/${folioUrl}`}
-                            className="whitespace-nowrap rounded bg-brand-500 px-2.5 py-1 text-xs font-semibold text-on-brand hover:bg-brand-400"
-                          >
-                            {r.estado === "pendiente" ? "Revisar" : "Pagar"}
-                          </Link>
-                        )}
-                        {esDesarrollador ? (
-                          <EliminarReciboDefinitivoBoton
-                            tipo={r.tipo}
-                            reciboId={r.id}
-                            folio={r.folio}
-                            variante="icono"
-                          />
-                        ) : (
-                          r.estado === "pendiente" && (
-                            <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
-                          )
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      {pagina.totalPaginas > 1 && (
+        <nav aria-label="Páginas" className="flex flex-wrap items-center justify-center gap-3 text-sm">
+          {pagina.pagina > 1 ? (
+            <Link
+              href={hrefRegistro({ ...filtros, pagina: pagina.pagina - 1 })}
+              className="rounded px-3 py-1 font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+            >
+              ← Anterior
+            </Link>
+          ) : (
+            <span className="rounded px-3 py-1 text-slate-300 ring-1 ring-slate-100">← Anterior</span>
+          )}
+          <span className="text-slate-500">
+            Página {pagina.pagina} de {pagina.totalPaginas}
+          </span>
+          {pagina.pagina < pagina.totalPaginas ? (
+            <Link
+              href={hrefRegistro({ ...filtros, pagina: pagina.pagina + 1 })}
+              className="rounded px-3 py-1 font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+            >
+              Siguiente →
+            </Link>
+          ) : (
+            <span className="rounded px-3 py-1 text-slate-300 ring-1 ring-slate-100">Siguiente →</span>
+          )}
+        </nav>
       )}
     </main>
   );

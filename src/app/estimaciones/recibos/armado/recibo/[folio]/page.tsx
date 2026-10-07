@@ -6,6 +6,7 @@ import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { buscarReciboPorFolio } from "@/lib/estimaciones/recibos-db";
 import { listarDiscrepanciasRecibo } from "@/lib/estimaciones/discrepancias-db";
 import DiscrepanciasRecibo from "../../../../discrepancias-recibo";
+import LineaTiempoRecibo from "../../../../linea-tiempo-recibo";
 import ReciboFichaArmado from "../../recibo-ficha-armado";
 import DescargarPdfButton from "../../../acabados/descargar-pdf-button";
 
@@ -69,6 +70,13 @@ export default async function SeguimientoReciboArmadoPage({
           <DescargarPdfButton nombreArchivo={`recibo-armado-${recibo.folio}.pdf`} />
         </div>
       </div>
+      <LineaTiempoRecibo
+        estado={recibo.estado ?? "pendiente"}
+        guardadoEn={recibo.guardadoEn}
+        revisadoEn={recibo.revisadoEn}
+        pagadoEn={recibo.pagadoEn}
+        canceladoEn={recibo.canceladoEn}
+      />
       <DiscrepanciasRecibo discrepancias={discrepancias} />
       <div className="rounded-xl border border-slate-200 shadow-sm">
         <ReciboFichaArmado recibo={recibo} qrUrl={qrUrl} mostrarInterno={esPersonal} />

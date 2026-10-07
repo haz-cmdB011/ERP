@@ -12,6 +12,32 @@ import Modal, {
   estiloEtiqueta,
 } from "./modal";
 
+// POST con FormData midiendo el avance de la subida (fetch no lo reporta).
+function enviarConAvance(
+  url: string,
+  datos: FormData,
+  onProgreso: (porcentaje: number) => void
+): Promise<{ ok: boolean; json: { error?: string } }> {
+  return new Promise((resolver, rechazar) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgreso(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      let json: { error?: string } = {};
+      try {
+        json = JSON.parse(xhr.responseText);
+      } catch {
+        // Respuesta sin JSON: se usa el mensaje genérico.
+      }
+      resolver({ ok: xhr.status >= 200 && xhr.status < 300, json });
+    };
+    xhr.onerror = () => rechazar(new Error("red"));
+    xhr.send(datos);
+  });
+}
+
 // Botón "Registrar entrega": el equipo terminó (todo o parte). El encargado
 // escribe los folios de Calidad y sube la foto de la hoja; la foto se reduce
 // aquí y el servidor la comprime antes de guardarla.
@@ -36,6 +62,8 @@ export default function RegistrarEntrega({
   const [foto, setFoto] = useState<File | null>(null);
   const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // 0-100 mientras se sube la foto (null cuando no se está enviando).
+  const [progreso, setProgreso] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Libera la URL de la vista previa al cambiar de foto o cerrar.
@@ -74,9 +102,9 @@ export default function RegistrarEntrega({
       datos.set("cantidad", cantidad);
       datos.set("folios", folios);
       datos.set("foto", reducida, "folios.jpg");
-      const res = await fetch("/api/produccion/entregas", { method: "POST", body: datos });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      setProgreso(0);
+      const { ok, json } = await enviarConAvance("/api/produccion/entregas", datos, setProgreso);
+      if (!ok) {
         setError(json.error ?? "No se pudo registrar la entrega.");
         return;
       }
@@ -87,6 +115,7 @@ export default function RegistrarEntrega({
       setError("No se pudo conectar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setEnviando(false);
+      setProgreso(null);
     }
   }
 
@@ -95,7 +124,7 @@ export default function RegistrarEntrega({
       <button
         type="button"
         onClick={abrir}
-        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+        className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 sm:px-3 sm:py-1.5 sm:text-xs"
       >
         Registrar entrega
       </button>
@@ -132,6 +161,15 @@ export default function RegistrarEntrega({
                   onChange={(e) => setCantidad(e.target.value)}
                   className={estiloCampo}
                 />
+                {cantidad !== String(pendiente) && (
+                  <button
+                    type="button"
+                    onClick={() => setCantidad(String(pendiente))}
+                    className="self-start text-xs font-medium text-brand-700 hover:underline"
+                  >
+                    Entregar todo ({pendiente})
+                  </button>
+                )}
               </label>
             </div>
             <label className={estiloEtiqueta}>
@@ -154,7 +192,7 @@ export default function RegistrarEntrega({
                 accept="image/*"
                 capture="environment"
                 onChange={(e) => elegirFoto(e.target.files?.[0] ?? null)}
-                className="text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700"
+                className="text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-4 file:py-3 file:text-base file:font-medium file:text-on-brand sm:file:bg-slate-100 sm:file:py-2 sm:file:text-sm sm:file:text-slate-700"
               />
               <span className="text-xs font-normal text-slate-500">
                 Se comprime automáticamente antes de guardarse.
@@ -168,10 +206,31 @@ export default function RegistrarEntrega({
                 className="max-h-48 w-full rounded-lg border border-slate-200 object-contain"
               />
             )}
+            {progreso !== null && (
+              <div>
+                <div className="mb-1 flex justify-between text-xs text-slate-600">
+                  <span>{progreso < 100 ? "Subiendo foto…" : "Guardando entrega…"}</span>
+                  <span className="font-medium tabular-nums">{progreso}%</span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progreso}
+                  aria-label="Progreso de la entrega"
+                  className="h-2 overflow-hidden rounded-full bg-slate-100"
+                >
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                    style={{ width: `${progreso}%` }}
+                  />
+                </div>
+              </div>
+            )}
             {error && (
               <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</p>
             )}
-            <div className="mt-1 flex justify-end gap-2">
+            <div className="sticky bottom-0 -mx-5 -mb-5 mt-1 flex justify-end gap-2 border-t border-slate-100 bg-white px-5 py-3 sm:static sm:m-0 sm:border-0 sm:p-0">
               <button
                 type="button"
                 onClick={() => setAbierto(false)}

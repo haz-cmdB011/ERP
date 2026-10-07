@@ -54,11 +54,16 @@ export default async function EstimacionesLayout({
   // Contadores del menú. La RLS decide qué cuenta cada quien: quien decide ve
   // todas las pendientes; el maquilador, los rechazos de sus propios recibos.
   const resumen =
-    decideDiscrepancias || maquilador ? await listarResumenDiscrepancias(supabase) : [];
+    decideDiscrepancias || maquilador
+      ? await listarResumenDiscrepancias(supabase).catch(() => [])
+      : [];
   const pendientes = decideDiscrepancias ? contarPendientes(resumen) : 0;
   const rechazadas = maquilador ? contarRechazadas(resumen) : 0;
   // Recibos esperando revisión: lo ve quien los revisa (la RLS le devuelve todos).
-  const porRevisar = !maquilador && puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase) : 0;
+  const porRevisar =
+    !maquilador && puedeVerPrecioSugerido(perfil)
+      ? await contarPorRevisar(supabase).catch(() => 0)
+      : 0;
 
   return (
     <div className="min-h-screen">

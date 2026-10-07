@@ -23,7 +23,7 @@ export default async function EquiposPage() {
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Equipos</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Equipos de maquiladores (armado y barniz) y la planta, a quienes se les asignan los muebles.
+          Maquiladores (armado y barniz) y planta, a quienes se asignan los muebles.
         </p>
       </div>
       {error ? (

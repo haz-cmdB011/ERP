@@ -6,6 +6,7 @@ import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { buscarReciboElectrificacionPorFolio } from "@/lib/estimaciones/recibos-electrificacion-db";
 import { listarDiscrepanciasRecibo } from "@/lib/estimaciones/discrepancias-db";
 import DiscrepanciasRecibo from "../../../../discrepancias-recibo";
+import LineaTiempoRecibo from "../../../../linea-tiempo-recibo";
 import ReciboFichaElectrificacion from "../../recibo-ficha-electrificacion";
 import DescargarPdfButton from "../../../acabados/descargar-pdf-button";
 
@@ -66,6 +67,13 @@ export default async function SeguimientoReciboElectrificacionPage({
           <DescargarPdfButton nombreArchivo={`recibo-electrificacion-${recibo.folio}.pdf`} />
         </div>
       </div>
+      <LineaTiempoRecibo
+        estado={recibo.estado ?? "pendiente"}
+        guardadoEn={recibo.guardadoEn}
+        revisadoEn={recibo.revisadoEn}
+        pagadoEn={recibo.pagadoEn}
+        canceladoEn={recibo.canceladoEn}
+      />
       <DiscrepanciasRecibo discrepancias={discrepancias} />
       <div className="rounded-xl border border-slate-200 shadow-sm">
         <ReciboFichaElectrificacion recibo={recibo} qrUrl={qrUrl} mostrarInterno={esPersonal} />

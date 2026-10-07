@@ -22,7 +22,12 @@ import {
   entregasPorAsignacion,
   filtrosAQuery,
   leerFiltros,
+  type FiltrosAsignaciones,
 } from "@/lib/produccion/consultar-asignaciones";
+import { enTaller } from "@/lib/produccion/atrasos";
+import { plazosDePedidos } from "@/lib/produccion/cargar-taller";
+import ChipPlazo from "../chip-plazo";
+import RecordarFiltros from "./recordar-filtros";
 import DetalleAsignacion, { EstadoAsignacionBadge } from "./detalle-asignacion";
 import { estiloCampo } from "./modal";
 
@@ -62,6 +67,28 @@ export default async function AsignacionesPage({
     filas.map((f) => f.id)
   );
   const hoy = hoyMexico();
+  // Plazo de entrega de los PM de esta página: marca las que van atrasadas.
+  const plazos = await plazosDePedidos(
+    supabase,
+    filas.map((f) => f.pedido_id).filter((id): id is string => !!id),
+    hoy
+  );
+  const sinFiltros = filtrosAQuery(filtros) === "";
+
+  // Accesos rápidos: cada uno parte de cero (sin equipo/proceso/búsqueda).
+  const base: FiltrosAsignaciones = { estado: "activas", equipo: null, proceso: null, q: "", desde: null, hasta: null };
+  const [a, m, d] = hoy.split("-").map(Number);
+  const hace7 = new Date(Date.UTC(a, m - 1, d - 6)).toISOString().slice(0, 10);
+  const definiciones: { etiqueta: string; filtros: FiltrosAsignaciones }[] = [
+    { etiqueta: "En taller", filtros: base },
+    { etiqueta: "Asignadas esta semana", filtros: { ...base, estado: "todas", desde: hace7 } },
+    { etiqueta: "Entregadas", filtros: { ...base, estado: "entregada" } },
+    { etiqueta: "Todas", filtros: { ...base, estado: "todas" } },
+  ];
+  const atajos = definiciones.map((x) => ({
+    ...x,
+    activo: filtrosAQuery(x.filtros) === filtrosAQuery(filtros),
+  }));
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-5 p-4 sm:p-6">
@@ -69,8 +96,8 @@ export default async function AsignacionesPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Asignaciones</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Qué se le asignó a cada equipo, cuándo lo entregó y con qué folios de Calidad. Para asignar,
-            entra a un pedido y usa “Asignar a equipos”.
+            Qué tiene cada equipo y cuándo lo entregó. Para asignar, entra a un pedido y usa “Asignar a
+            equipos”.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -88,6 +115,25 @@ export default async function AsignacionesPage({
           </a>
         </div>
       </div>
+
+      <RecordarFiltros />
+
+      <nav aria-label="Accesos rápidos" className="flex flex-wrap gap-2 text-sm">
+        {atajos.map((a) => (
+          <Link
+            key={a.etiqueta}
+            href={`/produccion/asignaciones${filtrosAQuery(a.filtros, a.filtros.estado === "activas" ? { estado: "activas" } : {})}`}
+            aria-current={a.activo ? "true" : undefined}
+            className={`rounded-full border px-3 py-1.5 transition-colors ${
+              a.activo
+                ? "border-brand-500 bg-brand-50 font-medium text-brand-800"
+                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {a.etiqueta}
+          </Link>
+        ))}
+      </nav>
 
       <form method="get" className="flex flex-wrap items-end gap-2 text-sm">
         <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs font-medium text-slate-600">
@@ -149,7 +195,7 @@ export default async function AsignacionesPage({
         >
           Filtrar
         </button>
-        <Link href="/produccion/asignaciones" className="px-1 py-2 text-slate-500 underline hover:text-slate-700">
+        <Link href="/produccion/asignaciones?estado=activas" className="px-1 py-2 text-slate-500 underline hover:text-slate-700">
           Limpiar
         </Link>
       </form>
@@ -161,9 +207,26 @@ export default async function AsignacionesPage({
       )}
 
       {!error && filas.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          No hay asignaciones con estos filtros.
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          {sinFiltros ? (
+            <>
+              <p>Todavía no hay asignaciones en taller.</p>
+              <Link href="/produccion" className="font-medium text-brand-700 hover:underline">
+                Elegir un pedido para asignar →
+              </Link>
+            </>
+          ) : (
+            <>
+              <p>No hay asignaciones con estos filtros.</p>
+              <Link
+                href="/produccion/asignaciones?estado=todas"
+                className="font-medium text-brand-700 hover:underline"
+              >
+                Quitar filtros y ver todas →
+              </Link>
+            </>
+          )}
+        </div>
       )}
 
       {filas.length > 0 && (
@@ -184,9 +247,11 @@ export default async function AsignacionesPage({
             </thead>
             {filas.map((a) => {
               const dias = diasEnProceso(a, hoy);
+              // Solo lo que sigue en taller puede ir atrasado.
+              const plazo = enTaller(a) && a.pedido_id ? plazos.get(a.pedido_id) : undefined;
               return (
                 <tbody key={a.id} className="border-t border-slate-100">
-                  <tr className="align-top">
+                  <tr className={`align-top ${plazo?.tipo === "vencido" ? "bg-rose-50/60" : ""}`}>
                     <td className="px-3 py-2 font-medium text-slate-900">
                       {a.pedido_id ? (
                         <Link
@@ -219,6 +284,11 @@ export default async function AsignacionesPage({
                     <td className="whitespace-nowrap px-3 py-2">{formatoFecha(a.fecha_asignacion)}</td>
                     <td className="whitespace-nowrap px-3 py-2">
                       {a.estado === "entregada" ? formatoFecha(a.ultima_entrega) : "—"}
+                      {plazo && (
+                        <span className="mt-1 block">
+                          <ChipPlazo plazo={plazo} fecha={plazo.fecha} />
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right">{dias ?? "—"}</td>
                     <td className="max-w-[12rem] px-3 py-2 font-mono text-xs text-slate-700">
