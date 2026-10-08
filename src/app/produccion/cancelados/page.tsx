@@ -12,6 +12,7 @@ import {
   RevertirPedidoBoton,
 } from "@/components/revertir-cancelacion";
 
+import { leer } from "@/lib/supabase/leer";
 interface PedidoRow {
   eliminado_definitivo_en: string | null;
   id: string;
@@ -104,14 +105,17 @@ export default async function CanceladosProduccionPage() {
   const puedeRevertirItem = puedeReactivarPedido || esProduccion;
   const puedeRestaurarPedido = puedeAdministrarPlaneacion(perfil);
 
-  const { data: pedidos } = await supabase
+  const pedidos = await leer(
+    supabase
     .from("pedidos")
     .select(
       "id, numero_pedido, cancelado_en, motivo_cancelacion, eliminado_definitivo_en, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
     )
     .is("eliminado_en", null)
     .order("created_at", { ascending: false })
-    .returns<PedidoRow[]>();
+    .returns<PedidoRow[]>(),
+    "pedidos"
+  );
 
   const versionPorPedido = new Map<string, string>();
   for (const p of pedidos ?? []) {
@@ -122,15 +126,18 @@ export default async function CanceladosProduccionPage() {
   }
   const versionIds = Array.from(versionPorPedido.values());
 
-  const { data: itemsEstado } = versionIds.length
-    ? await supabase
+  const itemsEstado = versionIds.length
+    ? await leer(
+        supabase
         .from("planeacion_items")
         .select(
           "id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, pedido_version_id, estado_revision, motivo_cancelacion"
         )
         .in("pedido_version_id", versionIds)
-        .returns<ItemEstadoRow[]>()
-    : { data: [] as ItemEstadoRow[] };
+        .returns<ItemEstadoRow[]>(),
+        "planeacion_items"
+      )
+    : [] as ItemEstadoRow[];
 
   const itemsCanceladosIds = (itemsEstado ?? [])
     .filter((i) => i.estado_revision === "cancelado")
@@ -139,14 +146,17 @@ export default async function CanceladosProduccionPage() {
   // Folio de Calidad conservado para cada ítem cancelado (si ya fue
   // evaluado antes de cancelarse) — eliminar_item_definitivo ya no borra
   // estos ítems para no perder el folio, así que aquí se le da seguimiento.
-  const { data: informes } = itemsCanceladosIds.length
-    ? await supabase
+  const informes = itemsCanceladosIds.length
+    ? await leer(
+        supabase
         .from("informes_calidad")
         .select("planeacion_item_id, folio, elaborado_en")
         .in("planeacion_item_id", itemsCanceladosIds)
         .order("elaborado_en", { ascending: false })
-        .returns<InformeRow[]>()
-    : { data: [] as InformeRow[] };
+        .returns<InformeRow[]>(),
+        "informes_calidad"
+      )
+    : [] as InformeRow[];
 
   const folioPorItem = new Map<string, string>();
   for (const inf of informes ?? []) {
@@ -196,8 +206,9 @@ export default async function CanceladosProduccionPage() {
   });
 
   // Ítems eliminados (papelera): mismo criterio de versión que arriba.
-  const { data: itemsPapelera } = versionIds.length
-    ? await supabase
+  const itemsPapelera = versionIds.length
+    ? await leer(
+        supabase
         .from("planeacion_items")
         .select(
           "id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, pedido_version_id, eliminacion_solicitada_en"
@@ -205,8 +216,10 @@ export default async function CanceladosProduccionPage() {
         .in("pedido_version_id", versionIds)
         .not("eliminacion_solicitada_en", "is", null)
         .order("eliminacion_solicitada_en", { ascending: false })
-        .returns<ItemPapeleraRow[]>()
-    : { data: [] as ItemPapeleraRow[] };
+        .returns<ItemPapeleraRow[]>(),
+        "planeacion_items"
+      )
+    : [] as ItemPapeleraRow[];
 
   const pedidoPorVersion = new Map<string, string>();
   for (const [pedidoId, versionId] of versionPorPedido) pedidoPorVersion.set(versionId, pedidoId);
@@ -221,12 +234,15 @@ export default async function CanceladosProduccionPage() {
   const pedidosConPapelera = (pedidos ?? []).filter((p) => papeleraPorPedido.has(p.id));
 
   // PM eliminados (papelera de pedidos de Planeación).
-  const { data: pedidosEliminados } = await supabase
+  const pedidosEliminados = await leer(
+    supabase
     .from("pedidos")
     .select("id, numero_pedido, eliminado_en, proyectos ( nombre, cliente )")
     .not("eliminado_en", "is", null)
     .order("eliminado_en", { ascending: false })
-    .returns<PedidoEliminadoRow[]>();
+    .returns<PedidoEliminadoRow[]>(),
+    "pedidos"
+  );
 
   const totalmenteCancelados = pedidosConConteo.filter(
     (p) => p.cancelado_en !== null || (p.totalItems > 0 && p.itemsCancelados === p.totalItems)

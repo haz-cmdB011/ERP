@@ -10,6 +10,7 @@ import InformeFicha, {
 import ImprimirButton from "../../imprimir-button";
 import DescargarPdfButton from "../../descargar-pdf-button";
 
+import { leer } from "@/lib/supabase/leer";
 interface InformeRow {
   id: string;
   folio: string;
@@ -34,21 +35,27 @@ export default async function InformeCalidadPage({
   const { id, informeId } = await params;
   const supabase = await createClient();
 
-  const { data: pedido } = await supabase
+  const pedido = await leer(
+    supabase
     .from("pedidos")
     .select("numero_pedido, fecha_pedido, fecha_entrega, proyectos ( nombre, cliente )")
     .eq("id", id)
-    .maybeSingle<InformeFichaPedido>();
+    .maybeSingle<InformeFichaPedido>(),
+    "pedidos"
+  );
 
   if (!pedido) {
     notFound();
   }
 
-  const { data: informe } = await supabase
+  const informe = await leer(
+    supabase
     .from("informes_calidad")
     .select("id, folio, aprobado, descripcion, elaborado_por, elaborado_en, planeacion_item_id, categoria")
     .eq("id", informeId)
-    .maybeSingle<InformeRow>();
+    .maybeSingle<InformeRow>(),
+    "informes_calidad"
+  );
 
   if (!informe) {
     notFound();
@@ -56,12 +63,15 @@ export default async function InformeCalidadPage({
 
   // Mismo guard que Producción: el ítem del informe debe pertenecer a ESTE
   // pedido, para no exponer un informe de otro PM si se edita la URL.
-  const { data: item } = await supabase
+  const item = await leer(
+    supabase
     .from("planeacion_items")
     .select("id, item_code, modelo, descripcion, pedido_versiones!inner ( pedido_id )")
     .eq("id", informe.planeacion_item_id)
     .eq("pedido_versiones.pedido_id", id)
-    .maybeSingle<ItemConVersion>();
+    .maybeSingle<ItemConVersion>(),
+    "planeacion_items"
+  );
 
   if (!item) {
     notFound();
@@ -77,11 +87,14 @@ export default async function InformeCalidadPage({
     elaboradoPorNombre = perfilElaboro?.nombre_completo || perfilElaboro?.email || null;
   }
 
-  const { data: folioProd } = await supabase
+  const folioProd = await leer(
+    supabase
     .from("folios_produccion")
     .select("folio")
     .eq("planeacion_item_id", item.id)
-    .maybeSingle<{ folio: string }>();
+    .maybeSingle<{ folio: string }>(),
+    "folios_produccion"
+  );
 
   const baseUrl = await getBaseUrl();
   const imagenesPorItem = await getImagenesPorItem(supabase, [item.id]);

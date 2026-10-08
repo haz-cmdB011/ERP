@@ -21,6 +21,7 @@ import DetalleAsignacion, {
   EstadoAsignacionBadge,
 } from "@/app/produccion/asignaciones/detalle-asignacion";
 
+import { leer } from "@/lib/supabase/leer";
 interface MuebleRow {
   id: string;
   item_code: number;
@@ -46,7 +47,8 @@ export default async function AsignacionesPedidoPage({
   const puedeEditar = puedeEditarProduccion(perfil);
   const puedeAnular = puedeAdministrarProduccion(perfil);
 
-  const { data: pedido } = await supabase
+  const pedido = await leer(
+    supabase
     .from("pedidos")
     .select("id, numero_pedido, eliminado_en, cancelado_en, proyectos ( nombre, cliente )")
     .eq("id", id)
@@ -56,42 +58,56 @@ export default async function AsignacionesPedidoPage({
       eliminado_en: string | null;
       cancelado_en: string | null;
       proyectos: { nombre: string; cliente: string } | null;
-    }>();
+    }>(),
+    "pedidos"
+  );
   if (!pedido || pedido.eliminado_en) notFound();
 
-  const { data: version } = await supabase
+  const version = await leer(
+    supabase
     .from("pedido_versiones")
     .select("id, numero_version")
     .eq("pedido_id", id)
     .eq("es_version_activa", true)
-    .maybeSingle<{ id: string; numero_version: number }>();
+    .maybeSingle<{ id: string; numero_version: number }>(),
+    "pedido_versiones"
+  );
 
-  const [{ data: muebles }, { data: asignaciones }, { data: equipos }] = await Promise.all([
+  const [muebles, asignaciones, equipos] = await Promise.all([
     version
-      ? supabase
-          .from("planeacion_items")
-          .select(
-            "id, item_code, modelo, descripcion, cantidad_total, unidad, estado_liberacion, eliminacion_solicitada_en, estado_revision"
-          )
-          .eq("pedido_version_id", version.id)
-          .eq("tipo_registro", "MO")
-          .order("fila_excel_origen")
-          .returns<MuebleRow[]>()
-      : Promise.resolve({ data: [] as MuebleRow[] }),
-    supabase
-      .from("asignaciones_produccion_resumen")
-      .select("*")
-      .eq("pedido_id", id)
-      .order("fecha_asignacion")
-      .order("creado_en")
-      .returns<AsignacionResumen[]>(),
-    supabase
-      .from("equipos_produccion")
-      .select("id, nombre, encargado, es_planta, procesos, activo")
-      .eq("activo", true)
-      .order("es_planta", { ascending: false })
-      .order("nombre")
-      .returns<EquipoProduccion[]>(),
+      ? leer(
+          supabase
+            .from("planeacion_items")
+            .select(
+              "id, item_code, modelo, descripcion, cantidad_total, unidad, estado_liberacion, eliminacion_solicitada_en, estado_revision"
+            )
+            .eq("pedido_version_id", version.id)
+            .eq("tipo_registro", "MO")
+            .order("fila_excel_origen")
+            .returns<MuebleRow[]>(),
+          "planeacion_items"
+        )
+      : Promise.resolve([] as MuebleRow[]),
+    leer(
+      supabase
+        .from("asignaciones_produccion_resumen")
+        .select("*")
+        .eq("pedido_id", id)
+        .order("fecha_asignacion")
+        .order("creado_en")
+        .returns<AsignacionResumen[]>(),
+      "asignaciones_produccion_resumen"
+    ),
+    leer(
+      supabase
+        .from("equipos_produccion")
+        .select("id, nombre, encargado, es_planta, procesos, activo")
+        .eq("activo", true)
+        .order("es_planta", { ascending: false })
+        .order("nombre")
+        .returns<EquipoProduccion[]>(),
+      "equipos_produccion"
+    ),
   ]);
 
   const vigentes = (muebles ?? []).filter(

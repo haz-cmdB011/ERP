@@ -12,6 +12,7 @@ import {
 } from "@/components/revertir-cancelacion";
 import Paginacion, { TAMANO_PAGINA } from "@/components/paginacion";
 
+import { leer } from "@/lib/supabase/leer";
 interface ItemVivo {
   id: string;
   item_code: number;
@@ -218,14 +219,17 @@ export default async function BuscarFolioPage({
   // Informes de Calidad (CAL-…) de cada ítem, para cruzar ambos folios: se
   // muestra el más reciente y cuántos hay en total.
   const itemIds = filas.map((x) => x.item?.id).filter((id): id is string => !!id);
-  const { data: informes } = itemIds.length
-    ? await supabase
+  const informes = itemIds.length
+    ? await leer(
+        supabase
         .from("informes_calidad")
         .select("planeacion_item_id, folio, aprobado, elaborado_en")
         .in("planeacion_item_id", itemIds)
         .order("elaborado_en", { ascending: false })
-        .returns<InformeResumen[]>()
-    : { data: [] as InformeResumen[] };
+        .returns<InformeResumen[]>(),
+        "informes_calidad"
+      )
+    : [] as InformeResumen[];
   const informesPorItem = new Map<string, InformeResumen[]>();
   for (const inf of informes ?? []) {
     const lista = informesPorItem.get(inf.planeacion_item_id) ?? [];

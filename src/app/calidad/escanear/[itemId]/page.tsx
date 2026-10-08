@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 
+import { leer } from "@/lib/supabase/leer";
 interface ItemEscaneado {
   id: string;
   pedido_versiones: {
@@ -23,11 +24,14 @@ export default async function MuebleEscaneadoCalidadPage({
   if (!esUuid(itemId)) notFound();
 
   const supabase = await createClient();
-  const { data: item } = await supabase
+  const item = await leer(
+    supabase
     .from("planeacion_items")
     .select("id, pedido_versiones!inner ( pedido_id, numero_version, pedidos!inner ( eliminado_en ) )")
     .eq("id", itemId)
-    .maybeSingle<ItemEscaneado>();
+    .maybeSingle<ItemEscaneado>(),
+    "planeacion_items"
+  );
   const version = item?.pedido_versiones;
   // Un pedido eliminado deja de existir para Calidad (igual que su pantalla de pedido).
   if (!item || !version || version.pedidos?.eliminado_en) notFound();
