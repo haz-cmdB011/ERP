@@ -2,6 +2,8 @@
 // a la vez. Solo funciones puras (la pantalla y las pruebas comparten la misma
 // lógica).
 
+import { estadoMueble, type ResumenLotes } from "./lotes";
+
 // Umbral de días sin evaluar para marcar un ítem como "antiguo".
 export const DIAS_ANTIGUEDAD_ALERTA = 3;
 
@@ -13,14 +15,27 @@ export interface ItemEvaluable {
   parent_item_id: string | null;
   estadoRevision: string | null;
   liberadoEn: string | null;
+  // Producción ya verificó piezas de este mueble (o del mueble padre, si es
+  // componente). Sin eso la base no deja evaluarlo.
+  verificadoPorProduccion: boolean;
   // Historial de informes del ítem: [0] es el más reciente.
   informes: { aprobado: boolean }[];
+  // Solo muebles (MO): sus lotes resumidos. Un mueble se evalúa por lote, así
+  // que su estado sale de las piezas, no del último informe.
+  lotes?: ResumenLotes | null;
 }
 
 // Un ítem cancelado se muestra así aunque ya tenga informes: su historial de
 // folios no se pierde, solo deja de tener sentido evaluarlo.
-export function estadoDe(item: Pick<ItemEvaluable, "estadoRevision" | "informes">): EstadoCalidad {
+// Mueble: "sin evaluar" mientras tenga piezas por evaluar (o nada verificado),
+// "no aprobado" si quedan piezas en retrabajo, "aprobado" si todo lo verificado
+// pasó. Componente: manda su último informe.
+export function estadoDe(item: Pick<ItemEvaluable, "estadoRevision" | "informes" | "lotes">): EstadoCalidad {
   if (item.estadoRevision === "cancelado") return "cancelado";
+  if (item.lotes) {
+    const e = estadoMueble(item.lotes);
+    return e === "aprobado" ? "aprobado" : e === "en_retrabajo" ? "no_aprobado" : "sin_evaluar";
+  }
   const ultimo = item.informes[0];
   if (!ultimo) return "sin_evaluar";
   return ultimo.aprobado ? "aprobado" : "no_aprobado";
@@ -36,11 +51,35 @@ export function diasSinEvaluar(
   return Math.max(0, Math.floor((ahora.getTime() - new Date(item.liberadoEn).getTime()) / 86_400_000));
 }
 
-// Ítems que se pueden aprobar de una vez: los que nunca se han evaluado. Los
-// rechazados no entran (volver a aprobarlos es una decisión individual) ni los
-// cancelados.
-export function idsPorAprobar(items: Pick<ItemEvaluable, "id" | "estadoRevision" | "informes">[]): string[] {
-  return items.filter((i) => estadoDe(i) === "sin_evaluar").map((i) => i.id);
+// Ítems que se pueden aprobar de una vez: muebles con piezas por evaluar (se
+// aprueba todo lo pendiente de sus lotes) y componentes nunca evaluados cuyo
+// mueble Producción ya verificó. Los rechazados no entran (volver a aprobarlos
+// es una decisión individual) ni los cancelados.
+export function idsPorAprobar(
+  items: Pick<ItemEvaluable, "id" | "estadoRevision" | "informes" | "verificadoPorProduccion" | "lotes">[]
+): string[] {
+  return items
+    .filter((i) =>
+      i.lotes
+        ? i.estadoRevision !== "cancelado" && i.lotes.porEvaluar > 0
+        : i.verificadoPorProduccion && estadoDe(i) === "sin_evaluar"
+    )
+    .map((i) => i.id);
+}
+
+// Muebles (MO) con piezas verificadas por Producción → qué ítems de la lista
+// se pueden evaluar: el mueble y sus componentes. Espejo de la función
+// item_verificado_por_produccion de la base.
+export function verificadosPorProduccion(
+  items: Pick<ItemEvaluable, "id" | "tipo_registro" | "parent_item_id">[],
+  mueblesVerificados: ReadonlySet<string>
+): Set<string> {
+  const salida = new Set<string>();
+  for (const i of items) {
+    const raiz = i.tipo_registro === "FU" && i.parent_item_id ? i.parent_item_id : i.id;
+    if (mueblesVerificados.has(raiz)) salida.add(i.id);
+  }
+  return salida;
 }
 
 // El mueble (MO) de un ítem escaneado junto con sus componentes (FU). Si el

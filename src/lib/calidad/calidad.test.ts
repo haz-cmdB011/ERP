@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CATEGORIAS_DEFECTO, esCategoriaDefecto, nombreCategoria } from "./categorias";
 import { detallePorEvaluar, resumirCalidad } from "./resumen";
-import { porInspeccionar, type EntregaDeItem } from "./inspeccion";
 import { hrefFolios, leerFiltrosFolios, rangoDeInstantes } from "./folios-filtros";
 import { cambiosDesdeLaPantalla, mensajeEvaluacionNueva } from "./verificar-evaluacion";
 
@@ -60,58 +59,6 @@ describe("resumirCalidad", () => {
   it("detallePorEvaluar resume la antigüedad", () => {
     expect(detallePorEvaluar(r)).toBe("1 con 3 días o más · el más antiguo espera 10 días");
     expect(detallePorEvaluar(resumirCalidad([], [], AHORA))).toBe("todo lo liberado está evaluado");
-  });
-});
-
-describe("porInspeccionar", () => {
-  const e = (extra: Partial<EntregaDeItem>): EntregaDeItem => ({
-    itemId: "i1",
-    pedidoId: "p",
-    numeroPedido: "PM-1",
-    modelo: "M",
-    itemCode: 1,
-    entregado: 5,
-    asignado: 10,
-    unidad: "pz",
-    ultimaEntrega: "2026-10-05",
-    ...extra,
-  });
-
-  it("incluye lo nunca evaluado, lo rechazado y lo entregado después de evaluar", () => {
-    const informes = new Map([
-      ["rechazado", { aprobado: false, elaboradoEn: "2026-10-04T15:00:00Z" }],
-      ["viejo", { aprobado: true, elaboradoEn: "2026-10-01T15:00:00Z" }],
-      ["al-dia", { aprobado: true, elaboradoEn: "2026-10-06T15:00:00Z" }],
-    ]);
-    const lista = porInspeccionar(
-      [
-        e({ itemId: "nuevo" }),
-        e({ itemId: "rechazado" }),
-        e({ itemId: "viejo" }),
-        e({ itemId: "al-dia" }),
-        e({ itemId: "sin-entrega", entregado: 0 }),
-      ],
-      informes
-    );
-    expect(lista.map((x) => [x.itemId, x.motivo])).toEqual([
-      ["nuevo", "sin_evaluar"],
-      ["rechazado", "reinspeccion"],
-      ["viejo", "entrega_nueva"],
-    ]);
-  });
-
-  it("una entrega el mismo día de la evaluación (hora de México) no cuenta como nueva", () => {
-    // 2026-10-06 22:00 UTC = 16:00 en México, el mismo día de la entrega.
-    const informes = new Map([["i1", { aprobado: true, elaboradoEn: "2026-10-06T22:00:00Z" }]]);
-    expect(porInspeccionar([e({ ultimaEntrega: "2026-10-06" })], informes)).toEqual([]);
-  });
-
-  it("ordena por la entrega más antigua primero", () => {
-    const lista = porInspeccionar(
-      [e({ itemId: "b", ultimaEntrega: "2026-10-06" }), e({ itemId: "a", ultimaEntrega: "2026-10-02" })],
-      new Map()
-    );
-    expect(lista.map((x) => x.itemId)).toEqual(["a", "b"]);
   });
 });
 

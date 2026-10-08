@@ -8,8 +8,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { avancePorPedido, avancePorPedidoEstricto, sumarAvance } from "../src/lib/resumen/avance-items";
 import { paginarTodo } from "../src/lib/supabase/paginar";
-import { cargarEntregasConInforme, cargarResumenCalidad } from "../src/lib/calidad/resumen-db";
-import { porInspeccionar } from "../src/lib/calidad/inspeccion";
+import { cargarLotesPorEvaluar, cargarResumenCalidad } from "../src/lib/calidad/resumen-db";
 import { cargarFoliosParaExcel } from "../src/lib/calidad/folios-consulta";
 import { leerFiltrosFolios } from "../src/lib/calidad/folios-filtros";
 
@@ -62,10 +61,13 @@ describe.skipIf(!hayVariables)("lecturas de Calidad (solo lectura)", () => {
     expect(resumen.evaluados + resumen.porEvaluar).toBe(resumen.liberados);
   });
 
-  it("la bandeja de entregas por inspeccionar se arma sin fallar", async () => {
-    const { entregas, ultimoInforme } = await cargarEntregasConInforme(servicio);
-    const lista = porInspeccionar(entregas, ultimoInforme);
-    expect(lista.length).toBeLessThanOrEqual(entregas.length);
+  it("la bandeja de lotes por evaluar se arma sin fallar y solo trae pendientes vigentes", async () => {
+    const lista = await cargarLotesPorEvaluar(servicio);
+    for (const l of lista) {
+      expect(l.vigente).toBe(true);
+      expect(l.pendiente).toBeGreaterThan(0);
+      expect(l.aprobadas + l.rechazadas + l.pendiente).toBe(l.cantidad);
+    }
   });
 
   it("los folios (con la categoría de la vista) coinciden con el conteo", async () => {

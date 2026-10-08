@@ -287,6 +287,11 @@ export default async function AsignacionesPage({
                         {PROCESO_LABELS[a.proceso]}
                         {a.es_planta ? " · planta" : a.equipo_encargado ? ` · ${a.equipo_encargado}` : ""}
                       </span>
+                      {a.folio_rechazo && (
+                        <span className="mt-0.5 block text-xs font-medium text-rose-700">
+                          Retrabajo · {a.folio_rechazo}
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">{formatoFecha(a.fecha_asignacion)}</td>
                     <td className="whitespace-nowrap px-3 py-2">

@@ -5,9 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
-import { grupoDelItem } from "@/lib/calidad/estado-item";
+import { grupoDelItem, verificadosPorProduccion } from "@/lib/calidad/estado-item";
+import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
-
+import { puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
 import { leer } from "@/lib/supabase/leer";
 interface VersionRow {
   id: string;
@@ -48,6 +49,7 @@ interface InformeRow {
   elaborado_en: string;
   descripcion: string | null;
   categoria: string | null;
+  cantidad: number | string | null;
 }
 
 export const generateMetadata = metadataPedido;
@@ -114,9 +116,7 @@ export default async function PedidoCalidadPage({
   // Refleja is_calidad() del lado del servidor (ver migración
   // informes_calidad): solo controla qué botones se muestran — el permiso
   // real lo sigue exigiendo el RPC crear_informe_calidad en la base.
-  const puedeEvaluar =
-    perfil?.rol === "desarrollador" ||
-    (perfil?.area === "calidad" && (perfil.rol === "administrador" || perfil.rol === "trabajador"));
+  const puedeEvaluar = puedeEvaluarCalidad(perfil);
 
   // Un pedido eliminado (papelera de Planeación) deja de existir para
   // Calidad — en cuanto se restaure desde Planeación, vuelve a aparecer
@@ -153,13 +153,15 @@ export default async function PedidoCalidadPage({
   const items = itemsEnviados ?? [];
   const itemIds = items.map((i) => i.id);
 
-  // Informes e imágenes de los ítems se piden a la vez.
-  const [informes, imagenesPorItem] = await Promise.all([
+  // Informes, imágenes y los lotes (entregas verificadas) de cada mueble se
+  // piden a la vez.
+  const muebleIds = items.filter((i) => i.tipo_registro === "MO").map((i) => i.id);
+  const [informes, imagenesPorItem, filasLotes] = await Promise.all([
     itemIds.length
       ? leer(
           supabase
             .from("informes_calidad")
-            .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria")
+            .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria, cantidad")
             .in("planeacion_item_id", itemIds)
             .order("elaborado_en", { ascending: false })
             .returns<InformeRow[]>(),
@@ -167,7 +169,27 @@ export default async function PedidoCalidadPage({
         )
       : Promise.resolve([] as InformeRow[]),
     getImagenesConGrandePorItem(supabase, itemIds),
+    muebleIds.length
+      ? leer(
+          supabase
+            .from("lotes_calidad")
+            .select("*")
+            .in("planeacion_item_id", muebleIds)
+            .order("verificada_en")
+            .returns<LoteCalidad[]>(),
+          "lotes_calidad"
+        )
+      : Promise.resolve([] as LoteCalidad[]),
   ]);
+  const lotesPorMueble = new Map<string, LoteCalidad[]>();
+  for (const l of (filasLotes ?? []).map(normalizarLote)) {
+    if (!l.planeacion_item_id) continue;
+    lotesPorMueble.set(l.planeacion_item_id, [...(lotesPorMueble.get(l.planeacion_item_id) ?? []), l]);
+  }
+  const verificados = verificadosPorProduccion(
+    items,
+    new Set([...lotesPorMueble].filter(([, ls]) => ls.some((l) => l.cantidad > 0)).map(([id]) => id))
+  );
 
   // Cada item_id agrupa su historial completo, ya ordenado desc (más
   // reciente primero) porque la consulta de arriba ordena por elaborado_en.
@@ -189,6 +211,9 @@ export default async function PedidoCalidadPage({
     unidad: item.unidad,
     parent_item_id: item.parent_item_id,
     liberadoEn: item.liberado_en,
+    verificadoPorProduccion: verificados.has(item.id),
+    lotes: item.tipo_registro === "MO" ? resumirLotes(lotesPorMueble.get(item.id) ?? []) : null,
+    lotesPendientes: item.tipo_registro === "MO" ? lotesPorEvaluar(lotesPorMueble.get(item.id) ?? []) : [],
     estadoRevision: item.estado_revision,
     motivoCancelacion: item.motivo_cancelacion,
     imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
@@ -200,6 +225,7 @@ export default async function PedidoCalidadPage({
       elaborado_en: inf.elaborado_en,
       descripcion: inf.descripcion,
       categoria: inf.categoria,
+      cantidad: inf.cantidad == null ? null : Number(inf.cantidad),
     })),
   }));
 

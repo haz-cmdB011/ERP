@@ -79,6 +79,9 @@ export interface AsignacionResumen {
   verificado: number;
   por_verificar: number;
   ultima_verificacion: string | null;
+  // Retrabajo: el informe de Calidad que rechazó las piezas que se rehacen.
+  informe_rechazo_id: string | null;
+  folio_rechazo: string | null;
 }
 
 export interface EntregaProduccion {

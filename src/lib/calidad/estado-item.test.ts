@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { diasSinEvaluar, estadoDe, funcionNoExiste, grupoDelItem, idsPorAprobar } from "./estado-item";
+import {
+  diasSinEvaluar,
+  estadoDe,
+  funcionNoExiste,
+  grupoDelItem,
+  idsPorAprobar,
+  verificadosPorProduccion,
+} from "./estado-item";
 
 const AHORA = new Date("2026-10-07T12:00:00Z");
 const item = (extra: object = {}) => ({
@@ -8,6 +15,7 @@ const item = (extra: object = {}) => ({
   parent_item_id: null,
   estadoRevision: null,
   liberadoEn: "2026-10-01T12:00:00Z",
+  verificadoPorProduccion: true,
   informes: [] as { aprobado: boolean }[],
   ...extra,
 });
@@ -47,6 +55,23 @@ describe("idsPorAprobar", () => {
       item({ id: "e" }),
     ]);
     expect(ids).toEqual(["a", "e"]);
+  });
+
+  it("deja fuera lo que Producción todavía no verifica", () => {
+    const ids = idsPorAprobar([item({ id: "a" }), item({ id: "b", verificadoPorProduccion: false })]);
+    expect(ids).toEqual(["a"]);
+  });
+});
+
+describe("verificadosPorProduccion", () => {
+  it("un componente cuenta como verificado si su mueble padre lo está", () => {
+    const items = [
+      item({ id: "m1" }),
+      item({ id: "f1", tipo_registro: "FU", parent_item_id: "m1" }),
+      item({ id: "m2" }),
+      item({ id: "f2", tipo_registro: "FU", parent_item_id: "m2" }),
+    ];
+    expect([...verificadosPorProduccion(items, new Set(["m1"]))].sort()).toEqual(["f1", "m1"]);
   });
 });
 

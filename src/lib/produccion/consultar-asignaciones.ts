@@ -94,8 +94,17 @@ export async function consultarAsignaciones(
   return { filas: data ?? [], total: count ?? 0, error: error?.message ?? null };
 }
 
+// Resultado de Calidad sobre (parte de) una entrega: un folio por resultado.
+export interface ResultadoCalidad {
+  id: string;
+  folio: string;
+  aprobado: boolean;
+  cantidad: number;
+}
+
 export interface EntregaConFoto extends EntregaProduccion {
   fotoUrl: string | null;
+  calidad: ResultadoCalidad[];
 }
 
 // Entregas (incluidas las anuladas y rechazadas, para el historial) de un conjunto de
@@ -117,6 +126,22 @@ export async function entregasPorAsignacion(
     .order("registrado_en")
     .returns<EntregaProduccion[]>();
 
+  const entregaIds = (data ?? []).map((e) => e.id);
+  const { data: informes } = entregaIds.length
+    ? await supabase
+        .from("informes_calidad")
+        .select("id, folio, aprobado, cantidad, entrega_id")
+        .in("entrega_id", entregaIds)
+        .order("elaborado_en")
+        .returns<(Omit<ResultadoCalidad, "cantidad"> & { cantidad: number | string; entrega_id: string })[]>()
+    : { data: [] };
+  const calidadPorEntrega = new Map<string, ResultadoCalidad[]>();
+  for (const i of informes ?? []) {
+    const lista = calidadPorEntrega.get(i.entrega_id) ?? [];
+    lista.push({ id: i.id, folio: i.folio, aprobado: i.aprobado, cantidad: Number(i.cantidad) });
+    calidadPorEntrega.set(i.entrega_id, lista);
+  }
+
   const rutas = Array.from(new Set((data ?? []).map((e) => e.foto_path)));
   const { data: firmadas } = rutas.length
     ? await supabase.storage.from(BUCKET_FOTOS_ENTREGA).createSignedUrls(rutas, 3600)
@@ -129,7 +154,7 @@ export async function entregasPorAsignacion(
 
   for (const e of data ?? []) {
     const lista = mapa.get(e.asignacion_id) ?? [];
-    lista.push({ ...e, fotoUrl: urlPorRuta.get(e.foto_path) ?? null });
+    lista.push({ ...e, fotoUrl: urlPorRuta.get(e.foto_path) ?? null, calidad: calidadPorEntrega.get(e.id) ?? [] });
     mapa.set(e.asignacion_id, lista);
   }
   return mapa;
