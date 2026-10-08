@@ -11,6 +11,7 @@ import ViajeroFicha, {
 import ImprimirButton from "../imprimir-button";
 import DescargarPdfButton from "../descargar-pdf-button";
 
+import { leer } from "@/lib/supabase/leer";
 interface ItemConVersion extends ViajeroFichaItem {
   parent_item_id: string | null;
   pedido_versiones: { pedido_id: string } | null;
@@ -36,11 +37,14 @@ export default async function ViajeroLotePage({
 
   const supabase = await createClient();
 
-  const { data: pedido } = await supabase
+  const pedido = await leer(
+    supabase
     .from("pedidos")
     .select("numero_pedido, proyectos ( nombre, cliente )")
     .eq("id", id)
-    .maybeSingle<ViajeroFichaPedido>();
+    .maybeSingle<ViajeroFichaPedido>(),
+    "pedidos"
+  );
 
   if (!pedido) {
     notFound();
@@ -48,7 +52,8 @@ export default async function ViajeroLotePage({
 
   // Igual que en la ficha individual: el filtro sobre la relación embebida
   // evita mezclar ítems de otro pedido si alguien edita la URL a mano.
-  const { data: items } = await supabase
+  const items = await leer(
+    supabase
     .from("planeacion_items")
     .select(
       "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_total, unidad, acabados, observaciones, parent_item_id, fases_taller, fila_excel_origen, pedido_versiones!inner ( pedido_id )"
@@ -56,7 +61,9 @@ export default async function ViajeroLotePage({
     .in("id", itemIds)
     .eq("pedido_versiones.pedido_id", id)
     .order("fila_excel_origen")
-    .returns<(ItemConVersion & { fila_excel_origen: number | null })[]>();
+    .returns<(ItemConVersion & { fila_excel_origen: number | null })[]>(),
+    "planeacion_items"
+  );
 
   if (!items || items.length === 0) {
     notFound();
@@ -68,24 +75,30 @@ export default async function ViajeroLotePage({
 
   const padresPorId = new Map<string, ViajeroFichaPadre>();
   if (parentIds.length > 0) {
-    const { data: padres } = await supabase
+    const padres = await leer(
+      supabase
       .from("planeacion_items")
       .select("id, item_code, descripcion")
       .in("id", parentIds)
-      .returns<(ViajeroFichaPadre & { id: string })[]>();
+      .returns<(ViajeroFichaPadre & { id: string })[]>(),
+      "planeacion_items"
+    );
     for (const p of padres ?? []) {
       padresPorId.set(p.id, { item_code: p.item_code, descripcion: p.descripcion });
     }
   }
 
-  const { data: foliosRows } = await supabase
+  const foliosRows = await leer(
+    supabase
     .from("folios_produccion")
     .select("planeacion_item_id, folio")
     .in(
       "planeacion_item_id",
       items.map((i) => i.id)
     )
-    .returns<{ planeacion_item_id: string; folio: string }[]>();
+    .returns<{ planeacion_item_id: string; folio: string }[]>(),
+    "folios_produccion"
+  );
   const folioPorItem = new Map((foliosRows ?? []).map((f) => [f.planeacion_item_id, f.folio]));
 
   const baseUrl = await getBaseUrl();

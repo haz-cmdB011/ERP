@@ -3,26 +3,31 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import Marca from "@/components/marca";
+import { fetchJson } from "@/lib/http/fetch-json";
 
-// Falla inesperada al mostrar una pantalla: se puede reintentar sin perder la
-// sesión. `error.digest` identifica el fallo en los registros del servidor.
+// Falla inesperada al mostrar una pantalla: se puede reintentar sin perder la sesión.
+// `retry()` vuelve a pedir los datos al servidor; `reset()` solo limpiaba el error sin volver a
+// leer nada, así que "Reintentar" no arreglaba una falla de lectura. `error.digest` identifica
+// el fallo en los registros del servidor.
 export default function ErrorPantalla({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   // Un fallo del servidor ya lo avisa instrumentation.ts (trae digest). Los que solo
   // ocurren en el navegador (sin digest) se avisan desde aquí. Si el aviso falla, no pasa nada.
   useEffect(() => {
     if (error.digest) return;
-    void fetch("/api/errores", {
+    // fetchJson nunca lanza (sin red tampoco): si el aviso no sale, no pasa nada.
+    void fetchJson("/api/errores", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mensaje: error.message, ruta: window.location.pathname }),
       keepalive: true,
-    }).catch(() => {});
+      esperaMs: 10_000,
+    });
   }, [error]);
 
   return (
@@ -41,7 +46,7 @@ export default function ErrorPantalla({
       <div className="flex flex-wrap justify-center gap-2">
         <button
           type="button"
-          onClick={reset}
+          onClick={() => retry()}
           className="inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-brand-400"
         >
           Reintentar

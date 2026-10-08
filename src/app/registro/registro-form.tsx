@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ERROR_GENERICO, fetchJson } from "@/lib/http/fetch-json";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Turnstile, { CLAVE_TURNSTILE } from "@/components/turnstile";
@@ -35,16 +36,15 @@ export default function RegistroForm() {
     }
     setEnviando(true);
 
-    const res = await fetch("/api/registro", {
+    const r = await fetchJson("/api/registro", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nombres, apellidos, email, password, turnstileToken: tokenCaptcha }),
     });
-    const data = await res.json();
 
-    if (!res.ok) {
+    if (!r.ok) {
       setEnviando(false);
-      setError(data.error ?? "Error desconocido.");
+      setError(r.error ?? ERROR_GENERICO);
       setReinicioCaptcha((n) => n + 1);
       return;
     }

@@ -7,7 +7,24 @@ import {
   hoyMexico,
   leerCantidad,
   leerFecha,
+  revisionEntrega,
 } from "./asignaciones";
+
+describe("revisionEntrega", () => {
+  const base = { anulada_en: null, rechazada_en: null, verificada_en: null };
+  it("una entrega nueva espera la revisión del trabajador", () => {
+    expect(revisionEntrega(base)).toBe("por_verificar");
+  });
+  it("verificada pasa a Calidad; rechazada regresa al equipo", () => {
+    expect(revisionEntrega({ ...base, verificada_en: "2026-10-08T12:00:00Z" })).toBe("verificada");
+    expect(revisionEntrega({ ...base, rechazada_en: "2026-10-08T12:00:00Z" })).toBe("rechazada");
+  });
+  it("anulada gana sobre todo lo demás", () => {
+    expect(revisionEntrega({ ...base, verificada_en: "2026-10-08T12:00:00Z", anulada_en: "2026-10-09T12:00:00Z" })).toBe(
+      "anulada"
+    );
+  });
+});
 
 describe("estadoAsignacion", () => {
   it("cancelada gana sobre lo entregado", () => {

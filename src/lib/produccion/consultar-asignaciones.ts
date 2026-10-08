@@ -13,7 +13,8 @@ import {
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 // "activas" = lo que sigue en el taller (en proceso o con entrega parcial).
-export type FiltroEstado = EstadoAsignacion | "activas" | "todas";
+// "por_verificar" = entregas que el trabajador todavía no revisa.
+export type FiltroEstado = EstadoAsignacion | "activas" | "por_verificar" | "todas";
 
 export interface FiltrosAsignaciones {
   estado: FiltroEstado;
@@ -36,7 +37,7 @@ export function leerFiltros(params: Params): FiltrosAsignaciones {
   const proceso = uno(params.proceso);
   return {
     estado:
-      estado === "todas" || estado === "activas" || esEstadoAsignacion(estado) ? estado : "activas",
+      estado === "todas" || estado === "activas" || estado === "por_verificar" || esEstadoAsignacion(estado) ? estado : "activas",
     equipo: equipo && /^[0-9a-f-]{36}$/i.test(equipo) ? equipo : null,
     proceso: esProceso(proceso) ? proceso : null,
     q: (uno(params.q) ?? "").trim().slice(0, 100),
@@ -72,6 +73,7 @@ export async function consultarAsignaciones(
     .order("creado_en", { ascending: false });
 
   if (f.estado === "activas") consulta = consulta.in("estado", ["en_proceso", "parcial"]);
+  else if (f.estado === "por_verificar") consulta = consulta.gt("por_verificar", 0);
   else if (f.estado !== "todas") consulta = consulta.eq("estado", f.estado);
   if (f.equipo) consulta = consulta.eq("equipo_id", f.equipo);
   if (f.proceso) consulta = consulta.eq("proceso", f.proceso);
@@ -96,7 +98,7 @@ export interface EntregaConFoto extends EntregaProduccion {
   fotoUrl: string | null;
 }
 
-// Entregas (incluidas las anuladas, para el historial) de un conjunto de
+// Entregas (incluidas las anuladas y rechazadas, para el historial) de un conjunto de
 // asignaciones, con la URL firmada de su foto.
 export async function entregasPorAsignacion(
   supabase: Supabase,
@@ -108,7 +110,7 @@ export async function entregasPorAsignacion(
   const { data } = await supabase
     .from("entregas_produccion")
     .select(
-      "id, asignacion_id, fecha_entrega, cantidad, folios_calidad, foto_path, registrado_en, anulada_en, motivo_anulacion"
+      "id, asignacion_id, fecha_entrega, cantidad, folios_calidad, foto_path, registrado_en, anulada_en, motivo_anulacion, verificada_en, rechazada_en, motivo_rechazo"
     )
     .in("asignacion_id", asignacionIds)
     .order("fecha_entrega")

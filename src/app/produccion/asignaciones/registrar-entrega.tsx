@@ -128,7 +128,7 @@ export default function RegistrarEntrega({
       if (resultado.estado === "en-cola") {
         avisar("Sin conexión: la entrega quedó guardada en este aparato y se enviará sola.", "info");
       } else {
-        avisar("Entrega registrada");
+        avisar("Entrega registrada: revísala y mándala a Calidad");
         router.refresh();
       }
     } catch {

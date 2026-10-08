@@ -17,6 +17,7 @@ import { asignacionesDePedido, idsConInformeDeCalidad } from "@/lib/planeacion/l
 import ChipEntrega from "@/components/chip-entrega";
 import { estadoEntrega, formatoFechaDMA, formatoFechaHora, hoyEnEmpresa } from "@/lib/resumen/entrega";
 
+import { leer } from "@/lib/supabase/leer";
 interface VersionRow {
   id: string;
   numero_version: number;
@@ -116,26 +117,32 @@ export default async function PedidoDetailPage({
   // Para decir qué se cancelaría antes de confirmar (siempre sobre la versión
   // activa, aunque se esté viendo otra). Solo lo necesita quien puede cancelar.
   const versionActiva = versiones?.find((v) => v.es_version_activa) ?? versiones?.[0] ?? null;
-  const { data: itemsParaCancelar } =
+  const itemsParaCancelar =
     puedeEditar && !pedido.cancelado_en && versionActiva
-      ? await supabase
+      ? await leer(
+        supabase
           .from("planeacion_items")
           .select("tipo_registro, estado_liberacion, estado_revision, eliminacion_solicitada_en")
           .eq("pedido_version_id", versionActiva.id)
-          .returns<ItemParaCancelar[]>()
-      : { data: null };
+          .returns<ItemParaCancelar[]>(),
+        "planeacion_items"
+      )
+      : null;
   const resumenCancelacion = itemsParaCancelar ? resumirCancelacion(itemsParaCancelar) : null;
 
-  const { data: items } = versionSeleccionada
-    ? await supabase
+  const items = versionSeleccionada
+    ? await leer(
+        supabase
         .from("planeacion_items")
         .select(
           "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, estado_liberacion, estado_revision, motivo_cancelacion, eliminacion_solicitada_en"
         )
         .eq("pedido_version_id", versionSeleccionada.id)
         .order("fila_excel_origen")
-        .returns<ItemRow[]>()
-    : { data: null };
+        .returns<ItemRow[]>(),
+        "planeacion_items"
+      )
+    : null;
 
   // Seguimiento del PM (liberado, asignado, entregado, evaluado): solo tiene
   // sentido para la versión activa, que es la que Producción y Calidad usan.

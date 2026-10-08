@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { avisar } from "@/components/avisos";
+import { ERROR_GENERICO, fetchJson } from "@/lib/http/fetch-json";
 import DialogoMotivo from "@/components/dialogo-motivo";
 import { ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 
@@ -11,13 +12,12 @@ async function guardarEstado(
   estado: EstadoRevision,
   motivo?: string
 ): Promise<string | null> {
-  const res = await fetch(`/api/planeacion/items/${itemId}`, {
+  const r = await fetchJson(`/api/planeacion/items/${itemId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ estado_revision: estado, motivo_cancelacion: motivo }),
   });
-  const data = await res.json().catch(() => ({}));
-  return res.ok ? null : (data.error ?? "Error desconocido.");
+  return r.ok ? null : (r.error ?? ERROR_GENERICO);
 }
 
 // Lo que se dice en el aviso tras el cambio.

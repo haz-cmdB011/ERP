@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
+import { ERROR_GENERICO, fetchJson } from "@/lib/http/fetch-json";
 
 // Botón con confirmación en línea (sin window.confirm, que puede quedar
 // bloqueado según navegador/contexto). Se usa en los paneles Cancelados de
@@ -148,13 +149,12 @@ export function RevertirItemBoton({ itemId }: { itemId: string }) {
       pregunta="¿Revertir este ítem a Normal?"
       exito="Ítem revertido a Normal."
       ejecutar={async () => {
-        const res = await fetch(`/api/planeacion/items/${itemId}`, {
+        const r = await fetchJson(`/api/planeacion/items/${itemId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ estado_revision: null }),
         });
-        const data = await res.json().catch(() => ({}));
-        return res.ok ? null : (data.error ?? "Error desconocido.");
+        return r.ok ? null : (r.error ?? ERROR_GENERICO);
       }}
     />
   );

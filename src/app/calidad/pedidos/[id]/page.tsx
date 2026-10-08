@@ -8,6 +8,7 @@ import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import { grupoDelItem } from "@/lib/calidad/estado-item";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
 
+import { leer } from "@/lib/supabase/leer";
 interface VersionRow {
   id: string;
   numero_version: number;
@@ -134,8 +135,9 @@ export default async function PedidoCalidadPage({
   // Los cancelados SÍ se incluyen (a diferencia de antes): se muestran
   // marcados como "Cancelado" en vez de ocultarse, para no dejar un
   // pedido con historial de calidad pareciendo que nunca tuvo ítems.
-  const { data: itemsEnviados } = versionSeleccionada
-    ? await supabase
+  const itemsEnviados = versionSeleccionada
+    ? await leer(
+        supabase
         .from("planeacion_items")
         .select(
           "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_total, unidad, parent_item_id, fila_excel_origen, estado_liberacion, estado_revision, motivo_cancelacion, liberado_en"
@@ -143,22 +145,27 @@ export default async function PedidoCalidadPage({
         .eq("pedido_version_id", versionSeleccionada.id)
         .eq("estado_liberacion", "enviado_a_produccion")
         .order("fila_excel_origen")
-        .returns<ItemRow[]>()
-    : { data: null };
+        .returns<ItemRow[]>(),
+        "planeacion_items"
+      )
+    : null;
 
   const items = itemsEnviados ?? [];
   const itemIds = items.map((i) => i.id);
 
   // Informes e imágenes de los ítems se piden a la vez.
-  const [{ data: informes }, imagenesPorItem] = await Promise.all([
+  const [informes, imagenesPorItem] = await Promise.all([
     itemIds.length
-      ? supabase
-          .from("informes_calidad")
-          .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria")
-          .in("planeacion_item_id", itemIds)
-          .order("elaborado_en", { ascending: false })
-          .returns<InformeRow[]>()
-      : Promise.resolve({ data: [] as InformeRow[] }),
+      ? leer(
+          supabase
+            .from("informes_calidad")
+            .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria")
+            .in("planeacion_item_id", itemIds)
+            .order("elaborado_en", { ascending: false })
+            .returns<InformeRow[]>(),
+          "informes_calidad"
+        )
+      : Promise.resolve([] as InformeRow[]),
     getImagenesConGrandePorItem(supabase, itemIds),
   ]);
 

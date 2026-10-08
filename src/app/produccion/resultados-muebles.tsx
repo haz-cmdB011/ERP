@@ -6,7 +6,7 @@ import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import type { GrupoBusqueda, ItemBusqueda } from "@/lib/produccion/buscar-muebles";
 import Colapsable from "@/components/colapsable";
-import Chevron from "@/components/chevron";
+import BotonDesplegar from "@/components/boton-desplegar";
 
 function EstadoBadge({ item }: { item: ItemBusqueda }) {
   if (item.estadoLiberacion === "enviado_a_produccion") {
@@ -111,7 +111,13 @@ export default function ResultadosMuebles({
 
               <div className="flex min-w-0 flex-1 basis-64 flex-col">
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-                  {desplegable && <Chevron abierto={abierto} className="h-3.5 w-3.5 text-slate-500" />}
+                  {desplegable && (
+                    <BotonDesplegar
+                      abierto={abierto}
+                      alAlternar={alternar}
+                      descripcion={`los ${g.hijos.length} componente${g.hijos.length === 1 ? "" : "s"} del ítem ${g.padre.item_code}`}
+                    />
+                  )}
                   {g.padre.item_code}
                   {g.padre.modelo ? ` — ${g.padre.modelo}` : ""}
                 </span>
