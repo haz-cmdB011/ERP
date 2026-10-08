@@ -11,7 +11,7 @@ import {
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
 import { validarContenidoExcel } from "@/lib/seguridad/excel";
 import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
-import { avisoNumeroPM, normalizarNumeroPM, pmDeHojaRepetida } from "@/lib/planeacion/numero-pm";
+import { pmsDeLasHojas } from "@/lib/planeacion/numero-pm";
 import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
 import { analizarImpactoCarga, type HojaParaImpacto } from "@/lib/planeacion/impacto-db";
 
@@ -280,32 +280,27 @@ export async function POST(request: Request) {
   // Si la celda y el nombre del archivo no coinciden en el número de PM, se
   // avisa al terminar la carga (ver avisoNumeroPM).
   const avisoPmPorHoja = new Map<string, string>();
-  const pmsUsados = new Set<string>();
-  for (const hoja of libro.hojas) {
-    if (hoja.resultado.ok) {
-      const opciones = {
+  const hojasOk = libro.hojas.flatMap((hoja) =>
+    hoja.resultado.ok ? [{ hoja, metadata: hoja.resultado.metadata }] : []
+  );
+  const pms = pmsDeLasHojas(
+    hojasOk.map(({ hoja, metadata }) => ({
+      nombreHoja: hoja.nombreHoja,
+      numeroPedido: metadata.numero_pedido,
+      opciones: {
         // El nombre del archivo solo aplica a la primera hoja (ver parser).
         nombreArchivo: hoja === libro.hojas[0] ? nombreArchivo : undefined,
-        fechaPedido: hoja.resultado.metadata.fecha_pedido,
+        fechaPedido: metadata.fecha_pedido,
         // Distingue a los PM sin número por el nombre del archivo.
-        proyecto: hoja.resultado.metadata.proyecto_nombre,
-      };
-      const celda = hoja.resultado.metadata.numero_pedido;
-      let pm = normalizarNumeroPM(celda, opciones);
-      let aviso = avisoNumeroPM(celda, pm, opciones);
-      // Otra hoja del archivo (a veces oculta, ej. "PEDIDO (2)") con el
-      // mismo No. PEDIDO: es un PM aparte de la misma OT, con el nombre de
-      // la hoja, no una versión que pisaría a la primera.
-      if (pmsUsados.has(pm)) {
-        const anterior = pm;
-        pm = pmDeHojaRepetida(pm, hoja.nombreHoja);
-        aviso = `Tiene el mismo No. PEDIDO que otra hoja (${anterior}); se cargó como el PM ${pm}.`;
-      }
-      pmsUsados.add(pm);
-      if (aviso) avisoPmPorHoja.set(hoja.nombreHoja, aviso);
-      hoja.resultado.metadata.numero_pedido = pm;
-    }
-  }
+        proyecto: metadata.proyecto_nombre,
+      },
+    }))
+  );
+  hojasOk.forEach(({ hoja, metadata }, i) => {
+    const { pm, aviso } = pms[i];
+    if (aviso) avisoPmPorHoja.set(hoja.nombreHoja, aviso);
+    metadata.numero_pedido = pm;
+  });
 
   // Todo o nada al validar: si una hoja tiene errores (o dos hojas dan el
   // mismo PM aun con el nombre de la hoja, que se pisarían como versiones)
