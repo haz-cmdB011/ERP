@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { traerTodo } from "@/lib/supabase/traer-todo";
+import { ErrorLectura } from "@/lib/supabase/paginar";
 
 interface PedidoOt {
   id: string;
@@ -60,7 +61,7 @@ export default async function OrdenTrabajoProduccionPage({
   );
   const idsVersiones = [...versionActiva.values()].filter((v) => v !== null).map((v) => v.id);
 
-  const [{ data: muebles }, { data: enTaller }] = await Promise.all([
+  const [{ data: muebles, error: errorMuebles }, { data: enTaller, error: errorEnTaller }] = await Promise.all([
     // Muebles (ítems padre) vigentes de la versión activa de cada PM.
     idsVersiones.length
       ? traerTodo<MuebleConteo>((desde, hasta) =>
@@ -75,7 +76,7 @@ export default async function OrdenTrabajoProduccionPage({
             .range(desde, hasta)
             .returns<MuebleConteo[]>()
         )
-      : Promise.resolve({ data: [] as MuebleConteo[] }),
+      : Promise.resolve({ data: [] as MuebleConteo[], error: null }),
     supabase
       .from("asignaciones_produccion_resumen")
       .select("pedido_id")
@@ -86,6 +87,13 @@ export default async function OrdenTrabajoProduccionPage({
       .in("estado", ["en_proceso", "parcial"])
       .returns<{ pedido_id: string }[]>(),
   ]);
+  // Conteos incompletos parecerían reales (menos muebles liberados de los que hay): mejor el aviso
+  // con "Reintentar" que números que no cuadran.
+  if (errorMuebles || errorEnTaller) {
+    throw new ErrorLectura(
+      `No se pudo leer el avance de la O.T.: ${errorMuebles ?? errorEnTaller?.message}`
+    );
+  }
 
   const conteoMuebles = new Map<string, { total: number; liberados: number }>();
   for (const m of muebles ?? []) {

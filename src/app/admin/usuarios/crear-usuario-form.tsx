@@ -14,6 +14,7 @@ import {
   type AreaMaquila,
 } from "@/lib/auth/roles";
 import AreasMaquilaSelector from "./areas-maquila-selector";
+import { ERROR_GENERICO, fetchJson } from "@/lib/http/fetch-json";
 import { avisar } from "@/components/avisos";
 
 export default function CrearUsuarioForm() {
@@ -37,7 +38,7 @@ export default function CrearUsuarioForm() {
     setEnviando(true);
     setMensaje(null);
 
-    const res = await fetch("/api/admin/usuarios/crear", {
+    const r = await fetchJson<{ email?: string }>("/api/admin/usuarios/crear", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -49,14 +50,13 @@ export default function CrearUsuarioForm() {
         areasMaquila: mostrarContratista ? areasMaquila : null,
       }),
     });
-    const data = await res.json();
 
     setEnviando(false);
-    if (!res.ok) {
-      setMensaje({ tipo: "error", texto: data.error ?? "Error desconocido." });
+    if (!r.ok) {
+      setMensaje({ tipo: "error", texto: r.error ?? ERROR_GENERICO });
       return;
     }
-    avisar(`Usuario ${data.email} creado.`);
+    avisar(`Usuario ${r.data.email} creado.`);
     setEmail("");
     setPassword("");
     setNombre("");
