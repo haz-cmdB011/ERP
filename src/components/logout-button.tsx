@@ -2,11 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { enviosPendientesDe, usuarioActualId } from "@/lib/offline/cola-navegador";
 
 export default function LogoutButton() {
   const router = useRouter();
 
   async function handleLogout() {
+    // Capturas hechas sin red que todavía no llegaron al sistema: se mandan cuando esta misma
+    // persona vuelve a entrar, así que se avisa antes de salir.
+    try {
+      const uid = await usuarioActualId();
+      const sinEnviar = uid ? (await enviosPendientesDe(uid)).filter((e) => e.estado === "pendiente").length : 0;
+      if (
+        sinEnviar > 0 &&
+        !window.confirm(
+          `Tienes ${sinEnviar} captura${sinEnviar === 1 ? "" : "s"} guardada${sinEnviar === 1 ? "" : "s"} en este aparato que aún no llegó${sinEnviar === 1 ? "" : "ron"} al sistema. Si cierras sesión se enviarán cuando vuelvas a entrar con tu cuenta. ¿Cerrar sesión de todos modos?`
+        )
+      ) {
+        return;
+      }
+    } catch {
+      // Sin poder leer la cola: se cierra sesión normalmente.
+    }
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");

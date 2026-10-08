@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { avisar } from "@/components/avisos";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { reducirFotoEnNavegador } from "@/lib/produccion/reducir-foto-navegador";
+import { cantidadEnCola } from "@/lib/offline/cola-envios";
+import {
+  enviarOGuardar,
+  enviosPendientesDe,
+  hayConexion,
+  usuarioActualId,
+} from "@/lib/offline/cola-navegador";
 import Modal, {
   estiloBotonPrimario,
   estiloBotonSecundario,
@@ -12,35 +19,13 @@ import Modal, {
   estiloEtiqueta,
 } from "./modal";
 
-// POST con FormData midiendo el avance de la subida (fetch no lo reporta).
-function enviarConAvance(
-  url: string,
-  datos: FormData,
-  onProgreso: (porcentaje: number) => void
-): Promise<{ ok: boolean; json: { error?: string } }> {
-  return new Promise((resolver, rechazar) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgreso(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () => {
-      let json: { error?: string } = {};
-      try {
-        json = JSON.parse(xhr.responseText);
-      } catch {
-        // Respuesta sin JSON: se usa el mensaje genérico.
-      }
-      resolver({ ok: xhr.status >= 200 && xhr.status < 300, json });
-    };
-    xhr.onerror = () => rechazar(new Error("red"));
-    xhr.send(datos);
-  });
-}
-
 // Botón "Registrar entrega": el equipo terminó (todo o parte). El encargado
 // escribe los folios de Calidad y sube la foto de la hoja; la foto se reduce
 // aquí y el servidor la comprime antes de guardarla.
+//
+// Si se cae la red, la entrega (con su foto) se guarda en este aparato y se manda sola al
+// volver la conexión (ver src/lib/offline). El servidor reconoce los reintentos, así que
+// no se duplica.
 export default function RegistrarEntrega({
   asignacionId,
   descripcion,
@@ -65,6 +50,21 @@ export default function RegistrarEntrega({
   // 0-100 mientras se sube la foto (null cuando no se está enviando).
   const [progreso, setProgreso] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Cantidad de esta asignación ya capturada y guardada en el aparato esperando red.
+  const [enCola, setEnCola] = useState(0);
+  const [, refrescarConexion] = useState(0);
+
+  // Mientras el formulario está abierto, el aviso de "sin conexión" sigue a la red.
+  useEffect(() => {
+    if (!abierto) return;
+    const alCambiar = () => refrescarConexion((n) => n + 1);
+    window.addEventListener("online", alCambiar);
+    window.addEventListener("offline", alCambiar);
+    return () => {
+      window.removeEventListener("online", alCambiar);
+      window.removeEventListener("offline", alCambiar);
+    };
+  }, [abierto]);
 
   // Libera la URL de la vista previa al cambiar de foto o cerrar.
   useEffect(() => {
@@ -77,9 +77,20 @@ export default function RegistrarEntrega({
     setVistaPrevia(archivo ? URL.createObjectURL(archivo) : null);
   }
 
-  function abrir() {
+  // Lo que falta por entregar descontando lo que ya está capturado y en espera de red.
+  const disponible = Math.max(0, pendiente - enCola);
+
+  async function abrir() {
+    let enEspera = 0;
+    try {
+      const uid = await usuarioActualId();
+      if (uid) enEspera = cantidadEnCola(await enviosPendientesDe(uid), asignacionId);
+    } catch {
+      // Sin cola legible: se abre igual, el servidor valida las cantidades.
+    }
+    setEnCola(enEspera);
     setFecha(hoyMexico());
-    setCantidad(String(pendiente));
+    setCantidad(String(Math.max(0, pendiente - enEspera)));
     setFolios("");
     elegirFoto(null);
     setError(null);
@@ -96,23 +107,32 @@ export default function RegistrarEntrega({
     setError(null);
     try {
       const reducida = await reducirFotoEnNavegador(foto);
-      const datos = new FormData();
-      datos.set("asignacionId", asignacionId);
-      datos.set("fecha", fecha);
-      datos.set("cantidad", cantidad);
-      datos.set("folios", folios);
-      datos.set("foto", reducida, "folios.jpg");
       setProgreso(0);
-      const { ok, json } = await enviarConAvance("/api/produccion/entregas", datos, setProgreso);
-      if (!ok) {
-        setError(json.error ?? "No se pudo registrar la entrega.");
+      const resultado = await enviarOGuardar(
+        {
+          etiqueta: `${descripcion} · ${cantidad} ${unidad ?? ""}`.trim(),
+          usuarioId: await usuarioActualId(),
+          url: "/api/produccion/entregas",
+          campos: { asignacionId, fecha, cantidad, folios },
+          archivos: [{ campo: "foto", nombre: "folios.jpg", blob: reducida }],
+          grupo: asignacionId,
+          cantidad: Number(cantidad) || 0,
+        },
+        setProgreso
+      );
+      if (resultado.estado === "rechazado") {
+        setError(resultado.mensaje);
         return;
       }
       setAbierto(false);
-      avisar("Entrega registrada: revísala y mándala a Calidad");
-      router.refresh();
+      if (resultado.estado === "en-cola") {
+        avisar("Sin conexión: la entrega quedó guardada en este aparato y se enviará sola.", "info");
+      } else {
+        avisar("Entrega registrada: revísala y mándala a Calidad");
+        router.refresh();
+      }
     } catch {
-      setError("No se pudo conectar. Revisa tu conexión e intenta de nuevo.");
+      setError("No se pudo preparar la entrega. Inténtalo de nuevo.");
     } finally {
       setEnviando(false);
       setProgreso(null);
@@ -131,10 +151,21 @@ export default function RegistrarEntrega({
       {abierto && (
         <Modal
           titulo="Registrar entrega"
-          subtitulo={`${descripcion} · faltan ${pendiente} ${unidad ?? ""}`}
+          subtitulo={`${descripcion} · faltan ${disponible} ${unidad ?? ""}`}
           onCerrar={() => !enviando && setAbierto(false)}
         >
           <form onSubmit={enviar} className="flex flex-col gap-3">
+            {!hayConexion() && (
+              <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+                Sin conexión: al guardar, la entrega y su foto se quedan en este aparato y se envían solas
+                cuando vuelva la red. No cierres sesión hasta que se envíe.
+              </p>
+            )}
+            {enCola > 0 && (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+                Ya hay {enCola} {unidad ?? ""} de esta asignación capturadas en este aparato, esperando red.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <label className={estiloEtiqueta}>
                 Fecha en que terminó
@@ -154,20 +185,20 @@ export default function RegistrarEntrega({
                   type="number"
                   required
                   min="0.01"
-                  max={pendiente}
+                  max={disponible}
                   step="any"
                   inputMode="decimal"
                   value={cantidad}
                   onChange={(e) => setCantidad(e.target.value)}
                   className={estiloCampo}
                 />
-                {cantidad !== String(pendiente) && (
+                {cantidad !== String(disponible) && (
                   <button
                     type="button"
-                    onClick={() => setCantidad(String(pendiente))}
+                    onClick={() => setCantidad(String(disponible))}
                     className="self-start text-xs font-medium text-brand-700 hover:underline"
                   >
-                    Entregar todo ({pendiente})
+                    Entregar todo ({disponible})
                   </button>
                 )}
               </label>
@@ -239,7 +270,7 @@ export default function RegistrarEntrega({
               >
                 Cancelar
               </button>
-              <button type="submit" disabled={enviando} className={estiloBotonPrimario}>
+              <button type="submit" disabled={enviando || disponible <= 0} className={estiloBotonPrimario}>
                 {enviando ? "Guardando…" : "Guardar entrega"}
               </button>
             </div>

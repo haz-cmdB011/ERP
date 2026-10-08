@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
@@ -10,6 +9,13 @@ import {
   mensajeErrorRpc,
 } from "@/lib/produccion/asignaciones";
 import { comprimirFotoEntrega, TAMANO_MAXIMO_FOTO } from "@/lib/produccion/foto-entrega";
+import {
+  esFotoYaSubida,
+  esRechazoDefinitivo,
+  esViolacionUnica,
+  leerClaveEnvio,
+  rutaFotoEntrega,
+} from "@/lib/produccion/envio-entrega";
 
 export const runtime = "nodejs";
 
@@ -18,6 +24,22 @@ export const runtime = "nodejs";
 // se sube al bucket privado y después se registra la entrega con la función
 // registrar_entrega_produccion, que vuelve a validar todo (permisos,
 // cantidades, fechas).
+//
+// Es seguro REPETIR el mismo envío: el celular guarda las capturas hechas sin red y las
+// reenvía al volver la conexión, y puede reenviar una que el servidor ya había guardado
+// (la red se cortó antes de que llegara la respuesta). La `claveEnvio` que manda el celular
+// fija la ruta de la foto, y un índice único sobre foto_path (migración
+// entregas_foto_unica) impide que esa ruta registre dos entregas: el reintento recibe la
+// misma entrega, marcada `repetida`.
+async function entregaDeFoto(supabase: Awaited<ReturnType<typeof createClient>>, ruta: string) {
+  const { data } = await supabase
+    .from("entregas_produccion")
+    .select("id")
+    .eq("foto_path", ruta)
+    .maybeSingle<{ id: string }>();
+  return data?.id ?? null;
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
@@ -44,6 +66,14 @@ export async function POST(request: Request) {
   if (typeof asignacionId !== "string" || !/^[0-9a-f-]{36}$/i.test(asignacionId)) {
     return NextResponse.json({ error: "Asignación no válida." }, { status: 400 });
   }
+  const ruta = rutaFotoEntrega(asignacionId, leerClaveEnvio(form.get("claveEnvio")));
+
+  // ¿Este mismo envío ya se registró en un intento anterior?
+  const previa = await entregaDeFoto(supabase, ruta);
+  if (previa) {
+    return NextResponse.json({ ok: true, id: previa, repetida: true });
+  }
+
   if (!fecha) {
     return NextResponse.json({ error: "Fecha de entrega no válida." }, { status: 400 });
   }
@@ -68,11 +98,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const ruta = `${asignacionId}/${randomUUID()}.webp`;
+  // Si un intento anterior de este envío ya subió la foto (y se cortó antes de registrar),
+  // se reutiliza: es la misma foto.
   const { error: errorSubida } = await supabase.storage
     .from(BUCKET_FOTOS_ENTREGA)
     .upload(ruta, comprimida, { contentType: "image/webp" });
-  if (errorSubida) {
+  if (errorSubida && !esFotoYaSubida(errorSubida)) {
     return NextResponse.json(
       { error: `No se pudo subir la foto: ${errorSubida.message}` },
       { status: 500 }
@@ -88,10 +119,21 @@ export async function POST(request: Request) {
   });
 
   if (error) {
+    // Dos envíos iguales a la vez: ganó el otro. La foto es la de la entrega registrada,
+    // así que NO se borra.
+    if (esViolacionUnica(error)) {
+      const id = await entregaDeFoto(supabase, ruta);
+      if (id) return NextResponse.json({ ok: true, id, repetida: true });
+    }
     // La entrega no quedó: la foto subida no debe quedar huérfana. El bucket
     // no deja borrar a nadie desde la app, por eso se usa service role.
     await createAdminClient().storage.from(BUCKET_FOTOS_ENTREGA).remove([ruta]);
-    return NextResponse.json({ error: mensajeErrorRpc(error.message) }, { status: 400 });
+    // 400 = la regla de la base la rechazó (repetir no la arregla). Cualquier otra falla
+    // (corte con la base, tiempo agotado) es pasajera: 500, y el celular reintenta.
+    return NextResponse.json(
+      { error: mensajeErrorRpc(error.message) },
+      { status: esRechazoDefinitivo(error) ? 400 : 500 }
+    );
   }
 
   return NextResponse.json({ ok: true, id: entregaId });
