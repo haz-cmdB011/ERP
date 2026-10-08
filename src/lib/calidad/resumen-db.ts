@@ -49,14 +49,14 @@ export async function cargarResumenCalidad(supabase: SupabaseClient, ahora = new
     items.push({ id: f.id, pedidoId: f.pedido_versiones.pedido_id, liberadoEn: f.liberado_en });
   }
 
-  const informes = await paginarTodo<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string }>(
+  const informes = await paginarTodo<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string; piezas_verificadas: number | string | null }>(
     (desde, hasta) =>
       supabase
         .from("informes_calidad")
         .select("planeacion_item_id, aprobado, elaborado_en")
         .order("id")
         .range(desde, hasta)
-        .returns<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string }[]>(),
+        .returns<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string; piezas_verificadas: number | string | null }[]>(),
     { contexto: "los informes de calidad" }
   );
   const basicos: InformeBasico[] = informes.map((i) => ({
@@ -161,16 +161,16 @@ export async function cargarEntregasConInforme(
   const informes = (
     await Promise.all(
       lotes([...porItem.keys()]).map((lote) =>
-        paginarTodo<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string }>(
+        paginarTodo<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string; piezas_verificadas: number | string | null }>(
           (desde, hasta) =>
             supabase
               .from("informes_calidad")
-              .select("planeacion_item_id, aprobado, elaborado_en")
+              .select("planeacion_item_id, aprobado, elaborado_en, piezas_verificadas")
               .in("planeacion_item_id", lote)
               .order("elaborado_en", { ascending: false })
               .order("id")
               .range(desde, hasta)
-              .returns<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string }[]>(),
+              .returns<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string; piezas_verificadas: number | string | null }[]>(),
           { contexto: "los informes de los ítems entregados" }
         )
       )
@@ -180,7 +180,11 @@ export async function cargarEntregasConInforme(
   for (const i of informes) {
     const previo = ultimoInforme.get(i.planeacion_item_id);
     if (!previo || i.elaborado_en > previo.elaboradoEn) {
-      ultimoInforme.set(i.planeacion_item_id, { aprobado: i.aprobado, elaboradoEn: i.elaborado_en });
+      ultimoInforme.set(i.planeacion_item_id, {
+        aprobado: i.aprobado,
+        elaboradoEn: i.elaborado_en,
+        piezasVerificadas: i.piezas_verificadas == null ? null : Number(i.piezas_verificadas),
+      });
     }
   }
 

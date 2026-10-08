@@ -27,10 +27,13 @@ const UUID_NULO = "00000000-0000-0000-0000-000000000000";
 // Desde aquí crear_informe_calidad exige piezas verificadas por Producción
 // (migración 20261008172430_produccion_calidad_reglas).
 const INICIO_REGLA_VERIFICADO = "2026-10-08T17:24:30Z";
+// Desde aquí cada informe guarda sus piezas verificadas
+// (migración 20261008174652_informe_piezas_verificadas).
+const INICIO_PIEZAS_GUARDADAS = "2026-10-08T17:46:52Z";
 
 describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
   describe("objetos que deben seguir en la base", () => {
-    it("no falta ningún trigger ni RLS del flujo", async () => {
+    it("no falta ningún trigger ni RLS del flujo, ni hay políticas de escritura directa", async () => {
       const { data, error } = await servicio.rpc("faltantes_reglas_produccion_calidad");
       expect(error).toBeNull();
       expect(data).toEqual([]);
@@ -71,6 +74,20 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
   });
 
   describe("datos", () => {
+    it("todo informe nuevo guarda cuántas piezas verificadas tenía el mueble", async (ctx) => {
+      const { data: informes } = await servicio
+        .from("informes_calidad")
+        .select("folio, piezas_verificadas")
+        .gte("elaborado_en", INICIO_PIEZAS_GUARDADAS)
+        .limit(500);
+      if (!informes?.length) {
+        console.warn("[test:db] Sin informes desde que se guardan las piezas: se omite.");
+        return ctx.skip();
+      }
+      const sinPiezas = informes.filter((i) => !(Number(i.piezas_verificadas) > 0));
+      expect(sinPiezas.map((i) => i.folio)).toEqual([]);
+    });
+
     it("toda asignación vigente es de un ítem liberado a producción", async (ctx) => {
       const { data: asignaciones } = await servicio
         .from("asignaciones_produccion")

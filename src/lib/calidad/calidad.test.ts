@@ -79,9 +79,9 @@ describe("porInspeccionar", () => {
 
   it("incluye lo nunca evaluado, lo rechazado y lo entregado después de evaluar", () => {
     const informes = new Map([
-      ["rechazado", { aprobado: false, elaboradoEn: "2026-10-04T15:00:00Z" }],
-      ["viejo", { aprobado: true, elaboradoEn: "2026-10-01T15:00:00Z" }],
-      ["al-dia", { aprobado: true, elaboradoEn: "2026-10-06T15:00:00Z" }],
+      ["rechazado", { aprobado: false, elaboradoEn: "2026-10-04T15:00:00Z", piezasVerificadas: null }],
+      ["viejo", { aprobado: true, elaboradoEn: "2026-10-01T15:00:00Z", piezasVerificadas: null }],
+      ["al-dia", { aprobado: true, elaboradoEn: "2026-10-06T15:00:00Z", piezasVerificadas: null }],
     ]);
     const lista = porInspeccionar(
       [
@@ -100,10 +100,21 @@ describe("porInspeccionar", () => {
     ]);
   });
 
-  it("una entrega el mismo día de la evaluación (hora de México) no cuenta como nueva", () => {
+  it("informe sin piezas guardadas: una entrega el mismo día (hora de México) no cuenta como nueva", () => {
     // 2026-10-06 22:00 UTC = 16:00 en México, el mismo día de la entrega.
-    const informes = new Map([["i1", { aprobado: true, elaboradoEn: "2026-10-06T22:00:00Z" }]]);
+    const informes = new Map([["i1", { aprobado: true, elaboradoEn: "2026-10-06T22:00:00Z", piezasVerificadas: null }]]);
     expect(porInspeccionar([e({ ultimaEntrega: "2026-10-06" })], informes)).toEqual([]);
+  });
+
+  it("con piezas guardadas: hay entrega nueva si hoy hay más piezas verificadas, aunque sea el mismo día", () => {
+    const aprobadoCon = (piezas: number) =>
+      new Map([["i1", { aprobado: true, elaboradoEn: "2026-10-06T15:00:00Z", piezasVerificadas: piezas }]]);
+    // Calidad aprobó con 3 piezas en la mañana; en la tarde se verificaron 2 más.
+    expect(porInspeccionar([e({ entregado: 5, ultimaEntrega: "2026-10-06" })], aprobadoCon(3))).toMatchObject([
+      { itemId: "i1", motivo: "entrega_nueva" },
+    ]);
+    // Mismas piezas que al evaluar: aunque haya una entrega posterior en fecha, no hay nada nuevo.
+    expect(porInspeccionar([e({ entregado: 5, ultimaEntrega: "2026-10-09" })], aprobadoCon(5))).toEqual([]);
   });
 
   it("ordena por la entrega más antigua primero", () => {
