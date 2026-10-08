@@ -47,6 +47,8 @@ export interface ItemCalidadRow {
   imagenUrl: string | null;
   imagenGrandeUrl: string | null;
   liberadoEn: string | null;
+  // Producción ya verificó piezas del mueble: sin eso no se puede evaluar.
+  verificadoPorProduccion: boolean;
   estadoRevision: string | null;
   motivoCancelacion: string | null;
   // Historial completo del ítem, ordenado desc — [0] es el más reciente.
@@ -478,6 +480,13 @@ export default function ItemsCalidadTable({
   // Botones de aprobar / no aprobar (o "Aprobando… Deshacer" durante la espera).
   function Acciones({ item }: { item: ItemCalidadRow }) {
     if (estadoDe(item) === "cancelado") return <span className="text-xs text-slate-500">—</span>;
+    if (!item.verificadoPorProduccion) {
+      return (
+        <span className="text-xs text-slate-500" title="Producción todavía no verifica piezas de este mueble">
+          En producción
+        </span>
+      );
+    }
     if (enEspera.has(item.id)) {
       return (
         <span className="flex items-center gap-2 text-xs font-medium text-emerald-700">

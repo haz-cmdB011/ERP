@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
-import { grupoDelItem } from "@/lib/calidad/estado-item";
+import { grupoDelItem, verificadosPorProduccion } from "@/lib/calidad/estado-item";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
 
 interface VersionRow {
@@ -149,8 +149,9 @@ export default async function PedidoCalidadPage({
   const items = itemsEnviados ?? [];
   const itemIds = items.map((i) => i.id);
 
-  // Informes e imágenes de los ítems se piden a la vez.
-  const [{ data: informes }, imagenesPorItem] = await Promise.all([
+  // Informes, imágenes y lo que Producción ya verificó se piden a la vez.
+  const muebleIds = items.filter((i) => i.tipo_registro === "MO").map((i) => i.id);
+  const [{ data: informes }, imagenesPorItem, { data: verificadas }] = await Promise.all([
     itemIds.length
       ? supabase
           .from("informes_calidad")
@@ -160,7 +161,20 @@ export default async function PedidoCalidadPage({
           .returns<InformeRow[]>()
       : Promise.resolve({ data: [] as InformeRow[] }),
     getImagenesConGrandePorItem(supabase, itemIds),
+    muebleIds.length
+      ? supabase
+          .from("asignaciones_produccion_resumen")
+          .select("planeacion_item_id")
+          .in("planeacion_item_id", muebleIds)
+          .neq("estado", "cancelada")
+          .gt("verificado", 0)
+          .returns<{ planeacion_item_id: string }[]>()
+      : Promise.resolve({ data: [] as { planeacion_item_id: string }[] }),
   ]);
+  const verificados = verificadosPorProduccion(
+    items,
+    new Set((verificadas ?? []).map((v) => v.planeacion_item_id))
+  );
 
   // Cada item_id agrupa su historial completo, ya ordenado desc (más
   // reciente primero) porque la consulta de arriba ordena por elaborado_en.
@@ -182,6 +196,7 @@ export default async function PedidoCalidadPage({
     unidad: item.unidad,
     parent_item_id: item.parent_item_id,
     liberadoEn: item.liberado_en,
+    verificadoPorProduccion: verificados.has(item.id),
     estadoRevision: item.estado_revision,
     motivoCancelacion: item.motivo_cancelacion,
     imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
