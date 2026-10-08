@@ -327,8 +327,8 @@ export function pmsDeLasHojas(
  * PM nuevo. Es el nombre del archivo sin extensión, en mayúsculas y con los
  * espacios juntados: "E3 OT 115-26 CORNER JBE  04.09.26.xlsx" y "e3 ot 115-26
  * corner jbe 04.09.26.xlsm" son el mismo archivo; si cambia la fecha del
- * nombre, es otro. Las hojas después de la primera llevan además su nombre
- * ("<ARCHIVO> :: X FECHAS"). Espejo del respaldo de la migración
+ * nombre, es otro. Con `nombreHoja` lleva además el de la hoja ("<ARCHIVO>
+ * :: X FECHAS"; ver claveDeHoja en hojas-carga.ts). Espejo del respaldo de la migración
  * 20261008160311_pm_por_archivo.sql.
  */
 export function claveArchivoOrigen(nombreArchivo: string, nombreHoja?: string): string {

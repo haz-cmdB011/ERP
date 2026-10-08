@@ -11,7 +11,8 @@ import {
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
 import { validarContenidoExcel } from "@/lib/seguridad/excel";
 import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
-import { claveArchivoOrigen, pmsDeLasHojas } from "@/lib/planeacion/numero-pm";
+import { claveDeHoja, hojasParaCargar } from "@/lib/planeacion/hojas-carga";
+import { pmsDeLasHojas } from "@/lib/planeacion/numero-pm";
 import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
 import { analizarImpactoCarga, versionSinCambios, type HojaParaImpacto } from "@/lib/planeacion/impacto-db";
 
@@ -199,6 +200,9 @@ export async function POST(request: Request) {
   // La persona ya vio qué trabajo en marcha deja atrás la versión nueva y
   // confirmó cargarla (ver el aviso 409 más abajo).
   let confirmarImpacto = false;
+  // Qué decidió la persona sobre las hojas ocultas con formato de PM: subirlas
+  // (true), solo las visibles (false) o aún no se le preguntó (null).
+  let incluirOcultas: boolean | null = null;
 
   if ((request.headers.get("content-type") ?? "").includes("application/json")) {
     const body = await request.json().catch(() => null);
@@ -215,6 +219,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, descartado: true });
     }
     confirmarImpacto = body?.confirmarImpacto === true;
+    if (typeof body?.incluirOcultas === "boolean") incluirOcultas = body.incluirOcultas;
     const { data: descargado, error: descargaError } = await supabase.storage
       .from("cargas-excel")
       .download(storagePath);
@@ -277,18 +282,43 @@ export async function POST(request: Request) {
   //    extrae la imagen de cada fila. Se leen todas las hojas: un mismo
   //    Excel puede traer varios PM (ej. "PEDIDO" y "SDC-1"), uno por hoja.
   const libro = await parsePlaneacionLibro(buffer, { nombreArchivo });
-  // Un PM se reconoce por el archivo del que viene: el mismo nombre de
-  // archivo es una versión nueva; otro nombre, un PM nuevo. Las hojas
-  // después de la primera llevan además el nombre de la hoja.
+
+  // Hojas ocultas con formato de PM (ej. "incidencias", "X FECHAS"): suelen ser
+  // de apoyo, así que se pregunta si se suben (409, el Excel se queda en
+  // "entrantes/"). Sin el archivo en Storage (carga directa) no se puede
+  // preguntar y se suben solo las visibles.
+  const ocultas = libro.hojas.filter((h) => h.oculta).map((h) => h.nombreHoja);
+  if (ocultas.length > 0 && incluirOcultas === null && rutaEntrante) {
+    return NextResponse.json(
+      { requiereConfirmacion: true, hojasOcultas: ocultas, storagePath: rutaEntrante },
+      { status: 409 }
+    );
+  }
+  const { cargar: hojasCargar, omitidas: ocultasOmitidas } = hojasParaCargar(
+    libro.hojas,
+    incluirOcultas === true
+  );
+  if (hojasCargar.length === 0) {
+    await limpiarEntrante();
+    return NextResponse.json(
+      {
+        error: `El archivo solo trae hojas ocultas con formato de PM (${ocultas.map((h) => `“${h}”`).join(", ")}); elige subirlas para cargarlo.`,
+      },
+      { status: 422 }
+    );
+  }
+
+  // Un PM se reconoce por el archivo del que viene (y la hoja, si hay
+  // varias): el mismo nombre es una versión nueva; otro, un PM nuevo.
   const archivoDeHoja = (hoja: (typeof libro.hojas)[number]) =>
-    claveArchivoOrigen(nombreArchivo, hoja === libro.hojas[0] ? undefined : hoja.nombreHoja);
+    claveDeHoja(nombreArchivo, libro.hojas, hoja);
 
   // El título del PM siempre se guarda como "PM<NUMERO>-<AÑO>", sin importar
   // cómo venga escrito en la celda "No. PEDIDO" o en el nombre del archivo.
   // Si la celda y el nombre del archivo no coinciden en el número de PM, se
   // avisa al terminar la carga (ver avisoNumeroPM).
   const avisoPmPorHoja = new Map<string, string>();
-  const hojasOk = libro.hojas.flatMap((hoja) =>
+  const hojasOk = hojasCargar.flatMap((hoja) =>
     hoja.resultado.ok ? [{ hoja, metadata: hoja.resultado.metadata }] : []
   );
   const pms = pmsDeLasHojas(
@@ -297,7 +327,7 @@ export async function POST(request: Request) {
       numeroPedido: metadata.numero_pedido,
       opciones: {
         // El nombre del archivo solo aplica a la primera hoja (ver parser).
-        nombreArchivo: hoja === libro.hojas[0] ? nombreArchivo : undefined,
+        nombreArchivo: hoja === hojasCargar[0] ? nombreArchivo : undefined,
         fechaPedido: metadata.fecha_pedido,
         // Distingue a los PM sin número por el nombre del archivo.
         proyecto: metadata.proyecto_nombre,
@@ -313,12 +343,12 @@ export async function POST(request: Request) {
   // Todo o nada al validar: si una hoja tiene errores (o dos hojas dan el
   // mismo PM aun con el nombre de la hoja, que se pisarían como versiones)
   // no se carga ninguna.
-  const varias = libro.hojas.length > 1;
+  const varias = hojasCargar.length > 1;
   const conHoja = (nombreHoja: string, mensaje: string) =>
     varias ? `Hoja "${nombreHoja}": ${mensaje}` : mensaje;
   const erroresValidacion: FilaError[] = [];
   const hojaPorPm = new Map<string, string>();
-  for (const hoja of libro.hojas) {
+  for (const hoja of hojasCargar) {
     if (!hoja.resultado.ok) {
       for (const e of hoja.resultado.errores) {
         erroresValidacion.push({ ...e, mensaje: conHoja(hoja.nombreHoja, e.mensaje) });
@@ -335,14 +365,14 @@ export async function POST(request: Request) {
     }
     hojaPorPm.set(pm, hoja.nombreHoja);
   }
-  const filasTotales = libro.hojas.reduce((suma, h) => suma + h.resultado.filasTotales, 0);
+  const filasTotales = hojasCargar.reduce((suma, h) => suma + h.resultado.filasTotales, 0);
 
   // 1a. Un archivo es un PM: si ya se subió y sus ítems no cambiaron respecto
   //     a la versión activa, esa hoja no crea versión nueva (ni pide
   //     confirmación). Si la revisión falla, se carga como siempre.
   const sinCambios = new Map<string, NonNullable<Awaited<ReturnType<typeof versionSinCambios>>>>();
   if (erroresValidacion.length === 0) {
-    for (const hoja of libro.hojas) {
+    for (const hoja of hojasCargar) {
       if (!hoja.resultado.ok) continue;
       try {
         const igual = await versionSinCambios(supabase, archivoDeHoja(hoja), hoja.resultado.items);
@@ -362,7 +392,7 @@ export async function POST(request: Request) {
   if (erroresValidacion.length === 0 && !confirmarImpacto && rutaEntrante) {
     try {
       const hojasPm: HojaParaImpacto[] = [];
-      for (const hoja of libro.hojas) {
+      for (const hoja of hojasCargar) {
         if (!hoja.resultado.ok || sinCambios.has(hoja.nombreHoja)) continue;
         hojasPm.push({
           nombreHoja: hoja.nombreHoja,
@@ -451,7 +481,7 @@ export async function POST(request: Request) {
   const avisos: FilaError[] = [];
   let errorCarga: string | null = null;
 
-  for (const hoja of libro.hojas) {
+  for (const hoja of hojasCargar) {
     if (!hoja.resultado.ok) continue; // ya validado arriba
     const { metadata, items } = hoja.resultado;
 
@@ -571,7 +601,7 @@ export async function POST(request: Request) {
 
   if (errorCarga) {
     return NextResponse.json(
-      { error: errorCarga, cargaId: carga.id, pedidos, hojasIgnoradas: libro.hojasIgnoradas },
+      { error: errorCarga, cargaId: carga.id, pedidos, hojasIgnoradas: libro.hojasIgnoradas, ocultasOmitidas },
       { status: 500 }
     );
   }
@@ -582,6 +612,8 @@ export async function POST(request: Request) {
     cargaId: carga.id,
     avisos,
     hojasIgnoradas: libro.hojasIgnoradas,
+    // Hojas ocultas con formato de PM que se decidió no subir.
+    ocultasOmitidas,
     pedidos,
     // Campos del primer PM, como cuando el archivo traía uno solo.
     ...primero,

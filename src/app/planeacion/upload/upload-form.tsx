@@ -32,6 +32,8 @@ interface UploadOk {
   pedidos: PedidoCargado[];
   // Hojas del archivo sin formato de PM (notas, cálculos): no se cargan.
   hojasIgnoradas?: string[];
+  // Hojas ocultas con formato de PM que se decidió no subir.
+  ocultasOmitidas?: string[];
   // Datos incompletos o dudosos que se guardaron igual (ver parser), y cambios
   // de proyecto o cliente de un PM que ya existía.
   avisos?: FilaError[];
@@ -45,14 +47,24 @@ interface UploadError {
 
 type UploadResult = UploadOk | UploadError;
 
-// El servidor encontró un PM del archivo con trabajo en marcha (liberado,
-// asignado, evaluado) y espera confirmación antes de cargar. El Excel sigue en
+// El servidor espera una decisión antes de cargar: el archivo trae hojas
+// ocultas con formato de PM (`hojasOcultas`: ¿se suben?) o un PM con trabajo
+// en marcha (`impactos`: liberado, asignado, evaluado). El Excel sigue en
 // Storage en `storagePath`.
 interface RequiereConfirmacion {
   requiereConfirmacion: true;
-  impactos: ImpactoPm[];
+  impactos?: ImpactoPm[];
+  hojasOcultas?: string[];
   storagePath: string;
 }
+
+// Lo que ya decidió la persona sobre el archivo, para el siguiente envío.
+interface OpcionesCarga {
+  confirmarImpacto?: boolean;
+  incluirOcultas?: boolean;
+}
+
+type Decision = "cargar" | "omitir" | "incluirOcultas" | "soloVisibles";
 
 // La persona decidió no cargar el archivo tras ver el aviso.
 interface UploadOmitido {
@@ -77,6 +89,7 @@ interface Carga {
   estado: "pendiente" | "procesando" | "confirmando" | "terminado";
   // Solo mientras espera la confirmación.
   impactos?: ImpactoPm[];
+  hojasOcultas?: string[];
   // 0-100: subida del archivo y procesamiento (ver PORCENTAJE_SUBIDA).
   progreso: number;
   fase?: "subiendo" | "procesando";
@@ -94,19 +107,19 @@ function formatoTamano(bytes: number): string {
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-// Manda al servidor procesar un Excel que ya está en Storage. Con
-// `confirmarImpacto` la persona ya vio el aviso de trabajo en marcha. Nunca
-// lanza: los errores vuelven como UploadError.
+// Manda al servidor procesar un Excel que ya está en Storage, con lo que la
+// persona ya decidió (hojas ocultas, trabajo en marcha). Nunca lanza: los
+// errores vuelven como UploadError.
 async function procesarEnServidor(
   storagePath: string,
   nombreArchivo: string,
-  confirmarImpacto = false
+  opciones: OpcionesCarga = {}
 ): Promise<UploadResult | RequiereConfirmacion> {
   try {
     const res = await fetch("/api/planeacion/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storagePath, nombreArchivo, confirmarImpacto }),
+      body: JSON.stringify({ storagePath, nombreArchivo, ...opciones }),
     });
     const data: UploadResult | RequiereConfirmacion | null = await res.json().catch(() => null);
     if (res.status === 409 && data && pideConfirmacion(data)) return data;
@@ -230,7 +243,7 @@ export default function UploadForm() {
   // pasar sobre los elementos hijos de la zona.
   const profundidadArrastre = useRef(0);
   // Archivos que esperan que la persona confirme (por id de carga).
-  const decisiones = useRef(new Map<string, (decision: "cargar" | "omitir") => void>());
+  const decisiones = useRef(new Map<string, (decision: Decision) => void>());
 
   // Si se suelta un archivo fuera de la zona, el navegador lo abre o lo
   // descarga y se sale de la página: se evita en toda la ventana.
@@ -271,17 +284,17 @@ export default function UploadForm() {
   // Espera a que la persona decida qué hacer con un archivo que cambia un PM con
   // trabajo en marcha. El bucle de carga se detiene aquí; los demás archivos
   // esperan su turno.
-  function esperarDecision(id: string): Promise<"cargar" | "omitir"> {
+  function esperarDecision(id: string): Promise<Decision> {
     return new Promise((resolver) => {
       decisiones.current.set(id, resolver);
     });
   }
 
-  function decidir(id: string, decision: "cargar" | "omitir") {
+  function decidir(id: string, decision: Decision) {
     const resolver = decisiones.current.get(id);
     decisiones.current.delete(id);
     // Al decidir deja de estar "confirmando": el bucle sigue (cargar) o termina el archivo.
-    actualizar(id, { estado: "procesando", impactos: undefined });
+    actualizar(id, { estado: "procesando", impactos: undefined, hojasOcultas: undefined });
     resolver?.(decision);
   }
 
@@ -309,26 +322,39 @@ export default function UploadForm() {
       }, 700);
       let resultado: UploadResult | UploadOmitido;
       try {
-        const primero = await subirArchivo(carga.file, (progreso, fase) =>
+        let respuesta = await subirArchivo(carga.file, (progreso, fase) =>
           actualizar(carga.id, { progreso, fase })
         );
-        if (pideConfirmacion(primero)) {
-          // El PM ya tiene trabajo en marcha: se muestra qué deja atrás la versión
-          // nueva y se espera la decisión.
-          actualizar(carga.id, { estado: "confirmando", impactos: primero.impactos });
-          const decision = await esperarDecision(carga.id);
-          if (decision === "cargar") {
-            const confirmado = await procesarEnServidor(primero.storagePath, carga.file.name, true);
-            resultado = pideConfirmacion(confirmado)
-              ? { error: "El servidor volvió a pedir confirmación; intenta de nuevo." }
-              : confirmado;
-          } else {
-            await descartarEntrante(primero.storagePath, carga.file.name);
-            resultado = { omitido: true };
+        // El servidor puede pedir dos decisiones, una tras otra: si se suben
+        // las hojas ocultas y, luego, si se carga sobre un PM con trabajo en
+        // marcha. Cada envío lleva todo lo ya decidido.
+        const opciones: OpcionesCarga = {};
+        let decidido: UploadResult | UploadOmitido | null = null;
+        while (pideConfirmacion(respuesta)) {
+          const pedido = respuesta;
+          const preguntaOcultas = !!pedido.hojasOcultas?.length && opciones.incluirOcultas === undefined;
+          const preguntaImpacto = !!pedido.impactos?.length && !opciones.confirmarImpacto;
+          if (!preguntaOcultas && !preguntaImpacto) {
+            decidido = { error: "El servidor volvió a pedir confirmación; intenta de nuevo." };
+            break;
           }
-        } else {
-          resultado = primero;
+          actualizar(
+            carga.id,
+            preguntaOcultas
+              ? { estado: "confirmando", hojasOcultas: pedido.hojasOcultas }
+              : { estado: "confirmando", impactos: pedido.impactos }
+          );
+          const decision = await esperarDecision(carga.id);
+          if (decision === "omitir") {
+            await descartarEntrante(pedido.storagePath, carga.file.name);
+            decidido = { omitido: true };
+            break;
+          }
+          if (preguntaOcultas) opciones.incluirOcultas = decision === "incluirOcultas";
+          else opciones.confirmarImpacto = true;
+          respuesta = await procesarEnServidor(pedido.storagePath, carga.file.name, opciones);
         }
+        resultado = decidido ?? (respuesta as UploadResult);
       } finally {
         clearInterval(avance);
       }
@@ -481,6 +507,14 @@ export default function UploadForm() {
                   </button>
                 )}
               </div>
+              {c.estado === "confirmando" && c.hojasOcultas && (
+                <ConfirmarOcultas
+                  hojas={c.hojasOcultas}
+                  onIncluir={() => decidir(c.id, "incluirOcultas")}
+                  onSoloVisibles={() => decidir(c.id, "soloVisibles")}
+                  onOmitir={() => decidir(c.id, "omitir")}
+                />
+              )}
               {c.estado === "confirmando" && c.impactos && (
                 <ConfirmarImpacto
                   impactos={c.impactos}
@@ -543,6 +577,61 @@ function EstadoCarga({ carga }: { carga: Carga }) {
 
 function plural(n: number, uno: string, varios: string): string {
   return `${n} ${n === 1 ? uno : varios}`;
+}
+
+// Aviso cuando el Excel trae hojas ocultas con formato de PM: suelen ser de
+// apoyo (incidencias, fechas), así que se pregunta si se suben como PM aparte.
+function ConfirmarOcultas({
+  hojas,
+  onIncluir,
+  onSoloVisibles,
+  onOmitir,
+}: {
+  hojas: string[];
+  onIncluir: () => void;
+  onSoloVisibles: () => void;
+  onOmitir: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="mt-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+    >
+      <p className="font-medium">
+        {hojas.length === 1
+          ? "Este archivo tiene una hoja oculta con formato de PM:"
+          : `Este archivo tiene ${hojas.length} hojas ocultas con formato de PM:`}{" "}
+        {hojas.map((h) => `“${h}”`).join(", ")}.
+      </p>
+      <p className="mt-1 text-xs">
+        Suelen ser hojas de apoyo. Si las subes, cada una se carga como un PM aparte, con el nombre de la
+        hoja en el título.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onSoloVisibles}
+          className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+        >
+          Subir solo las visibles
+        </button>
+        <button
+          type="button"
+          onClick={onIncluir}
+          className="rounded-lg border border-amber-400 bg-white px-3 py-2 text-sm text-amber-900 transition-colors hover:bg-amber-100"
+        >
+          Subir también las ocultas
+        </button>
+        <button
+          type="button"
+          onClick={onOmitir}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          No subir el archivo
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // Aviso antes de cargar un Excel sobre un PM que ya tiene trabajo en marcha:
@@ -708,6 +797,12 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult | UploadOmitido
           <p className="mt-2 text-xs text-green-700">
             Hojas sin formato de PM que no se cargaron:{" "}
             {resultado.hojasIgnoradas.map((h) => `“${h}”`).join(", ")}.
+          </p>
+        )}
+        {resultado.ocultasOmitidas && resultado.ocultasOmitidas.length > 0 && (
+          <p className="mt-2 text-xs text-green-700">
+            Hojas ocultas que no se subieron:{" "}
+            {resultado.ocultasOmitidas.map((h) => `“${h}”`).join(", ")}.
           </p>
         )}
       </div>
