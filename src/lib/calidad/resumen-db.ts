@@ -75,11 +75,13 @@ interface FilaAsignacion {
   modelo: string | null;
   unidad: string | null;
   cantidad: number | string;
-  entregado: number | string;
-  ultima_entrega: string | null;
+  // Solo lo que el trabajador de Producción ya revisó y mandó a Calidad.
+  verificado: number | string;
+  ultima_verificacion: string | null;
 }
 
-// Lo entregado por Producción, sumado por ítem, y el último informe de cada uno
+// Lo que Producción entregó y su trabajador ya verificó, sumado por ítem, y el
+// último informe de cada uno
 // para decidir qué falta inspeccionar. Excluye ítems cancelados/eliminados.
 export async function cargarEntregasConInforme(
   supabase: SupabaseClient
@@ -88,9 +90,9 @@ export async function cargarEntregasConInforme(
     (desde, hasta) =>
       supabase
         .from("asignaciones_produccion_resumen")
-        .select("planeacion_item_id, pedido_id, numero_pedido, item_code, modelo, unidad, cantidad, entregado, ultima_entrega")
+        .select("planeacion_item_id, pedido_id, numero_pedido, item_code, modelo, unidad, cantidad, verificado, ultima_verificacion")
         .neq("estado", "cancelada")
-        .gt("entregado", 0)
+        .gt("verificado", 0)
         .order("id")
         .range(desde, hasta)
         .returns<FilaAsignacion[]>(),
@@ -99,12 +101,12 @@ export async function cargarEntregasConInforme(
 
   const porItem = new Map<string, EntregaDeItem>();
   for (const f of filas) {
-    if (!f.ultima_entrega) continue;
+    if (!f.ultima_verificacion) continue;
     const previo = porItem.get(f.planeacion_item_id);
     if (previo) {
-      previo.entregado += Number(f.entregado);
+      previo.entregado += Number(f.verificado);
       previo.asignado += Number(f.cantidad);
-      if (f.ultima_entrega > previo.ultimaEntrega) previo.ultimaEntrega = f.ultima_entrega;
+      if (f.ultima_verificacion > previo.ultimaEntrega) previo.ultimaEntrega = f.ultima_verificacion;
     } else {
       porItem.set(f.planeacion_item_id, {
         itemId: f.planeacion_item_id,
@@ -112,10 +114,10 @@ export async function cargarEntregasConInforme(
         numeroPedido: f.numero_pedido,
         modelo: f.modelo,
         itemCode: f.item_code,
-        entregado: Number(f.entregado),
+        entregado: Number(f.verificado),
         asignado: Number(f.cantidad),
         unidad: f.unidad,
-        ultimaEntrega: f.ultima_entrega.slice(0, 10),
+        ultimaEntrega: f.ultima_verificacion.slice(0, 10),
       });
     }
   }

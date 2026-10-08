@@ -28,6 +28,15 @@ const ACCIONES = {
       "La entrega queda en el historial como anulada (con su foto) y deja de contar como entregada.",
     aviso: "Entrega anulada",
   },
+  rechazar: {
+    rpc: "rechazar_entrega_produccion",
+    param: "p_entrega_id",
+    boton: "Rechazar",
+    titulo: "Rechazar entrega",
+    explicacion:
+      "Las piezas no cumplen y regresan al equipo. La entrega queda en el historial como rechazada, deja de contar como entregada y el equipo tendrá que volver a entregarlas.",
+    aviso: "Entrega rechazada y regresada al equipo",
+  },
 } as const;
 
 export default function AccionConMotivo({

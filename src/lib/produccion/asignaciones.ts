@@ -74,6 +74,11 @@ export interface AsignacionResumen {
   folios_calidad: string | null;
   num_entregas: number;
   estado: EstadoAsignacion;
+  // Piezas que el trabajador ya revisó y mandó a Calidad, y las que faltan
+  // por revisar (entregado = verificado + por_verificar).
+  verificado: number;
+  por_verificar: number;
+  ultima_verificacion: string | null;
 }
 
 export interface EntregaProduccion {
@@ -86,6 +91,21 @@ export interface EntregaProduccion {
   registrado_en: string;
   anulada_en: string | null;
   motivo_anulacion: string | null;
+  verificada_en: string | null;
+  rechazada_en: string | null;
+  motivo_rechazo: string | null;
+}
+
+// Revisión del trabajador de Producción sobre una entrega del equipo.
+export type RevisionEntrega = "anulada" | "rechazada" | "verificada" | "por_verificar";
+
+export function revisionEntrega(
+  e: Pick<EntregaProduccion, "anulada_en" | "rechazada_en" | "verificada_en">
+): RevisionEntrega {
+  if (e.anulada_en) return "anulada";
+  if (e.rechazada_en) return "rechazada";
+  if (e.verificada_en) return "verificada";
+  return "por_verificar";
 }
 
 export interface EquipoProduccion {

@@ -28,7 +28,7 @@ export default async function EntregasPorInspeccionarPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Entregas por inspeccionar</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Muebles que Producción ya entregó y que no tienen evaluación al día. Los más antiguos van primero.
+            Muebles que Producción ya entregó y revisó, y que no tienen evaluación al día. Los más antiguos van primero.
           </p>
         </div>
         {lista.length > 0 && (

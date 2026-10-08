@@ -81,6 +81,7 @@ export default async function AsignacionesPage({
   const hace7 = new Date(Date.UTC(a, m - 1, d - 6)).toISOString().slice(0, 10);
   const definiciones: { etiqueta: string; filtros: FiltrosAsignaciones }[] = [
     { etiqueta: "En taller", filtros: base },
+    { etiqueta: "Por verificar", filtros: { ...base, estado: "por_verificar" } },
     { etiqueta: "Asignadas esta semana", filtros: { ...base, estado: "todas", desde: hace7 } },
     { etiqueta: "Entregadas", filtros: { ...base, estado: "entregada" } },
     { etiqueta: "Todas", filtros: { ...base, estado: "todas" } },
@@ -97,7 +98,7 @@ export default async function AsignacionesPage({
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Asignaciones</h1>
           <p className="mt-1 text-sm text-slate-500">
             Qué tiene cada equipo y cuándo lo entregó. Para asignar, entra a un pedido y usa “Asignar a
-            equipos”.
+            equipos”. Cada entrega se revisa aquí antes de pasar a Calidad.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -150,6 +151,7 @@ export default async function AsignacionesPage({
           Estado
           <select name="estado" defaultValue={filtros.estado} className={estiloCampo}>
             <option value="activas">En taller (sin terminar)</option>
+            <option value="por_verificar">Por verificar (entregas sin revisar)</option>
             {ESTADOS_ASIGNACION.map((e) => (
               <option key={e} value={e}>
                 {ESTADO_ASIGNACION_LABELS[e]}
@@ -273,6 +275,11 @@ export default async function AsignacionesPage({
                     <td className="whitespace-nowrap px-3 py-2 text-right">
                       <span className="font-medium text-slate-900">{Number(a.cantidad)}</span>
                       <span className="block text-xs text-slate-500">entregadas {Number(a.entregado)}</span>
+                      {Number(a.por_verificar) > 0 && (
+                        <span className="block text-xs font-medium text-amber-700">
+                          por verificar {Number(a.por_verificar)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <span className="font-medium text-slate-900">{a.equipo}</span>
