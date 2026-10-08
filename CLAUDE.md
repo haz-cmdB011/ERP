@@ -63,6 +63,7 @@ lo que se cargue o borre en local afecta datos reales.
   electrificación, revisión.
 - `src/lib/planos/`, `src/lib/pdf/`, `src/lib/produccion/`: planos, PDF tamaño
   carta y búsqueda de muebles.
+- `src/lib/offline/`: cola de capturas sin conexión (ver abajo).
 - `supabase/migrations/`: esquema versionado. Los números de versión deben
   coincidir con `supabase_migrations.schema_migrations` del proyecto.
 
@@ -112,6 +113,23 @@ en el repo. Por eso:
    archivo en la rama de quien la hizo o recuperarla con
    `select statements from supabase_migrations.schema_migrations where version = '...'`
    y guardarla en el repo.
+
+## Capturas sin conexión
+
+En el taller a veces se cae el Wi-Fi. La **entrega de Producción** (con su foto) se guarda en el
+propio aparato (IndexedDB) si no hay red y se manda sola al volver, con un indicador en pantalla
+(`EstadoEnvios`, en el layout raíz). Núcleo en `src/lib/offline/cola-envios.ts` (sin navegador, con
+pruebas), almacén en `almacen-indexeddb.ts`, pegamento del navegador en `cola-navegador.ts`.
+
+- **Repetir un envío nunca duplica**: cada captura lleva una `claveEnvio`; el servidor sube la foto a
+  una ruta que sale de ella y el índice único `idx_entregas_produccion_foto_path_unica` impide
+  registrar la entrega dos veces (`src/app/api/produccion/entregas/route.ts`).
+- Para llevar **otra captura** a la cola: que su ruta de servidor acepte `claveEnvio` y sea idempotente
+  (si la operación crea algo, la clave debe identificarlo de forma única) y mandarla con
+  `enviarOGuardar` en vez de `fetch`. No encolar lo que no sea seguro repetir.
+- Solo se manda con la **misma sesión** que capturó (el servidor registra a quien esté dentro).
+- Hoy NO cubre: abrir pantallas nuevas sin red (el escáner de QR y el detalle de cada mueble necesitan
+  conexión para cargar), ni Calidad ni Estimaciones.
 
 ## Seguridad
 

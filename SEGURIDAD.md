@@ -43,6 +43,14 @@ Resumen de las defensas del sistema, qué hay que mantener al día y qué pasos 
    autenticación. Quien la activa no puede usar la app ni `/api/*` hasta poner su código (se exige en
    `src/lib/supabase/middleware.ts`). Se recomienda para todas las cuentas de **desarrollador**.
 
+## Datos que se guardan en el aparato
+
+Cuando no hay red, la **entrega de Producción** (cantidad, fecha, folios de Calidad y la foto) se guarda en
+el navegador del celular (IndexedDB) hasta que se manda, y se borra al enviarse o al descartarla. Quedan
+atadas al usuario que las capturó: solo se mandan con su sesión, y al cerrar sesión con capturas
+pendientes se avisa. No se guardan contraseñas ni claves. Si el celular se pierde con capturas sin enviar,
+esas capturas (y sus fotos de folios) están en ese aparato: el bloqueo de pantalla es la defensa.
+
 ## Pasos manuales (panel de Supabase / Vercel)
 
 - [ ] **Authentication → Sign In / Providers → Email:** desactivar *Allow new users to sign up*. El registro
