@@ -22,6 +22,7 @@ npm run dev     # http://localhost:3000
 npm run build
 npm run lint
 npm test        # vitest run
+npm run test:e2e     # pruebas de navegador (Playwright); antes: npm run build
 npm run test:db      # pruebas de la base de Supabase (solo lectura, usa .env.local)
 npm run db:verificar # genera la consulta que compara migraciones del repo vs la base
 ```
@@ -33,6 +34,11 @@ puras, permisos que deben rechazarse y la regla de que la cantidad de una OT (to
 sus PM) sale solo de los muebles padre. Los casos con datos (TIRAS DE ROSA MORADO
 en la OT 102-24 = 119…) se omiten con aviso si esa OT no está cargada. No corre con
 `npm test`.
+
+## Documentación del equipo
+
+`docs/onboarding.md` (guía para quien entra), `docs/operacion.md` (qué hacer si algo falla: avisos,
+monitor `/api/salud`, accesos, restauración) y `SEGURIDAD.md`.
 
 ## Variables de entorno (`.env.local`, no se sube a Git)
 
