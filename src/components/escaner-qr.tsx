@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type jsQRTipo from "jsqr";
 import { itemDeQrViajero } from "@/lib/produccion/qr-viajero";
+import { RUTAS_ESCANER, type AreaEscaner } from "@/lib/produccion/escaner-rutas";
 
 type Estado = "iniciando" | "escaneando" | "sin-permiso" | "sin-camara" | "no-soportado";
 type Lector = typeof jsQRTipo;
@@ -45,15 +46,10 @@ const ESTILO_BOTON_SECUNDARIO =
 // para registrar su entrega, Calidad para evaluarlo. Si la cámara no está
 // disponible (sin permiso, navegador sin soporte), se puede tomar una foto del
 // QR o escribir el folio (`rutaFolio` dice a dónde se busca).
-export default function EscanerQr({
-  rutaItem,
-  rutaFolio,
-  placeholderFolio,
-}: {
-  rutaItem: (itemId: string) => string;
-  rutaFolio: (folio: string) => string;
-  placeholderFolio: string;
-}) {
+export default function EscanerQr({ area }: { area: AreaEscaner }) {
+  // Se recibe solo el nombre del área: una página de servidor no puede pasar funciones
+  // a un componente de cliente (Next lo rechaza al pintar la pantalla).
+  const { item: rutaItem, folio: rutaFolio, placeholderFolio } = RUTAS_ESCANER[area];
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

@@ -12,11 +12,7 @@ export default function EscanearCalidadPage() {
           Escanea el QR de la hoja de viajero para abrir ese mueble y evaluarlo.
         </p>
       </div>
-      <EscanerQr
-        rutaItem={(id) => `/calidad/escanear/${id}`}
-        rutaFolio={(folio) => `/calidad/folios?q=${encodeURIComponent(folio)}`}
-        placeholderFolio="O escribe el folio (CAL-000123)"
-      />
+      <EscanerQr area="calidad" />
     </main>
   );
 }

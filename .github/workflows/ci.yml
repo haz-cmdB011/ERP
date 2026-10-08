@@ -54,3 +54,28 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_placeholder
           SUPABASE_SERVICE_ROLE_KEY: placeholder
           NEXT_TELEMETRY_DISABLED: 1
+
+      # Pruebas de navegador (humo): recorren lo público de la app ya compilada con
+      # Chromium, en escritorio y en celular. No usan la base ni inician sesión (ver
+      # playwright.config.ts), así que bastan los mismos valores de relleno.
+      - name: Instalar Chromium para las pruebas de navegador
+        run: npx playwright install --with-deps chromium
+
+      - name: Pruebas de navegador
+        run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_placeholder
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
+          NEXT_TELEMETRY_DISABLED: 1
+
+      # Si fallan, el informe con capturas y trazas se baja desde la pestaña del PR.
+      - name: Guardar informe de las pruebas de navegador
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-pruebas-de-navegador
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

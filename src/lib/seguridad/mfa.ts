@@ -21,7 +21,7 @@ export function faltaSegundoPaso(nivel: NivelAseguramiento | null | undefined): 
 
 // Rutas que se pueden usar antes de completar el segundo paso (para poder terminar
 // de iniciar sesión, registrarse o recuperar la contraseña).
-const RUTAS_LIBRES = ["/login", "/registro", "/privacidad", "/auth", "/api/registro", "/manifest.webmanifest"];
+const RUTAS_LIBRES = ["/login", "/registro", "/privacidad", "/auth", "/api/registro", "/api/errores", "/api/salud", "/manifest.webmanifest"];
 
 export function exigeSegundoPaso(pathname: string): boolean {
   return !RUTAS_LIBRES.some((ruta) => pathname === ruta || pathname.startsWith(`${ruta}/`));

@@ -51,6 +51,12 @@ atadas al usuario que las capturó: solo se mandan con su sesión, y al cerrar s
 pendientes se avisa. No se guardan contraseñas ni claves. Si el celular se pierde con capturas sin enviar,
 esas capturas (y sus fotos de folios) están en ese aparato: el bloqueo de pantalla es la defensa.
 
+## Enterarse de los fallos
+
+El servidor y las pantallas de error avisan a un webhook (`ALERTA_WEBHOOK_URL`, ver `docs/operacion.md`) y
+`/api/salud` sirve a un monitor externo. Los avisos no llevan datos personales (correos tapados, rutas sin
+parámetros). **Los pasos de activación son manuales** y están marcados abajo.
+
 ## Pasos manuales (panel de Supabase / Vercel)
 
 - [ ] **Authentication → Sign In / Providers → Email:** desactivar *Allow new users to sign up*. El registro
@@ -65,6 +71,10 @@ esas capturas (y sus fotos de folios) están en ese aparato: el bloqueo de panta
       `NEXT_PUBLIC_TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY` en Vercel; redesplegar.
 - [ ] **Aviso de privacidad (`/privacidad`):** es un borrador. Que lo revise quien corresponda en la empresa y definir
       `NEXT_PUBLIC_PRIVACIDAD_RESPONSABLE` (razón social) y `NEXT_PUBLIC_PRIVACIDAD_CORREO` (contacto ARCO) en Vercel.
+- [ ] **Avisos de fallos:** crear el webhook (Slack/Discord) y definir `ALERTA_WEBHOOK_URL` en Vercel; crear un
+      monitor (UptimeRobot u otro) a `/api/salud`. Detalle en `docs/operacion.md`.
+- [ ] **Proteger `main` en GitHub** (*Settings → Branches*, lo hace quien sea administrador del repositorio):
+      exigir que pase el CI (*Lint, pruebas y build*) y al menos 1 aprobación, y bloquear pushes directos.
 - [ ] **Activar la verificación en dos pasos** en las 3 cuentas de desarrollador (*Mi perfil*).
 - [ ] **Cuentas:** revisar *Administración → Usuarios* de vez en cuando; una cuenta con rol `usuario` que
       nadie reconoce se elimina.

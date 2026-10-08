@@ -45,6 +45,10 @@ supabase/.temp/
 next-env.d.ts
 /planos-reporte
 
+# Pruebas de navegador (Playwright)
+/test-results/
+/playwright-report/
+
 # trabajo temporal de sesiones de Claude
 /.scratch/
 

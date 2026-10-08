@@ -248,6 +248,8 @@ export interface HojaPM {
   // Posición de la hoja en el archivo (0 = primera); distingue las rutas
   // de las imágenes de cada hoja en Storage.
   indiceHoja: number;
+  // Oculta en Excel ("hidden" o "veryHidden"): la carga pregunta si se sube.
+  oculta: boolean;
   resultado: ParseResult;
 }
 
@@ -275,7 +277,8 @@ export async function parsePlaneacionLibro(
   const hojasIgnoradas: string[] = [];
   workbook.worksheets.forEach((worksheet, indiceHoja) => {
     // Las hojas ocultas también se leen si tienen formato de PM (ej. "PEDIDO
-    // (2)" en el PM 102-24-2): su contenido cuenta igual que el visible.
+    // (2)" en el PM 102-24-2, "incidencias"), marcadas: quien carga decide si
+    // se suben.
     if (!buscarEncabezados(worksheet)) {
       hojasIgnoradas.push(worksheet.name);
       return;
@@ -283,6 +286,7 @@ export async function parsePlaneacionLibro(
     hojas.push({
       nombreHoja: worksheet.name,
       indiceHoja,
+      oculta: worksheet.state !== "visible",
       resultado: parsearHoja(worksheet, workbook, {
         // El nombre del archivo solo sirve de respaldo para el No. PEDIDO de
         // la primera hoja: en las demás daría el mismo PM que la primera.
@@ -300,6 +304,7 @@ export async function parsePlaneacionLibro(
         {
           nombreHoja: primera?.name ?? "",
           indiceHoja: 0,
+          oculta: false,
           resultado: primera
             ? parsearHoja(primera, workbook, opciones)
             : {

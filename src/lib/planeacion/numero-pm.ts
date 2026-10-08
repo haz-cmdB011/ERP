@@ -320,3 +320,19 @@ export function pmsDeLasHojas(
   }
   return resultado;
 }
+
+/**
+ * Clave con la que se reconoce al PM de un archivo (pedidos.archivo_origen):
+ * un archivo con la misma clave es una versión nueva de ese PM; con otra, un
+ * PM nuevo. Es el nombre del archivo sin extensión, en mayúsculas y con los
+ * espacios juntados: "E3 OT 115-26 CORNER JBE  04.09.26.xlsx" y "e3 ot 115-26
+ * corner jbe 04.09.26.xlsm" son el mismo archivo; si cambia la fecha del
+ * nombre, es otro. Con `nombreHoja` lleva además el de la hoja ("<ARCHIVO>
+ * :: X FECHAS"; ver claveDeHoja en hojas-carga.ts). Espejo del respaldo de la migración
+ * 20261008160311_pm_por_archivo.sql.
+ */
+export function claveArchivoOrigen(nombreArchivo: string, nombreHoja?: string): string {
+  const limpio = (texto: string) => texto.replace(/\s+/g, " ").trim().toUpperCase();
+  const archivo = limpio(nombreArchivo.trim().replace(/\.(xlsx|xlsm|xls)$/i, ""));
+  return nombreHoja == null ? archivo : `${archivo} :: ${limpio(nombreHoja)}`;
+}

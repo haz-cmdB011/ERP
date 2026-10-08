@@ -12,11 +12,7 @@ export default function EscanearPage() {
           Escanea el QR de la hoja de viajero para registrar la entrega de ese mueble.
         </p>
       </div>
-      <EscanerQr
-        rutaItem={(id) => `/produccion/escanear/${id}`}
-        rutaFolio={(folio) => `/produccion?q=${encodeURIComponent(folio)}`}
-        placeholderFolio="O escribe el folio (PRD-000123)"
-      />
+      <EscanerQr area="produccion" />
     </main>
   );
 }
