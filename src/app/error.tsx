@@ -4,13 +4,14 @@ import Link from "next/link";
 import Marca from "@/components/marca";
 
 // Falla inesperada al mostrar una pantalla: se puede reintentar sin perder la
-// sesión. `error.digest` identifica el fallo en los registros del servidor.
+// sesión. `retry()` vuelve a pedir los datos al servidor; `reset()` solo limpiaba el error sin
+// volver a leer nada, así que "Reintentar" no arreglaba una falla de lectura. `error.digest` identifica el fallo en los registros del servidor.
 export default function ErrorPantalla({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-nav px-6 text-center text-on-nav">
@@ -28,7 +29,7 @@ export default function ErrorPantalla({
       <div className="flex flex-wrap justify-center gap-2">
         <button
           type="button"
-          onClick={reset}
+          onClick={() => retry()}
           className="inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-brand-400"
         >
           Reintentar

@@ -17,6 +17,7 @@ import RegistrarEntrega from "../../asignaciones/registrar-entrega";
 import { EstadoAsignacionBadge } from "../../asignaciones/detalle-asignacion";
 import ChipPlazo from "../../chip-plazo";
 
+import { leer } from "@/lib/supabase/leer";
 export const metadata: Metadata = { title: "Registrar entrega" };
 
 interface ItemEscaneado {
@@ -62,13 +63,16 @@ export default async function MuebleEscaneadoPage({
   const perfil = await getPerfilActual(supabase);
   const puedeEditar = puedeEditarProduccion(perfil);
 
-  const { data: item } = await supabase
+  const item = await leer(
+    supabase
     .from("planeacion_items")
     .select(
       "id, item_code, tipo_registro, modelo, descripcion, cantidad_total, unidad, parent_item_id, estado_liberacion, eliminacion_solicitada_en, estado_revision, pedido_versiones!inner ( pedido_id, numero_version, es_version_activa, pedidos!inner ( id, numero_pedido, cancelado_en, eliminado_en, proyectos ( nombre, cliente ) ) )"
     )
     .eq("id", itemId)
-    .maybeSingle<ItemEscaneado>();
+    .maybeSingle<ItemEscaneado>(),
+    "planeacion_items"
+  );
   const pedido = item?.pedido_versiones?.pedidos;
   if (!item || !pedido || pedido.eliminado_en) notFound();
 
@@ -78,19 +82,25 @@ export default async function MuebleEscaneadoPage({
   }
 
   const hoy = hoyMexico();
-  const [{ data: asignaciones }, { data: folio }, plazos] = await Promise.all([
-    supabase
-      .from("asignaciones_produccion_resumen")
-      .select("*")
-      .eq("planeacion_item_id", item.id)
-      .order("fecha_asignacion")
-      .order("creado_en")
-      .returns<AsignacionResumen[]>(),
-    supabase
-      .from("folios_produccion")
-      .select("folio")
-      .eq("planeacion_item_id", item.id)
-      .maybeSingle<{ folio: string }>(),
+  const [asignaciones, folio, plazos] = await Promise.all([
+    leer(
+      supabase
+        .from("asignaciones_produccion_resumen")
+        .select("*")
+        .eq("planeacion_item_id", item.id)
+        .order("fecha_asignacion")
+        .order("creado_en")
+        .returns<AsignacionResumen[]>(),
+      "asignaciones_produccion_resumen"
+    ),
+    leer(
+      supabase
+        .from("folios_produccion")
+        .select("folio")
+        .eq("planeacion_item_id", item.id)
+        .maybeSingle<{ folio: string }>(),
+      "folios_produccion"
+    ),
     plazosDePedidos(supabase, [pedido.id], hoy),
   ]);
 

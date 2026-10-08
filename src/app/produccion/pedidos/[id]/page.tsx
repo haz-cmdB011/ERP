@@ -7,6 +7,7 @@ import ItemsLiberacionTable, {
   type ItemLiberacionRow,
 } from "./items-liberacion-table";
 
+import { leer } from "@/lib/supabase/leer";
 interface VersionRow {
   id: string;
   numero_version: number;
@@ -105,29 +106,35 @@ export default async function PedidoProduccionPage({
     versiones?.[0] ||
     null;
 
-  const { data: itemsBase } = versionSeleccionada
-    ? await supabase
+  const itemsBase = versionSeleccionada
+    ? await leer(
+        supabase
         .from("planeacion_items")
         .select(
           "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, ingenieria, lista_insumos, suministro_mats, estado_liberacion, eliminacion_solicitada_en, eliminacion_solicitada_por, estado_revision"
         )
         .eq("pedido_version_id", versionSeleccionada.id)
         .order("fila_excel_origen")
-        .returns<ItemRow[]>()
-    : { data: null };
+        .returns<ItemRow[]>(),
+        "planeacion_items"
+      )
+    : null;
 
   // Folio único de producción de cada ítem (se asigna al liberarlo y no cambia).
   const idsItems = (itemsBase ?? []).map((i) => i.id);
   // Miniatura de cada ítem: la primera imagen guardada (URL firmada del bucket
   // privado, mismo helper que usan Planeación y Calidad). Se piden a la vez que los folios.
-  const [{ data: folios }, imagenesPorItem] = await Promise.all([
+  const [folios, imagenesPorItem] = await Promise.all([
     idsItems.length
-      ? supabase
-          .from("folios_produccion")
-          .select("planeacion_item_id, folio")
-          .in("planeacion_item_id", idsItems)
-          .returns<{ planeacion_item_id: string; folio: string }[]>()
-      : Promise.resolve({ data: [] as { planeacion_item_id: string; folio: string }[] }),
+      ? leer(
+          supabase
+            .from("folios_produccion")
+            .select("planeacion_item_id, folio")
+            .in("planeacion_item_id", idsItems)
+            .returns<{ planeacion_item_id: string; folio: string }[]>(),
+          "folios_produccion"
+        )
+      : Promise.resolve([] as { planeacion_item_id: string; folio: string }[]),
     getImagenesConGrandePorItem(supabase, idsItems),
   ]);
   const folioPorItem = new Map((folios ?? []).map((f) => [f.planeacion_item_id, f.folio]));
