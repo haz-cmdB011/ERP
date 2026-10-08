@@ -50,15 +50,15 @@ export async function POST(request: Request) {
     );
   }
 
-  // RLS (planeacion_update_planeacion_items) exige rol planeación/admin: si
-  // el usuario no lo tiene, el update afecta 0 filas en vez de fallar, así
-  // que lo detectamos aquí para devolver un mensaje claro en vez de un
-  // "éxito" silencioso que en realidad no liberó nada.
+  // Liberan Planeación y Producción (Planeación decide qué; el trabajador de
+  // Producción lo marca). RLS deja fuera a los demás: el update afecta 0
+  // filas en vez de fallar, así que lo detectamos aquí para devolver un
+  // mensaje claro en vez de un "éxito" silencioso que no liberó nada.
   if (data.length < itemIds.length) {
     return NextResponse.json(
       {
         error:
-          "No tienes permiso para liberar ítems a producción (se requiere rol Planeación o Admin), o algunos ítems ya no existen.",
+          "No tienes permiso para liberar ítems a producción (se requiere Planeación o Producción), o algunos ítems ya no existen.",
       },
       { status: 403 }
     );

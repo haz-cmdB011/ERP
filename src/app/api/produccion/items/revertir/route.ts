@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "No tienes permiso para revertir ítems a pendiente (se requiere rol Planeación o Admin), o algunos ítems ya no existen.",
+          "No tienes permiso para revertir ítems a pendiente (se requiere Planeación o Producción), o algunos ítems ya no existen.",
       },
       { status: 403 }
     );

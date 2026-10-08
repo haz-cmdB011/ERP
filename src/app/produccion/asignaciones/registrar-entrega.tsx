@@ -109,7 +109,7 @@ export default function RegistrarEntrega({
         return;
       }
       setAbierto(false);
-      avisar("Entrega registrada");
+      avisar("Entrega registrada: revísala y mándala a Calidad");
       router.refresh();
     } catch {
       setError("No se pudo conectar. Revisa tu conexión e intenta de nuevo.");

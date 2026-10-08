@@ -3,11 +3,21 @@ import {
   ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
   formatoFecha,
+  revisionEntrega,
   type AsignacionResumen,
+  type RevisionEntrega,
 } from "@/lib/produccion/asignaciones";
 import type { EntregaConFoto } from "@/lib/produccion/consultar-asignaciones";
 import AccionConMotivo from "./accion-con-motivo";
 import RegistrarEntrega from "./registrar-entrega";
+import VerificarEntrega from "./verificar-entrega";
+
+const REVISION: Record<RevisionEntrega, { texto: string; clase: string }> = {
+  por_verificar: { texto: "POR VERIFICAR", clase: "text-amber-700" },
+  verificada: { texto: "EN CALIDAD", clase: "text-emerald-700" },
+  rechazada: { texto: "RECHAZADA", clase: "text-rose-700" },
+  anulada: { texto: "ANULADA", clase: "text-rose-700" },
+};
 
 export function EstadoAsignacionBadge({ estado }: { estado: AsignacionResumen["estado"] }) {
   return (
@@ -20,7 +30,8 @@ export function EstadoAsignacionBadge({ estado }: { estado: AsignacionResumen["e
 }
 
 // Historial de entregas de una asignación (con foto de los folios) y sus
-// acciones: registrar entrega, cancelar la asignación, anular una entrega.
+// acciones: registrar entrega, verificarla (pasa a Calidad) o rechazarla
+// (regresa al equipo), cancelar la asignación, anular una entrega.
 export default function DetalleAsignacion({
   asignacion: a,
   entregas,
@@ -34,7 +45,7 @@ export default function DetalleAsignacion({
 }) {
   const pendiente = Math.round((Number(a.cantidad) - Number(a.entregado)) * 100) / 100;
   const descripcion = `${a.numero_pedido} · ${a.modelo ?? `ítem ${a.item_code}`} · ${a.equipo}`;
-  const vigentes = entregas.filter((e) => !e.anulada_en).length;
+  const vigentes = entregas.filter((e) => !e.anulada_en && !e.rechazada_en).length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -49,37 +60,64 @@ export default function DetalleAsignacion({
         <p className="text-sm text-slate-500">Sin entregas registradas.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {entregas.map((e) => (
-            <li
-              key={e.id}
-              className={`flex flex-wrap items-start gap-3 rounded-lg border p-2 ${
-                e.anulada_en ? "border-slate-200 bg-slate-50 opacity-70" : "border-slate-200 bg-white"
-              }`}
-            >
-              {e.fotoUrl ? (
-                <ImagenAmpliable url={e.fotoUrl} alt="Foto de los folios de Calidad" className="h-16 w-16" />
-              ) : (
-                <span className="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-600">
-                  Sin foto
-                </span>
-              )}
-              <div className="min-w-0 flex-1 text-sm">
-                <p className="font-medium text-slate-900">
-                  {formatoFecha(e.fecha_entrega)} · {Number(e.cantidad)} {a.unidad ?? ""}
-                  {e.anulada_en && <span className="ml-2 text-xs font-semibold text-rose-700">ANULADA</span>}
-                </p>
-                <p className="break-words font-mono text-xs text-slate-700">{e.folios_calidad}</p>
-                {e.anulada_en && <p className="text-xs text-slate-500">Motivo: {e.motivo_anulacion}</p>}
-              </div>
-              {puedeAnular && !e.anulada_en && (
-                <AccionConMotivo
-                  accion="anular"
-                  id={e.id}
-                  descripcion={`${descripcion} · ${formatoFecha(e.fecha_entrega)}`}
-                />
-              )}
-            </li>
-          ))}
+          {entregas.map((e) => {
+            const revision = revisionEntrega(e);
+            const fuera = revision === "anulada" || revision === "rechazada";
+            return (
+              <li
+                key={e.id}
+                className={`flex flex-wrap items-start gap-3 rounded-lg border p-2 ${
+                  fuera
+                    ? "border-slate-200 bg-slate-50 opacity-70"
+                    : revision === "por_verificar"
+                      ? "border-amber-200 bg-amber-50/50"
+                      : "border-slate-200 bg-white"
+                }`}
+              >
+                {e.fotoUrl ? (
+                  <ImagenAmpliable url={e.fotoUrl} alt="Foto de los folios de Calidad" className="h-16 w-16" />
+                ) : (
+                  <span className="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-600">
+                    Sin foto
+                  </span>
+                )}
+                <div className="min-w-0 flex-1 text-sm">
+                  <p className="font-medium text-slate-900">
+                    {formatoFecha(e.fecha_entrega)} · {Number(e.cantidad)} {a.unidad ?? ""}
+                    <span className={`ml-2 text-xs font-semibold ${REVISION[revision].clase}`}>
+                      {REVISION[revision].texto}
+                    </span>
+                  </p>
+                  <p className="break-words font-mono text-xs text-slate-700">{e.folios_calidad}</p>
+                  {revision === "anulada" && <p className="text-xs text-slate-500">Motivo: {e.motivo_anulacion}</p>}
+                  {revision === "rechazada" && (
+                    <p className="text-xs text-slate-500">
+                      Regresada al equipo el {formatoFecha(e.rechazada_en)}: {e.motivo_rechazo}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-start gap-2">
+                  {puedeEditar && revision === "por_verificar" && (
+                    <>
+                      <VerificarEntrega id={e.id} />
+                      <AccionConMotivo
+                        accion="rechazar"
+                        id={e.id}
+                        descripcion={`${descripcion} · ${formatoFecha(e.fecha_entrega)}`}
+                      />
+                    </>
+                  )}
+                  {puedeAnular && !fuera && (
+                    <AccionConMotivo
+                      accion="anular"
+                      id={e.id}
+                      descripcion={`${descripcion} · ${formatoFecha(e.fecha_entrega)}`}
+                    />
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 
