@@ -1,9 +1,17 @@
 # ERP Becario
 
-Sistema empresarial interno (Planeación, Producción, Calidad, Estimaciones,
-Finanzas). Fase 1: carga e ingestión de Excel de **Planeación** — el "revisor
-de cantidades" que compara cantidades declaradas contra cantidades reales a
-lo largo del flujo.
+Sistema empresarial interno por áreas: Planeación, Producción, Calidad y
+Estimaciones (más Administración). Nació con la carga de Excel de **Planeación**
+— el "revisor de cantidades" que compara cantidades declaradas contra
+cantidades reales a lo largo del flujo — y hoy cubre todo el recorrido del
+pedido.
+
+## Documentación
+
+- [`CLAUDE.md`](CLAUDE.md): comandos, estructura, roles y convenciones de trabajo.
+- [`docs/onboarding.md`](docs/onboarding.md): guía para quien entra al equipo.
+- [`docs/operacion.md`](docs/operacion.md): qué hacer si algo falla (avisos, monitor, accesos, restauración).
+- [`SEGURIDAD.md`](SEGURIDAD.md): capas de defensa y pasos manuales.
 
 ## Stack
 
@@ -67,5 +75,6 @@ retroalimentación ya existen pero sin UI todavía.
 
 ## Deploy
 
-Deploy a Vercel y aplicación de migraciones a producción no se han hecho
-todavía — pendiente de confirmación explícita antes de ejecutarse.
+El sitio se despliega solo en Vercel al fusionar un PR en `main`. Las migraciones se
+aplican a Supabase por una sola vía y se verifican con `npm run db:verificar`
+(ver `CLAUDE.md`).

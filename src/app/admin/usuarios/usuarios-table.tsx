@@ -14,6 +14,7 @@ import {
   type AreaMaquila,
 } from "@/lib/auth/roles";
 import AreasMaquilaSelector from "./areas-maquila-selector";
+import { ERROR_GENERICO, fetchJson } from "@/lib/http/fetch-json";
 import { avisar } from "@/components/avisos";
 
 function ResetPasswordCell({ userId }: { userId: string }) {
@@ -29,15 +30,14 @@ function ResetPasswordCell({ userId }: { userId: string }) {
     }
     setGuardando(true);
     setMensaje(null);
-    const res = await fetch(`/api/admin/usuarios/${userId}/password`, {
+    const r = await fetchJson(`/api/admin/usuarios/${userId}/password`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
     });
-    const data = await res.json();
     setGuardando(false);
-    if (!res.ok) {
-      setMensaje({ tipo: "error", texto: data.error ?? "Error desconocido." });
+    if (!r.ok) {
+      setMensaje({ tipo: "error", texto: r.error ?? ERROR_GENERICO });
       return;
     }
     avisar("Contraseña actualizada.");
@@ -116,7 +116,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
   async function guardar() {
     setGuardando(true);
     setError(null);
-    const res = await fetch(`/api/admin/usuarios/${usuario.id}/rol`, {
+    const r = await fetchJson(`/api/admin/usuarios/${usuario.id}/rol`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -126,10 +126,9 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
         areasMaquila: esMaquila ? areasMaquila : null,
       }),
     });
-    const data = await res.json();
     setGuardando(false);
-    if (!res.ok) {
-      setError(data.error ?? "Error desconocido.");
+    if (!r.ok) {
+      setError(r.error ?? ERROR_GENERICO);
       return;
     }
     router.refresh();

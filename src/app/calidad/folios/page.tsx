@@ -14,6 +14,7 @@ import {
 import { aplicarFiltrosFolios } from "@/lib/calidad/folios-consulta";
 import { formatoFechaHora } from "@/lib/resumen/entrega";
 
+import { leer } from "@/lib/supabase/leer";
 interface ItemVivo {
   id: string;
   item_code: number;
@@ -168,13 +169,16 @@ export default async function FoliosCalidadPage({
         .filter((id): id is string => !!id)
     )
   );
-  const { data: foliosProd } = itemIds.length
-    ? await supabase
+  const foliosProd = itemIds.length
+    ? await leer(
+        supabase
         .from("folios_produccion")
         .select("planeacion_item_id, folio")
         .in("planeacion_item_id", itemIds)
-        .returns<{ planeacion_item_id: string; folio: string }[]>()
-    : { data: [] as { planeacion_item_id: string; folio: string }[] };
+        .returns<{ planeacion_item_id: string; folio: string }[]>(),
+        "folios_produccion"
+      )
+    : [] as { planeacion_item_id: string; folio: string }[];
   const folioProdPorItem = new Map((foliosProd ?? []).map((f) => [f.planeacion_item_id, f.folio]));
 
   const filas = (data ?? []).map((inf) => {

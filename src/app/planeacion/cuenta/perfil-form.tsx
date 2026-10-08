@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import Avatar from "@/components/avatar";
+import { ERROR_GENERICO, fetchJson } from "@/lib/http/fetch-json";
 import { avisar } from "@/components/avisos";
 import { NOMBRE_MAX, NOMBRE_MIN } from "@/lib/cuenta/nombre";
 
@@ -65,18 +66,17 @@ export default function PerfilForm({
     e.preventDefault();
     setErrorNombre(null);
     setGuardandoNombre(true);
-    const res = await fetch("/api/cuenta/nombre", {
+    const r = await fetchJson<{ nombre?: string }>("/api/cuenta/nombre", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nombre }),
     });
-    const datos = await res.json().catch(() => ({}));
     setGuardandoNombre(false);
-    if (!res.ok) {
-      setErrorNombre(datos.error ?? "No se pudo guardar el nombre.");
+    if (!r.ok) {
+      setErrorNombre(r.error ?? ERROR_GENERICO);
       return;
     }
-    setNombre(datos.nombre);
+    if (typeof r.data.nombre === "string") setNombre(r.data.nombre);
     avisar("Nombre actualizado");
     router.refresh();
   }
@@ -112,11 +112,10 @@ export default function PerfilForm({
     setProcesando(true);
     const datos = new FormData();
     datos.append("foto", new File([previa.blob], "foto.webp", { type: previa.blob.type }));
-    const res = await fetch("/api/cuenta/foto", { method: "POST", body: datos });
-    const cuerpo = await res.json().catch(() => ({}));
+    const r = await fetchJson("/api/cuenta/foto", { method: "POST", body: datos, esperaMs: 120_000 });
     setProcesando(false);
-    if (!res.ok) {
-      setErrorFoto(cuerpo.error ?? "No se pudo guardar la foto.");
+    if (!r.ok) {
+      setErrorFoto(r.error ?? ERROR_GENERICO);
       return;
     }
     descartarPrevia();
@@ -127,11 +126,10 @@ export default function PerfilForm({
   async function quitarFoto() {
     setErrorFoto(null);
     setProcesando(true);
-    const res = await fetch("/api/cuenta/foto", { method: "DELETE" });
-    const cuerpo = await res.json().catch(() => ({}));
+    const r = await fetchJson("/api/cuenta/foto", { method: "DELETE" });
     setProcesando(false);
-    if (!res.ok) {
-      setErrorFoto(cuerpo.error ?? "No se pudo quitar la foto.");
+    if (!r.ok) {
+      setErrorFoto(r.error ?? ERROR_GENERICO);
       return;
     }
     avisar("Foto quitada", "info");
