@@ -612,6 +612,8 @@ describe("parsePlaneacionLibro (varias hojas)", () => {
     const libro = await parsePlaneacionLibro(Buffer.from(await wb.xlsx.writeBuffer()));
 
     expect(libro.hojas.map((h) => h.nombreHoja)).toEqual(["PEDIDO", "PEDIDO (2)"]);
+    // Marcadas: la carga pregunta si se suben.
+    expect(libro.hojas.map((h) => h.oculta)).toEqual([false, true]);
     expect(libro.hojasIgnoradas).toEqual(["NOTAS"]);
   });
 
