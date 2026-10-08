@@ -1,6 +1,9 @@
 // Fondo de la app: hoja de planos de muebles (cuadrícula, piezas en vista
-// frontal/lateral/planta y sus cotas) que se repite detrás de todo. Es nítido a
-// propósito: lo difuminan los paneles de vidrio que van encima (vidrio.css).
+// frontal/lateral/planta y sus cotas) que se repite detrás de todo, sobre unas
+// manchas de luz grandes (.luces). Es nítido a propósito: lo difuminan los
+// paneles de vidrio que van encima (vidrio.css). Las piezas con clase "m" llevan
+// relleno tenue: las líneas finas solas casi desaparecen al difuminarse, y sin
+// formas con masa detrás no se nota el vidrio.
 // Los colores salen de variables CSS (--fondo-papel, --fondo-trazo,
 // --fondo-cota), así que siguen la paleta elegida en "Personalizar apariencia"
 // y el modo claro/oscuro. Las medidas de las cotas están en cm.
@@ -56,7 +59,7 @@ function Silla() {
     <g transform="translate(90 110)">
       <path className="t" d="M14 0H30L38 280H22Z" />
       <path className="t" d="M30 20Q46 70 34 132" />
-      <rect className="t" x="12" y="140" width="138" height="14" rx="3" />
+      <rect className="t m" x="12" y="140" width="138" height="14" rx="3" />
       <path className="t" d="M16 140Q80 128 146 140" />
       <path className="t" d="M124 154H140L136 280H126Z" />
       <path className="t" d="M34 230H128" />
@@ -71,7 +74,7 @@ function MesaCentro() {
   return (
     <g transform="translate(470 150)">
       <path className="c eje" d="M-92 0H92M0 -92V92" />
-      <circle className="t" r="72" />
+      <circle className="t m" r="72" />
       <circle className="t" r="64" />
       <circle className="t oculta" r="22" />
       <Cota x1={-72} y1={108} x2={72} y2={108} texto="ø 80" />
@@ -83,13 +86,13 @@ function MesaCentro() {
 function Sofa() {
   return (
     <g transform="translate(680 90)">
-      <rect className="t" x="44" y="0" width="134" height="74" rx="12" />
-      <rect className="t" x="182" y="0" width="134" height="74" rx="12" />
-      <rect className="t" x="0" y="40" width="44" height="100" rx="14" />
-      <rect className="t" x="316" y="40" width="44" height="100" rx="14" />
+      <rect className="t m" x="44" y="0" width="134" height="74" rx="12" />
+      <rect className="t m" x="182" y="0" width="134" height="74" rx="12" />
+      <rect className="t m" x="0" y="40" width="44" height="100" rx="14" />
+      <rect className="t m" x="316" y="40" width="44" height="100" rx="14" />
       <rect className="t" x="44" y="74" width="136" height="30" rx="6" />
       <rect className="t" x="180" y="74" width="136" height="30" rx="6" />
-      <path className="t" d="M44 104V140H316V104" />
+      <path className="t m" d="M44 104V140H316V104" />
       <path className="t" d="M22 140V162M338 140V162M22 162h10M328 162h10" />
       <Cota x1={-24} y1={0} x2={-24} y2={162} texto="85" />
       <Cota x1={0} y1={188} x2={360} y2={188} texto="220" />
@@ -101,7 +104,7 @@ function Sofa() {
 function Lampara() {
   return (
     <g transform="translate(1130 70)">
-      <path className="t" d="M-36 0H36L56 64H-56Z" />
+      <path className="t m" d="M-36 0H36L56 64H-56Z" />
       <path className="t" d="M-28 14H28" />
       <path className="t" d="M0 64V298M0 180h7" />
       <ellipse className="t" cx="0" cy="302" rx="38" ry="7" />
@@ -114,7 +117,7 @@ function Lampara() {
 function Mesa() {
   return (
     <g transform="translate(330 330)">
-      <rect className="t" x="0" y="0" width="320" height="16" rx="2" />
+      <rect className="t m" x="0" y="0" width="320" height="16" rx="2" />
       <rect className="t" x="20" y="16" width="280" height="24" />
       <path className="t" d="M26 40H44L40 190H30ZM276 40H294L290 190H280Z" />
       <path className="t oculta" d="M60 40L56 182M264 40L260 182" />
@@ -128,11 +131,11 @@ function Mesa() {
 function Sillon() {
   return (
     <g transform="translate(720 420)">
-      <rect className="t" x="24" y="0" width="172" height="96" rx="16" />
-      <rect className="t" x="0" y="56" width="40" height="104" rx="14" />
-      <rect className="t" x="180" y="56" width="40" height="104" rx="14" />
+      <rect className="t m" x="24" y="0" width="172" height="96" rx="16" />
+      <rect className="t m" x="0" y="56" width="40" height="104" rx="14" />
+      <rect className="t m" x="180" y="56" width="40" height="104" rx="14" />
       <rect className="t" x="40" y="96" width="140" height="34" rx="8" />
-      <rect className="t" x="40" y="130" width="140" height="30" rx="4" />
+      <rect className="t m" x="40" y="130" width="140" height="30" rx="4" />
       <path className="t" d="M16 160L12 188M204 160L208 188" />
       {[
         [80, 36],
@@ -152,7 +155,7 @@ function Sillon() {
 function Banco() {
   return (
     <g transform="translate(1010 470)">
-      <rect className="t" x="0" y="0" width="110" height="14" rx="7" />
+      <rect className="t m" x="0" y="0" width="110" height="14" rx="7" />
       <path className="t" d="M14 14L2 200M96 14L108 200" />
       <path className="t oculta" d="M32 14L28 194M78 14L82 194" />
       <path className="t" d="M8 120H102" />
@@ -165,7 +168,7 @@ function Banco() {
 function Librero() {
   return (
     <g transform="translate(60 500)">
-      <rect className="t" x="0" y="0" width="190" height="250" />
+      <rect className="t m" x="0" y="0" width="190" height="250" />
       <path className="t" d="M8 8V242H182V8ZM8 66H182M8 128H182M8 190H182" />
       {/* Libros y cajas en las repisas. */}
       <path className="t" d="M16 66V20H28V66M30 66V16H40V66M42 66V26H56V66M60 66L74 24L84 27L70 66" />
@@ -184,7 +187,7 @@ function Comoda() {
   return (
     <g transform="translate(330 590)">
       <rect className="t" x="0" y="0" width="240" height="12" rx="2" />
-      <rect className="t" x="8" y="12" width="224" height="120" />
+      <rect className="t m" x="8" y="12" width="224" height="120" />
       {[22, 58, 94].map((y) => (
         <g key={y}>
           <rect className="t" x="18" y={y} width="204" height="30" rx="2" />
@@ -202,7 +205,7 @@ function Comoda() {
 function Ensamble() {
   return (
     <g transform="translate(880 690)">
-      <rect className="t" x="0" y="0" width="100" height="60" />
+      <rect className="t m" x="0" y="0" width="100" height="60" />
       <path className="t" d="M0 30H12L8 20H28L24 40H44L40 20H60L56 40H76L72 20H92L88 30H100" />
       <circle className="c" cx="50" cy="30" r="44" strokeDasharray="3 4" />
       <Etiqueta x={0} y={100}>DETALLE A · ENSAMBLE</Etiqueta>
@@ -213,6 +216,7 @@ function Ensamble() {
 export default function FondoMobiliario() {
   return (
     <div className="fondo-mobiliario print:hidden" aria-hidden="true">
+      <div className="luces" />
       <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="fondo-cuadricula" width="24" height="24" patternUnits="userSpaceOnUse">
