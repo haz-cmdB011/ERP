@@ -17,9 +17,8 @@
 --
 -- 1. Liberar a producción. Planeación decide qué se libera, pero quien lo
 --    marca en el sistema es el trabajador de Producción. El trigger que
---    limitaba a Producción a la solicitud de eliminación no estaba en la base
---    (Producción podía cambiar cualquier columna del ítem); se vuelve a crear
---    dejando, además, las columnas de liberación:
+--    limita a Producción a la solicitud de eliminación se recrea dejando,
+--    además, las columnas de liberación:
 --      * estado_liberacion, liberado_en, liberado_por;
 --      * liberado_por solo puede ser quien hace el cambio (o vacío al revertir);
 --      * no se regresa a "pendiente" un ítem con asignaciones vigentes (primero
