@@ -46,8 +46,11 @@
   --vidrio-sobre-marca: var(--sobre-marca);
   --vidrio-resplandor: color-mix(in oklab, var(--marca) 55%, transparent);
 
-  /* Barra superior y paneles de marca: vidrio oscuro teñido con el acento. */
-  --vidrio-nav: color-mix(in oklab, var(--marca) 12%, rgb(7 11 14 / 0.78));
+  /* Barra superior y paneles de marca: vidrio oscuro teñido con el acento.
+     --vidrio-nav-alfa no baja de 0.7 en modo claro: detrás queda papel claro
+     y los textos suaves del menú perderían contraste. */
+  --vidrio-nav-alfa: 0.7;
+  --vidrio-nav: color-mix(in oklab, var(--marca) 12%, rgb(7 11 14 / var(--vidrio-nav-alfa)));
   --vidrio-nav-hover: color-mix(in oklab, var(--marca) 18%, rgb(255 255 255 / 0.1));
   --vidrio-nav-linea: rgb(255 255 255 / 0.12);
   --vidrio-sobre-nav: #eef3f0;
@@ -113,6 +116,7 @@
     --fondo-op-cota: 0.42;
     --fondo-op-masa: 0.08;
     --fondo-op-luz: 50%;
+    --vidrio-nav-alfa: 0.6;
     --vidrio-brillo: rgb(255 255 255 / 0.08);
     --vidrio-sombra: rgb(0 0 0 / 0.45);
     --vidrio-canto: rgb(255 255 255 / 0.24);
@@ -127,6 +131,7 @@
   --fondo-op-cota: 0.42;
   --fondo-op-masa: 0.08;
   --fondo-op-luz: 50%;
+  --vidrio-nav-alfa: 0.6;
   --vidrio-brillo: rgb(255 255 255 / 0.08);
   --vidrio-sombra: rgb(0 0 0 / 0.45);
   --vidrio-canto: rgb(255 255 255 / 0.24);
@@ -393,6 +398,18 @@
       backdrop-filter: var(--vidrio-filtro);
       background-image: var(--vidrio-grano);
       background-size: 160px;
+    }
+
+    /* Barra superior: lleva z-index (globals.css, .vt-cabecera) para que sus
+       menús queden encima del contenido, y eso la vuelve un contexto de
+       apilamiento: el ::before con z-index -1 se pinta encima de su propio
+       fondo y difuminaba solo ese color plano. Aquí el fondo pasa al ::before,
+       sobre el desenfoque. */
+    :where(:root[data-estilo="vidrio"]) .vt-cabecera.bg-nav {
+      background-color: transparent;
+    }
+    :where(:root[data-estilo="vidrio"]) .vt-cabecera.bg-nav::before {
+      background-color: var(--color-nav);
     }
 
     /* Canto del cristal: un borde de luz en degradado (claro arriba a la
