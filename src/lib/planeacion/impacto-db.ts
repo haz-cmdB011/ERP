@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { paginar } from "@/lib/resumen/avance-items";
-import type { ItemComparable } from "./diff-versiones";
+import { compararVersiones, type ItemComparable } from "./diff-versiones";
 import { idsConInformeDeCalidad } from "./linea-tiempo-db";
 import {
   SIN_TRABAJO,
@@ -17,6 +17,8 @@ export interface HojaParaImpacto {
   nombreHoja: string;
   // Número de PM ya normalizado (el mismo con el que se guardaría).
   numeroPedido: string;
+  // Clave del archivo (pedidos.archivo_origen): el PM se busca por ella.
+  archivoOrigen: string;
   items: PlaneacionItemParsed[];
 }
 
@@ -103,10 +105,10 @@ export async function analizarImpactoCarga(
   for (const hoja of hojas) {
     const { data: pedido } = await supabase
       .from("pedidos")
-      .select("id, eliminado_en")
-      .eq("numero_pedido", hoja.numeroPedido)
+      .select("id, numero_pedido, eliminado_en")
+      .eq("archivo_origen", hoja.archivoOrigen)
       .is("eliminado_definitivo_en", null)
-      .maybeSingle<{ id: string; eliminado_en: string | null }>();
+      .maybeSingle<{ id: string; numero_pedido: string; eliminado_en: string | null }>();
     // Un PM nuevo no tiene nada en marcha; uno en la papelera lo rechaza la carga misma.
     if (!pedido || pedido.eliminado_en) continue;
 
@@ -126,7 +128,8 @@ export async function analizarImpactoCarga(
 
     const impacto = calcularImpacto({
       hoja: hoja.nombreHoja,
-      numeroPedido: hoja.numeroPedido,
+      // El título que ya tiene el PM (un archivo nuevo no lo cambia).
+      numeroPedido: pedido.numero_pedido,
       versionActiva: activa.numero_version,
       versionNueva: Math.max(...versiones.map((v) => v.numero_version)) + 1,
       antes,
@@ -136,4 +139,37 @@ export async function analizarImpactoCarga(
     if (necesitaConfirmacion(impacto.enMarcha)) impactos.push(impacto);
   }
   return impactos;
+}
+
+// PM ya cargado desde este archivo cuya versión activa tiene exactamente los
+// mismos ítems que el Excel: volver a subirlo no crea una versión nueva. null
+// si el archivo es nuevo, si algo cambió o si no se pudo revisar (entonces se
+// carga como siempre; un PM en la papelera lo rechaza la carga misma).
+export async function versionSinCambios(
+  supabase: SupabaseClient,
+  archivoOrigen: string,
+  items: PlaneacionItemParsed[]
+): Promise<{ pedidoId: string; numeroPedido: string; numeroVersion: number } | null> {
+  const { data: pedido } = await supabase
+    .from("pedidos")
+    .select("id, numero_pedido, eliminado_en")
+    .eq("archivo_origen", archivoOrigen)
+    .is("eliminado_definitivo_en", null)
+    .maybeSingle<{ id: string; numero_pedido: string; eliminado_en: string | null }>();
+  if (!pedido || pedido.eliminado_en) return null;
+
+  const { data: activa } = await supabase
+    .from("pedido_versiones")
+    .select("id, numero_version")
+    .eq("pedido_id", pedido.id)
+    .eq("es_version_activa", true)
+    .maybeSingle<{ id: string; numero_version: number }>();
+  if (!activa) return null;
+
+  const antes = await cargarItemsVersion(supabase, activa.id);
+  if (!antes) return null;
+  const { cambios } = compararVersiones(antes, aComparables(items));
+  return cambios.length === 0
+    ? { pedidoId: pedido.id, numeroPedido: pedido.numero_pedido, numeroVersion: activa.numero_version }
+    : null;
 }

@@ -10,7 +10,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import { analizarImpactoCarga } from "../src/lib/planeacion/impacto-db";
+import { analizarImpactoCarga, versionSinCambios } from "../src/lib/planeacion/impacto-db";
 import type { PlaneacionItemParsed } from "../src/lib/planeacion/types";
 import { cargarItemsVersion } from "../src/lib/planeacion/versiones-db";
 
@@ -23,7 +23,7 @@ const servicio = hayVariables
 
 interface FilaLiberada {
   pedido_version_id: string;
-  pedido_versiones: { pedidos: { numero_pedido: string } };
+  pedido_versiones: { pedidos: { numero_pedido: string; archivo_origen: string | null } };
 }
 
 describe.skipIf(!hayVariables)("impacto de cargar una versión nueva (solo lectura)", () => {
@@ -31,12 +31,13 @@ describe.skipIf(!hayVariables)("impacto de cargar una versión nueva (solo lectu
     const { data } = await servicio
       .from("planeacion_items")
       .select(
-        "pedido_version_id, pedido_versiones!inner ( es_version_activa, pedidos!inner ( numero_pedido, eliminado_en, eliminado_definitivo_en ) )"
+        "pedido_version_id, pedido_versiones!inner ( es_version_activa, pedidos!inner ( numero_pedido, archivo_origen, eliminado_en, eliminado_definitivo_en ) )"
       )
       .eq("estado_liberacion", "enviado_a_produccion")
       .eq("pedido_versiones.es_version_activa", true)
       .is("pedido_versiones.pedidos.eliminado_en", null)
       .is("pedido_versiones.pedidos.eliminado_definitivo_en", null)
+      .not("pedido_versiones.pedidos.archivo_origen", "is", null)
       .limit(1)
       .returns<FilaLiberada[]>();
     const fila = data?.[0];
@@ -46,6 +47,7 @@ describe.skipIf(!hayVariables)("impacto de cargar una versión nueva (solo lectu
     }
 
     const numeroPedido = fila.pedido_versiones.pedidos.numero_pedido;
+    const archivoOrigen = fila.pedido_versiones.pedidos.archivo_origen!;
     const antes = await cargarItemsVersion(servicio, fila.pedido_version_id);
     expect(antes, "no se pudieron leer los ítems de la versión activa").not.toBeNull();
 
@@ -75,7 +77,7 @@ describe.skipIf(!hayVariables)("impacto de cargar una versión nueva (solo lectu
       fases_taller: {},
     }));
 
-    const impactos = await analizarImpactoCarga(servicio, [{ nombreHoja: "PEDIDO", numeroPedido, items }]);
+    const impactos = await analizarImpactoCarga(servicio, [{ nombreHoja: "PEDIDO", numeroPedido, archivoOrigen, items }]);
 
     expect(impactos).toHaveLength(1);
     const [impacto] = impactos;
@@ -85,11 +87,18 @@ describe.skipIf(!hayVariables)("impacto de cargar una versión nueva (solo lectu
     expect(impacto.enMarcha.mueblesLiberados).toBeLessThanOrEqual(impacto.enMarcha.itemsLiberados);
     expect(impacto.versionNueva).toBeGreaterThan(impacto.versionActiva);
     expect(impacto.itemsNuevos).toBe(items.length);
+
+    // Un archivo es un PM: el mismo Excel sin cambios no crea versión nueva;
+    // con una cantidad distinta, sí.
+    const igual = await versionSinCambios(servicio, archivoOrigen, items);
+    expect(igual?.numeroVersion).toBe(impacto.versionActiva);
+    const otro = items.map((i, n) => (n === 0 ? { ...i, cantidad_total: i.cantidad_total + 1 } : i));
+    expect(await versionSinCambios(servicio, archivoOrigen, otro)).toBeNull();
   });
 
-  it("un PM que no existe no tiene nada en marcha", async () => {
+  it("un archivo que no se ha subido no tiene nada en marcha", async () => {
     const impactos = await analizarImpactoCarga(servicio, [
-      { nombreHoja: "PEDIDO", numeroPedido: "9PM999-99", items: [] },
+      { nombreHoja: "PEDIDO", numeroPedido: "9PM999-99", archivoOrigen: "ARCHIVO QUE NO EXISTE 999-99", items: [] },
     ]);
     expect(impactos).toEqual([]);
   });
