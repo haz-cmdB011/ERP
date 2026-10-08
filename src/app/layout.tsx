@@ -6,6 +6,7 @@ import { SCRIPT_TEMA } from "@/lib/tema";
 import { SCRIPT_APARIENCIA } from "@/lib/apariencia";
 import BarraProgreso from "@/components/barra-progreso";
 import FondoMobiliario from "@/components/fondo-mobiliario";
+import EstadoEnvios from "@/components/estado-envios";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <BarraProgreso />
         {children}
         <Avisos />
+        <EstadoEnvios />
       </body>
     </html>
   );

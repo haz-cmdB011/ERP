@@ -22,9 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -72,7 +72,7 @@ jobs:
       # Si fallan, el informe con capturas y trazas se baja desde la pestaña del PR.
       - name: Guardar informe de las pruebas de navegador
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: informe-pruebas-de-navegador
           path: |
