@@ -16,6 +16,16 @@ updates:
       menores-y-parches:
         update-types: [minor, patch]
     labels: [dependencias]
+    ignore:
+      # Mayores que hoy rompen el ecosistema (plugins de ESLint, Next 16 y los
+      # tipos de Node que usa el CI). Se revisan a mano cuando sus dependientes
+      # los soporten; quitar la línea correspondiente entonces.
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
