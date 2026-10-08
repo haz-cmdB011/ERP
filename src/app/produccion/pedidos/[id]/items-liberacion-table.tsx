@@ -10,6 +10,7 @@ import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 import { avisar } from "@/components/avisos";
 import GrupoDesplegable from "@/components/grupo-desplegable";
+import BotonDesplegar from "@/components/boton-desplegar";
 import { useFlip } from "@/lib/ui/use-flip";
 
 export interface ItemLiberacionRow {
@@ -471,21 +472,12 @@ export default function ItemsLiberacionTable({
         </td>
         <td className="px-3 py-3 lg:py-2">
           <span className="inline-flex items-center gap-1.5">
-            {desplegable && (
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={`h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform ${
-                  abierto ? "rotate-90" : ""
-                }`}
-                aria-hidden="true"
-              >
-                <path d="m9 6 6 6-6 6" />
-              </svg>
+            {desplegable && grupo && (
+              <BotonDesplegar
+                abierto={abierto}
+                alAlternar={() => alternarMueble(grupo)}
+                descripcion={`los ${grupo.totalHijos} componente${grupo.totalHijos === 1 ? "" : "s"} del ítem ${item.item_code}`}
+              />
             )}
             {item.item_code}
             {/* Tablet: el modelo va junto al número, como título de la ficha. */}

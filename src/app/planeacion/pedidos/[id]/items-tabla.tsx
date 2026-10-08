@@ -22,8 +22,8 @@ import EstadoRevisionSelect from "./estado-revision-select";
 import EliminarItemBoton from "./eliminar-item-boton";
 import type { PlanoLink } from "@/lib/planos/planos-por-item";
 import PlanosItem from "./planos-item";
-import Chevron from "@/components/chevron";
 import GrupoDesplegable from "@/components/grupo-desplegable";
+import BotonDesplegar from "@/components/boton-desplegar";
 import { useFlip } from "@/lib/ui/use-flip";
 
 export interface ItemTabla {
@@ -405,13 +405,19 @@ export default function ItemsTabla({
                       <tr
                         data-flip={m.id}
                         onClick={() => alternar(m.id)}
-                        aria-expanded={abierto}
                         className={`cursor-pointer border-t border-slate-200 align-top text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${
                           seleccion.has(m.id) ? "bg-brand-50" : colorFilaEstadoRevision(m.estado_revision)
                         }`}
                       >
                         <td className="py-2 pl-3 text-slate-500">
-                          {hijos.length > 0 && <Chevron abierto={abierto} />}
+                          {hijos.length > 0 && (
+                            <BotonDesplegar
+                              abierto={abierto}
+                              alAlternar={() => alternar(m.id)}
+                              descripcion={`los ${hijos.length} componente${hijos.length === 1 ? "" : "s"} del ítem ${m.item_code}`}
+                              className="h-4 w-4"
+                            />
+                          )}
                         </td>
                         {puedeEditar && (
                           <td className="px-2 py-2 sm:px-3" onClick={(e) => e.stopPropagation()}>
