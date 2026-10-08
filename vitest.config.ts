@@ -9,7 +9,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    // tests-db habla con la base real: se corre aparte (npm run test:db).
-    exclude: [...configDefaults.exclude, "tests-db/**"],
+    // tests-db habla con la base real: se corre aparte (npm run test:db). e2e/ son las
+    // pruebas de navegador de Playwright (npm run test:e2e).
+    exclude: [...configDefaults.exclude, "tests-db/**", "e2e/**"],
   },
 });
