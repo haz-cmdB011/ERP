@@ -1,6 +1,6 @@
 -- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
 -- @verifica function public.item_verificado_por_produccion
--- @verifica function-contiene public.crear_informe_calidad item_verificado_por_produccion
+-- @verifica function-contiene public.crear_informe_calidad no verifica piezas de este mueble
 -- @verifica function public.proteger_liberacion_con_trabajo
 -- @verifica trigger public.planeacion_items.trg_proteger_liberacion_con_trabajo
 -- @verifica function-contiene public.anular_entrega_produccion no se puede anular la entrega
