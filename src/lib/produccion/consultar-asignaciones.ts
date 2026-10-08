@@ -84,7 +84,7 @@ export async function consultarAsignaciones(
     const texto = f.q.replace(/[,()*%\\]/g, " ").trim();
     if (texto) {
       consulta = consulta.or(
-        `numero_pedido.ilike.*${texto}*,modelo.ilike.*${texto}*,descripcion.ilike.*${texto}*,folios_calidad.ilike.*${texto}*`
+        `numero_pedido.ilike.*${texto}*,modelo.ilike.*${texto}*,descripcion.ilike.*${texto}*,folios_calidad.ilike.*${texto}*,folios_cal.ilike.*${texto}*`
       );
     }
   }

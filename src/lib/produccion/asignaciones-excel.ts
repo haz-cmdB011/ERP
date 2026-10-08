@@ -22,7 +22,8 @@ export const ENCABEZADOS_ASIGNACIONES = [
   "FECHA DE ASIGNACIÓN",
   "FECHA DE ENTREGA",
   "DÍAS",
-  "FOLIOS DE CALIDAD",
+  "FOLIO HOJA DE ENTREGA",
+  "FOLIOS DE CALIDAD (CAL-)",
   "ESTADO",
   "NOTAS",
 ] as const;
@@ -63,6 +64,7 @@ export async function generarExcelAsignaciones(
       a.estado === "entregada" ? fechaExcel(a.ultima_entrega) : null,
       diasEnProceso(a, hoy),
       a.folios_calidad,
+      a.folios_cal,
       ESTADO_ASIGNACION_LABELS[a.estado],
       a.cancelada_en ? `Cancelada: ${a.motivo_cancelacion ?? ""}` : a.notas,
     ]);
@@ -70,7 +72,7 @@ export async function generarExcelAsignaciones(
 
   ws.getColumn(10).numFmt = "dd/mm/yyyy";
   ws.getColumn(11).numFmt = "dd/mm/yyyy";
-  const anchos = [16, 8, 18, 40, 10, 10, 22, 20, 10, 12, 12, 7, 30, 16, 30];
+  const anchos = [16, 8, 18, 40, 10, 10, 22, 20, 10, 12, 12, 7, 24, 24, 16, 30];
   anchos.forEach((w, i) => (ws.getColumn(i + 1).width = w));
   ws.views = [{ state: "frozen", ySplit: 1 }];
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: anchos.length } };

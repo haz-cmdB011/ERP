@@ -20,7 +20,8 @@ import Modal, {
 } from "./modal";
 
 // Botón "Registrar entrega": el equipo terminó (todo o parte). El encargado
-// escribe los folios de Calidad y sube la foto de la hoja; la foto se reduce
+// escribe el folio de la hoja de entrega (papel; no son los folios CAL- de
+// Calidad, que salen después al evaluar el lote) y sube la foto de la hoja; la foto se reduce
 // aquí y el servidor la comprime antes de guardarla.
 //
 // Si se cae la red, la entrega (con su foto) se guarda en este aparato y se manda sola al
@@ -100,7 +101,7 @@ export default function RegistrarEntrega({
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     if (!foto) {
-      setError("Toma o elige la foto de los folios.");
+      setError("Toma o elige la foto de la hoja de entrega.");
       return;
     }
     setEnviando(true);
@@ -114,7 +115,7 @@ export default function RegistrarEntrega({
           usuarioId: await usuarioActualId(),
           url: "/api/produccion/entregas",
           campos: { asignacionId, fecha, cantidad, folios },
-          archivos: [{ campo: "foto", nombre: "folios.jpg", blob: reducida }],
+          archivos: [{ campo: "foto", nombre: "hoja-entrega.jpg", blob: reducida }],
           grupo: asignacionId,
           cantidad: Number(cantidad) || 0,
         },
@@ -204,19 +205,19 @@ export default function RegistrarEntrega({
               </label>
             </div>
             <label className={estiloEtiqueta}>
-              Folios de Calidad
+              Folio de la hoja de entrega
               <textarea
                 required
                 rows={2}
                 maxLength={500}
                 value={folios}
                 onChange={(e) => setFolios(e.target.value)}
-                placeholder="Ej. CAL-000123, CAL-000124"
+                placeholder="El que viene en la hoja de papel"
                 className={estiloCampo}
               />
             </label>
             <label className={estiloEtiqueta}>
-              Foto de los folios
+              Foto de la hoja de entrega
               <input
                 type="file"
                 required

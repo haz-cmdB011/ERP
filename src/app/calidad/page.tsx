@@ -13,6 +13,8 @@ import { detallePorEvaluar, type ResumenCalidad } from "@/lib/calidad/resumen";
 import type { AvancePedido } from "@/lib/resumen/avance-items";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { paginarTodo } from "@/lib/supabase/paginar";
+import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
+import { DIAS_SIN_EVALUAR_LOTE, avisoDetenidos } from "@/lib/produccion/detenidos";
 import EstadoCalidad from "./estado-calidad";
 
 // Igual que en Planeación y Producción: órdenes de trabajo con sus PM. Al
@@ -34,7 +36,7 @@ export default async function CalidadListPage({
   // la pantalla ofrece "Reintentar" en vez de mostrar una lista corta. Resumen de
   // evaluación (por evaluar, antiguos, por reinspeccionar, tasa de aprobación): si no
   // se pudo calcular se avisa en vez de mostrar ceros que parezcan reales.
-  const [pedidos, resumen] = await Promise.all([
+  const [pedidos, resumen, detenidos] = await Promise.all([
     paginarTodo<PedidoConOt>(
       (desde, hasta) =>
         supabase
@@ -50,6 +52,8 @@ export default async function CalidadListPage({
       { contexto: "los pedidos" }
     ),
     cargarResumenCalidad(supabase).catch((): ResumenCalidad | null => null),
+    // Lotes que esperan a Calidad: si falla, la pantalla sigue sin esa tarjeta.
+    cargarDetenidos(supabase, hoyMexico()).catch(() => null),
   ]);
 
   const filtradas = filtrarOrdenesTrabajo(pedidos, {
@@ -97,6 +101,18 @@ export default async function CalidadListPage({
       ) : (
         <ResumenInicio
           tarjetas={[
+            ...(detenidos
+              ? [
+                  {
+                    valor: detenidos.sinEvaluar.total,
+                    etiqueta: "Lotes por evaluar",
+                    detalle: "entregas que Producción ya verificó",
+                    href: "/calidad/entregas",
+                    tono: "atencion" as const,
+                    alerta: avisoDetenidos(detenidos.sinEvaluar, DIAS_SIN_EVALUAR_LOTE),
+                  },
+                ]
+              : []),
             {
               valor: resumen!.porEvaluar,
               etiqueta: "Ítems por evaluar",

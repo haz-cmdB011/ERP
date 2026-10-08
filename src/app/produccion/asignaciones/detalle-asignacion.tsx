@@ -8,6 +8,8 @@ import {
   type RevisionEntrega,
 } from "@/lib/produccion/asignaciones";
 import type { EntregaConFoto } from "@/lib/produccion/consultar-asignaciones";
+import { DIAS_SIN_VERIFICAR, diasEsperando } from "@/lib/produccion/detenidos";
+import { hoyMexico } from "@/lib/produccion/asignaciones";
 import AccionConMotivo from "./accion-con-motivo";
 import RegistrarEntrega from "./registrar-entrega";
 import VerificarEntrega from "./verificar-entrega";
@@ -26,6 +28,17 @@ export function EstadoAsignacionBadge({ estado }: { estado: AsignacionResumen["e
     >
       {ESTADO_ASIGNACION_LABELS[estado]}
     </span>
+  );
+}
+
+// Cuánto lleva una entrega esperando la revisión del trabajador.
+function EsperandoVerificacion({ desde }: { desde: string }) {
+  const dias = diasEsperando(desde, hoyMexico());
+  if (dias === 0) return <p className="text-xs text-amber-700">Registrada hoy, por verificar.</p>;
+  return (
+    <p className={`text-xs ${dias >= DIAS_SIN_VERIFICAR ? "font-medium text-amber-800" : "text-amber-700"}`}>
+      {dias >= DIAS_SIN_VERIFICAR ? "⚠ " : ""}Lleva {dias} día{dias === 1 ? "" : "s"} sin verificar.
+    </p>
   );
 }
 
@@ -86,7 +99,7 @@ export default function DetalleAsignacion({
                 }`}
               >
                 {e.fotoUrl ? (
-                  <ImagenAmpliable url={e.fotoUrl} alt="Foto de los folios de Calidad" className="h-16 w-16" />
+                  <ImagenAmpliable url={e.fotoUrl} alt="Foto de la hoja de entrega" className="h-16 w-16" />
                 ) : (
                   <span className="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-600">
                     Sin foto
@@ -97,7 +110,9 @@ export default function DetalleAsignacion({
                     {formatoFecha(e.fecha_entrega)} · {Number(e.cantidad)} {a.unidad ?? ""}
                     <span className={`ml-2 text-xs font-semibold ${etiqueta.clase}`}>{etiqueta.texto}</span>
                   </p>
-                  <p className="break-words font-mono text-xs text-slate-700">{e.folios_calidad}</p>
+                  <p className="break-words text-xs text-slate-700">
+                    Hoja: <span className="font-mono">{e.folios_calidad}</span>
+                  </p>
                   {e.calidad.length > 0 && (
                     <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs">
                       {e.calidad.map((c) => (
@@ -107,6 +122,7 @@ export default function DetalleAsignacion({
                       ))}
                     </p>
                   )}
+                  {revision === "por_verificar" && <EsperandoVerificacion desde={e.registrado_en} />}
                   {revision === "anulada" && <p className="text-xs text-slate-500">Motivo: {e.motivo_anulacion}</p>}
                   {revision === "rechazada" && (
                     <p className="text-xs text-slate-500">

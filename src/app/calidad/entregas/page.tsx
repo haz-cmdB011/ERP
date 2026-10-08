@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
 import { cargarLotesPorEvaluar } from "@/lib/calidad/resumen-db";
 import type { LoteCalidad } from "@/lib/calidad/lotes";
-import { PROCESO_LABELS, diasEntre, formatoFecha, hoyMexico } from "@/lib/produccion/asignaciones";
+import { PROCESO_LABELS, formatoFecha, hoyMexico } from "@/lib/produccion/asignaciones";
+import { DIAS_SIN_EVALUAR_LOTE, diasEsperando } from "@/lib/produccion/detenidos";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import ChipEstado from "@/components/chip-estado";
 import EstadoVacio from "@/components/estado-vacio";
@@ -28,7 +29,7 @@ export default async function LotesPorEvaluarPage() {
   const [perfil, lista] = await Promise.all([getPerfilActual(supabase), cargarLotesPorEvaluar(supabase)]);
   const puedeEvaluar = puedeEvaluarCalidad(perfil);
   const hoy = hoyMexico();
-  const espera = (l: LoteCalidad) => Math.max(0, diasEntre(hoyMexico(new Date(l.verificada_en)), hoy));
+  const espera = (l: LoteCalidad) => diasEsperando(l.verificada_en, hoy);
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
@@ -76,6 +77,7 @@ export default async function LotesPorEvaluarPage() {
                 </div>
                 <p className="mt-1 text-sm text-slate-600">
                   {l.equipo} · {PROCESO_LABELS[l.proceso]} · entregado el {formatoFecha(l.fecha_entrega)}
+                  {l.folio_hoja ? ` · hoja ${l.folio_hoja}` : ""}
                 </p>
                 <p className="text-sm text-slate-600">
                   Por evaluar {l.pendiente} de {l.cantidad} {l.unidad ?? ""} · verificado el{" "}
@@ -128,6 +130,9 @@ export default async function LotesPorEvaluarPage() {
                         <span className="block text-xs text-slate-500">
                           {PROCESO_LABELS[l.proceso]} · entregó {formatoFecha(l.fecha_entrega)}
                         </span>
+                        {l.folio_hoja && (
+                          <span className="block text-xs text-slate-500">Hoja: {l.folio_hoja}</span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">
                         {l.pendiente} de {l.cantidad} {l.unidad ?? ""}
@@ -135,7 +140,7 @@ export default async function LotesPorEvaluarPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                         {formatoFechaDMA(l.verificada_en)}
                         {dias > 0 && (
-                          <span className={`block text-xs ${dias >= 3 ? "font-medium text-amber-700" : "text-slate-500"}`}>
+                          <span className={`block text-xs ${dias >= DIAS_SIN_EVALUAR_LOTE ? "font-medium text-amber-700" : "text-slate-500"}`}>
                             hace {dias} día{dias === 1 ? "" : "s"}
                           </span>
                         )}

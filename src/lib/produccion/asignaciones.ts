@@ -82,6 +82,9 @@ export interface AsignacionResumen {
   // Retrabajo: el informe de Calidad que rechazó las piezas que se rehacen.
   informe_rechazo_id: string | null;
   folio_rechazo: string | null;
+  // Folios CAL- que Calidad generó al evaluar las entregas de la asignación.
+  // (folios_calidad, en cambio, es el folio de la hoja de entrega en papel.)
+  folios_cal: string | null;
 }
 
 export interface EntregaProduccion {

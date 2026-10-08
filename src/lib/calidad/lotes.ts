@@ -30,6 +30,8 @@ export interface LoteCalidad {
   rechazadas: number;
   pendiente: number;
   vigente: boolean;
+  // Folio de la hoja de entrega en papel: para ubicar la hoja física del lote.
+  folio_hoja: string | null;
 }
 
 // PostgREST devuelve numeric como texto: se normaliza a número.

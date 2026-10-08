@@ -11,6 +11,8 @@ export interface TarjetaResumen {
   href?: string;
   // "atencion" resalta lo que alguien tiene que hacer; "suave" lo informativo.
   tono?: "atencion" | "suave";
+  // Algo lleva días esperando (p. ej. "3 con 2 días o más"): se marca en ámbar.
+  alerta?: string | null;
 }
 
 // Fila de números al inicio de cada área: qué hay pendiente y un clic para
@@ -33,11 +35,14 @@ export default function ResumenInicio({ tarjetas }: { tarjetas: TarjetaResumen[]
             <span className="min-w-0">
               <span className="block text-sm font-medium text-slate-900">{t.etiqueta}</span>
               {t.detalle && <span className="block text-xs text-slate-500">{t.detalle}</span>}
+              {t.alerta && (
+                <span className="mt-0.5 block text-xs font-medium text-amber-700">⚠ {t.alerta}</span>
+              )}
             </span>
           </>
         );
         const base = `anim-escala flex h-full items-center gap-4 rounded-xl border bg-white p-4 shadow-sm ${
-          activa ? "border-brand-300 ring-1 ring-brand-200" : "border-slate-200"
+          t.alerta ? "border-amber-300 ring-1 ring-amber-200" : activa ? "border-brand-300 ring-1 ring-brand-200" : "border-slate-200"
         }`;
         const tarjeta = t.href ? (
           <Link

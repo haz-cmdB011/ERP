@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "La cantidad debe ser mayor que cero." }, { status: 400 });
   }
   if (typeof folios !== "string" || !folios.trim()) {
-    return NextResponse.json({ error: "Escribe los folios de Calidad." }, { status: 400 });
+    return NextResponse.json({ error: "Escribe el folio de la hoja de entrega." }, { status: 400 });
   }
   if (!(foto instanceof File) || foto.size === 0) {
     return NextResponse.json({ error: "Falta la foto de los folios." }, { status: 400 });
