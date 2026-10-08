@@ -98,6 +98,14 @@ const TRAZOS = {
       <path d="M12 8v4l2.5 1.5" />
     </>
   ),
+  retrabajo: (
+    <>
+      <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+      <path d="M3 21v-5h5" />
+    </>
+  ),
 } as const;
 
 export type NombreIcono = keyof typeof TRAZOS;

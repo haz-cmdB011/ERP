@@ -49,6 +49,12 @@ export default function DetalleAsignacion({
 
   return (
     <div className="flex flex-col gap-3">
+      {a.folio_rechazo && (
+        <p className="text-sm text-slate-600">
+          Retrabajo de las piezas que Calidad rechazó con el folio{" "}
+          <span className="font-mono font-medium text-rose-700">{a.folio_rechazo}</span>.
+        </p>
+      )}
       {a.notas && <p className="text-sm text-slate-600">Notas: {a.notas}</p>}
       {a.cancelada_en && (
         <p className="text-sm text-slate-600">
@@ -63,6 +69,11 @@ export default function DetalleAsignacion({
           {entregas.map((e) => {
             const revision = revisionEntrega(e);
             const fuera = revision === "anulada" || revision === "rechazada";
+            const evaluadas = e.calidad.reduce((s, c) => s + c.cantidad, 0);
+            const etiqueta =
+              revision === "verificada" && evaluadas >= Number(e.cantidad)
+                ? { texto: "EVALUADA POR CALIDAD", clase: "text-slate-600" }
+                : REVISION[revision];
             return (
               <li
                 key={e.id}
@@ -84,11 +95,18 @@ export default function DetalleAsignacion({
                 <div className="min-w-0 flex-1 text-sm">
                   <p className="font-medium text-slate-900">
                     {formatoFecha(e.fecha_entrega)} · {Number(e.cantidad)} {a.unidad ?? ""}
-                    <span className={`ml-2 text-xs font-semibold ${REVISION[revision].clase}`}>
-                      {REVISION[revision].texto}
-                    </span>
+                    <span className={`ml-2 text-xs font-semibold ${etiqueta.clase}`}>{etiqueta.texto}</span>
                   </p>
                   <p className="break-words font-mono text-xs text-slate-700">{e.folios_calidad}</p>
+                  {e.calidad.length > 0 && (
+                    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs">
+                      {e.calidad.map((c) => (
+                        <span key={c.id} className={c.aprobado ? "text-emerald-700" : "font-medium text-rose-700"}>
+                          {c.folio}: {c.cantidad} {c.aprobado ? "aprobadas" : "rechazadas"}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                   {revision === "anulada" && <p className="text-xs text-slate-500">Motivo: {e.motivo_anulacion}</p>}
                   {revision === "rechazada" && (
                     <p className="text-xs text-slate-500">
@@ -107,7 +125,7 @@ export default function DetalleAsignacion({
                       />
                     </>
                   )}
-                  {puedeAnular && !fuera && (
+                  {puedeAnular && !fuera && e.calidad.length === 0 && (
                     <AccionConMotivo
                       accion="anular"
                       id={e.id}

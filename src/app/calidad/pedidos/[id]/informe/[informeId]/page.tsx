@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import type { LoteCalidad } from "@/lib/calidad/lotes";
+import { PROCESO_LABELS } from "@/lib/produccion/asignaciones";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/site-url";
 import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
@@ -20,6 +22,8 @@ interface InformeRow {
   elaborado_en: string;
   planeacion_item_id: string;
   categoria: string | null;
+  entrega_id: string | null;
+  cantidad: number | string | null;
 }
 
 interface ItemConVersion extends InformeFichaItem {
@@ -51,7 +55,7 @@ export default async function InformeCalidadPage({
   const informe = await leer(
     supabase
     .from("informes_calidad")
-    .select("id, folio, aprobado, descripcion, elaborado_por, elaborado_en, planeacion_item_id, categoria")
+    .select("id, folio, aprobado, descripcion, elaborado_por, elaborado_en, planeacion_item_id, categoria, entrega_id, cantidad")
     .eq("id", informeId)
     .maybeSingle<InformeRow>(),
     "informes_calidad"
@@ -96,6 +100,18 @@ export default async function InformeCalidadPage({
     "folios_produccion"
   );
 
+  // Informe de un lote: de qué entrega salieron las piezas.
+  const lote = informe.entrega_id
+    ? await leer(
+        supabase
+          .from("lotes_calidad")
+          .select("unidad, equipo, proceso, fecha_entrega, folio_rechazo")
+          .eq("entrega_id", informe.entrega_id)
+          .maybeSingle<Pick<LoteCalidad, "unidad" | "equipo" | "proceso" | "fecha_entrega" | "folio_rechazo">>(),
+        "lotes_calidad"
+      )
+    : null;
+
   const baseUrl = await getBaseUrl();
   const imagenesPorItem = await getImagenesPorItem(supabase, [item.id]);
   const nombreArchivo = nombreArchivoSeguro(
@@ -121,6 +137,17 @@ export default async function InformeCalidadPage({
           elaborado_en: informe.elaborado_en,
           elaboradoPorNombre,
           categoria: informe.categoria,
+          lote:
+            lote && informe.cantidad != null
+              ? {
+                  cantidad: Number(informe.cantidad),
+                  unidad: lote.unidad,
+                  equipo: lote.equipo,
+                  proceso: PROCESO_LABELS[lote.proceso],
+                  fechaEntrega: lote.fecha_entrega,
+                  folioRechazo: lote.folio_rechazo,
+                }
+              : null,
         }}
         imagenUrls={imagenesPorItem.get(item.id) ?? []}
         folioProduccion={folioProd?.folio ?? null}

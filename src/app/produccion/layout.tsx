@@ -58,6 +58,9 @@ export default async function ProduccionLayout({
         <SubnavLink href="/produccion/asignaciones" icono="asignaciones">
           Asignaciones
         </SubnavLink>
+        <SubnavLink href="/produccion/rechazos" icono="retrabajo">
+          Rechazado por Calidad
+        </SubnavLink>
         <SubnavLink href="/produccion/escanear" icono="escanear">
           Escanear QR
         </SubnavLink>
