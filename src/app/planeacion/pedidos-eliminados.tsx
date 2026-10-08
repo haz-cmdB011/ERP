@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import ConfirmDialog from "@/components/confirm-dialog";
 import { avisar } from "@/components/avisos";
+import { fetchJson } from "@/lib/http/fetch-json";
 import AccionesPedido from "./acciones-pedido";
 import type { ResultadoEliminacion } from "@/app/api/planeacion/pedidos/eliminar-definitivo/route";
 
@@ -40,20 +41,27 @@ export default function PedidosEliminados({ pedidos }: { pedidos: PedidoEliminad
   async function eliminar(contrasena: string) {
     setEnviando(true);
     setError(null);
-    const res = await fetch("/api/planeacion/pedidos/eliminar-definitivo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: seleccion.map((p) => p.id), contrasena }),
-    });
-    const data = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      resultados?: ResultadoEliminacion[];
-    };
+    // Borrar muchos pedidos tarda: más tiempo antes de darlo por perdido.
+    const r = await fetchJson<{ resultados?: ResultadoEliminacion[] }>(
+      "/api/planeacion/pedidos/eliminar-definitivo",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: seleccion.map((p) => p.id), contrasena }),
+        esperaMs: 180_000,
+      }
+    );
+    const data = r.data;
     setEnviando(false);
 
-    if (!res.ok || !data.resultados) {
+    if (!r.ok || !data.resultados) {
       // Contraseña incorrecta u otro rechazo previo: no se borró nada y se puede reintentar.
-      setError(data.error ?? "No se pudo eliminar.");
+      // Si se cortó la conexión a medias, el servidor pudo haber borrado algunos.
+      setError(
+        r.sinRed
+          ? `${r.error} Puede que algunos pedidos sí se hayan eliminado: recarga la página para ver cuáles siguen.`
+          : (r.error ?? "No se pudo eliminar.")
+      );
       return;
     }
 

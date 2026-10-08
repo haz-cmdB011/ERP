@@ -5,6 +5,7 @@ import { useState } from "react";
 import IconoPapelera from "@/components/icono-papelera";
 import ConfirmDialog from "@/components/confirm-dialog";
 import { avisar } from "@/components/avisos";
+import { ERROR_GENERICO, fetchJson } from "@/lib/http/fetch-json";
 
 type Accion = "logico" | "definitivo" | "restaurar";
 
@@ -12,19 +13,20 @@ async function llamar(
   pedidoId: string,
   accion: Accion,
   contrasena?: string
-): Promise<{ ok: boolean; data: Record<string, unknown> }> {
-  const res =
+): Promise<{ ok: boolean; error: string | null; data: Record<string, unknown> }> {
+  // fetchJson nunca lanza: sin red o con una respuesta rara devuelve un error legible.
+  const r =
     accion === "definitivo"
-      ? await fetch(`/api/planeacion/pedidos/${pedidoId}`, {
+      ? await fetchJson<Record<string, unknown>>(`/api/planeacion/pedidos/${pedidoId}`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contrasena }),
         })
-      : await fetch(`/api/planeacion/pedidos/${pedidoId}/${accion === "logico" ? "eliminar-logico" : "restaurar"}`, {
-          method: "POST",
-        });
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok, data };
+      : await fetchJson<Record<string, unknown>>(
+          `/api/planeacion/pedidos/${pedidoId}/${accion === "logico" ? "eliminar-logico" : "restaurar"}`,
+          { method: "POST" }
+        );
+  return { ok: r.ok, error: r.error, data: r.data };
 }
 
 // Eliminar un PM en dos pasos, para que lo irreversible quede lejos del clic
@@ -52,9 +54,9 @@ export default function AccionesPedido({
 
   // Deshacer desde el aviso: la acción contraria (papelera <-> restaurar).
   async function deshacer(accion: Accion) {
-    const { ok, data } = await llamar(pedidoId, accion);
+    const { ok, error } = await llamar(pedidoId, accion);
     if (!ok) {
-      avisar(String(data.error ?? "No se pudo deshacer."), "error");
+      avisar(error ?? "No se pudo deshacer.", "error");
       return;
     }
     avisar("Cambio deshecho.", "info");
@@ -66,11 +68,11 @@ export default function AccionesPedido({
     if (accion !== "definitivo") setConfirmando(null);
     setCargando(accion);
     setError(null);
-    const { ok, data } = await llamar(pedidoId, accion, contrasena);
+    const { ok, error, data } = await llamar(pedidoId, accion, contrasena);
     setCargando(null);
 
     if (!ok) {
-      setError(String(data.error ?? "Error desconocido."));
+      setError(error ?? ERROR_GENERICO);
       return;
     }
     setConfirmando(null);
