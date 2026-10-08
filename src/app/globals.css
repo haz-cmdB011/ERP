@@ -777,7 +777,7 @@ html.transicion-tema *::after {
   .inclinable-brillo {
     background: radial-gradient(
       220px circle at var(--mx, 50%) var(--my, 50%),
-      rgb(124 252 0 / 0.18),
+      color-mix(in oklab, var(--color-brand-500) 18%, transparent),
       transparent 65%
     );
     transition: opacity 220ms ease-out;
