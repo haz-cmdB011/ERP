@@ -7,7 +7,6 @@ import { nombreCategoria } from "@/lib/calidad/categorias";
 import {
   ESTADO_ASIGNACION_LABELS,
   PROCESO_LABELS,
-  diasEntre,
   formatoFecha,
   hoyMexico,
   type AsignacionResumen,
@@ -15,6 +14,7 @@ import {
   type Proceso,
 } from "@/lib/produccion/asignaciones";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
+import { DIAS_SIN_REASIGNAR, diasEsperando } from "@/lib/produccion/detenidos";
 import EstadoVacio from "@/components/estado-vacio";
 import ReasignarRetrabajo from "./reasignar-retrabajo";
 
@@ -225,7 +225,7 @@ export default async function RechazosPage() {
           <ul className="flex flex-col gap-3">
             {porReasignar.map((r) => {
               const pendiente = Number(r.por_reasignar);
-              const dias = Math.max(0, diasEntre(hoyMexico(new Date(r.elaborado_en)), hoy));
+              const dias = diasEsperando(r.elaborado_en, hoy);
               const desc = `${r.numero_pedido} · ${r.modelo ?? `ítem ${r.item_code}`}`;
               return (
                 <li key={r.informe_id} className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm">
@@ -260,7 +260,7 @@ export default async function RechazosPage() {
                         )}
                         {r.motivo}
                       </p>
-                      <p className={`mt-1 text-xs ${dias >= 2 ? "font-medium text-amber-700" : "text-slate-500"}`}>
+                      <p className={`mt-1 text-xs ${dias >= DIAS_SIN_REASIGNAR ? "font-medium text-amber-700" : "text-slate-500"}`}>
                         Rechazado el {formatoFechaDMA(r.elaborado_en)}
                         {dias > 0 ? ` · hace ${dias} día${dias === 1 ? "" : "s"}` : ""}
                       </p>

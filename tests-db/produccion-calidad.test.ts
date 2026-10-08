@@ -13,6 +13,8 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
+import { cargarDetenidos } from "../src/lib/produccion/detenidos-db";
+import { hoyMexico } from "../src/lib/produccion/asignaciones";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -88,6 +90,13 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
   });
 
   describe("datos", () => {
+    it("las alertas de cosas detenidas se calculan sin fallar", async () => {
+      const d = await cargarDetenidos(servicio, hoyMexico());
+      for (const p of [d.sinVerificar, d.sinEvaluar, d.sinReasignar]) {
+        expect(p.detenidos).toBeLessThanOrEqual(p.total);
+      }
+    });
+
     it("ningún lote tiene más piezas evaluadas que las que se entregaron", async (ctx) => {
       const { data, error } = await servicio
         .from("lotes_calidad")

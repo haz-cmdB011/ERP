@@ -35,7 +35,8 @@ export const metadata: Metadata = { title: "Asignaciones" };
 
 // Control de asignaciones: la "hoja" del encargado de Producción. Una fila
 // por asignación (PM, modelo, cantidad, equipo, fecha de asignación, fecha de
-// entrega, folios de Calidad); al desplegarla se ven las entregas con la foto.
+// entrega, folio de la hoja y folios de Calidad); al desplegarla se ven las
+// entregas con la foto de la hoja.
 export default async function AsignacionesPage({
   searchParams,
 }: {
@@ -143,7 +144,7 @@ export default async function AsignacionesPage({
             type="search"
             name="q"
             defaultValue={filtros.q}
-            placeholder="PM, modelo o folio de Calidad"
+            placeholder="PM, modelo, folio de hoja o CAL-"
             className={estiloCampo}
           />
         </label>
@@ -243,7 +244,7 @@ export default async function AsignacionesPage({
                 <th className="px-3 py-3">Asignación</th>
                 <th className="px-3 py-3">Entrega</th>
                 <th className="px-3 py-3 text-right">Días</th>
-                <th className="px-3 py-3">Folios de Calidad</th>
+                <th className="px-3 py-3">Folios</th>
                 <th className="px-3 py-3">Estado</th>
               </tr>
             </thead>
@@ -304,7 +305,8 @@ export default async function AsignacionesPage({
                     </td>
                     <td className="px-3 py-2 text-right">{dias ?? "—"}</td>
                     <td className="max-w-[12rem] px-3 py-2 font-mono text-xs text-slate-700">
-                      {a.folios_calidad ?? "—"}
+                      {a.folios_calidad ? <span className="block">Hoja: {a.folios_calidad}</span> : "—"}
+                      {a.folios_cal && <span className="mt-0.5 block text-brand-800">{a.folios_cal}</span>}
                     </td>
                     <td className="px-3 py-2">
                       <EstadoAsignacionBadge estado={a.estado} />

@@ -16,6 +16,13 @@ import { estadoEntrega } from "@/lib/resumen/entrega";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { esAlerta, otConPendientes, plazoDePedido, resumirTaller } from "@/lib/produccion/atrasos";
 import { cargarTaller } from "@/lib/produccion/cargar-taller";
+import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
+import {
+  DIAS_SIN_EVALUAR_LOTE,
+  DIAS_SIN_REASIGNAR,
+  DIAS_SIN_VERIFICAR,
+  avisoDetenidos,
+} from "@/lib/produccion/detenidos";
 import EstadoLiberacion from "./estado-liberacion";
 import BuscadorOt from "./buscador-ot";
 import ChipPlazo from "./chip-plazo";
@@ -41,7 +48,7 @@ export default async function ProduccionListPage({
   // taller es un resumen: si falla la consulta la pantalla sigue, solo sin esa tarjeta
   // ni alertas de asignaciones.
   const hoy = hoyMexico();
-  const [busqueda, { data: pedidos, error }, avance, taller] = await Promise.all([
+  const [busqueda, { data: pedidos, error }, avance, taller, detenidos] = await Promise.all([
     consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null),
     supabase
       .from("pedidos")
@@ -53,6 +60,8 @@ export default async function ProduccionListPage({
       .returns<PedidoConOt[]>(),
     avancePorPedido(supabase, { conCalidad: false }),
     cargarTaller(supabase, hoy).catch(() => null),
+    // Resumen: si falla, la pantalla sigue sin esas tarjetas.
+    cargarDetenidos(supabase, hoy).catch(() => null),
   ]);
 
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
@@ -92,6 +101,33 @@ export default async function ProduccionListPage({
       href: "/produccion",
     },
   ];
+  if (detenidos) {
+    tarjetas.push(
+      {
+        valor: detenidos.sinVerificar.total,
+        etiqueta: "Entregas por verificar",
+        detalle: "revisa lo que entregaron los equipos",
+        href: "/produccion/asignaciones?estado=por_verificar",
+        tono: "atencion",
+        alerta: avisoDetenidos(detenidos.sinVerificar, DIAS_SIN_VERIFICAR),
+      },
+      {
+        valor: detenidos.sinReasignar.total,
+        etiqueta: "Rechazos por reasignar",
+        detalle: "piezas que Calidad no aprobó",
+        href: "/produccion/rechazos",
+        tono: "atencion",
+        alerta: avisoDetenidos(detenidos.sinReasignar, DIAS_SIN_REASIGNAR),
+      },
+      {
+        valor: detenidos.sinEvaluar.total,
+        etiqueta: "Lotes esperando a Calidad",
+        detalle: "ya verificados, sin evaluar",
+        tono: "suave",
+        alerta: avisoDetenidos(detenidos.sinEvaluar, DIAS_SIN_EVALUAR_LOTE),
+      }
+    );
+  }
   if (resumenTaller) {
     tarjetas.push({
       valor: resumenTaller.atrasadas.length,

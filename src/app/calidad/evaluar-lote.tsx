@@ -28,6 +28,7 @@ type LoteParaEvaluar = Pick<
   | "cantidad"
   | "pendiente"
   | "folio_rechazo"
+  | "folio_hoja"
 >;
 
 interface InformeCreado {
@@ -117,8 +118,8 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
         <Modal
           titulo={`Evaluar lote · ${titulo}`}
           subtitulo={`${lote.equipo} · ${PROCESO_LABELS[lote.proceso]} · entregado el ${formatoFecha(lote.fecha_entrega)}${
-            lote.folio_rechazo ? ` · retrabajo de ${lote.folio_rechazo}` : ""
-          }`}
+            lote.folio_hoja ? ` · hoja ${lote.folio_hoja}` : ""
+          }${lote.folio_rechazo ? ` · retrabajo de ${lote.folio_rechazo}` : ""}`}
           onCerrar={() => !enviando && setAbierto(false)}
         >
           <form onSubmit={enviar} className="flex flex-col gap-3">
