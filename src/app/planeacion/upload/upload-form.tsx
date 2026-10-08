@@ -22,6 +22,8 @@ interface PedidoCargado {
   numero_version: number;
   items_mo: number;
   items_fu: number;
+  // Ya estaba cargado con los mismos ítems: no se creó versión nueva.
+  sin_cambios?: boolean;
 }
 
 interface UploadOk {
@@ -667,9 +669,11 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult | UploadOmitido
     <>
       <div className="mt-2 rounded border border-green-300 bg-green-50 p-3 text-sm text-green-800">
         <p className="font-medium">
-          {resultado.pedidos.length === 1
-            ? "Pedido ingerido correctamente."
-            : `${resultado.pedidos.length} pedidos ingeridos correctamente (uno por hoja).`}
+          {resultado.pedidos.every((p) => p.sin_cambios)
+            ? "Este archivo ya estaba cargado y sus ítems no cambiaron: no se creó una versión nueva."
+            : resultado.pedidos.length === 1
+              ? "Pedido ingerido correctamente."
+              : `${resultado.pedidos.length} pedidos ingeridos correctamente (uno por hoja).`}
         </p>
         <ul className="mt-2 flex flex-col gap-2">
           {resultado.pedidos.map((p) => (
@@ -679,10 +683,14 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult | UploadOmitido
               </Link>{" "}
               <span className="text-green-700">
                 {resultado.pedidos.length > 1 && <>hoja &ldquo;{p.hoja}&rdquo; · </>}
-                versión #{p.numero_version} · {p.items_mo} muebles (MO) y {p.items_fu} componentes
-                (FU)
+                {p.sin_cambios ? (
+                  <>sin cambios: sigue en la versión #{p.numero_version}</>
+                ) : (
+                  <>versión #{p.numero_version}</>
+                )}{" "}
+                · {p.items_mo} muebles (MO) y {p.items_fu} componentes (FU)
               </span>
-              {p.numero_version > 1 && (
+              {p.numero_version > 1 && !p.sin_cambios && (
                 <>
                   {" "}
                   <Link

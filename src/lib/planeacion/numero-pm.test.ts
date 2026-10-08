@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avisoNumeroPM, normalizarNumeroPM, ordenDeTrabajo, pmDeHojaRepetida, pmsDeLasHojas } from "./numero-pm";
+import { avisoNumeroPM, claveArchivoOrigen, normalizarNumeroPM, ordenDeTrabajo, pmDeHojaRepetida, pmsDeLasHojas } from "./numero-pm";
 
 describe("normalizarNumeroPM", () => {
   it.each([
@@ -317,5 +317,25 @@ describe("pmDeHojaRepetida", () => {
     const pm = pmDeHojaRepetida("2PM102-24", " PEDIDO  (2) ");
     expect(pm).toBe("2PM102-24 PEDIDO (2)");
     expect(ordenDeTrabajo(pm)).toBe("102-24");
+  });
+});
+
+describe("claveArchivoOrigen", () => {
+  it("el mismo nombre de archivo da la misma clave", () => {
+    const clave = claveArchivoOrigen("E3 OT 115-26 CORNER JBE LIV CHIHUAHUA 04.09.26.xlsx");
+    expect(clave).toBe("E3 OT 115-26 CORNER JBE LIV CHIHUAHUA 04.09.26");
+    expect(claveArchivoOrigen(" e3 ot 115-26  corner jbe liv chihuahua 04.09.26.XLSM ")).toBe(clave);
+  });
+
+  it("otro nombre (ej. otra fecha) es otro archivo", () => {
+    expect(claveArchivoOrigen("E3 OT 115-26 CORNER JBE LIV CHIHUAHUA 10.09.26.xlsx")).not.toBe(
+      claveArchivoOrigen("E3 OT 115-26 CORNER JBE LIV CHIHUAHUA 04.09.26.xlsx")
+    );
+  });
+
+  it("las hojas extra llevan su nombre", () => {
+    expect(claveArchivoOrigen("PM_013-26 SALON 02 V22.07.26.xlsx", " x  fechas")).toBe(
+      "PM_013-26 SALON 02 V22.07.26 :: X FECHAS"
+    );
   });
 });
