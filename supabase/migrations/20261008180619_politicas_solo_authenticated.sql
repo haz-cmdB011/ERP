@@ -1,7 +1,12 @@
+-- @verifica policy public.pedidos.authenticated_select_pedidos
+-- @verifica policy public.informes_calidad.authenticated_select_informes_calidad
+-- @verifica policy public.perfiles.perfiles_update_own
+-- @verifica policy public.recibos.maquilador_select_recibos
+
 -- Defensa en profundidad: las políticas de RLS de las tablas de la aplicación pasan de aplicarse al
 -- rol "public" (que incluye a los visitantes anónimos) a aplicarse solo a "authenticated".
 --
--- Antes: 81 políticas sin cláusula TO, que PostgreSQL toma como "public". Hoy no es explotable: todas
+-- Antes: 80 políticas sin cláusula TO, que PostgreSQL toma como "public". Hoy no es explotable: todas
 -- exigen un usuario (auth.uid()) o una función de rol (is_staff(), is_planeacion()…) y los anónimos
 -- no pueden ejecutar esas funciones; se comprobó con la clave pública (401 en todas las tablas).
 -- Pero el contrato queda escrito en la propia política en lugar de depender de eso, y de paso el
@@ -9,7 +14,8 @@
 -- roles con políticas duplicadas.
 --
 -- No cambia ninguna condición (USING / WITH CHECK): solo a quién se aplican. service_role se salta
--- RLS y no se ve afectado. Las otras 9 políticas ya eran TO authenticated.
+-- RLS y no se ve afectado. Las otras 9 políticas ya eran TO authenticated. (La de INSERT de informes_calidad ya no existe: los
+-- informes se crean solo con la función crear_informe_calidad.)
 --
 -- Cómo comprobar después de aplicarla:
 --   select count(*) from pg_policies where schemaname = 'public' and roles = array['public']::name[];  -- 0
@@ -42,7 +48,6 @@ alter policy admin_estimaciones_update_factores on public.factores to authentica
 alter policy estimaciones_select_factores on public.factores to authenticated;
 alter policy authenticated_select_folios_produccion on public.folios_produccion to authenticated;
 alter policy authenticated_select_informes_calidad on public.informes_calidad to authenticated;
-alter policy calidad_insert_informes_calidad on public.informes_calidad to authenticated;
 alter policy authenticated_select_pedido_versiones on public.pedido_versiones to authenticated;
 alter policy planeacion_insert_pedido_versiones on public.pedido_versiones to authenticated;
 alter policy planeacion_update_pedido_versiones on public.pedido_versiones to authenticated;
