@@ -18,12 +18,17 @@ export default function ErrorPantalla({
   // ocurren en el navegador (sin digest) se avisan desde aquí. Si el aviso falla, no pasa nada.
   useEffect(() => {
     if (error.digest) return;
-    void fetch("/api/errores", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mensaje: error.message, ruta: window.location.pathname }),
-      keepalive: true,
-    }).catch(() => {});
+    // El try (además del .catch) es el que exige src/app/fetch-seguro.test.ts.
+    try {
+      void fetch("/api/errores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensaje: error.message, ruta: window.location.pathname }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      // Sin red o sin fetch: el aviso es opcional.
+    }
   }, [error]);
 
   return (
