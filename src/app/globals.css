@@ -777,12 +777,38 @@ html.transicion-tema *::after {
   .inclinable-brillo {
     background: radial-gradient(
       220px circle at var(--mx, 50%) var(--my, 50%),
-      rgb(124 252 0 / 0.18),
+      color-mix(in oklab, var(--color-brand-500) 18%, transparent),
       transparent 65%
     );
     transition: opacity 220ms ease-out;
   }
   .inclinable:hover .inclinable-brillo {
+    opacity: 1;
+  }
+}
+
+/* Mismo brillo para la barra superior (src/components/brillo-cursor.tsx):
+   sigue al ratón sin inclinar nada. Posición en px porque la barra es muy
+   ancha y el círculo se deformaría con porcentajes. Más intenso que el de las
+   tarjetas: la barra ya va teñida con la marca y un brillo tenue se perdía. */
+.brillo-cursor {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .brillo-cursor {
+    background: radial-gradient(
+      240px circle at var(--mx, 50%) var(--my, 50%),
+      color-mix(in oklab, var(--color-brand-500) 35%, transparent),
+      color-mix(in oklab, var(--color-brand-500) 11%, transparent) 40%,
+      transparent 70%
+    );
+    transition: opacity 220ms ease-out;
+  }
+  .brillo-cursor[data-activo] {
     opacity: 1;
   }
 }

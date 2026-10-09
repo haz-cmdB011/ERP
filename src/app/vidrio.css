@@ -46,8 +46,11 @@
   --vidrio-sobre-marca: var(--sobre-marca);
   --vidrio-resplandor: color-mix(in oklab, var(--marca) 55%, transparent);
 
-  /* Barra superior y paneles de marca: vidrio oscuro teñido con el acento. */
-  --vidrio-nav: color-mix(in oklab, var(--marca) 12%, rgb(7 11 14 / 0.78));
+  /* Barra superior y paneles de marca: vidrio oscuro teñido con el acento.
+     --vidrio-nav-alfa no baja de 0.7 en modo claro: detrás queda papel claro
+     y los textos suaves del menú perderían contraste. */
+  --vidrio-nav-alfa: 0.7;
+  --vidrio-nav: color-mix(in oklab, var(--marca) 12%, rgb(7 11 14 / var(--vidrio-nav-alfa)));
   --vidrio-nav-hover: color-mix(in oklab, var(--marca) 18%, rgb(255 255 255 / 0.1));
   --vidrio-nav-linea: rgb(255 255 255 / 0.12);
   --vidrio-sobre-nav: #eef3f0;
@@ -61,11 +64,25 @@
   --fondo-cota: color-mix(in oklab, var(--fondo-3) 80%, #111);
   --fondo-op-trazo: 0.42;
   --fondo-op-cota: 0.55;
+  /* Relleno de las piezas con masa y fuerza de las manchas de luz: son lo que
+     el desenfoque convierte en color corrido detrás de cada panel. */
+  --fondo-op-masa: 0.1;
+  --fondo-op-luz: 45%;
 
   /* Brillo del borde superior y sombra de los paneles: menores en modo
      oscuro. */
   --vidrio-brillo: rgb(255 255 255 / 0.65);
   --vidrio-sombra: rgb(15 23 42 / 0.14);
+
+  /* Canto del cristal: línea de luz en el borde, más clara arriba a la
+     izquierda y apagada al centro (ver ::after de los paneles). */
+  --vidrio-canto: rgb(255 255 255 / 0.85);
+  --vidrio-canto-bajo: rgb(255 255 255 / 0.3);
+
+  /* Grano de cristal esmerilado: ruido gris fino que se pinta en el mismo
+     ::before del desenfoque. Hace que el panel se lea como vidrio aunque lo
+     que tenga detrás sea casi liso. */
+  --vidrio-grano: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.6 0 0 0 -.3 1.6 0 0 0 -.3 1.6 0 0 0 -.3 0 0 0 0 .08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
 
   /* Superficies derivadas. --color-white y --color-slate-* ya cambian con el
      modo oscuro (tema-oscuro.css), así que el vidrio claro se vuelve oscuro
@@ -97,8 +114,13 @@
     --fondo-cota: color-mix(in oklab, var(--fondo-3) 72%, #fff);
     --fondo-op-trazo: 0.3;
     --fondo-op-cota: 0.42;
+    --fondo-op-masa: 0.08;
+    --fondo-op-luz: 50%;
+    --vidrio-nav-alfa: 0.6;
     --vidrio-brillo: rgb(255 255 255 / 0.08);
     --vidrio-sombra: rgb(0 0 0 / 0.45);
+    --vidrio-canto: rgb(255 255 255 / 0.24);
+    --vidrio-canto-bajo: rgb(255 255 255 / 0.06);
   }
 }
 :root[data-estilo="vidrio"][data-tema="oscuro"] {
@@ -107,8 +129,13 @@
   --fondo-cota: color-mix(in oklab, var(--fondo-3) 72%, #fff);
   --fondo-op-trazo: 0.3;
   --fondo-op-cota: 0.42;
+  --fondo-op-masa: 0.08;
+  --fondo-op-luz: 50%;
+  --vidrio-nav-alfa: 0.6;
   --vidrio-brillo: rgb(255 255 255 / 0.08);
   --vidrio-sombra: rgb(0 0 0 / 0.45);
+  --vidrio-canto: rgb(255 255 255 / 0.24);
+  --vidrio-canto-bajo: rgb(255 255 255 / 0.06);
 }
 
 /* Fichas que se exportan a PDF o se imprimen: opacas, sin desenfoque y con la
@@ -134,11 +161,14 @@
   --vidrio-borde: var(--color-slate-200);
   --vidrio-filtro: none;
   --vidrio-brillo: transparent;
+  --vidrio-canto: transparent;
+  --vidrio-canto-bajo: transparent;
+  --vidrio-grano: none;
 }
 
 /* Fondo: hoja de planos de muebles (src/components/fondo-mobiliario.tsx),
-   nítida y fija detrás de todo; la difuminan los paneles. Oculta en el estilo
-   clásico. */
+   nítida y fija detrás de todo, sobre manchas de luz; la difuminan los
+   paneles. Oculta en el estilo clásico. */
 .fondo-mobiliario {
   display: none;
   position: fixed;
@@ -154,6 +184,21 @@
 }
 .fondo-mobiliario svg {
   display: block;
+  position: relative;
+}
+/* Manchas de luz con los tres colores del fondo, grandes y suaves, repartidas
+   para que cada panel tenga zonas de distinto color detrás: es lo que hace
+   visible el desenfoque. Quietas a propósito: si se movieran, cada panel
+   tendría que recalcular su desenfoque en cada cuadro. */
+.fondo-mobiliario .luces {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(55% 60% at 18% 28%, color-mix(in oklab, var(--fondo-1) var(--fondo-op-luz), transparent), transparent 75%),
+    radial-gradient(45% 55% at 85% 18%, color-mix(in oklab, var(--fondo-3) var(--fondo-op-luz), transparent), transparent 75%),
+    radial-gradient(55% 55% at 72% 78%, color-mix(in oklab, var(--fondo-2) var(--fondo-op-luz), transparent), transparent 75%),
+    radial-gradient(40% 45% at 10% 92%, color-mix(in oklab, var(--fondo-3) var(--fondo-op-luz), transparent), transparent 75%),
+    radial-gradient(30% 35% at 45% 60%, color-mix(in oklab, var(--fondo-1) calc(var(--fondo-op-luz) * 0.6), transparent), transparent 75%);
 }
 /* Viñeta suave: los bordes un poco más oscuros enmarcan el contenido. */
 .fondo-mobiliario::after {
@@ -179,9 +224,13 @@
   fill: none;
   stroke: var(--fondo-trazo);
   stroke-opacity: var(--fondo-op-trazo);
-  stroke-width: 1.5;
+  stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+.fondo-mobiliario .t.m {
+  fill: var(--fondo-trazo);
+  fill-opacity: var(--fondo-op-masa);
 }
 .fondo-mobiliario .p {
   fill: var(--fondo-trazo);
@@ -313,14 +362,18 @@
        tarjeta o de la barra quedarían encerrados en ella. Sin isolation ni
        z-index en el elemento (también encerrarían los diálogos): el ::before
        con z-index -1 se pinta debajo del fondo translúcido del panel, que es
-       justo el efecto que se busca. */
+       justo el efecto que se busca.
+
+       Incluye los recuadros con fondo de color translúcido (bg-brand-50/60,
+       bg-slate-50/60...): sin desenfoque, el plano se veía nítido a través. */
     :where(:root[data-estilo="vidrio"])
       :is(
         .bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl, .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl),
         .bg-nav,
         .panel-auth,
         .panel-vidrio,
-        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
+        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"]),
+        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):is([class*="-50/"], [class*="-100/"])
       ):not(.fixed, .sticky, .absolute) {
       position: relative;
     }
@@ -332,7 +385,8 @@
         .bg-nav,
         .panel-auth,
         .panel-vidrio,
-        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
+        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"]),
+        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):is([class*="-50/"], [class*="-100/"])
       )::before {
       content: "";
       position: absolute;
@@ -342,6 +396,55 @@
       pointer-events: none;
       -webkit-backdrop-filter: var(--vidrio-filtro);
       backdrop-filter: var(--vidrio-filtro);
+      background-image: var(--vidrio-grano);
+      background-size: 160px;
+    }
+
+    /* Barra superior: lleva z-index (globals.css, .vt-cabecera) para que sus
+       menús queden encima del contenido, y eso la vuelve un contexto de
+       apilamiento: el ::before con z-index -1 se pinta encima de su propio
+       fondo y difuminaba solo ese color plano. Aquí el fondo pasa al ::before,
+       sobre el desenfoque. */
+    :where(:root[data-estilo="vidrio"]) .vt-cabecera.bg-nav {
+      background-color: transparent;
+    }
+    :where(:root[data-estilo="vidrio"]) .vt-cabecera.bg-nav::before {
+      background-color: var(--color-nav);
+    }
+
+    /* Canto del cristal: un borde de luz en degradado (claro arriba a la
+       izquierda, casi nada al centro, un reflejo abajo a la derecha). El
+       recorte con mask deja solo la franja de 1px; va en ::after, encima del
+       contenido, sin recibir clics. */
+    :where(:root[data-estilo="vidrio"])
+      :is(
+        .bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl, .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl, .fixed, .sticky, .absolute),
+        .bg-white\/95,
+        .bg-white\/90,
+        .bg-nav,
+        .panel-auth,
+        .panel-vidrio,
+        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"]),
+        :is(div, p, form, section, article, aside, details, fieldset):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):is([class*="-50/"], [class*="-100/"])
+      )::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      pointer-events: none;
+      background: linear-gradient(
+        155deg,
+        var(--vidrio-canto) 0%,
+        transparent 35%,
+        transparent 70%,
+        var(--vidrio-canto-bajo) 100%
+      );
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
     }
 
     /* Brillo en el borde superior, como el canto de un cristal. */
