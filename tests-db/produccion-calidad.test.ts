@@ -39,9 +39,9 @@ const INICIO_POR_LOTE = "2026-10-08T18:01:22Z";
 // Periodos con la verificación de Producción apagada (ajustes_flujo): Calidad
 // evaluó sin lotes ni piezas preaprobadas, así que esos informes no cuentan
 // para las reglas de abajo. Del 20261009151636_calidad_sin_verificacion_produccion
-// al 20261009180000_entrega_con_preaprobacion. Si se vuelve a apagar, agregar
+// al 20261009191602_entrega_con_preaprobacion. Si se vuelve a apagar, agregar
 // aquí el periodo.
-const PERIODOS_SIN_VERIFICACION: [string, string][] = [["2026-10-09T15:16:36Z", "2026-10-09T18:00:00Z"]];
+const PERIODOS_SIN_VERIFICACION: [string, string][] = [["2026-10-09T15:16:36Z", "2026-10-09T19:16:02Z"]];
 const conVerificacion = (elaboradoEn: string) =>
   !PERIODOS_SIN_VERIFICACION.some(
     ([desde, hasta]) =>
