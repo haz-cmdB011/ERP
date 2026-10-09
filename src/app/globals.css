@@ -802,8 +802,8 @@ html.transicion-tema *::after {
   .brillo-cursor {
     background: radial-gradient(
       240px circle at var(--mx, 50%) var(--my, 50%),
-      color-mix(in oklab, var(--color-brand-500) 55%, transparent),
-      color-mix(in oklab, var(--color-brand-500) 18%, transparent) 40%,
+      color-mix(in oklab, var(--color-brand-500) 35%, transparent),
+      color-mix(in oklab, var(--color-brand-500) 11%, transparent) 40%,
       transparent 70%
     );
     transition: opacity 220ms ease-out;
