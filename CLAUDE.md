@@ -120,6 +120,23 @@ en el repo. Por eso:
    `select statements from supabase_migrations.schema_migrations where version = '...'`
    y guardarla en el repo.
 
+## Verificación de Producción (apagada por ahora)
+
+La preaprobación de Producción (el trabajador "verifica" una entrega para mandarla a Calidad) está
+APAGADA con el ajuste `verificacion_produccion` de la tabla `ajustes_flujo`
+(migración `calidad_sin_verificacion_produccion`). Mientras esté apagada: Calidad evalúa todo ítem
+liberado a producción, haya o no entregas (un mueble sin entregas se aprueba o no aprueba completo;
+con entregas se sigue evaluando por lote) y las entregas nuevas nacen ya verificadas. Para volver al
+flujo con verificación:
+
+```sql
+update public.ajustes_flujo set activo = true, actualizado_en = now()
+  where clave = 'verificacion_produccion';
+```
+
+La pantalla lee el ajuste con `src/lib/calidad/ajustes-flujo.ts`; si no puede leerlo asume el flujo con
+verificación.
+
 ## Capturas sin conexión
 
 En el taller a veces se cae el Wi-Fi. La **entrega de Producción** (con su foto) se guarda en el

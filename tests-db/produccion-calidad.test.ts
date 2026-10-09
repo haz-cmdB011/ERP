@@ -36,6 +36,10 @@ const INICIO_PIEZAS_GUARDADAS = "2026-10-08T17:46:52Z";
 // Desde aquí los muebles se evalúan por lote
 // (migración 20261008180122_calidad_por_lote_y_retrabajo).
 const INICIO_POR_LOTE = "2026-10-08T18:01:22Z";
+// Desde aquí la verificación de Producción es opcional (ajustes_flujo, migración
+// 20261009151636_calidad_sin_verificacion_produccion): Calidad puede evaluar sin
+// entregas verificadas, así que las reglas de arriba solo valen ANTES de esta fecha.
+const FIN_REGLA_VERIFICACION_OBLIGATORIA = "2026-10-09T15:16:36Z";
 
 describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
   describe("objetos que deben seguir en la base", () => {
@@ -142,6 +146,7 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
         .from("informes_calidad")
         .select("folio, entrega_id, planeacion_item_id")
         .gte("elaborado_en", INICIO_POR_LOTE)
+        .lt("elaborado_en", FIN_REGLA_VERIFICACION_OBLIGATORIA)
         .is("entrega_id", null)
         .limit(500);
       if (!informes?.length) {
@@ -162,6 +167,7 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
         .from("informes_calidad")
         .select("folio, piezas_verificadas")
         .gte("elaborado_en", INICIO_PIEZAS_GUARDADAS)
+        .lt("elaborado_en", FIN_REGLA_VERIFICACION_OBLIGATORIA)
         .limit(500);
       if (!informes?.length) {
         console.warn("[test:db] Sin informes desde que se guardan las piezas: se omite.");
@@ -191,11 +197,29 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
       expect(sinLiberar.map((i) => i.item_code)).toEqual([]);
     });
 
-    it("todo informe de Calidad nuevo es de un mueble con piezas verificadas por Producción", async (ctx) => {
+    it("con la verificación de Producción apagada, ninguna entrega vigente espera verificación", async () => {
+      const { data: ajuste } = await servicio
+        .from("ajustes_flujo")
+        .select("activo")
+        .eq("clave", "verificacion_produccion")
+        .maybeSingle<{ activo: boolean }>();
+      if (!ajuste || ajuste.activo) return; // con ella activa, "por verificar" es normal
+      const { data } = await servicio
+        .from("entregas_produccion")
+        .select("id")
+        .is("verificada_en", null)
+        .is("rechazada_en", null)
+        .is("anulada_en", null)
+        .limit(50);
+      expect(data ?? []).toEqual([]);
+    });
+
+    it("todo informe de Calidad anterior a la verificación opcional es de un mueble con piezas verificadas por Producción", async (ctx) => {
       const { data: informes } = await servicio
         .from("informes_calidad")
         .select("folio, planeacion_item_id, elaborado_en")
         .gte("elaborado_en", INICIO_REGLA_VERIFICADO)
+        .lt("elaborado_en", FIN_REGLA_VERIFICACION_OBLIGATORIA)
         .limit(300);
       if (!informes?.length) {
         console.warn("[test:db] Sin informes de Calidad desde la regla de verificación: se omite.");

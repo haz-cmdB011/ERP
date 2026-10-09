@@ -129,7 +129,9 @@ export default function RegistrarEntrega({
       if (resultado.estado === "en-cola") {
         avisar("Sin conexión: la entrega quedó guardada en este aparato y se enviará sola.", "info");
       } else {
-        avisar("Entrega registrada: revísala y mándala a Calidad");
+        // Con la verificación de Producción apagada (ajustes_flujo) la entrega pasa sola a
+        // Calidad; con ella activa queda "por verificar": el texto sirve en ambos casos.
+        avisar("Entrega registrada");
         router.refresh();
       }
     } catch {
