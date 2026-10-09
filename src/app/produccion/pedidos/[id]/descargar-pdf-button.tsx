@@ -32,7 +32,8 @@ export default function DescargarPdfButton({
       await generarPdfCarta(fichas, nombreArchivo, {
         alProgreso: (hechas, total) => setProgreso({ hechas, total }),
       });
-    } catch {
+    } catch (e) {
+      console.error("No se pudo generar el PDF:", e);
       setError("No se pudo generar el PDF.");
     } finally {
       setGenerando(false);

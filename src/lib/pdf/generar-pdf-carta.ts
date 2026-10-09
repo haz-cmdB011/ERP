@@ -137,7 +137,14 @@ export async function generarPdfCarta(
     const canvas = await html2canvas(elemento, {
       scale: escalaParaFicha(altoEstimado(elemento)),
       backgroundColor: "#ffffff",
-      onclone: (_doc, copia) => {
+      onclone: (docClon, copia) => {
+        // La captura trabaja sobre una copia del documento, donde las animaciones de
+        // entrada de las pantallas (`main > *` en globals.css: fundido de 0 a 1) arrancan
+        // de cero: sin esto la ficha sale a medio fundido (PDF pálido) o en blanco.
+        const sinAnimaciones = docClon.createElement("style");
+        sinAnimaciones.textContent =
+          "*, *::before, *::after { animation: none !important; transition: none !important; }";
+        docClon.head.appendChild(sinAnimaciones);
         copia.style.width = `${ANCHO_MAQUETA_PX}px`;
         copia.style.maxWidth = "none";
         copia.style.margin = "0";
