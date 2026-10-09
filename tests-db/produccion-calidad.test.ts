@@ -36,6 +36,18 @@ const INICIO_PIEZAS_GUARDADAS = "2026-10-08T17:46:52Z";
 // Desde aquí los muebles se evalúan por lote
 // (migración 20261008180122_calidad_por_lote_y_retrabajo).
 const INICIO_POR_LOTE = "2026-10-08T18:01:22Z";
+// Periodos con la verificación de Producción apagada (ajustes_flujo): Calidad
+// evaluó sin lotes ni piezas preaprobadas, así que esos informes no cuentan
+// para las reglas de abajo. Del 20261009151636_calidad_sin_verificacion_produccion
+// al 20261009180000_entrega_con_preaprobacion. Si se vuelve a apagar, agregar
+// aquí el periodo.
+const PERIODOS_SIN_VERIFICACION: [string, string][] = [["2026-10-09T15:16:36Z", "2026-10-09T18:00:00Z"]];
+const conVerificacion = (elaboradoEn: string) =>
+  !PERIODOS_SIN_VERIFICACION.some(
+    ([desde, hasta]) =>
+      new Date(elaboradoEn).getTime() >= new Date(desde).getTime() &&
+      new Date(elaboradoEn).getTime() < new Date(hasta).getTime()
+  );
 
 describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
   describe("objetos que deben seguir en la base", () => {
@@ -47,7 +59,16 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
   });
 
   describe("permisos", () => {
+    const entrega = {
+      p_asignacion_id: UUID_NULO,
+      p_fecha_entrega: "2026-10-08",
+      p_cantidad: 1,
+      p_folios_calidad: "prueba",
+      p_foto_path: `${UUID_NULO}/prueba.webp`,
+      p_resultado: "cumple",
+    };
     const funciones: [string, Record<string, unknown>][] = [
+      ["registrar_entrega_produccion", entrega],
       ["verificar_entrega_produccion", { p_entrega_id: UUID_NULO }],
       ["rechazar_entrega_produccion", { p_entrega_id: UUID_NULO, p_motivo: "prueba" }],
       ["anular_entrega_produccion", { p_entrega_id: UUID_NULO, p_motivo: "prueba" }],
@@ -71,6 +92,7 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
     // La clave de servicio no trae usuario (auth.uid() nulo): no es de
     // Producción ni de Calidad, así que cada función debe rechazarla por rol.
     const porRol: [string, Record<string, unknown>, string][] = [
+      ["registrar_entrega_produccion", entrega, "Solo Producción puede registrar"],
       ["verificar_entrega_produccion", { p_entrega_id: UUID_NULO }, "Solo Producción puede verificar"],
       ["rechazar_entrega_produccion", { p_entrega_id: UUID_NULO, p_motivo: "x" }, "Solo Producción puede rechazar"],
       ["anular_entrega_produccion", { p_entrega_id: UUID_NULO, p_motivo: "x" }, "Solo el administrador de Producción"],
@@ -138,13 +160,14 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
     });
 
     it("desde la evaluación por lote, todo informe de un mueble está ligado a su entrega", async (ctx) => {
-      const { data: informes } = await servicio
+      const { data: todos } = await servicio
         .from("informes_calidad")
-        .select("folio, entrega_id, planeacion_item_id")
+        .select("folio, entrega_id, planeacion_item_id, elaborado_en")
         .gte("elaborado_en", INICIO_POR_LOTE)
         .is("entrega_id", null)
         .limit(500);
-      if (!informes?.length) {
+      const informes = (todos ?? []).filter((i) => conVerificacion(i.elaborado_en));
+      if (!informes.length) {
         console.warn("[test:db] Sin informes sin lote desde la evaluación por lote: se omite.");
         return ctx.skip();
       }
@@ -158,12 +181,13 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
     });
 
     it("todo informe nuevo guarda cuántas piezas verificadas tenía el mueble", async (ctx) => {
-      const { data: informes } = await servicio
+      const { data: todos } = await servicio
         .from("informes_calidad")
-        .select("folio, piezas_verificadas")
+        .select("folio, piezas_verificadas, elaborado_en")
         .gte("elaborado_en", INICIO_PIEZAS_GUARDADAS)
         .limit(500);
-      if (!informes?.length) {
+      const informes = (todos ?? []).filter((i) => conVerificacion(i.elaborado_en));
+      if (!informes.length) {
         console.warn("[test:db] Sin informes desde que se guardan las piezas: se omite.");
         return ctx.skip();
       }
@@ -192,12 +216,13 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
     });
 
     it("todo informe de Calidad nuevo es de un mueble con piezas verificadas por Producción", async (ctx) => {
-      const { data: informes } = await servicio
+      const { data: todos } = await servicio
         .from("informes_calidad")
         .select("folio, planeacion_item_id, elaborado_en")
         .gte("elaborado_en", INICIO_REGLA_VERIFICADO)
         .limit(300);
-      if (!informes?.length) {
+      const informes = (todos ?? []).filter((i) => conVerificacion(i.elaborado_en));
+      if (!informes.length) {
         console.warn("[test:db] Sin informes de Calidad desde la regla de verificación: se omite.");
         return ctx.skip();
       }

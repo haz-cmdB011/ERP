@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import {
   BUCKET_FOTOS_ENTREGA,
+  esResultadoRevision,
   leerCantidad,
   leerFecha,
   mensajeErrorRpc,
@@ -19,11 +20,14 @@ import {
 
 export const runtime = "nodejs";
 
-// Registra una entrega de un equipo: fecha en que terminó, cantidad, folios de
-// Calidad y la foto de la hoja (multipart/form-data). La foto se comprime,
-// se sube al bucket privado y después se registra la entrega con la función
-// registrar_entrega_produccion, que vuelve a validar todo (permisos,
-// cantidades, fechas).
+// Registra una entrega de un equipo: fecha en que terminó, cantidad, folio de
+// la hoja de entrega, la foto de la hoja (multipart/form-data) y la revisión de
+// quien la registra (`resultado`: "cumple" pasa a Calidad; "no_cumple", con
+// `motivo`, regresa al equipo). La foto se comprime, se sube al bucket privado
+// y después se registra la entrega con la función registrar_entrega_produccion,
+// que vuelve a validar todo (permisos, cantidades, fechas, motivo). Sin
+// `resultado` (capturas guardadas sin red con la pantalla anterior) la entrega
+// queda por verificar, como antes.
 //
 // Es seguro REPETIR el mismo envío: el celular guarda las capturas hechas sin red y las
 // reenvía al volver la conexión, y puede reenviar una que el servidor ya había guardado
@@ -62,6 +66,9 @@ export async function POST(request: Request) {
   const cantidad = leerCantidad(form.get("cantidad"));
   const folios = form.get("folios");
   const foto = form.get("foto");
+  const resultadoCrudo = form.get("resultado");
+  const resultado = resultadoCrudo === null || resultadoCrudo === "" ? null : resultadoCrudo;
+  const motivo = form.get("motivo");
 
   if (typeof asignacionId !== "string" || !/^[0-9a-f-]{36}$/i.test(asignacionId)) {
     return NextResponse.json({ error: "Asignación no válida." }, { status: 400 });
@@ -82,6 +89,13 @@ export async function POST(request: Request) {
   }
   if (typeof folios !== "string" || !folios.trim()) {
     return NextResponse.json({ error: "Escribe el folio de la hoja de entrega." }, { status: 400 });
+  }
+  if (resultado !== null && !esResultadoRevision(resultado)) {
+    return NextResponse.json({ error: "Indica si las piezas cumplen o no." }, { status: 400 });
+  }
+  const motivoRechazo = typeof motivo === "string" ? motivo.trim().slice(0, 500) : "";
+  if (resultado === "no_cumple" && !motivoRechazo) {
+    return NextResponse.json({ error: "Escribe por qué no cumplen las piezas." }, { status: 400 });
   }
   if (!(foto instanceof File) || foto.size === 0) {
     return NextResponse.json({ error: "Falta la foto de los folios." }, { status: 400 });
@@ -116,6 +130,8 @@ export async function POST(request: Request) {
     p_cantidad: cantidad,
     p_folios_calidad: folios.trim().slice(0, 500),
     p_foto_path: ruta,
+    p_resultado: resultado,
+    p_motivo_rechazo: resultado === "no_cumple" ? motivoRechazo : null,
   });
 
   if (error) {

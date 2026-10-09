@@ -15,7 +15,7 @@ const item = (extra: object = {}) => ({
   parent_item_id: null,
   estadoRevision: null,
   liberadoEn: "2026-10-01T12:00:00Z",
-  verificadoPorProduccion: true,
+  evaluable: true,
   informes: [] as { aprobado: boolean }[],
   ...extra,
 });
@@ -58,7 +58,7 @@ describe("idsPorAprobar", () => {
   });
 
   it("deja fuera lo que Producción todavía no verifica", () => {
-    const ids = idsPorAprobar([item({ id: "a" }), item({ id: "b", verificadoPorProduccion: false })]);
+    const ids = idsPorAprobar([item({ id: "a" }), item({ id: "b", evaluable: false })]);
     expect(ids).toEqual(["a"]);
   });
 });

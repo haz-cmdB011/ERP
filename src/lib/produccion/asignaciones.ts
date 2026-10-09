@@ -114,6 +114,16 @@ export function revisionEntrega(
   return "por_verificar";
 }
 
+// Lo que decide quien registra la entrega al tomar la foto de la hoja: si las
+// piezas cumplen, la entrega nace verificada y pasa a Calidad; si no, nace
+// rechazada (con motivo) y el equipo vuelve a entregarlas.
+export const RESULTADOS_REVISION = ["cumple", "no_cumple"] as const;
+export type ResultadoRevision = (typeof RESULTADOS_REVISION)[number];
+
+export function esResultadoRevision(valor: unknown): valor is ResultadoRevision {
+  return typeof valor === "string" && (RESULTADOS_REVISION as readonly string[]).includes(valor);
+}
+
 export interface EquipoProduccion {
   id: string;
   nombre: string;

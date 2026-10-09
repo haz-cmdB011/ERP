@@ -7,6 +7,11 @@ import { esUuid } from "@/lib/produccion/qr-viajero";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import { grupoDelItem, verificadosPorProduccion } from "@/lib/calidad/estado-item";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
+import {
+  situacionesPorMueble,
+  textoSituacion,
+  type AsignacionDelMueble,
+} from "@/lib/calidad/situacion-produccion";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
 import { puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
 import { leer } from "@/lib/supabase/leer";
@@ -153,10 +158,11 @@ export default async function PedidoCalidadPage({
   const items = itemsEnviados ?? [];
   const itemIds = items.map((i) => i.id);
 
-  // Informes, imágenes y los lotes (entregas verificadas) de cada mueble se
-  // piden a la vez.
+  // Informes, imágenes, los lotes (entregas verificadas) de cada mueble, sus
+  // asignaciones vigentes (para decir dónde está lo que aún no se puede
+  // evaluar) y si la verificación de Producción está encendida se piden a la vez.
   const muebleIds = items.filter((i) => i.tipo_registro === "MO").map((i) => i.id);
-  const [informes, imagenesPorItem, filasLotes] = await Promise.all([
+  const [informes, imagenesPorItem, filasLotes, asignacionesMuebles, verificacionActiva] = await Promise.all([
     itemIds.length
       ? leer(
           supabase
@@ -180,6 +186,22 @@ export default async function PedidoCalidadPage({
           "lotes_calidad"
         )
       : Promise.resolve([] as LoteCalidad[]),
+    muebleIds.length
+      ? leer(
+          supabase
+            .from("asignaciones_produccion_resumen")
+            .select("planeacion_item_id, equipo, cantidad, entregado, por_verificar")
+            .in("planeacion_item_id", muebleIds)
+            .is("cancelada_en", null)
+            .returns<AsignacionDelMueble[]>(),
+          "asignaciones_produccion_resumen"
+        )
+      : Promise.resolve([] as AsignacionDelMueble[]),
+    // Solo decide qué botones se muestran (la regla la aplica la base). Si no
+    // se puede leer se asume encendida, igual que la base sin el ajuste.
+    supabase
+      .rpc("verificacion_produccion_activa")
+      .then(({ data, error }) => Boolean(error) || data !== false),
   ]);
   const lotesPorMueble = new Map<string, LoteCalidad[]>();
   for (const l of (filasLotes ?? []).map(normalizarLote)) {
@@ -191,6 +213,23 @@ export default async function PedidoCalidadPage({
     new Set([...lotesPorMueble].filter(([, ls]) => ls.some((l) => l.cantidad > 0)).map(([id]) => id))
   );
 
+  // Lo que todavía no se puede evaluar dice dónde está en Producción (un
+  // componente, lo de su mueble).
+  const situaciones = situacionesPorMueble(muebleIds, asignacionesMuebles ?? []);
+  const unidadDe = new Map(items.map((i) => [i.id, i.unidad]));
+  function situacionDe(item: ItemRow, evaluable: boolean) {
+    if (evaluable) return null;
+    const raiz = item.tipo_registro === "FU" && item.parent_item_id ? item.parent_item_id : item.id;
+    const s = situaciones.get(raiz);
+    if (!s) {
+      return {
+        corto: "En producción",
+        detalle: "Producción todavía no preaprueba piezas de su mueble.",
+      };
+    }
+    return textoSituacion(s, unidadDe.get(raiz) ?? item.unidad, raiz !== item.id);
+  }
+
   // Cada item_id agrupa su historial completo, ya ordenado desc (más
   // reciente primero) porque la consulta de arriba ordena por elaborado_en.
   const informesPorItem = new Map<string, InformeRow[]>();
@@ -200,34 +239,38 @@ export default async function PedidoCalidadPage({
     informesPorItem.set(inf.planeacion_item_id, lista);
   }
 
-  const itemsConInforme: ItemCalidadRow[] = items.map((item) => ({
-    id: item.id,
-    item_code: item.item_code,
-    tipo_registro: item.tipo_registro,
-    tipo_material: item.tipo_material,
-    modelo: item.modelo,
-    descripcion: item.descripcion,
-    cantidad_total: item.cantidad_total,
-    unidad: item.unidad,
-    parent_item_id: item.parent_item_id,
-    liberadoEn: item.liberado_en,
-    verificadoPorProduccion: verificados.has(item.id),
-    lotes: item.tipo_registro === "MO" ? resumirLotes(lotesPorMueble.get(item.id) ?? []) : null,
-    lotesPendientes: item.tipo_registro === "MO" ? lotesPorEvaluar(lotesPorMueble.get(item.id) ?? []) : [],
-    estadoRevision: item.estado_revision,
-    motivoCancelacion: item.motivo_cancelacion,
-    imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
-    imagenGrandeUrl: imagenesPorItem.get(item.id)?.[0]?.urlGrande ?? null,
-    informes: (informesPorItem.get(item.id) ?? []).map((inf) => ({
-      id: inf.id,
-      folio: inf.folio,
-      aprobado: inf.aprobado,
-      elaborado_en: inf.elaborado_en,
-      descripcion: inf.descripcion,
-      categoria: inf.categoria,
-      cantidad: inf.cantidad == null ? null : Number(inf.cantidad),
-    })),
-  }));
+  const itemsConInforme: ItemCalidadRow[] = items.map((item) => {
+    const evaluable = verificados.has(item.id) || !verificacionActiva;
+    return {
+      id: item.id,
+      item_code: item.item_code,
+      tipo_registro: item.tipo_registro,
+      tipo_material: item.tipo_material,
+      modelo: item.modelo,
+      descripcion: item.descripcion,
+      cantidad_total: item.cantidad_total,
+      unidad: item.unidad,
+      parent_item_id: item.parent_item_id,
+      liberadoEn: item.liberado_en,
+      evaluable,
+      situacion: situacionDe(item, evaluable),
+      lotes: item.tipo_registro === "MO" ? resumirLotes(lotesPorMueble.get(item.id) ?? []) : null,
+      lotesPendientes: item.tipo_registro === "MO" ? lotesPorEvaluar(lotesPorMueble.get(item.id) ?? []) : [],
+      estadoRevision: item.estado_revision,
+      motivoCancelacion: item.motivo_cancelacion,
+      imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
+      imagenGrandeUrl: imagenesPorItem.get(item.id)?.[0]?.urlGrande ?? null,
+      informes: (informesPorItem.get(item.id) ?? []).map((inf) => ({
+        id: inf.id,
+        folio: inf.folio,
+        aprobado: inf.aprobado,
+        elaborado_en: inf.elaborado_en,
+        descripcion: inf.descripcion,
+        categoria: inf.categoria,
+        cantidad: inf.cantidad == null ? null : Number(inf.cantidad),
+      })),
+    };
+  });
 
   // Llegó escaneando el QR de un mueble: se muestra solo ese mueble (con sus
   // componentes) para evaluarlo sin buscarlo entre todo el pedido.
