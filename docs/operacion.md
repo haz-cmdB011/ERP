@@ -79,6 +79,27 @@ y ayuda a que el proyecto no se pause por inactividad (no sustituye a un plan de
 Seguir el procedimiento de **rotar la clave secreta** de [`SEGURIDAD.md`](../SEGURIDAD.md). No pegar
 claves en chats, issues ni commits.
 
+## Si Calidad no puede evaluar un mueble
+
+Calidad solo evalúa piezas que Producción ya preaprobó. La preaprobación se hace al **registrar la
+entrega**: quien toma la foto de la hoja marca si las piezas *cumplen* (pasan a Calidad) o *no cumplen*
+(regresan al equipo con motivo). En la tabla de Calidad, junto a los botones deshabilitados, se ve qué
+falta: *Sin asignar*, *En taller* (con qué equipo y cuánto lleva entregado) o *Por preaprobar*
+(entregas viejas sin decidir: se revisan en Producción → Control de asignaciones).
+
+Si hay que dejar que Calidad evalúe sin preaprobación (emergencia), se apaga desde el SQL Editor y queda
+registrado en la base:
+
+```sql
+update public.ajustes_flujo set activo = false, actualizado_en = now()
+  where clave = 'verificacion_produccion';
+```
+
+Con `activo = true` vuelve el flujo normal. Mientras esté apagado, las entregas nacen preaprobadas y
+Calidad puede evaluar un mueble completo sin entrega. Al volver a encenderlo, anotar el periodo en
+`PERIODOS_SIN_VERIFICACION` de `tests-db/produccion-calidad.test.ts` (esos informes no siguen las reglas
+normales).
+
 ## Cambios de base de datos
 
 Siempre como archivo nuevo en `supabase/migrations/`, aplicado por **una sola vía** y verificado con

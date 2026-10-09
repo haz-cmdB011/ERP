@@ -79,7 +79,7 @@ describe("estado de un mueble en la tabla de Calidad", () => {
     id: "m",
     estadoRevision: null,
     informes: [] as { aprobado: boolean }[],
-    verificadoPorProduccion: lotes.verificadas > 0,
+    evaluable: lotes.verificadas > 0,
     lotes,
     ...extra,
   });
@@ -90,6 +90,24 @@ describe("estado de un mueble en la tabla de Calidad", () => {
     expect(estadoDe(mueble(enRetrabajo, { informes: [{ aprobado: true }] }))).toBe("no_aprobado");
     expect(estadoDe(mueble(resumirLotes([lote()])))).toBe("sin_evaluar");
     expect(estadoDe(mueble(resumirLotes([lote({ aprobadas: 5, pendiente: 0 })])))).toBe("aprobado");
+  });
+
+  it("sin lotes, un mueble manda su último informe (evaluado con la verificación apagada)", () => {
+    const sinLotes = resumirLotes([]);
+    expect(estadoDe(mueble(sinLotes))).toBe("sin_evaluar");
+    expect(estadoDe(mueble(sinLotes, { informes: [{ aprobado: true }] }))).toBe("aprobado");
+    expect(estadoDe(mueble(sinLotes, { informes: [{ aprobado: false }] }))).toBe("no_aprobado");
+  });
+
+  it("aprobar todos toma un mueble sin lotes solo si la base deja evaluarlo y nunca se evaluó", () => {
+    const sinLotes = resumirLotes([]);
+    expect(
+      idsPorAprobar([
+        mueble(sinLotes, { id: "verificacion-apagada", evaluable: true }),
+        mueble(sinLotes, { id: "esperando-a-produccion", evaluable: false }),
+        mueble(sinLotes, { id: "ya-evaluado", evaluable: true, informes: [{ aprobado: true }] }),
+      ])
+    ).toEqual(["verificacion-apagada"]);
   });
 
   it("aprobar todos toma los muebles con piezas por evaluar", () => {

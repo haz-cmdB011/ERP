@@ -15,6 +15,7 @@ import {
   estadoDe,
   funcionNoExiste,
   idsPorAprobar,
+  porLotes,
   type EstadoCalidad,
 } from "@/lib/calidad/estado-item";
 import { CATEGORIAS_DEFECTO, nombreCategoria, type CategoriaDefecto } from "@/lib/calidad/categorias";
@@ -51,8 +52,11 @@ export interface ItemCalidadRow {
   imagenUrl: string | null;
   imagenGrandeUrl: string | null;
   liberadoEn: string | null;
-  // Producción ya verificó piezas del mueble: sin eso no se puede evaluar.
-  verificadoPorProduccion: boolean;
+  // La base deja evaluarlo (Producción ya preaprobó piezas del mueble, o la
+  // verificación está apagada).
+  evaluable: boolean;
+  // Si todavía no es evaluable: dónde está el mueble en Producción.
+  situacion: { corto: string; detalle: string } | null;
   estadoRevision: string | null;
   motivoCancelacion: string | null;
   // Historial completo del ítem, ordenado desc — [0] es el más reciente.
@@ -369,7 +373,9 @@ export default function ItemsCalidadTable({
   // y el historial de folios viven aparte (FolioCelda).
   function EstadoBadge({ item }: { item: ItemCalidadRow }) {
     const ultimo = item.informes[0];
-    if (item.lotes && item.estadoRevision !== "cancelado") return EstadoMueble({ item, r: item.lotes });
+    if (item.lotes && porLotes(item) && item.estadoRevision !== "cancelado") {
+      return EstadoMueble({ item, r: item.lotes });
+    }
 
     if (item.estadoRevision === "cancelado") {
       return (
@@ -390,16 +396,22 @@ export default function ItemsCalidadTable({
     if (!ultimo) {
       const dias = diasSinEvaluar(item, new Date());
       const antiguo = dias !== null && dias >= DIAS_ANTIGUEDAD_ALERTA;
+      // Lo que todavía no se puede evaluar dice dónde está en Producción. Quien
+      // evalúa ve el detalle junto a los botones; quien solo consulta, aquí.
       return (
         <div>
           <span
+            title={item.situacion?.detalle}
             className={`inline-flex items-center gap-1.5 text-sm font-medium ${
               antiguo ? "text-amber-600" : "text-slate-500"
             }`}
           >
             <IconoReloj />
-            Sin evaluar
+            {item.situacion?.corto ?? "Sin evaluar"}
           </span>
+          {item.situacion && !puedeEvaluar && (
+            <p className="mt-0.5 max-w-[240px] text-[11px] leading-snug text-slate-500">{item.situacion.detalle}</p>
+          )}
           {antiguo && (
             <p className="mt-1 text-[11px] font-medium text-amber-600">
               ⚠ {dias} día{dias === 1 ? "" : "s"} esperando evaluación
@@ -438,7 +450,7 @@ export default function ItemsCalidadTable({
     );
   }
 
-  // Un mueble se evalúa por lote: su estado sale de las piezas.
+  // Un mueble con lotes se evalúa por lote: su estado sale de las piezas.
   function EstadoMueble({ item, r }: { item: ItemCalidadRow; r: ResumenLotes }) {
     const unidad = item.unidad ?? "pz";
     const estado = estadoDe(item);
@@ -451,29 +463,19 @@ export default function ItemsCalidadTable({
       <div>
         <span
           className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium ${
-            r.verificadas <= 0
-              ? "text-slate-500"
-              : estado === "aprobado"
-                ? "text-emerald-700"
-                : estado === "no_aprobado"
-                  ? "text-rose-700"
-                  : "text-amber-700"
+            estado === "aprobado"
+              ? "text-emerald-700"
+              : estado === "no_aprobado"
+                ? "text-rose-700"
+                : "text-amber-700"
           }`}
         >
           {estado === "aprobado" ? <IconoCheck /> : estado === "no_aprobado" ? <IconoX /> : <IconoReloj />}
-          {r.verificadas <= 0
-            ? "En producción"
-            : estado === "aprobado"
-              ? "Aprobado"
-              : estado === "no_aprobado"
-                ? "En retrabajo"
-                : "Por evaluar"}
+          {estado === "aprobado" ? "Aprobado" : estado === "no_aprobado" ? "En retrabajo" : "Por evaluar"}
         </span>
-        {r.verificadas > 0 && (
-          <p className="mt-0.5 text-[11px] text-slate-600">
-            {detalle.join(" · ")} {detalle.length > 0 ? `(${unidad})` : ""}
-          </p>
-        )}
+        <p className="mt-0.5 text-[11px] text-slate-600">
+          {detalle.join(" · ")} {detalle.length > 0 ? `(${unidad})` : ""}
+        </p>
       </div>
     );
   }
@@ -537,14 +539,37 @@ export default function ItemsCalidadTable({
   // Botones de aprobar / no aprobar (o "Aprobando… Deshacer" durante la espera).
   function Acciones({ item }: { item: ItemCalidadRow }) {
     if (estadoDe(item) === "cancelado") return <span className="text-xs text-slate-500">—</span>;
-    if (!item.verificadoPorProduccion) {
+    // Todavía no se puede evaluar: los botones se ven (deshabilitados) y al
+    // lado qué falta en Producción, para saber a quién preguntar.
+    if (!item.evaluable) {
+      const motivo = item.situacion?.detalle ?? "Producción todavía no preaprueba piezas de este mueble.";
       return (
-        <span className="text-xs text-slate-500" title="Producción todavía no verifica piezas de este mueble">
-          En producción
-        </span>
+        <div className="flex flex-col items-start gap-1">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled
+              title={motivo}
+              aria-label={`Aprobar ítem ${item.item_code}: todavía no se puede. ${motivo}`}
+              className={`${BOTON_ICONO} cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300`}
+            >
+              <IconoCheck />
+            </button>
+            <button
+              type="button"
+              disabled
+              title={motivo}
+              aria-label={`No aprobar ítem ${item.item_code}: todavía no se puede. ${motivo}`}
+              className={`${BOTON_ICONO} cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300`}
+            >
+              <IconoX />
+            </button>
+          </div>
+          <p className="max-w-[240px] text-[11px] leading-snug text-slate-500">{motivo}</p>
+        </div>
       );
     }
-    if (item.lotes) {
+    if (item.lotes && porLotes(item)) {
       if (item.lotesPendientes.length === 0) {
         return <span className="text-xs text-slate-500">Sin lotes por evaluar</span>;
       }

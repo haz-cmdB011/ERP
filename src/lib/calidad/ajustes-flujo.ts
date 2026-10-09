@@ -1,8 +1,8 @@
 // Ajuste `verificacion_produccion` (tabla ajustes_flujo): si el trabajador de
 // Producción tiene que verificar ("mandar a Calidad") las entregas antes de que
-// Calidad las evalúe. Hoy está APAGADO: Calidad evalúa todo ítem liberado a
-// producción. Las reglas viven en la migración
-// calidad_sin_verificacion_produccion (ahí también cómo volver a activarlo).
+// Calidad las evalúe (la preaprobación se hace al registrar la entrega). Hoy
+// está ENCENDIDO (migración entrega_con_preaprobacion); apagado, Calidad evalúa
+// todo ítem liberado. Cómo cambiarlo: docs/operacion.md.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 

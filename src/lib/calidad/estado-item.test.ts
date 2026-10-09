@@ -6,7 +6,6 @@ import {
   funcionNoExiste,
   grupoDelItem,
   idsPorAprobar,
-  muebleSeEvaluaPorLote,
   verificadosPorProduccion,
 } from "./estado-item";
 
@@ -17,7 +16,7 @@ const item = (extra: object = {}) => ({
   parent_item_id: null,
   estadoRevision: null,
   liberadoEn: "2026-10-01T12:00:00Z",
-  verificadoPorProduccion: true,
+  evaluable: true,
   informes: [] as { aprobado: boolean }[],
   ...extra,
 });
@@ -60,7 +59,7 @@ describe("idsPorAprobar", () => {
   });
 
   it("deja fuera lo que Producción todavía no verifica", () => {
-    const ids = idsPorAprobar([item({ id: "a" }), item({ id: "b", verificadoPorProduccion: false })]);
+    const ids = idsPorAprobar([item({ id: "a" }), item({ id: "b", evaluable: false })]);
     expect(ids).toEqual(["a"]);
   });
 });
@@ -92,24 +91,13 @@ describe("evaluablesPorCalidad", () => {
   });
 });
 
-describe("muebleSeEvaluaPorLote", () => {
-  it("con la verificación activa, siempre por lote", () => {
-    expect(muebleSeEvaluaPorLote(true, false)).toBe(true);
-    expect(muebleSeEvaluaPorLote(true, true)).toBe(true);
-  });
-  it("apagada, solo si ya tiene lotes", () => {
-    expect(muebleSeEvaluaPorLote(false, false)).toBe(false);
-    expect(muebleSeEvaluaPorLote(false, true)).toBe(true);
-  });
-});
-
 describe("idsPorAprobar sin verificación de Producción", () => {
   it("un mueble sin lotes y sin informes se aprueba completo", () => {
-    const muebleDirecto = item({ id: "m", verificadoPorProduccion: true, lotes: null });
+    const muebleDirecto = item({ id: "m", evaluable: true, lotes: null });
     expect(idsPorAprobar([muebleDirecto])).toEqual(["m"]);
   });
   it("uno ya evaluado no vuelve a entrar", () => {
-    const evaluado = item({ id: "m", verificadoPorProduccion: true, lotes: null, informes: [{ aprobado: true }] });
+    const evaluado = item({ id: "m", evaluable: true, lotes: null, informes: [{ aprobado: true }] });
     expect(idsPorAprobar([evaluado])).toEqual([]);
   });
 });

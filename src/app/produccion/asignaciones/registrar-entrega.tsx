@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { avisar } from "@/components/avisos";
-import { hoyMexico } from "@/lib/produccion/asignaciones";
+import { hoyMexico, type ResultadoRevision } from "@/lib/produccion/asignaciones";
 import { reducirFotoEnNavegador } from "@/lib/produccion/reducir-foto-navegador";
 import { cantidadEnCola } from "@/lib/offline/cola-envios";
 import {
@@ -23,6 +23,10 @@ import Modal, {
 // escribe el folio de la hoja de entrega (papel; no son los folios CAL- de
 // Calidad, que salen después al evaluar el lote) y sube la foto de la hoja; la foto se reduce
 // aquí y el servidor la comprime antes de guardarla.
+//
+// En ese mismo momento decide si las piezas cumplen (la preaprobación de Producción): si
+// cumplen pasan directo a Calidad; si no, la entrega queda rechazada con su motivo y el
+// equipo vuelve a entregarlas.
 //
 // Si se cae la red, la entrega (con su foto) se guarda en este aparato y se manda sola al
 // volver la conexión (ver src/lib/offline). El servidor reconoce los reintentos, así que
@@ -47,6 +51,8 @@ export default function RegistrarEntrega({
   const [folios, setFolios] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
   const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
+  const [decision, setDecision] = useState<ResultadoRevision | null>(null);
+  const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
   // 0-100 mientras se sube la foto (null cuando no se está enviando).
   const [progreso, setProgreso] = useState<number | null>(null);
@@ -94,6 +100,8 @@ export default function RegistrarEntrega({
     setCantidad(String(Math.max(0, pendiente - enEspera)));
     setFolios("");
     elegirFoto(null);
+    setDecision(null);
+    setMotivo("");
     setError(null);
     setAbierto(true);
   }
@@ -102,6 +110,14 @@ export default function RegistrarEntrega({
     e.preventDefault();
     if (!foto) {
       setError("Toma o elige la foto de la hoja de entrega.");
+      return;
+    }
+    if (!decision) {
+      setError("Indica si las piezas cumplen.");
+      return;
+    }
+    if (decision === "no_cumple" && !motivo.trim()) {
+      setError("Escribe por qué no cumplen las piezas.");
       return;
     }
     setEnviando(true);
@@ -114,10 +130,18 @@ export default function RegistrarEntrega({
           etiqueta: `${descripcion} · ${cantidad} ${unidad ?? ""}`.trim(),
           usuarioId: await usuarioActualId(),
           url: "/api/produccion/entregas",
-          campos: { asignacionId, fecha, cantidad, folios },
+          campos: {
+            asignacionId,
+            fecha,
+            cantidad,
+            folios,
+            resultado: decision,
+            ...(decision === "no_cumple" ? { motivo } : {}),
+          },
           archivos: [{ campo: "foto", nombre: "hoja-entrega.jpg", blob: reducida }],
           grupo: asignacionId,
-          cantidad: Number(cantidad) || 0,
+          // Lo que no cumple no cuenta como entregado: no descuenta de lo pendiente.
+          cantidad: decision === "no_cumple" ? 0 : Number(cantidad) || 0,
         },
         setProgreso
       );
@@ -129,9 +153,11 @@ export default function RegistrarEntrega({
       if (resultado.estado === "en-cola") {
         avisar("Sin conexión: la entrega quedó guardada en este aparato y se enviará sola.", "info");
       } else {
-        // Con la verificación de Producción apagada (ajustes_flujo) la entrega pasa sola a
-        // Calidad; con ella activa queda "por verificar": el texto sirve en ambos casos.
-        avisar("Entrega registrada");
+        avisar(
+          decision === "cumple"
+            ? "Entrega registrada y enviada a Calidad"
+            : "Entrega registrada y regresada al equipo"
+        );
         router.refresh();
       }
     } catch {
@@ -240,6 +266,62 @@ export default function RegistrarEntrega({
                 className="max-h-48 w-full rounded-lg border border-slate-200 object-contain"
               />
             )}
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm font-medium text-slate-700">¿Las piezas cumplen?</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    {
+                      valor: "cumple",
+                      titulo: "Cumplen",
+                      detalle: "Pasan a Calidad",
+                      activo: "border-emerald-500 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-500",
+                    },
+                    {
+                      valor: "no_cumple",
+                      titulo: "No cumplen",
+                      detalle: "Regresan al equipo",
+                      activo: "border-rose-500 bg-rose-50 text-rose-800 ring-1 ring-rose-500",
+                    },
+                  ] as const
+                ).map((o) => (
+                  <label
+                    key={o.valor}
+                    className={`flex min-h-12 cursor-pointer flex-col justify-center rounded-lg border px-3 py-2 text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand-600 ${
+                      decision === o.valor ? o.activo : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="resultado"
+                      value={o.valor}
+                      checked={decision === o.valor}
+                      onChange={() => setDecision(o.valor)}
+                      className="sr-only"
+                    />
+                    <span className="font-semibold">{o.titulo}</span>
+                    <span className="text-xs opacity-80">{o.detalle}</span>
+                  </label>
+                ))}
+              </div>
+              {decision === "no_cumple" && (
+                <label className={estiloEtiqueta}>
+                  ¿Por qué no cumplen?
+                  <textarea
+                    required
+                    rows={2}
+                    maxLength={500}
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    placeholder="Lo que el equipo tiene que corregir"
+                    className={estiloCampo}
+                  />
+                  <span className="text-xs font-normal text-slate-500">
+                    La entrega queda en el historial como rechazada y estas piezas siguen pendientes del equipo.
+                  </span>
+                </label>
+              )}
+            </fieldset>
             {progreso !== null && (
               <div>
                 <div className="mb-1 flex justify-between text-xs text-slate-600">
@@ -274,7 +356,13 @@ export default function RegistrarEntrega({
                 Cancelar
               </button>
               <button type="submit" disabled={enviando || disponible <= 0} className={estiloBotonPrimario}>
-                {enviando ? "Guardando…" : "Guardar entrega"}
+                {enviando
+                  ? "Guardando…"
+                  : decision === "no_cumple"
+                    ? "Guardar y regresar al equipo"
+                    : decision === "cumple"
+                      ? "Guardar y mandar a Calidad"
+                      : "Guardar entrega"}
               </button>
             </div>
           </form>
