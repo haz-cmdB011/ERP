@@ -43,6 +43,14 @@ export function pmDeCarpeta(nombre: string): string | null {
   return /^PM\d+-\d{2}$/.test(pm) ? pm : null;
 }
 
+// PM de la carpeta de proyecto de una ruta relativa "O. T´s. <AÑO>\<PROYECTO>\...":
+// la misma regla que la carpeta de OT. Fuera de esa estructura, null.
+export function pmDeRuta(rutaOrigen: string): string | null {
+  const partes = rutaOrigen.split("\\");
+  if (partes.length < 3 || !/^O\. T.s\. \d{4}$/.test(partes[0])) return null;
+  return pmDeCarpeta(partes[1]);
+}
+
 async function listar(dir: string): Promise<{ carpetas: string[]; archivos: string[] } | null> {
   try {
     const entradas = await readdir(dir, { withFileTypes: true });
@@ -211,4 +219,69 @@ export async function escanear(
     );
   }
   return { proyectos, modelos, aniosLeidos };
+}
+
+export interface PdfEnServidor {
+  nombre: string;
+  // Relativa a la raíz, con "\" (igual que ArchivoPdf.ruta_origen).
+  ruta_origen: string;
+  ruta_absoluta: string;
+  // Nombre de la carpeta que lo contiene (no toda la ruta).
+  carpeta: string;
+}
+
+export interface ResultadoRecorrido {
+  pdfs: PdfEnServidor[];
+  // Carpetas que no se pudieron leer, relativas a la raíz con "\" ("" si es
+  // la raíz). Los planos dentro de ellas no se pueden confirmar.
+  inaccesibles: string[];
+}
+
+function rutaRelativa(raiz: string, absoluta: string): string {
+  return path.relative(raiz, absoluta).split(path.sep).join("\\");
+}
+
+// Recorre TODO el servidor, a cualquier profundidad, y junta sus PDF. Va por
+// niveles, con la misma concurrencia que el resto del escaneo. No abre los
+// PDF: solo lee nombres (el tamaño y la fecha se piden después, solo para
+// los que sí se usan).
+export async function recorrerServidor(
+  raiz: string,
+  log: (linea: string) => void = console.log
+): Promise<ResultadoRecorrido> {
+  const pdfs: PdfEnServidor[] = [];
+  const inaccesibles: string[] = [];
+  let nivel = [raiz];
+  while (nivel.length > 0) {
+    const leidas = await enParalelo(nivel, async (dir) => {
+      try {
+        return { dir, entradas: await readdir(dir, { withFileTypes: true }) };
+      } catch (err) {
+        const motivo = err instanceof Error ? err.message : String(err);
+        log(`  ⚠ No se pudo leer ${dir}: ${motivo}`);
+        return { dir, entradas: null };
+      }
+    });
+    nivel = [];
+    for (const { dir, entradas } of leidas) {
+      if (!entradas) {
+        inaccesibles.push(rutaRelativa(raiz, dir));
+        continue;
+      }
+      for (const entrada of entradas) {
+        const absoluta = path.join(dir, entrada.name);
+        if (entrada.isDirectory()) {
+          nivel.push(absoluta);
+        } else if (entrada.isFile() && /\.pdf$/i.test(entrada.name)) {
+          pdfs.push({
+            nombre: entrada.name,
+            ruta_origen: rutaRelativa(raiz, absoluta),
+            ruta_absoluta: absoluta,
+            carpeta: path.basename(dir),
+          });
+        }
+      }
+    }
+  }
+  return { pdfs, inaccesibles };
 }
