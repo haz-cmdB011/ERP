@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
-import { grupoDelItem, verificadosPorProduccion } from "@/lib/calidad/estado-item";
+import { evaluablesPorCalidad, grupoDelItem, muebleSeEvaluaPorLote } from "@/lib/calidad/estado-item";
+import { verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
 import ItemsCalidadTable, { type ItemCalidadRow } from "./items-calidad-table";
 import { puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
@@ -156,7 +157,7 @@ export default async function PedidoCalidadPage({
   // Informes, imágenes y los lotes (entregas verificadas) de cada mueble se
   // piden a la vez.
   const muebleIds = items.filter((i) => i.tipo_registro === "MO").map((i) => i.id);
-  const [informes, imagenesPorItem, filasLotes] = await Promise.all([
+  const [informes, imagenesPorItem, filasLotes, verificacionActiva] = await Promise.all([
     itemIds.length
       ? leer(
           supabase
@@ -180,16 +181,21 @@ export default async function PedidoCalidadPage({
           "lotes_calidad"
         )
       : Promise.resolve([] as LoteCalidad[]),
+    verificacionProduccionActiva(supabase),
   ]);
   const lotesPorMueble = new Map<string, LoteCalidad[]>();
   for (const l of (filasLotes ?? []).map(normalizarLote)) {
     if (!l.planeacion_item_id) continue;
     lotesPorMueble.set(l.planeacion_item_id, [...(lotesPorMueble.get(l.planeacion_item_id) ?? []), l]);
   }
-  const verificados = verificadosPorProduccion(
-    items,
-    new Set([...lotesPorMueble].filter(([, ls]) => ls.some((l) => l.cantidad > 0)).map(([id]) => id))
+  const mueblesConLotes = new Set(
+    [...lotesPorMueble].filter(([, ls]) => ls.some((l) => l.cantidad > 0)).map(([id]) => id)
   );
+  // Con la verificación de Producción apagada (ajustes_flujo) todo ítem liberado se
+  // puede evaluar; un mueble sin entregas se evalúa completo, no por lote.
+  const verificados = evaluablesPorCalidad(items, mueblesConLotes, verificacionActiva);
+  const porLote = (item: ItemRow) =>
+    item.tipo_registro === "MO" && muebleSeEvaluaPorLote(verificacionActiva, mueblesConLotes.has(item.id));
 
   // Cada item_id agrupa su historial completo, ya ordenado desc (más
   // reciente primero) porque la consulta de arriba ordena por elaborado_en.
@@ -212,8 +218,8 @@ export default async function PedidoCalidadPage({
     parent_item_id: item.parent_item_id,
     liberadoEn: item.liberado_en,
     verificadoPorProduccion: verificados.has(item.id),
-    lotes: item.tipo_registro === "MO" ? resumirLotes(lotesPorMueble.get(item.id) ?? []) : null,
-    lotesPendientes: item.tipo_registro === "MO" ? lotesPorEvaluar(lotesPorMueble.get(item.id) ?? []) : [],
+    lotes: porLote(item) ? resumirLotes(lotesPorMueble.get(item.id) ?? []) : null,
+    lotesPendientes: porLote(item) ? lotesPorEvaluar(lotesPorMueble.get(item.id) ?? []) : [],
     estadoRevision: item.estado_revision,
     motivoCancelacion: item.motivo_cancelacion,
     imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
