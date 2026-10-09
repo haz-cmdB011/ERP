@@ -91,6 +91,19 @@ export function verificadosPorProduccion(
   return salida;
 }
 
+// Ítems que Calidad puede evaluar. Con la verificación de Producción activa son
+// los de muebles que ya tienen piezas verificadas; apagada (ajustes_flujo), todos
+// los liberados a producción: no se espera a ninguna entrega.
+export function evaluablesPorCalidad(
+  items: Pick<ItemEvaluable, "id" | "tipo_registro" | "parent_item_id">[],
+  mueblesVerificados: ReadonlySet<string>,
+  verificacionActiva: boolean
+): Set<string> {
+  return verificacionActiva
+    ? verificadosPorProduccion(items, mueblesVerificados)
+    : new Set(items.map((i) => i.id));
+}
+
 // El mueble (MO) de un ítem escaneado junto con sus componentes (FU). Si el
 // QR es de un componente, se toma su mueble. Lista vacía si el ítem no está.
 export function grupoDelItem<T extends Pick<ItemEvaluable, "id" | "tipo_registro" | "parent_item_id">>(

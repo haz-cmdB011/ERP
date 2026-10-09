@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   diasSinEvaluar,
   estadoDe,
+  evaluablesPorCalidad,
   funcionNoExiste,
   grupoDelItem,
   idsPorAprobar,
@@ -72,6 +73,32 @@ describe("verificadosPorProduccion", () => {
       item({ id: "f2", tipo_registro: "FU", parent_item_id: "m2" }),
     ];
     expect([...verificadosPorProduccion(items, new Set(["m1"]))].sort()).toEqual(["f1", "m1"]);
+  });
+});
+
+describe("evaluablesPorCalidad", () => {
+  const items = [
+    { id: "m1", tipo_registro: "MO" as const, parent_item_id: null },
+    { id: "f1", tipo_registro: "FU" as const, parent_item_id: "m1" },
+    { id: "m2", tipo_registro: "MO" as const, parent_item_id: null },
+  ];
+  it("con la verificación activa, solo lo que Producción verificó", () => {
+    expect([...evaluablesPorCalidad(items, new Set(["m1"]), true)].sort()).toEqual(["f1", "m1"]);
+    expect([...evaluablesPorCalidad(items, new Set(), true)]).toEqual([]);
+  });
+  it("con la verificación apagada, todo ítem liberado, haya o no entregas", () => {
+    expect([...evaluablesPorCalidad(items, new Set(), false)].sort()).toEqual(["f1", "m1", "m2"]);
+  });
+});
+
+describe("idsPorAprobar sin verificación de Producción", () => {
+  it("un mueble sin lotes y sin informes se aprueba completo", () => {
+    const muebleDirecto = item({ id: "m", evaluable: true, lotes: null });
+    expect(idsPorAprobar([muebleDirecto])).toEqual(["m"]);
+  });
+  it("uno ya evaluado no vuelve a entrar", () => {
+    const evaluado = item({ id: "m", evaluable: true, lotes: null, informes: [{ aprobado: true }] });
+    expect(idsPorAprobar([evaluado])).toEqual([]);
   });
 });
 

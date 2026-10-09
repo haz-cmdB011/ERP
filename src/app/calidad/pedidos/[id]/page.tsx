@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
-import { grupoDelItem, verificadosPorProduccion } from "@/lib/calidad/estado-item";
+import { evaluablesPorCalidad, grupoDelItem } from "@/lib/calidad/estado-item";
+import { verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
 import {
   situacionesPorMueble,
@@ -197,20 +198,18 @@ export default async function PedidoCalidadPage({
           "asignaciones_produccion_resumen"
         )
       : Promise.resolve([] as AsignacionDelMueble[]),
-    // Solo decide qué botones se muestran (la regla la aplica la base). Si no
-    // se puede leer se asume encendida, igual que la base sin el ajuste.
-    supabase
-      .rpc("verificacion_produccion_activa")
-      .then(({ data, error }) => Boolean(error) || data !== false),
+    // Solo decide qué botones se muestran (la regla la aplica la base).
+    verificacionProduccionActiva(supabase),
   ]);
   const lotesPorMueble = new Map<string, LoteCalidad[]>();
   for (const l of (filasLotes ?? []).map(normalizarLote)) {
     if (!l.planeacion_item_id) continue;
     lotesPorMueble.set(l.planeacion_item_id, [...(lotesPorMueble.get(l.planeacion_item_id) ?? []), l]);
   }
-  const verificados = verificadosPorProduccion(
+  const verificados = evaluablesPorCalidad(
     items,
-    new Set([...lotesPorMueble].filter(([, ls]) => ls.some((l) => l.cantidad > 0)).map(([id]) => id))
+    new Set([...lotesPorMueble].filter(([, ls]) => ls.some((l) => l.cantidad > 0)).map(([id]) => id)),
+    verificacionActiva
   );
 
   // Lo que todavía no se puede evaluar dice dónde está en Producción (un
@@ -240,7 +239,7 @@ export default async function PedidoCalidadPage({
   }
 
   const itemsConInforme: ItemCalidadRow[] = items.map((item) => {
-    const evaluable = verificados.has(item.id) || !verificacionActiva;
+    const evaluable = verificados.has(item.id);
     return {
       id: item.id,
       item_code: item.item_code,

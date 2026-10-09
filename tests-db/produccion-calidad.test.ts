@@ -215,6 +215,23 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
       expect(sinLiberar.map((i) => i.item_code)).toEqual([]);
     });
 
+    it("con la verificación de Producción apagada, ninguna entrega vigente espera verificación", async () => {
+      const { data: ajuste } = await servicio
+        .from("ajustes_flujo")
+        .select("activo")
+        .eq("clave", "verificacion_produccion")
+        .maybeSingle<{ activo: boolean }>();
+      if (!ajuste || ajuste.activo) return; // con ella activa, "por verificar" es normal
+      const { data } = await servicio
+        .from("entregas_produccion")
+        .select("id")
+        .is("verificada_en", null)
+        .is("rechazada_en", null)
+        .is("anulada_en", null)
+        .limit(50);
+      expect(data ?? []).toEqual([]);
+    });
+
     it("todo informe de Calidad nuevo es de un mueble con piezas verificadas por Producción", async (ctx) => {
       const { data: todos } = await servicio
         .from("informes_calidad")
