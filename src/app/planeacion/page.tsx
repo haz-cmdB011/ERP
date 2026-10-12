@@ -9,14 +9,13 @@ import {
   agruparPorOrdenTrabajo,
   filtrarOrdenesTrabajo,
   hrefListaPedidos,
-  ultimaEntrega,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
 import PendientesCuenta from "@/components/pendientes-cuenta";
 import ResumenInicio from "@/components/resumen-inicio";
 import EstadoVacio from "@/components/estado-vacio";
-import { estadoEntrega, formatoFechaHora, hoyEnEmpresa } from "@/lib/resumen/entrega";
+import { formatoFechaHora } from "@/lib/resumen/entrega";
 import FiltroRecordado from "@/components/filtro-recordado";
 import {
   COOKIE_FILTRO_PEDIDOS,
@@ -43,11 +42,9 @@ const COLUMNAS =
 export default async function PlaneacionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; entrega?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
 }) {
-  const { q, anio, cliente, entrega } = await searchParams;
-  const entregaFiltro = entrega === "semana" || entrega === "sin-fecha" ? entrega : null;
-  const hoy = hoyEnEmpresa();
+  const { q, anio, cliente } = await searchParams;
   const busqueda = q?.trim() ?? "";
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
@@ -97,21 +94,11 @@ export default async function PlaneacionListPage({
     busqueda,
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
-  const filas = filtradas.filas.filter(
-    (fila) => !entregaFiltro || estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === entregaFiltro
-  );
+  const filas = filtradas.filas;
   const totalOts = filas.filter((f) => f.ot).length;
 
   // Números de las tarjetas: sobre todas las O.T. vigentes, sin filtros.
   const todas = agruparPorOrdenTrabajo(pedidos ?? []);
-  // Números de los atajos de entrega: sobre lo que dejan año, cliente y búsqueda.
-  const conEntrega = (e: string) =>
-    filtradas.filas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
-  const atajosEntrega: { valor: "semana" | "sin-fecha" | null; etiqueta: string }[] = [
-    { valor: null, etiqueta: "Todas" },
-    { valor: "semana", etiqueta: `Esta semana (${conEntrega("semana")})` },
-    { valor: "sin-fecha", etiqueta: `Sin fecha (${conEntrega("sin-fecha")})` },
-  ];
   const hayMuebles = (busquedaMuebles?.grupos.length ?? 0) > 0;
 
   return (
@@ -152,7 +139,6 @@ export default async function PlaneacionListPage({
       <form action="/planeacion" className="flex gap-2">
         {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
         {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
-        {entregaFiltro && <input type="hidden" name="entrega" value={entregaFiltro} />}
         <input
           type="search"
           name="q"
@@ -171,7 +157,6 @@ export default async function PlaneacionListPage({
             href={hrefListaPedidos("/planeacion", {
               anio: anioParam,
               cliente: clienteParam,
-              entrega: entregaFiltro ?? undefined,
             })}
             className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
           >
@@ -200,34 +185,6 @@ export default async function PlaneacionListPage({
         href={hrefListaPedidos("/planeacion", { anio: filtroGuardado?.anio, cliente: filtroGuardado?.cliente })}
       />
 
-      {pedidos && pedidos.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Entrega</span>
-          {atajosEntrega.map((a) => {
-            const activo = (entregaFiltro ?? null) === a.valor;
-            return (
-              <Link
-                key={a.valor ?? "todas"}
-                href={hrefListaPedidos("/planeacion", {
-                  q: busqueda || undefined,
-                  anio: anioParam,
-                  cliente: clienteParam,
-                  entrega: a.valor ?? undefined,
-                })}
-                aria-current={activo ? "true" : undefined}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  activo
-                    ? "border-brand-600 bg-brand-500 text-on-brand"
-                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {a.etiqueta}
-              </Link>
-            );
-          })}
-        </div>
-      )}
-
       <FiltrosOrdenesTrabajo
         base="/planeacion"
         anios={aniosDisponibles}
@@ -235,7 +192,6 @@ export default async function PlaneacionListPage({
         clientes={clientesDisponibles}
         cliente={clienteFiltro}
         q={busqueda || undefined}
-        entrega={entregaFiltro ?? undefined}
       />
 
       {/* Sin O.T. que coincidan pero con muebles encontrados, el aviso de
@@ -251,7 +207,6 @@ export default async function PlaneacionListPage({
       {filas.length > 0 && (
         <TablaOrdenesTrabajo
           filas={filas}
-          hoy={hoy}
           sinPmNiEntrega
           hrefOt={(ot) => `/planeacion/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/planeacion/pedidos/${id}`}
