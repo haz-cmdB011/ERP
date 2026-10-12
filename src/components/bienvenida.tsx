@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual } from "@/lib/auth/get-perfil";
-import { EstrellaMarca } from "./marca";
 import Avatar from "./avatar";
 import { urlAvatar } from "@/lib/cuenta/avatar";
 
@@ -50,10 +49,9 @@ export default async function Bienvenida({ acciones = [] }: { acciones?: AccionB
   return (
     <section
       aria-label="Bienvenida"
-      className="relative overflow-hidden rounded-2xl border border-nav-line bg-nav p-5 text-on-nav sm:p-6"
+      className="border-b border-slate-200 pb-5"
     >
-      <EstrellaMarca className="anim-girar pointer-events-none absolute -right-10 -top-10 h-56 w-56 text-brand-500 opacity-[0.08]" />
-      <div className="relative flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="flex min-w-0 items-center gap-4">
           <Avatar
             url={avatarUrl}
@@ -62,11 +60,11 @@ export default async function Bienvenida({ acciones = [] }: { acciones?: AccionB
             textoClase="text-2xl"
           />
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-widest text-on-nav-suave">
+            <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
               {fechaLarga(ahora)}
             </p>
-            <h2 className="mt-1.5 text-2xl font-light tracking-tight sm:text-3xl">
-              <span className="font-semibold text-brand-500">{nombre ?? "Bienvenido"}</span>
+            <h2 className="mt-1.5 text-2xl font-light tracking-tight text-slate-900 sm:text-3xl">
+              <span className="font-semibold">{nombre ?? "Bienvenido"}</span>
             </h2>
           </div>
         </div>
@@ -78,8 +76,8 @@ export default async function Bienvenida({ acciones = [] }: { acciones?: AccionB
                 href={a.href}
                 className={
                   i === 0
-                    ? "inline-flex min-h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-brand-400"
-                    : "inline-flex min-h-10 items-center rounded-lg border border-nav-line px-4 text-sm font-medium text-on-nav transition hover:bg-nav-hover"
+                    ? "inline-flex min-h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-400"
+                    : "inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                 }
               >
                 {a.etiqueta}

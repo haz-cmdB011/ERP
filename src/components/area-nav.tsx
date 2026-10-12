@@ -7,7 +7,6 @@ import PersonalizarApariencia from "./personalizar-apariencia";
 import MenuArea from "./menu-area";
 import Marca from "./marca";
 import Avatar from "./avatar";
-import BrilloCursor from "./brillo-cursor";
 import { urlAvatar } from "@/lib/cuenta/avatar";
 
 const INICIO_AREA = {
@@ -129,7 +128,6 @@ export default async function AreaNav({
   return (
     <div className="print:hidden">
       <header className="vt-cabecera border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav">
-        <BrilloCursor />
         <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6">
           {/* Paneles del área (Pedidos, Cargar Excel...): menú lateral que se
               abre con las tres rayas. */}

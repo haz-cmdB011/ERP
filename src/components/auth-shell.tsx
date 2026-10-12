@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Marca, { EstrellaMarca } from "./marca";
+import Marca from "./marca";
 
 // Estilos compartidos por las pantallas de acceso (login, registro). 16 px de
 // letra en los campos: con menos, iOS hace zoom al enfocarlos.
@@ -42,16 +42,15 @@ export default function AuthShell({
 }) {
   return (
     <main className="grid min-h-dvh grid-rows-[auto_1fr] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-rows-1">
-      <header className="anim-aparecer bg-nav px-6 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))] text-on-nav sm:px-10 lg:hidden">
+      <header className="bg-nav px-6 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))] text-on-nav sm:px-10 lg:hidden">
         <Marca sobreOscuro className="h-11 sm:h-12" />
       </header>
 
       <aside className="relative hidden overflow-hidden bg-nav text-on-nav lg:flex lg:flex-col lg:justify-between lg:p-14">
-        <EstrellaMarca className="anim-girar pointer-events-none absolute -bottom-24 -right-24 h-[30rem] w-[30rem] text-brand-500 opacity-[0.07]" />
-        <span className="anim-aparecer relative block">
+        <span className="relative block">
           <Marca sobreOscuro className="h-16 xl:h-20" />
         </span>
-        <p className="anim-abrir-letras relative text-4xl font-semibold uppercase tracking-[0.2em] text-brand-500 xl:text-5xl">
+        <p className="relative text-4xl font-semibold uppercase tracking-[0.2em] text-brand-500 xl:text-5xl">
           Sistema interno
         </p>
       </aside>
@@ -60,15 +59,15 @@ export default function AuthShell({
         {/* panel-auth: en el estilo "Vidrio" el formulario va en un panel de
             vidrio (vidrio.css); en el clásico, sin marco. */}
         <div className="panel-auth w-full max-w-sm">
-          <h1 className="anim-aparecer text-2xl font-semibold tracking-tight text-slate-900" style={{ "--d": "100ms" } as React.CSSProperties}>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             {titulo}
           </h1>
           {descripcion && (
-            <p className="anim-aparecer mt-2 text-sm leading-relaxed text-slate-600" style={{ "--d": "180ms" } as React.CSSProperties}>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
               {descripcion}
             </p>
           )}
-          <div className="anim-aparecer mt-7" style={{ "--d": "260ms" } as React.CSSProperties}>
+          <div className="mt-7">
             {children}
           </div>
           {!sinAvisoPrivacidad && (
@@ -80,8 +79,8 @@ export default function AuthShell({
           )}
           {pie && (
             <div
-              className="anim-aparecer mt-6 flex flex-col gap-2 border-t border-slate-200 pt-5"
-              style={{ "--d": "340ms" } as React.CSSProperties}
+              className="mt-6 flex flex-col gap-2 border-t border-slate-200 pt-5"
+             
             >
               {pie}
             </div>
