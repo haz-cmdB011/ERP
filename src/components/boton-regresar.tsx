@@ -14,8 +14,8 @@ let ultimaRuta: string | null = null;
 
 // Página superior de la ruta actual, para cuando no hay historial.
 function rutaSuperior(pathname: string, inicioArea: string, maquilador: boolean): string {
-  // Hoja de viajero, viajero por lote o informe de calidad → su pedido.
-  const subPedido = pathname.match(/^(\/[^/]+\/pedidos\/[^/]+)\/(viajero|viajero-lote|informe)(\/|$)/);
+  // Hoja de viajero, viajero por lote, informe de calidad o despiece → su pedido.
+  const subPedido = pathname.match(/^(\/[^/]+\/pedidos\/[^/]+)\/(viajero|viajero-lote|informe|despiece)(\/|$)/);
   if (subPedido) return subPedido[1];
   // Detalle de un pedido → lista de pedidos del área.
   const pedido = pathname.match(/^\/([^/]+)\/pedidos\/[^/]+$/);
