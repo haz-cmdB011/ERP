@@ -60,7 +60,7 @@ function numero(n: number): string {
   return n.toLocaleString("es-MX", { maximumFractionDigits: 2 });
 }
 
-const GRID = "sm:grid-cols-[minmax(0,1fr)_9rem_6rem_6rem_7rem_2.5rem]";
+const GRID = "sm:grid-cols-[minmax(0,1fr)_6rem_6rem_7rem_2.5rem]";
 
 function Campo({
   etiqueta,
@@ -73,7 +73,7 @@ function Campo({
 }) {
   return (
     <label className={`flex min-w-0 flex-col gap-1 ${className}`}>
-      <span className="text-xs font-medium text-slate-500 sm:sr-only">{etiqueta}</span>
+      <span className="text-xs font-medium text-slate-500">{etiqueta}</span>
       {children}
     </label>
   );
@@ -199,26 +199,14 @@ export default function DespieceEditor({
       )}
 
       <div className="flex flex-col gap-3">
-        <div
-          className={`hidden gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid ${GRID}`}
-          aria-hidden="true"
-        >
-          <span>Descripción</span>
-          <span>Material</span>
-          <span>Unidad</span>
-          <span>Por mueble</span>
-          <span>Para {numero(muebles)}</span>
-          <span />
-        </div>
-
         {filas.map((f, i) => {
           const piezas = leerCantidad(f.piezas);
           return (
             <div
               key={f.clave}
-              className={`grid grid-cols-2 items-end gap-2 border-t border-slate-100 pt-3 sm:items-start sm:border-0 sm:pt-0 ${GRID}`}
+              className={`grid grid-cols-2 items-end gap-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0 ${GRID}`}
             >
-              <Campo etiqueta="Descripción" className="col-span-2 sm:col-span-1">
+              <Campo etiqueta={`Línea ${i + 1} · Descripción`} className="col-span-full">
                 <input
                   value={f.descripcion}
                   onChange={(e) => cambiar(f.clave, "descripcion", e.target.value)}
@@ -256,7 +244,7 @@ export default function DespieceEditor({
                 />
               </Campo>
               <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-xs font-medium text-slate-500 sm:sr-only">Para {numero(muebles)}</span>
+                <span className="text-xs font-medium text-slate-500">Para {numero(muebles)}</span>
                 <span className="py-2.5 text-base tabular-nums text-slate-900 sm:py-2 sm:text-sm">
                   {Number.isFinite(piezas) ? numero(totalLinea(piezas, muebles)) : "—"}
                   {f.unidad ? ` ${f.unidad}` : ""}
