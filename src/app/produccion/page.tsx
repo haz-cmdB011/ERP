@@ -4,28 +4,21 @@ import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
 import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
   filtrarOrdenesTrabajo,
-  ultimaEntrega,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 import Bienvenida from "@/components/bienvenida";
 import ResumenInicio, { type TarjetaResumen } from "@/components/resumen-inicio";
-import ChipEntrega from "@/components/chip-entrega";
 import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
-import { estadoEntrega } from "@/lib/resumen/entrega";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
-import { esAlerta, otConPendientes, plazoDePedido, resumirTaller } from "@/lib/produccion/atrasos";
-import { cargarTaller } from "@/lib/produccion/cargar-taller";
 import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
 import {
-  DIAS_SIN_EVALUAR_LOTE,
   DIAS_SIN_REASIGNAR,
   DIAS_SIN_VERIFICAR,
   avisoDetenidos,
 } from "@/lib/produccion/detenidos";
 import EstadoLiberacion from "./estado-liberacion";
 import BuscadorOt from "./buscador-ot";
-import ChipPlazo from "./chip-plazo";
 
 // Igual que en Planeación: órdenes de trabajo con sus PM. Al entrar a una O.T.
 // se ven sus PM; el buscador además encuentra muebles y modelos en todos los
@@ -44,11 +37,9 @@ export default async function ProduccionListPage({
 
   // Búsqueda de muebles (con texto en el buscador se muestran también muebles/modelos
   // de todos los pedidos), pedidos, avance de liberación por pedido (las tarjetas suman
-  // todo lo vigente) y tablero del taller no dependen entre sí: se piden a la vez. El
-  // taller es un resumen: si falla la consulta la pantalla sigue, solo sin esa tarjeta
-  // ni alertas de asignaciones.
+  // todo lo vigente) y lo detenido no dependen entre sí: se piden a la vez.
   const hoy = hoyMexico();
-  const [busqueda, { data: pedidos, error }, avance, taller, detenidos] = await Promise.all([
+  const [busqueda, { data: pedidos, error }, avance, detenidos] = await Promise.all([
     consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null),
     supabase
       .from("pedidos")
@@ -59,7 +50,6 @@ export default async function ProduccionListPage({
       .order("created_at", { ascending: false })
       .returns<PedidoConOt[]>(),
     avancePorPedido(supabase, { conCalidad: false }),
-    cargarTaller(supabase, hoy).catch(() => null),
     // Resumen: si falla, la pantalla sigue sin esas tarjetas.
     cargarDetenidos(supabase, hoy).catch(() => null),
   ]);
@@ -79,13 +69,6 @@ export default async function ProduccionListPage({
   const totalOts = filas.filter((f) => f.ot).length;
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
-  // Lo que sigue en el taller y qué va atrasado.
-  const resumenTaller = taller ? resumirTaller(taller.asignaciones, taller.plazos, hoy) : null;
-  const enTallerPorPedido = new Map<string, number>();
-  for (const a of taller?.asignaciones ?? []) {
-    if (a.pedido_id) enTallerPorPedido.set(a.pedido_id, (enTallerPorPedido.get(a.pedido_id) ?? 0) + 1);
-  }
-
   const tarjetas: TarjetaResumen[] = [
     {
       valor: total.porLiberar,
@@ -94,7 +77,6 @@ export default async function ProduccionListPage({
       href: "/produccion?f=por-liberar",
       tono: "atencion",
     },
-    { valor: total.liberados, etiqueta: "Ítems liberados", detalle: "ya enviados a producción" },
     {
       valor: new Set((pedidos ?? []).map((p) => p.orden_trabajo ?? p.id)).size,
       etiqueta: "O.T. vigentes",
@@ -118,24 +100,8 @@ export default async function ProduccionListPage({
         href: "/produccion/rechazos",
         tono: "atencion",
         alerta: avisoDetenidos(detenidos.sinReasignar, DIAS_SIN_REASIGNAR),
-      },
-      {
-        valor: detenidos.sinEvaluar.total,
-        etiqueta: "Lotes esperando a Calidad",
-        detalle: "ya verificados, sin evaluar",
-        tono: "suave",
-        alerta: avisoDetenidos(detenidos.sinEvaluar, DIAS_SIN_EVALUAR_LOTE),
       }
     );
-  }
-  if (resumenTaller) {
-    tarjetas.push({
-      valor: resumenTaller.atrasadas.length,
-      etiqueta: "Asignaciones atrasadas",
-      detalle: `de ${resumenTaller.total} en taller`,
-      href: "/produccion/tablero#atrasadas",
-      tono: "atencion",
-    });
   }
 
   return (
@@ -234,17 +200,7 @@ export default async function ProduccionListPage({
               filas={filas}
               hrefOt={(ot) => `/produccion/ot/${encodeURIComponent(ot)}`}
               hrefPedido={(id) => `/produccion/pedidos/${id}`}
-              chipEntrega={(fila) => {
-                // Vencida o por vencer solo alerta si aún queda trabajo: sin
-                // él, se queda como la etiqueta normal por fecha.
-                const fecha = ultimaEntrega(fila.pedidos);
-                const plazo = plazoDePedido(fecha, hoy);
-                const enTaller = fila.pedidos.reduce((s, p) => s + (enTallerPorPedido.get(p.id) ?? 0), 0);
-                if (esAlerta(plazo) && otConPendientes(avanceDe(fila).porLiberar, enTaller)) {
-                  return <ChipPlazo plazo={plazo} fecha={fecha} />;
-                }
-                return <ChipEntrega estado={estadoEntrega(fecha, hoy)} />;
-              }}
+              sinPmNiEntrega
               columnaEstado={{
                 titulo: "Liberación",
                 celda: (fila) => <EstadoLiberacion cancelado={false} avance={avanceDe(fila)} />,

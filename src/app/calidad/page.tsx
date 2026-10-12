@@ -88,7 +88,6 @@ export default async function CalidadListPage({
       (filtroEstado === "por-evaluar" ? avanceDe(fila).porEvaluar > 0 : reinspeccionDe(fila) > 0)
   );
   const totalOts = filas.filter((f) => f.ot).length;
-  const hoy = hoyMexico();
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
@@ -230,7 +229,7 @@ export default async function CalidadListPage({
           filas={filas}
           hrefOt={(ot) => `/calidad/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/calidad/pedidos/${id}`}
-          hoy={hoy}
+          sinPmNiEntrega
           columnaEstado={{
             titulo: "Evaluación",
             celda: (fila) => (
