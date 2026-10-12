@@ -41,19 +41,10 @@ export default function AuthShell({
   sinAvisoPrivacidad?: boolean;
 }) {
   return (
-    <main className="grid min-h-dvh grid-rows-[auto_1fr] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-rows-1">
-      <header className="bg-nav px-6 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))] text-on-nav sm:px-10 lg:hidden">
-        <Marca sobreOscuro className="h-11 sm:h-12" />
+    <main className="grid min-h-dvh grid-rows-[auto_1fr]">
+      <header className="border-b border-nav-line bg-nav px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-on-nav sm:px-10">
+        <Marca sobreOscuro className="h-10 sm:h-11" />
       </header>
-
-      <aside className="relative hidden overflow-hidden bg-nav text-on-nav lg:flex lg:flex-col lg:justify-between lg:p-14">
-        <span className="relative block">
-          <Marca sobreOscuro className="h-16 xl:h-20" />
-        </span>
-        <p className="relative text-4xl font-semibold uppercase tracking-[0.2em] text-brand-500 xl:text-5xl">
-          Sistema interno
-        </p>
-      </aside>
 
       <section className="pie-seguro flex items-center justify-center px-6 py-10 sm:px-10">
         {/* panel-auth: en el estilo "Vidrio" el formulario va en un panel de

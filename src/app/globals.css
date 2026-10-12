@@ -6,6 +6,13 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Barra superior y pantallas de marca: clara y sobria (en modo oscuro, la
+     versión oscura). El estilo "Vidrio" la sobrescribe con --vidrio-nav-*. */
+  --nav-base: #ffffff;
+  --nav-base-hover: #f1f5f9;
+  --nav-base-linea: #e2e8f0;
+  --nav-base-texto: #0f172a;
+  --nav-base-suave: #64748b;
 }
 
 @theme inline {
@@ -24,11 +31,11 @@
      (siempre oscura, con la marca en verde). El estilo "Vidrio" los cambia
      con las variables --vidrio-* (vidrio.css); sin él, valen el respaldo. */
   --color-on-brand: var(--vidrio-sobre-marca, #0b1f00);
-  --color-nav: var(--vidrio-nav, #0c1a06);
-  --color-nav-hover: var(--vidrio-nav-hover, #172a0e);
-  --color-nav-line: var(--vidrio-nav-linea, #24391a);
-  --color-on-nav: var(--vidrio-sobre-nav, #e9f2e1);
-  --color-on-nav-suave: var(--vidrio-sobre-nav-suave, #a4b79a);
+  --color-nav: var(--vidrio-nav, var(--nav-base));
+  --color-nav-hover: var(--vidrio-nav-hover, var(--nav-base-hover));
+  --color-nav-line: var(--vidrio-nav-linea, var(--nav-base-linea));
+  --color-on-nav: var(--vidrio-sobre-nav, var(--nav-base-texto));
+  --color-on-nav-suave: var(--vidrio-sobre-nav-suave, var(--nav-base-suave));
 }
 
 /* Sin "inline": las utilidades de la marca leen var(--color-brand-N), que es lo
@@ -58,6 +65,11 @@
    jerarquía lo pide); el borde hace el trabajo de separar. Sobrescribe la
    escala de Tailwind, así que vale para todas las pantallas sin tocarlas. */
 @theme {
+  /* Esquinas menos redondeadas. */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+
   --shadow-xs: none;
   --shadow-sm: none;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04);
@@ -73,11 +85,44 @@
   :root:not([data-tema="claro"]) {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --nav-base: #0c1a06;
+    --nav-base-hover: #172a0e;
+    --nav-base-linea: #24391a;
+    --nav-base-texto: #e9f2e1;
+    --nav-base-suave: #a4b79a;
   }
 }
 :root[data-tema="oscuro"] {
   --background: #0a0a0a;
   --foreground: #ededed;
+  --nav-base: #0c1a06;
+  --nav-base-hover: #172a0e;
+  --nav-base-linea: #24391a;
+  --nav-base-texto: #e9f2e1;
+  --nav-base-suave: #a4b79a;
+}
+
+/* Logotipo sobre la barra: el normal si la barra es clara, el de texto claro
+   si es oscura (modo oscuro o estilo "Vidrio"). src/components/marca.tsx pinta
+   los dos y aquí se elige. */
+.logo-sobre-nav-oscuro {
+  display: none;
+}
+:root[data-estilo="vidrio"] .logo-sobre-nav-claro,
+:root[data-tema="oscuro"] .logo-sobre-nav-claro {
+  display: none;
+}
+:root[data-estilo="vidrio"] .logo-sobre-nav-oscuro,
+:root[data-tema="oscuro"] .logo-sobre-nav-oscuro {
+  display: inline-block;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .logo-sobre-nav-claro {
+    display: none;
+  }
+  :root:not([data-tema="claro"]) .logo-sobre-nav-oscuro {
+    display: inline-block;
+  }
 }
 
 html,
