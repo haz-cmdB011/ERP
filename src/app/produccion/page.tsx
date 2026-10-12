@@ -12,11 +12,8 @@ import { type TarjetaResumen } from "@/components/resumen-inicio";
 import { ResumenEnMenu } from "@/components/resumen-menu";
 import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
-import { resumirTaller } from "@/lib/produccion/atrasos";
-import { cargarTaller } from "@/lib/produccion/cargar-taller";
 import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
 import {
-  DIAS_SIN_EVALUAR_LOTE,
   DIAS_SIN_REASIGNAR,
   DIAS_SIN_VERIFICAR,
   avisoDetenidos,
@@ -41,11 +38,9 @@ export default async function ProduccionListPage({
 
   // Búsqueda de muebles (con texto en el buscador se muestran también muebles/modelos
   // de todos los pedidos), pedidos, avance de liberación por pedido (las tarjetas suman
-  // todo lo vigente) y tablero del taller no dependen entre sí: se piden a la vez. El
-  // taller es un resumen: si falla la consulta la pantalla sigue, solo sin esa tarjeta
-  // ni alertas de asignaciones.
+  // todo lo vigente) y lo detenido no dependen entre sí: se piden a la vez.
   const hoy = hoyMexico();
-  const [busqueda, { data: pedidos, error }, avance, taller, detenidos] = await Promise.all([
+  const [busqueda, { data: pedidos, error }, avance, detenidos] = await Promise.all([
     consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null),
     supabase
       .from("pedidos")
@@ -56,7 +51,6 @@ export default async function ProduccionListPage({
       .order("created_at", { ascending: false })
       .returns<PedidoConOt[]>(),
     avancePorPedido(supabase, { conCalidad: false }),
-    cargarTaller(supabase, hoy).catch(() => null),
     // Resumen: si falla, la pantalla sigue sin esas tarjetas.
     cargarDetenidos(supabase, hoy).catch(() => null),
   ]);
@@ -75,9 +69,6 @@ export default async function ProduccionListPage({
   const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
-  // Lo que sigue en el taller y qué va atrasado.
-  const resumenTaller = taller ? resumirTaller(taller.asignaciones, taller.plazos, hoy) : null;
-
   const tarjetas: TarjetaResumen[] = [
     {
       valor: total.porLiberar,
@@ -86,7 +77,6 @@ export default async function ProduccionListPage({
       href: "/produccion?f=por-liberar",
       tono: "atencion",
     },
-    { valor: total.liberados, etiqueta: "Ítems liberados", detalle: "ya enviados a producción" },
     {
       valor: new Set((pedidos ?? []).map((p) => p.orden_trabajo ?? p.id)).size,
       etiqueta: "O.T. vigentes",
@@ -110,24 +100,8 @@ export default async function ProduccionListPage({
         href: "/produccion/rechazos",
         tono: "atencion",
         alerta: avisoDetenidos(detenidos.sinReasignar, DIAS_SIN_REASIGNAR),
-      },
-      {
-        valor: detenidos.sinEvaluar.total,
-        etiqueta: "Lotes esperando a Calidad",
-        detalle: "ya verificados, sin evaluar",
-        tono: "suave",
-        alerta: avisoDetenidos(detenidos.sinEvaluar, DIAS_SIN_EVALUAR_LOTE),
       }
     );
-  }
-  if (resumenTaller) {
-    tarjetas.push({
-      valor: resumenTaller.atrasadas.length,
-      etiqueta: "Asignaciones atrasadas",
-      detalle: `de ${resumenTaller.total} en taller`,
-      href: "/produccion/tablero#atrasadas",
-      tono: "atencion",
-    });
   }
 
   return (

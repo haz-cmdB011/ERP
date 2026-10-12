@@ -6,6 +6,13 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Barra superior y pantallas de marca: clara y sobria (en modo oscuro, la
+     versión oscura). El estilo "Vidrio" la sobrescribe con --vidrio-nav-*. */
+  --nav-base: #ffffff;
+  --nav-base-hover: #f1f5f9;
+  --nav-base-linea: #e2e8f0;
+  --nav-base-texto: #0f172a;
+  --nav-base-suave: #64748b;
 }
 
 @theme inline {
@@ -24,11 +31,11 @@
      (siempre oscura, con la marca en verde). El estilo "Vidrio" los cambia
      con las variables --vidrio-* (vidrio.css); sin él, valen el respaldo. */
   --color-on-brand: var(--vidrio-sobre-marca, #0b1f00);
-  --color-nav: var(--vidrio-nav, #0c1a06);
-  --color-nav-hover: var(--vidrio-nav-hover, #172a0e);
-  --color-nav-line: var(--vidrio-nav-linea, #24391a);
-  --color-on-nav: var(--vidrio-sobre-nav, #e9f2e1);
-  --color-on-nav-suave: var(--vidrio-sobre-nav-suave, #a4b79a);
+  --color-nav: var(--vidrio-nav, var(--nav-base));
+  --color-nav-hover: var(--vidrio-nav-hover, var(--nav-base-hover));
+  --color-nav-line: var(--vidrio-nav-linea, var(--nav-base-linea));
+  --color-on-nav: var(--vidrio-sobre-nav, var(--nav-base-texto));
+  --color-on-nav-suave: var(--vidrio-sobre-nav-suave, var(--nav-base-suave));
 }
 
 /* Sin "inline": las utilidades de la marca leen var(--color-brand-N), que es lo
@@ -54,17 +61,68 @@
   --color-brand-950: var(--vidrio-marca-950, #0f2400);
 }
 
+/* Apariencia minimalista: sombras casi planas (solo una línea tenue donde la
+   jerarquía lo pide); el borde hace el trabajo de separar. Sobrescribe la
+   escala de Tailwind, así que vale para todas las pantallas sin tocarlas. */
+@theme {
+  /* Esquinas menos redondeadas. */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 1px 3px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 4px 12px -4px rgb(0 0 0 / 0.12);
+  --shadow-xl: 0 8px 20px -8px rgb(0 0 0 / 0.16);
+  --shadow-2xl: 0 12px 28px -10px rgb(0 0 0 / 0.2);
+}
+
 /* Mismas reglas que tema-oscuro.css: el sistema decide salvo que el usuario
    haya elegido tema (data-tema en <html>). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --nav-base: #0c1a06;
+    --nav-base-hover: #172a0e;
+    --nav-base-linea: #24391a;
+    --nav-base-texto: #e9f2e1;
+    --nav-base-suave: #a4b79a;
   }
 }
 :root[data-tema="oscuro"] {
   --background: #0a0a0a;
   --foreground: #ededed;
+  --nav-base: #0c1a06;
+  --nav-base-hover: #172a0e;
+  --nav-base-linea: #24391a;
+  --nav-base-texto: #e9f2e1;
+  --nav-base-suave: #a4b79a;
+}
+
+/* Logotipo sobre la barra: el normal si la barra es clara, el de texto claro
+   si es oscura (modo oscuro o estilo "Vidrio"). src/components/marca.tsx pinta
+   los dos y aquí se elige. */
+.logo-sobre-nav-oscuro {
+  display: none;
+}
+:root[data-estilo="vidrio"] .logo-sobre-nav-claro,
+:root[data-tema="oscuro"] .logo-sobre-nav-claro {
+  display: none;
+}
+:root[data-estilo="vidrio"] .logo-sobre-nav-oscuro,
+:root[data-tema="oscuro"] .logo-sobre-nav-oscuro {
+  display: inline-block;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .logo-sobre-nav-claro {
+    display: none;
+  }
+  :root:not([data-tema="claro"]) .logo-sobre-nav-oscuro {
+    display: inline-block;
+  }
 }
 
 html,
@@ -263,105 +321,10 @@ body {
   --serie-pista: #383835;
 }
 
-/* Entrada suave del contenido de cada pantalla: los bloques de <main> suben y
-   aparecen uno tras otro (el estilo "Vidrio" usa una variante sin fundido, ver
-   vidrio.css). Solo en pantalla y si el usuario no pidió menos
-   movimiento. */
-@keyframes entrada-bloque {
-  from {
-    opacity: 0;
-    transform: translateY(0.5rem);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@media screen and (prefers-reduced-motion: no-preference) {
-  main > * {
-    animation: entrada-bloque 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  }
-  main > :nth-child(2) { animation-delay: 50ms; }
-  main > :nth-child(3) { animation-delay: 100ms; }
-  main > :nth-child(4) { animation-delay: 150ms; }
-  main > :nth-child(n + 5) { animation-delay: 200ms; }
-
-  /* Los botones verdes se hunden un poco al tocarlos. */
-  :is(button, a)[class*="bg-brand-500"]:not(:disabled):active {
-    transform: scale(0.97);
-  }
-}
-@media print {
-  main > * {
-    animation: none;
-  }
-}
-
 /* ---------------------------------------------------------------------------
    Animaciones de la interfaz. Todas se apagan con prefers-reduced-motion (ver
    la regla general al final) y al imprimir.
    --------------------------------------------------------------------------- */
-
-/* Aparición con ligera subida; --d retrasa cada elemento para escalonarlos. */
-@keyframes aparecer {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.anim-aparecer {
-  animation: aparecer 600ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  animation-delay: var(--d, 0ms);
-}
-
-/* Entrada de tarjetas de resumen: suben y crecen un poco. */
-@keyframes escalar-entrada {
-  from {
-    opacity: 0;
-    transform: translateY(0.5rem) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.anim-escala {
-  animation: escalar-entrada 500ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  animation-delay: var(--d, 0ms);
-}
-
-/* La estrella de la marca gira muy despacio (adorno de fondo). */
-@keyframes girar-lento {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.anim-girar {
-  animation: girar-lento 120s linear infinite;
-}
-.anim-girar-rapido {
-  animation: girar-lento 60s linear infinite;
-}
-
-/* Las letras de "Sistema interno" se abren al cargar el login. */
-@keyframes abrir-letras {
-  from {
-    opacity: 0;
-    letter-spacing: 0.02em;
-  }
-  to {
-    opacity: 1;
-    letter-spacing: 0.2em;
-  }
-}
-.anim-abrir-letras {
-  animation: abrir-letras 1400ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  animation-delay: 250ms;
-}
 
 /* Subrayado de la pestaña activa: se dibuja de izquierda a derecha. */
 @keyframes barrido {
@@ -462,31 +425,6 @@ body {
 .barra-progreso {
   transform-origin: left;
   animation: progreso 8s cubic-bezier(0.1, 0.6, 0.3, 1) forwards;
-}
-
-/* Las primeras filas de una tabla entran una tras otra. */
-@keyframes entrada-fila {
-  from {
-    opacity: 0;
-    transform: translateY(0.25rem);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@media screen and (prefers-reduced-motion: no-preference) {
-  tbody > tr:nth-child(-n + 14) {
-    animation: entrada-fila 350ms ease-out backwards;
-  }
-  tbody > tr:nth-child(2) { animation-delay: 35ms; }
-  tbody > tr:nth-child(3) { animation-delay: 70ms; }
-  tbody > tr:nth-child(4) { animation-delay: 105ms; }
-  tbody > tr:nth-child(5) { animation-delay: 140ms; }
-  tbody > tr:nth-child(6) { animation-delay: 175ms; }
-  tbody > tr:nth-child(7) { animation-delay: 210ms; }
-  tbody > tr:nth-child(8) { animation-delay: 245ms; }
-  tbody > tr:nth-child(n + 9) { animation-delay: 280ms; }
 }
 
 /* Quien pide menos movimiento no ve animaciones ni transiciones largas. */
@@ -651,11 +589,6 @@ html.transicion-tema *::after {
     animation: girar-entrada 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
-  /* Los botones verdes se elevan apenas al pasar el cursor. */
-  :is(button, a)[class*="bg-brand-500"]:not(:disabled):hover {
-    translate: 0 -1px;
-    box-shadow: 0 6px 14px -6px var(--vidrio-resplandor, rgb(88 180 0 / 0.55));
-  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -781,63 +714,6 @@ html.transicion-tema *::after {
   tbody[data-cerrando] > tr.fila-hija {
     animation: hija-salida 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
     animation-delay: calc((var(--n, 1) - 1 - var(--i, 0)) * 25ms);
-  }
-}
-
-/* Tarjetas con profundidad (src/components/inclinable.tsx): solo con ratón. */
-.inclinable {
-  position: relative;
-  border-radius: 0.75rem;
-}
-.inclinable-brillo {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  opacity: 0;
-}
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .inclinable {
-    transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-    transition: transform 220ms ease-out;
-    will-change: transform;
-  }
-  .inclinable-brillo {
-    background: radial-gradient(
-      220px circle at var(--mx, 50%) var(--my, 50%),
-      color-mix(in oklab, var(--color-brand-500) 18%, transparent),
-      transparent 65%
-    );
-    transition: opacity 220ms ease-out;
-  }
-  .inclinable:hover .inclinable-brillo {
-    opacity: 1;
-  }
-}
-
-/* Mismo brillo para la barra superior (src/components/brillo-cursor.tsx):
-   sigue al ratón sin inclinar nada. Posición en px porque la barra es muy
-   ancha y el círculo se deformaría con porcentajes. Más intenso que el de las
-   tarjetas: la barra ya va teñida con la marca y un brillo tenue se perdía. */
-.brillo-cursor {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  opacity: 0;
-}
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .brillo-cursor {
-    background: radial-gradient(
-      240px circle at var(--mx, 50%) var(--my, 50%),
-      color-mix(in oklab, var(--color-brand-500) 35%, transparent),
-      color-mix(in oklab, var(--color-brand-500) 11%, transparent) 40%,
-      transparent 70%
-    );
-    transition: opacity 220ms ease-out;
-  }
-  .brillo-cursor[data-activo] {
-    opacity: 1;
   }
 }
 

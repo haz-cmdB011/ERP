@@ -13,7 +13,6 @@ import { contarPendientes, listarResumenDiscrepancias } from "@/lib/estimaciones
 import { type TarjetaResumen } from "@/components/resumen-inicio";
 import { ResumenEnMenu } from "@/components/resumen-menu";
 import Bienvenida from "@/components/bienvenida";
-import Inclinable from "@/components/inclinable";
 
 const TARJETAS: {
   href: string;
@@ -102,10 +101,10 @@ export default async function EstimacionesPage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         {TARJETAS.map((t) => (
-          <Inclinable key={t.href}>
           <Link
+            key={t.href}
             href={t.href}
-            className="group flex h-full items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"
+            className="group flex h-full items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-300"
           >
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-800 transition-colors group-hover:bg-brand-500 group-hover:text-on-brand">
               <svg
@@ -127,7 +126,6 @@ export default async function EstimacionesPage() {
               </h2>
             </span>
           </Link>
-          </Inclinable>
         ))}
       </div>
     </main>

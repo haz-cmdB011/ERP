@@ -9,13 +9,12 @@ import {
   agruparPorOrdenTrabajo,
   filtrarOrdenesTrabajo,
   hrefListaPedidos,
-  ultimaEntrega,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
 import { ResumenEnMenu } from "@/components/resumen-menu";
 import EstadoVacio from "@/components/estado-vacio";
-import { estadoEntrega, formatoFechaHora, hoyEnEmpresa } from "@/lib/resumen/entrega";
+import { formatoFechaHora } from "@/lib/resumen/entrega";
 import FiltroRecordado from "@/components/filtro-recordado";
 import {
   COOKIE_FILTRO_PEDIDOS,
@@ -42,11 +41,9 @@ const COLUMNAS =
 export default async function PlaneacionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; entrega?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
 }) {
-  const { q, anio, cliente, entrega } = await searchParams;
-  const entregaFiltro = entrega === "semana" || entrega === "sin-fecha" ? entrega : null;
-  const hoy = hoyEnEmpresa();
+  const { q, anio, cliente } = await searchParams;
   const busqueda = q?.trim() ?? "";
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
@@ -96,14 +93,10 @@ export default async function PlaneacionListPage({
     busqueda,
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
-  const filas = filtradas.filas.filter(
-    (fila) => !entregaFiltro || estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === entregaFiltro
-  );
+  const filas = filtradas.filas;
 
   // Números de las tarjetas: sobre todas las O.T. vigentes, sin filtros.
   const todas = agruparPorOrdenTrabajo(pedidos ?? []);
-  const conEstado = (e: string) =>
-    todas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
   const hayMuebles = (busquedaMuebles?.grupos.length ?? 0) > 0;
 
   return (
@@ -113,20 +106,6 @@ export default async function PlaneacionListPage({
         <ResumenEnMenu
           tarjetas={[
             { valor: todas.length, etiqueta: "O.T. vigentes", detalle: `${pedidos.length} PM en total`, href: "/planeacion" },
-            {
-              valor: conEstado("semana"),
-              etiqueta: "Entregan esta semana",
-              detalle: "en los próximos 7 días",
-              href: "/planeacion?entrega=semana",
-              tono: "atencion",
-            },
-            { valor: conEstado("mes"), etiqueta: "Entregan este mes", detalle: "entre 8 y 30 días" },
-            {
-              valor: conEstado("sin-fecha"),
-              etiqueta: "Sin fecha de entrega",
-              detalle: "conviene completarla",
-              href: "/planeacion?entrega=sin-fecha",
-            },
           ]}
         />
       )}
@@ -141,7 +120,6 @@ export default async function PlaneacionListPage({
       <form action="/planeacion" className="flex gap-2">
         {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
         {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
-        {entregaFiltro && <input type="hidden" name="entrega" value={entregaFiltro} />}
         <input
           type="search"
           name="q"
@@ -160,7 +138,6 @@ export default async function PlaneacionListPage({
             href={hrefListaPedidos("/planeacion", {
               anio: anioParam,
               cliente: clienteParam,
-              entrega: entregaFiltro ?? undefined,
             })}
             className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
           >
@@ -189,20 +166,6 @@ export default async function PlaneacionListPage({
         href={hrefListaPedidos("/planeacion", { anio: filtroGuardado?.anio, cliente: filtroGuardado?.cliente })}
       />
 
-      {entregaFiltro && (
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
-          {entregaFiltro === "semana"
-            ? "Mostrando solo las O.T. que entregan esta semana."
-            : "Mostrando solo las O.T. sin fecha de entrega."}
-          <Link
-            href={hrefListaPedidos("/planeacion", { q: busqueda || undefined, anio: anioParam, cliente: clienteParam })}
-            className="font-medium underline-offset-2 hover:underline"
-          >
-            Ver todas
-          </Link>
-        </p>
-      )}
-
       <FiltrosOrdenesTrabajo
         base="/planeacion"
         anios={aniosDisponibles}
@@ -210,7 +173,6 @@ export default async function PlaneacionListPage({
         clientes={clientesDisponibles}
         cliente={clienteFiltro}
         q={busqueda || undefined}
-        entrega={entregaFiltro ?? undefined}
       />
 
       {/* Sin O.T. que coincidan pero con muebles encontrados, el aviso de

@@ -2,11 +2,9 @@ import Link from "next/link";
 import FiltroCliente from "@/components/filtro-cliente";
 import {
   hrefListaPedidos,
-  ultimaEntrega,
   type FilaOrdenTrabajo,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
-import { formatoFechaDMA } from "@/lib/resumen/entrega";
 
 // Chips de año + filtro de cliente de la lista de Pedidos por O.T. Conservan la
 // búsqueda y, si la lista la tiene, la entrega elegida.
@@ -81,7 +79,6 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
           <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <th className="px-4 py-3">O.T.</th>
             <th className="px-4 py-3">Proyecto</th>
-            <th className="px-4 py-3">Entrega</th>
             {columnaEstado && <th className="px-4 py-3">{columnaEstado.titulo}</th>}
             {accion && <th className="px-4 py-3"></th>}
           </tr>
@@ -108,19 +105,12 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                       →
                     </span>
                   </Link>
-                  {/* Cuántos PM tiene la O.T.: solo cuando hay más de uno. */}
-                  {fila.ot && fila.pedidos.length > 1 && (
-                    <p className="mt-0.5 text-xs text-slate-500">{fila.pedidos.length} PM</p>
-                  )}
                 </td>
                 <td className="px-4 py-3">
                   <p className="text-slate-900">{primero.proyectos?.nombre ?? "—"}</p>
                   {primero.proyectos?.cliente && (
                     <p className="text-xs text-slate-500">{primero.proyectos.cliente}</p>
                   )}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                  {formatoFechaDMA(ultimaEntrega(fila.pedidos))}
                 </td>
                 {columnaEstado && <td className="px-4 py-3">{columnaEstado.celda(fila)}</td>}
                 {accion && <td className="px-4 py-3">{accion(fila)}</td>}
