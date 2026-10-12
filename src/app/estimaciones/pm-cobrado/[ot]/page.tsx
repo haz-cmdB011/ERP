@@ -17,7 +17,6 @@ import {
 } from "@/lib/estimaciones/pm-cobrado";
 import { AREA_RECIBO_LABELS } from "@/lib/estimaciones/discrepancias-db";
 import BarraAvance from "../barra-avance";
-import { CLASE_MIGA, FlechaRegresar } from "@/components/regresar-estilo";
 
 export const metadata: Metadata = { title: "PM contra cobrado" };
 
@@ -91,14 +90,7 @@ export default async function PmCobradoDetallePage({
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
-        <Link
-          href="/estimaciones/reportes#pm-cobrado"
-          className={CLASE_MIGA}
-        >
-          <FlechaRegresar className="h-4 w-4" />
-          Reporte semanal · PM contra cobrado
-        </Link>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           <span className="font-mono">O.T. {resumen?.ot ?? ot}</span>
         </h1>
         {resumen?.proyecto && <p className="text-sm text-slate-600">{resumen.proyecto}</p>}

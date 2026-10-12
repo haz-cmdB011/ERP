@@ -68,11 +68,6 @@ export default async function RegistroRecibosPage({
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             {filtros.estado === "pendiente" ? "Por revisar" : "Registro de recibos"}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {filtros.estado === "pendiente"
-              ? "Lo urgente y lo que más espera, primero. Al maquilador no se le paga hasta que el recibo queda revisado."
-              : "Recibos de maquila (Acabados, Armado y Electrificación), ordenados por folio."}
-          </p>
         </div>
         {pagina.total > 0 && (
           <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">

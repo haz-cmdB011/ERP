@@ -24,9 +24,6 @@ export default async function EquiposPage() {
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Equipos</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Maquiladores (armado y barniz) y planta, a quienes se asignan los muebles.
-          </p>
         </div>
         <Link
           href="/produccion/equipos/calidad"

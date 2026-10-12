@@ -4,8 +4,6 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import TablaPedidos, { type PedidoLista } from "../../tabla-pedidos";
-import { CLASE_MIGA, FlechaRegresar } from "@/components/regresar-estilo";
-import { hoyEnEmpresa } from "@/lib/resumen/entrega";
 
 interface ResultadoModeloRow {
   id: string;
@@ -98,14 +96,7 @@ export default async function OrdenTrabajoPage({
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
-        <Link
-          href="/planeacion"
-          className={CLASE_MIGA}
-        >
-          <FlechaRegresar className="h-4 w-4" />
-          Pedidos
-        </Link>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           O.T. <span className="font-mono">{ot}</span>
         </h1>
         {primero && (
@@ -205,7 +196,7 @@ export default async function OrdenTrabajoPage({
           <h2 className="text-sm font-semibold text-slate-600">
             {pms.length} PM en esta O.T.
           </h2>
-          <TablaPedidos pedidos={pms} esAdmin={esAdmin} hoy={hoyEnEmpresa()} />
+          <TablaPedidos pedidos={pms} esAdmin={esAdmin} />
         </div>
       )}
     </main>

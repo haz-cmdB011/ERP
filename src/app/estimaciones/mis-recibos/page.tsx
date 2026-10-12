@@ -43,9 +43,7 @@ export default async function MisRecibosPage() {
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Mis recibos</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {perfil?.contratista} · Se pagan una vez que Estimaciones revisa cada precio.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">{perfil?.contratista}</p>
         </div>
         {porCobrar > 0 && (
           <span className="rounded bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 ring-1 ring-brand-200">

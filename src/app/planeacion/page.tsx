@@ -13,8 +13,7 @@ import {
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
-import PendientesCuenta from "@/components/pendientes-cuenta";
-import ResumenInicio from "@/components/resumen-inicio";
+import { ResumenEnMenu } from "@/components/resumen-menu";
 import EstadoVacio from "@/components/estado-vacio";
 import { estadoEntrega, formatoFechaHora, hoyEnEmpresa } from "@/lib/resumen/entrega";
 import FiltroRecordado from "@/components/filtro-recordado";
@@ -100,28 +99,18 @@ export default async function PlaneacionListPage({
   const filas = filtradas.filas.filter(
     (fila) => !entregaFiltro || estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === entregaFiltro
   );
-  const totalOts = filas.filter((f) => f.ot).length;
 
   // Números de las tarjetas: sobre todas las O.T. vigentes, sin filtros.
   const todas = agruparPorOrdenTrabajo(pedidos ?? []);
   const conEstado = (e: string) =>
     todas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
-  // Números de los atajos de entrega: sobre lo que dejan año, cliente y búsqueda.
-  const conEntrega = (e: string) =>
-    filtradas.filas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
-  const atajosEntrega: { valor: "semana" | "sin-fecha" | null; etiqueta: string }[] = [
-    { valor: null, etiqueta: "Todas" },
-    { valor: "semana", etiqueta: `Esta semana (${conEntrega("semana")})` },
-    { valor: "sin-fecha", etiqueta: `Sin fecha (${conEntrega("sin-fecha")})` },
-  ];
   const hayMuebles = (busquedaMuebles?.grupos.length ?? 0) > 0;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida />
-      <PendientesCuenta />
       {pedidos && pedidos.length > 0 && (
-        <ResumenInicio
+        <ResumenEnMenu
           tarjetas={[
             { valor: todas.length, etiqueta: "O.T. vigentes", detalle: `${pedidos.length} PM en total`, href: "/planeacion" },
             {
@@ -146,22 +135,6 @@ export default async function PlaneacionListPage({
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Planeación
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Entra a una O.T. para ver sus PM y buscar modelos.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {pedidos && pedidos.length > 0 && (
-            <span className="whitespace-nowrap rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {totalOts} O.T.
-            </span>
-          )}
-          <Link
-            href="/planeacion/upload"
-            className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
-          >
-            Cargar Excel
-          </Link>
         </div>
       </div>
 
@@ -216,32 +189,18 @@ export default async function PlaneacionListPage({
         href={hrefListaPedidos("/planeacion", { anio: filtroGuardado?.anio, cliente: filtroGuardado?.cliente })}
       />
 
-      {pedidos && pedidos.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Entrega</span>
-          {atajosEntrega.map((a) => {
-            const activo = (entregaFiltro ?? null) === a.valor;
-            return (
-              <Link
-                key={a.valor ?? "todas"}
-                href={hrefListaPedidos("/planeacion", {
-                  q: busqueda || undefined,
-                  anio: anioParam,
-                  cliente: clienteParam,
-                  entrega: a.valor ?? undefined,
-                })}
-                aria-current={activo ? "true" : undefined}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  activo
-                    ? "border-brand-600 bg-brand-500 text-on-brand"
-                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {a.etiqueta}
-              </Link>
-            );
-          })}
-        </div>
+      {entregaFiltro && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
+          {entregaFiltro === "semana"
+            ? "Mostrando solo las O.T. que entregan esta semana."
+            : "Mostrando solo las O.T. sin fecha de entrega."}
+          <Link
+            href={hrefListaPedidos("/planeacion", { q: busqueda || undefined, anio: anioParam, cliente: clienteParam })}
+            className="font-medium underline-offset-2 hover:underline"
+          >
+            Ver todas
+          </Link>
+        </p>
       )}
 
       <FiltrosOrdenesTrabajo
@@ -267,7 +226,6 @@ export default async function PlaneacionListPage({
       {filas.length > 0 && (
         <TablaOrdenesTrabajo
           filas={filas}
-          hoy={hoy}
           hrefOt={(ot) => `/planeacion/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/planeacion/pedidos/${id}`}
           columnaEstado={{

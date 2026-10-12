@@ -14,8 +14,7 @@ import { resumirCancelacion, type ItemParaCancelar } from "@/lib/planeacion/resu
 import LineaTiempoPm from "./linea-tiempo-pm";
 import { armarLineaTiempo, type LineaTiempo } from "@/lib/planeacion/linea-tiempo";
 import { asignacionesDePedido, idsConInformeDeCalidad } from "@/lib/planeacion/linea-tiempo-db";
-import ChipEntrega from "@/components/chip-entrega";
-import { estadoEntrega, formatoFechaDMA, formatoFechaHora, hoyEnEmpresa } from "@/lib/resumen/entrega";
+import { formatoFechaDMA, formatoFechaHora } from "@/lib/resumen/entrega";
 
 import { leer } from "@/lib/supabase/leer";
 interface VersionRow {
@@ -228,9 +227,8 @@ export default async function PedidoDetailPage({
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+        <p className="mt-1 text-xs font-medium text-slate-500">
           Entrega: {formatoFechaDMA(pedido.fecha_entrega)}
-          <ChipEntrega estado={estadoEntrega(pedido.fecha_entrega, hoyEnEmpresa())} />
         </p>
       </div>
 

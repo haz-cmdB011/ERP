@@ -67,7 +67,6 @@ export interface ItemCalidadRow {
 }
 
 type FiltroCalidad = "todos" | EstadoCalidad;
-type Orden = "codigo" | "antiguos";
 
 // Milisegundos que se espera antes de crear el folio de una aprobación: el
 // folio es permanente, así que da tiempo de deshacer un toque accidental.
@@ -107,7 +106,6 @@ export default function ItemsCalidadTable({
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
   const [filtroCalidad, setFiltroCalidad] = useState<FiltroCalidad>("todos");
   const [busqueda, setBusqueda] = useState("");
-  const [orden, setOrden] = useState<Orden>("codigo");
   const [historialAbierto, setHistorialAbierto] = useState<Set<string>>(new Set());
   const [previewInforme, setPreviewInforme] = useState<{
     item: ItemCalidadRow;
@@ -134,15 +132,7 @@ export default function ItemsCalidadTable({
   );
 
   // Agrupación visual MO -> FU, mismo patrón que Producción.
-  const moBase = itemsFiltrados.filter((i) => i.tipo_registro === "MO");
-  // "Más antiguos primero": los sin evaluar que llevan más días esperando arriba.
-  const mo =
-    orden === "antiguos"
-      ? [...moBase].sort(
-          (a, b) =>
-            (diasSinEvaluar(b, new Date()) ?? -1) - (diasSinEvaluar(a, new Date()) ?? -1)
-        )
-      : moBase;
+  const mo = itemsFiltrados.filter((i) => i.tipo_registro === "MO");
   const fuPorPadre = new Map<string, ItemCalidadRow[]>();
   const idsEnGrupos = new Set<string>();
   for (const item of itemsFiltrados) {
@@ -657,16 +647,18 @@ export default function ItemsCalidadTable({
           <Miniatura item={item} clase="h-8 w-8" />
         </td>
         <td className="px-3 py-2 text-slate-700">{item.item_code}</td>
-        <td className="px-3 py-2 text-slate-700">{item.modelo}</td>
-        <td className="px-3 py-2 text-slate-700">{item.tipo_material}</td>
         <td className="px-3 py-2 text-slate-700">
-          {indentado ? item.descripcion?.split("\n")[0] : item.descripcion}
+          {item.modelo && <p className="font-medium text-slate-900">{item.modelo}</p>}
+          <p>{indentado ? item.descripcion?.split("\n")[0] : item.descripcion}</p>
+          {item.tipo_material && <p className="text-xs font-normal text-slate-500">{item.tipo_material}</p>}
         </td>
-        <td className="px-3 py-2 text-slate-700">
+        <td className="whitespace-nowrap px-3 py-2 text-slate-700">
           {item.cantidad_total} {item.unidad}
         </td>
-        <td className="px-3 py-2">{EstadoBadge({ item })}</td>
-        <td className="px-3 py-2">{FolioCelda({ item })}</td>
+        <td className="px-3 py-2">
+          {EstadoBadge({ item })}
+          <div className="mt-1">{FolioCelda({ item })}</div>
+        </td>
         {puedeEvaluar && <td className="flex flex-wrap gap-2 px-3 py-2">{Acciones({ item })}</td>}
       </tr>
     );
@@ -707,29 +699,32 @@ export default function ItemsCalidadTable({
       <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
         <th className="px-3 py-2.5"></th>
         <th className="px-3 py-2.5">Item</th>
-        <th className="px-3 py-2.5">Modelo</th>
-        <th className="px-3 py-2.5">Material</th>
         <th className="px-3 py-2.5">Descripción</th>
         <th className="px-3 py-2.5">Cant.</th>
         <th className="px-3 py-2.5">Calidad</th>
-        <th className="px-3 py-2.5">Folio</th>
         {puedeEvaluar && <th className="px-3 py-2.5">Aprobación</th>}
       </tr>
     </thead>
   );
 
-  const chips: [FiltroCalidad, string][] = [
-    ["todos", `Todos (${conteos.todos})`],
-    ["aprobado", `Aprobados (${conteos.aprobado})`],
-    ["no_aprobado", `Por reinspeccionar (${conteos.no_aprobado})`],
-    ["sin_evaluar", `Sin evaluar (${conteos.sin_evaluar})`],
-    ["cancelado", `Cancelados (${conteos.cancelado})`],
-  ];
+  // Solo lo que sirve para trabajar: todo, lo que falta evaluar y lo que hay que reinspeccionar
+  // (este último solo si hay alguno). Sin nada por evaluar ni reinspeccionar no hay qué filtrar.
+  const chips: [FiltroCalidad, string][] =
+    conteos.sin_evaluar === 0 && conteos.no_aprobado === 0
+      ? []
+      : [
+          ["todos", `Todos (${conteos.todos})`],
+          ["sin_evaluar", `Sin evaluar (${conteos.sin_evaluar})`],
+          ...(conteos.no_aprobado > 0
+            ? ([["no_aprobado", `Por reinspeccionar (${conteos.no_aprobado})`]] as [FiltroCalidad, string][])
+            : []),
+        ];
 
   return (
     <div className="flex flex-col gap-4">
       {items.length > 0 && (
         <div className="flex flex-col gap-3">
+          {chips.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 text-sm">
             {chips.map(([valor, etiqueta]) => (
               <button
@@ -746,6 +741,7 @@ export default function ItemsCalidadTable({
               </button>
             ))}
           </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="search"
@@ -755,15 +751,6 @@ export default function ItemsCalidadTable({
               aria-label="Buscar en los ítems"
               className="min-h-10 w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-brand-600 focus:outline-none"
             />
-            <label className="flex items-center gap-2 text-xs text-slate-600">
-              <input
-                type="checkbox"
-                checked={orden === "antiguos"}
-                onChange={(e) => setOrden(e.target.checked ? "antiguos" : "codigo")}
-                className="h-4 w-4 accent-brand-600"
-              />
-              Más antiguos sin evaluar primero
-            </label>
           </div>
         </div>
       )}

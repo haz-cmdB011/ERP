@@ -4,17 +4,15 @@ import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
 import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
   filtrarOrdenesTrabajo,
-  ultimaEntrega,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 import Bienvenida from "@/components/bienvenida";
-import ResumenInicio, { type TarjetaResumen } from "@/components/resumen-inicio";
-import ChipEntrega from "@/components/chip-entrega";
+import { type TarjetaResumen } from "@/components/resumen-inicio";
+import { ResumenEnMenu } from "@/components/resumen-menu";
 import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
-import { estadoEntrega } from "@/lib/resumen/entrega";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
-import { esAlerta, otConPendientes, plazoDePedido, resumirTaller } from "@/lib/produccion/atrasos";
+import { resumirTaller } from "@/lib/produccion/atrasos";
 import { cargarTaller } from "@/lib/produccion/cargar-taller";
 import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
 import {
@@ -25,7 +23,6 @@ import {
 } from "@/lib/produccion/detenidos";
 import EstadoLiberacion from "./estado-liberacion";
 import BuscadorOt from "./buscador-ot";
-import ChipPlazo from "./chip-plazo";
 
 // Igual que en Planeación: órdenes de trabajo con sus PM. Al entrar a una O.T.
 // se ven sus PM; el buscador además encuentra muebles y modelos en todos los
@@ -76,15 +73,10 @@ export default async function ProduccionListPage({
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
   const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porLiberar > 0).length;
   const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
-  const totalOts = filas.filter((f) => f.ot).length;
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
   // Lo que sigue en el taller y qué va atrasado.
   const resumenTaller = taller ? resumirTaller(taller.asignaciones, taller.plazos, hoy) : null;
-  const enTallerPorPedido = new Map<string, number>();
-  for (const a of taller?.asignaciones ?? []) {
-    if (a.pedido_id) enTallerPorPedido.set(a.pedido_id, (enTallerPorPedido.get(a.pedido_id) ?? 0) + 1);
-  }
 
   const tarjetas: TarjetaResumen[] = [
     {
@@ -140,28 +132,14 @@ export default async function ProduccionListPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida
-        acciones={[
-          { href: "/produccion/escanear", etiqueta: "Escanear QR" },
-          { href: "/produccion/tablero", etiqueta: "Tablero del taller" },
-          { href: "/produccion/folios", etiqueta: "Folios de producción" },
-        ]}
-      />
-      <ResumenInicio tarjetas={tarjetas} />
+      <Bienvenida />
+      <ResumenEnMenu tarjetas={tarjetas} />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Producción
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Entra a una O.T. para liberar ítems, generar viajeros y asignar a equipos.
-          </p>
         </div>
-        {pedidos && pedidos.length > 0 && (
-          <span className="whitespace-nowrap rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {totalOts} O.T.
-          </span>
-        )}
       </div>
 
       <BuscadorOt
@@ -234,17 +212,6 @@ export default async function ProduccionListPage({
               filas={filas}
               hrefOt={(ot) => `/produccion/ot/${encodeURIComponent(ot)}`}
               hrefPedido={(id) => `/produccion/pedidos/${id}`}
-              chipEntrega={(fila) => {
-                // Vencida o por vencer solo alerta si aún queda trabajo: sin
-                // él, se queda como la etiqueta normal por fecha.
-                const fecha = ultimaEntrega(fila.pedidos);
-                const plazo = plazoDePedido(fecha, hoy);
-                const enTaller = fila.pedidos.reduce((s, p) => s + (enTallerPorPedido.get(p.id) ?? 0), 0);
-                if (esAlerta(plazo) && otConPendientes(avanceDe(fila).porLiberar, enTaller)) {
-                  return <ChipPlazo plazo={plazo} fecha={fecha} />;
-                }
-                return <ChipEntrega estado={estadoEntrega(fecha, hoy)} />;
-              }}
               columnaEstado={{
                 titulo: "Liberación",
                 celda: (fila) => <EstadoLiberacion cancelado={false} avance={avanceDe(fila)} />,
