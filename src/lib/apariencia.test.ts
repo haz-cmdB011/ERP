@@ -3,6 +3,9 @@ import {
   APARIENCIA_INICIAL,
   ESTILO_INICIAL,
   esEstilo,
+  MARCA_CLASICA_INICIAL,
+  normalizarMarcaClasica,
+  SCRIPT_APARIENCIA,
   LIMITES,
   normalizarApariencia,
   textoSobreMarca,
@@ -58,5 +61,17 @@ describe("estilo", () => {
     expect(esEstilo("clasico")).toBe(true);
     expect(esEstilo("otro")).toBe(false);
     expect(esEstilo(null)).toBe(false);
+  });
+});
+
+describe("acento del estilo clásico", () => {
+  it("valida el color y cae al verde original si no sirve", () => {
+    expect(normalizarMarcaClasica("#38BDF8")).toBe("#38bdf8");
+    expect(normalizarMarcaClasica("red")).toBe(MARCA_CLASICA_INICIAL);
+    expect(normalizarMarcaClasica(null)).toBe(MARCA_CLASICA_INICIAL);
+  });
+
+  it("el script de <head> es JavaScript válido", () => {
+    expect(() => new Function(SCRIPT_APARIENCIA)).not.toThrow();
   });
 });

@@ -150,12 +150,48 @@ export function aplicarApariencia(a: Apariencia, raiz: HTMLElement = document.do
   }
 }
 
+// Acento del estilo clásico: un solo color. Se guarda aparte del de vidrio
+// para que cada estilo recuerde el suyo. Con un color distinto del verde
+// original, <html data-marca> activa src/app/marca-clasica.css.
+export const CLAVE_MARCA_CLASICA = "erp-marca-clasico";
+export const MARCA_CLASICA_INICIAL = "#7cfc00";
+
+export const PRESETS_CLASICO: { id: string; nombre: string; marca: string }[] = [
+  { id: "mobiliarium", nombre: "Mobiliarium", marca: MARCA_CLASICA_INICIAL },
+  { id: "plano-azul", nombre: "Plano azul", marca: "#38bdf8" },
+  { id: "nogal", nombre: "Nogal", marca: "#f59e0b" },
+  { id: "terracota", nombre: "Terracota", marca: "#fb7185" },
+  { id: "lavanda", nombre: "Lavanda", marca: "#a78bfa" },
+  { id: "grafito", nombre: "Grafito", marca: "#94a3b8" },
+];
+
+export function normalizarMarcaClasica(valor: unknown): string {
+  return color(valor, MARCA_CLASICA_INICIAL);
+}
+
+// Pone (o quita, si es el verde original) el acento del estilo clásico.
+export function aplicarMarcaClasica(marca: string, raiz: HTMLElement = document.documentElement) {
+  if (marca === MARCA_CLASICA_INICIAL) {
+    raiz.removeAttribute("data-marca");
+    raiz.style.removeProperty("--marca");
+    raiz.style.removeProperty("--sobre-marca");
+    return;
+  }
+  raiz.setAttribute("data-marca", "personalizada");
+  raiz.style.setProperty("--marca", marca);
+  raiz.style.setProperty("--sobre-marca", textoSobreMarca(marca) === "oscuro" ? "#0b1300" : "#ffffff");
+}
+
 // Corre en <head> antes de pintar (ver src/app/layout.tsx), igual que
 // SCRIPT_TEMA: pone el estilo y las variables de la apariencia. Repite en
 // pequeño la validación y el cálculo de contraste de arriba: no puede importar
 // módulos.
 export const SCRIPT_APARIENCIA = `(function(){try{if(localStorage.getItem(${JSON.stringify(
   CLAVE_ESTILO
-)})==="vidrio")document.documentElement.setAttribute("data-estilo","vidrio");var a=JSON.parse(localStorage.getItem(${JSON.stringify(
+)})!=="vidrio"){var m=localStorage.getItem(${JSON.stringify(
+  CLAVE_MARCA_CLASICA
+)});if(m&&m!==${JSON.stringify(
+  MARCA_CLASICA_INICIAL
+)}&&/^#[0-9a-f]{6}$/.test(m)){var q=document.documentElement,K=0;q.setAttribute("data-marca","personalizada");q.style.setProperty("--marca",m);[1,3,5].forEach(function(i,j){var u=parseInt(m.slice(i,i+2),16)/255;u=u<=0.03928?u/12.92:Math.pow((u+0.055)/1.055,2.4);K+=[0.2126,0.7152,0.0722][j]*u});q.style.setProperty("--sobre-marca",(K+0.05)/0.05>=1.05/(K+0.05)?"#0b1300":"#ffffff")}return}document.documentElement.setAttribute("data-estilo","vidrio");var a=JSON.parse(localStorage.getItem(${JSON.stringify(
   CLAVE_APARIENCIA
 )})||"null");if(!a||typeof a!=="object")return;var r=document.documentElement.style,h=/^#[0-9a-f]{6}$/;function c(k,n){if(typeof a[k]==="string"&&h.test(a[k]))r.setProperty(n,a[k])}function x(k,n,u,lo,hi){var v=a[k];if(typeof v==="number"&&isFinite(v))r.setProperty(n,Math.min(hi,Math.max(lo,Math.round(v)))+u)}c("marca","--marca");c("fondo1","--fondo-1");c("fondo2","--fondo-2");c("fondo3","--fondo-3");x("opacidad","--vidrio-opacidad","%",${LIMITES.opacidad.min},${LIMITES.opacidad.max});x("desenfoque","--vidrio-desenfoque","px",${LIMITES.desenfoque.min},${LIMITES.desenfoque.max});if(typeof a.marca==="string"&&h.test(a.marca)){var L=0;[1,3,5].forEach(function(i,j){var v=parseInt(a.marca.slice(i,i+2),16)/255;v=v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);L+=[0.2126,0.7152,0.0722][j]*v});r.setProperty("--sobre-marca",(L+0.05)/0.05>=1.05/(L+0.05)?"#0b1300":"#ffffff")}}catch(e){}})()`;

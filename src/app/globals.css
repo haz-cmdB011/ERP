@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./tema-oscuro.css";
 @import "./vidrio.css";
+@import "./marca-clasica.css";
 
 :root {
   --background: #ffffff;
@@ -181,6 +182,33 @@ body {
   select,
   textarea {
     font-size: max(16px, 1em);
+  }
+
+  /* Área de toque de al menos 40 px en chips de filtro, botones de texto
+     chicos, resúmenes desplegables y el logo, sin mover nada del diseño: se
+     extiende con un ::after invisible. Los que ya traen pointer-coarse: se
+     dejan como están; los static pasan a relative para anclar el ::after. */
+  :is(a, button):is(
+      [class~="py-1"],
+      [class~="py-1.5"],
+      [class~="h-6"],
+      [class~="h-7"],
+      [aria-label="Mobiliarium, ir al inicio"]
+    ):not([class*="pointer-coarse:"], .absolute, .fixed, .sticky),
+  summary {
+    position: relative;
+  }
+  :is(a, button):is(
+      [class~="py-1"],
+      [class~="py-1.5"],
+      [class~="h-6"],
+      [class~="h-7"],
+      [aria-label="Mobiliarium, ir al inicio"]
+    ):not([class*="pointer-coarse:"])::after,
+  summary::after {
+    content: "";
+    position: absolute;
+    inset: -0.5rem -0.25rem;
   }
 }
 
