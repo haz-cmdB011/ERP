@@ -104,8 +104,6 @@ export default async function PlaneacionListPage({
 
   // Números de las tarjetas: sobre todas las O.T. vigentes, sin filtros.
   const todas = agruparPorOrdenTrabajo(pedidos ?? []);
-  const conEstado = (e: string) =>
-    todas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
   // Números de los atajos de entrega: sobre lo que dejan año, cliente y búsqueda.
   const conEntrega = (e: string) =>
     filtradas.filas.filter((fila) => estadoEntrega(ultimaEntrega(fila.pedidos), hoy) === e).length;
@@ -124,20 +122,6 @@ export default async function PlaneacionListPage({
         <ResumenInicio
           tarjetas={[
             { valor: todas.length, etiqueta: "O.T. vigentes", detalle: `${pedidos.length} PM en total`, href: "/planeacion" },
-            {
-              valor: conEstado("semana"),
-              etiqueta: "Entregan esta semana",
-              detalle: "en los próximos 7 días",
-              href: "/planeacion?entrega=semana",
-              tono: "atencion",
-            },
-            { valor: conEstado("mes"), etiqueta: "Entregan este mes", detalle: "entre 8 y 30 días" },
-            {
-              valor: conEstado("sin-fecha"),
-              etiqueta: "Sin fecha de entrega",
-              detalle: "conviene completarla",
-              href: "/planeacion?entrega=sin-fecha",
-            },
           ]}
         />
       )}
@@ -268,6 +252,7 @@ export default async function PlaneacionListPage({
         <TablaOrdenesTrabajo
           filas={filas}
           hoy={hoy}
+          sinPmNiEntrega
           hrefOt={(ot) => `/planeacion/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/planeacion/pedidos/${id}`}
           columnaEstado={{
