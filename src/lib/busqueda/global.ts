@@ -153,7 +153,7 @@ const ATAJOS_INTERNOS: Atajo[] = [
   },
   {
     titulo: "PM contra cobrado",
-    detalle: "Reporte de pagos",
+    detalle: "Análisis de pagos",
     href: "/estimaciones/reportes#pm-cobrado",
     claves: "avance cobrado piezas saldo excedido",
   },
