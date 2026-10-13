@@ -254,10 +254,6 @@ export default async function BuscarFolioPage({
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Folios de producción
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Cada ítem recibe un folio único al enviarse a producción. Nunca cambia ni se pierde, aunque
-          el ítem se elimine o se restaure.
-        </p>
       </div>
 
       <form method="get" action="/produccion/folios" className="flex flex-wrap items-center gap-2">

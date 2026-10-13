@@ -203,10 +203,6 @@ export default async function RechazosPage() {
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Rechazado por Calidad</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Piezas que Calidad no aprobó. Reasígnalas como retrabajo: el equipo vuelve a entregarlas, las verificas y
-          regresan a Calidad. El retrabajo no cuenta contra la cantidad del mueble.
-        </p>
       </div>
 
       {nada && (

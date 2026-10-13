@@ -81,10 +81,6 @@ export default async function CalidadPorEquipoPage({
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Calidad por equipo</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Cuánto de lo que entrega cada equipo se rechaza en la revisión de Producción y en Calidad, y qué
-            defectos se repiten. Cuenta las entregas por su fecha de entrega.
-          </p>
         </div>
         <Link
           href="/produccion/equipos"

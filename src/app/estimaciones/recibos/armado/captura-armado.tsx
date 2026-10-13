@@ -608,11 +608,9 @@ export default function CapturaArmado({
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             {reciboExistente ? `Modificar recibo ${reciboExistente.folio}` : "Recibo de Armado"}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {reciboExistente
-              ? "Corrige lo que capturaste. Al guardar se reemplazan los renglones de este recibo."
-              : "Captura lo que propone el maquilador; el motor sugiere el precio y de dónde sale."}
-          </p>
+          {reciboExistente && (
+            <p className="mt-1 text-sm text-slate-500">Al guardar se reemplazan los renglones de este recibo.</p>
+          )}
         </div>
         {puedeVerSugerido && (
           <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">

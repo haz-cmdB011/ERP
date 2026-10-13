@@ -115,12 +115,6 @@ export default async function DiscrepanciasPage({
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Discrepancias con el PM
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Renglones de Acabados, Armado y Electrificación cuyo modelo no está en el PM de la OT o
-          cuya cantidad acumulada supera lo que declaró Planeación. Revisa el motivo: si es válido,
-          acéptalo y el recibo se puede pagar; si no, recházalo explicando por qué (ese renglón solo
-          se paga con precio aceptado en 0).
-        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">

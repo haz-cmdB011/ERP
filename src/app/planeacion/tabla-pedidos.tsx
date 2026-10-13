@@ -1,6 +1,5 @@
 import Link from "next/link";
-import ChipEntrega from "@/components/chip-entrega";
-import { estadoEntrega, formatoFechaDMA } from "@/lib/resumen/entrega";
+import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import AccionesPedido from "./acciones-pedido";
 
 export interface PedidoLista {
@@ -11,16 +10,13 @@ export interface PedidoLista {
   pedido_versiones: { id: string; numero_version: number; es_version_activa: boolean }[];
 }
 
-// Tabla de PM (los de una O.T., en su página). Con `hoy` (AAAA-MM-DD), la
-// entrega lleva su etiqueta de plazo, igual que en la lista de O.T.
+// Tabla de PM (los de una O.T., en su página).
 export default function TablaPedidos({
   pedidos,
   esAdmin,
-  hoy,
 }: {
   pedidos: PedidoLista[];
   esAdmin: boolean;
-  hoy?: string;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -51,8 +47,7 @@ export default function TablaPedidos({
                 <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
                 <td className="px-4 py-3 text-slate-700">{p.proyectos?.cliente ?? "—"}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                  <span className="mr-2">{formatoFechaDMA(p.fecha_entrega)}</span>
-                  {hoy && <ChipEntrega estado={estadoEntrega(p.fecha_entrega, hoy)} />}
+                  {formatoFechaDMA(p.fecha_entrega)}
                 </td>
                 <td className="px-4 py-3">
                   {activa ? (

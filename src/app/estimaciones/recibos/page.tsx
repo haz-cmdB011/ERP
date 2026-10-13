@@ -45,11 +45,6 @@ export default async function GeneradorRecibosPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Generador de Recibos
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {esMaquilador(perfil)
-            ? "Tipos de recibo de tus áreas de maquila."
-            : "Tipos de recibo disponibles."}
-        </p>
       </div>
 
       {disponibles.length === 0 ? (

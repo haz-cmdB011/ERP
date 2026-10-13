@@ -13,6 +13,8 @@ export interface PendienteMostrado {
   id: PendienteCuenta;
   titulo: string;
   detalle: string;
+  // Enlace propio (p. ej. a la sección de Mi perfil donde se resuelve); si falta, el general.
+  href?: string;
 }
 
 // Tarjeta "Completa tu cuenta" del inicio de cada área: lo que falta del perfil
@@ -22,9 +24,12 @@ export interface PendienteMostrado {
 export default function TarjetaPendientesCuenta({
   pendientes,
   href,
+  ocultable = true,
 }: {
   pendientes: PendienteMostrado[];
   href: string;
+  // Dentro de Mi perfil no se oculta: es el lugar donde se completa.
+  ocultable?: boolean;
 }) {
   const router = useRouter();
   const total = TODOS_LOS_PENDIENTES.length;
@@ -62,19 +67,21 @@ export default function TarjetaPendientesCuenta({
             />
           </div>
         </div>
-        <button
-          type="button"
-          onClick={ocultar}
-          className="shrink-0 rounded px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-white hover:text-slate-800"
-        >
-          Ocultar
-        </button>
+        {ocultable && (
+          <button
+            type="button"
+            onClick={ocultar}
+            className="shrink-0 rounded px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-white hover:text-slate-800"
+          >
+            Ocultar
+          </button>
+        )}
       </div>
       <ul className="mt-3 flex flex-col divide-y divide-brand-100">
         {pendientes.map((p) => (
           <li key={p.id}>
             <Link
-              href={href}
+              href={p.href ?? href}
               className="group flex min-h-11 items-center justify-between gap-3 py-2 text-sm"
             >
               <span className="min-w-0">

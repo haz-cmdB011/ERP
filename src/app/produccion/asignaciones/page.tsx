@@ -78,13 +78,9 @@ export default async function AsignacionesPage({
 
   // Accesos rápidos: cada uno parte de cero (sin equipo/proceso/búsqueda).
   const base: FiltrosAsignaciones = { estado: "activas", equipo: null, proceso: null, q: "", desde: null, hasta: null };
-  const [a, m, d] = hoy.split("-").map(Number);
-  const hace7 = new Date(Date.UTC(a, m - 1, d - 6)).toISOString().slice(0, 10);
   const definiciones: { etiqueta: string; filtros: FiltrosAsignaciones }[] = [
     { etiqueta: "En taller", filtros: base },
     { etiqueta: "Por verificar", filtros: { ...base, estado: "por_verificar" } },
-    { etiqueta: "Asignadas esta semana", filtros: { ...base, estado: "todas", desde: hace7 } },
-    { etiqueta: "Entregadas", filtros: { ...base, estado: "entregada" } },
     { etiqueta: "Todas", filtros: { ...base, estado: "todas" } },
   ];
   const atajos = definiciones.map((x) => ({
@@ -97,24 +93,6 @@ export default async function AsignacionesPage({
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Asignaciones</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Qué tiene cada equipo y cuándo lo entregó. Para asignar, entra a un pedido y usa “Asignar a
-            equipos”. Cada entrega se revisa aquí antes de pasar a Calidad.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/produccion/equipos"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            Equipos
-          </Link>
-          <a
-            href={`/api/produccion/asignaciones/exportar${filtrosAQuery(filtros)}`}
-            className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
-          >
-            Descargar Excel
-          </a>
         </div>
       </div>
 
@@ -201,6 +179,12 @@ export default async function AsignacionesPage({
         <Link href="/produccion/asignaciones?estado=activas" className="px-1 py-2 text-slate-500 underline hover:text-slate-700">
           Limpiar
         </Link>
+        <a
+          href={`/api/produccion/asignaciones/exportar${filtrosAQuery(filtros)}`}
+          className="px-1 py-2 text-slate-500 underline hover:text-slate-700"
+        >
+          Descargar Excel
+        </a>
       </form>
 
       {error && (

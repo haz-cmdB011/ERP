@@ -12,7 +12,6 @@ import {
   type ResumenCambios,
 } from "@/lib/planeacion/diff-versiones";
 import { cargarItemsVersion } from "@/lib/planeacion/versiones-db";
-import { CLASE_MIGA, FlechaRegresar } from "@/components/regresar-estilo";
 
 // Qué cambió entre dos versiones de un PM. Se monta en Planeación y en
 // Producción (/<área>/pedidos/[id]/cambios?de=2&a=3&ver=...).
@@ -131,15 +130,8 @@ export default async function CambiosVersiones({
 
   const encabezado = (
     <div className="border-b border-slate-200 pb-4">
-      <Link
-        href={basePedido}
-        className={CLASE_MIGA}
-      >
-        <FlechaRegresar className="h-4 w-4" />
-        {pedido.numero_pedido}
-      </Link>
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
-        Cambios entre versiones
+      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+        Cambios entre versiones · {pedido.numero_pedido}
       </h1>
       {pedido.proyectos && (
         <p className="text-sm text-slate-600">
