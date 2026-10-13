@@ -106,6 +106,15 @@ export function puedeEditarProduccion(perfil: PerfilActual | null): boolean {
   );
 }
 
+// Espejo de is_calidad() en la base: desarrollador, administrador o trabajador
+// de Calidad. Evalúa lotes y componentes (genera folios).
+export function puedeEvaluarCalidad(perfil: { rol: string; area: string | null } | null): boolean {
+  return (
+    perfil?.rol === "desarrollador" ||
+    ((perfil?.rol === "administrador" || perfil?.rol === "trabajador") && perfil.area === "calidad")
+  );
+}
+
 // Espejo de is_admin_area('produccion'): quien puede anular una entrega
 // capturada por error.
 export function puedeAdministrarProduccion(perfil: PerfilActual | null): boolean {

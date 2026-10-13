@@ -23,6 +23,15 @@ export interface InformeFichaInforme {
   elaboradoPorNombre: string | null;
   // Tipo de defecto de un informe no aprobado (ver lib/calidad/categorias.ts).
   categoria?: string | null;
+  // Informe de un lote: cuántas piezas cubre y de qué entrega salieron.
+  lote?: {
+    cantidad: number;
+    unidad: string | null;
+    equipo: string;
+    proceso: string;
+    fechaEntrega: string;
+    folioRechazo: string | null;
+  } | null;
 }
 
 function Campo({ label, valor }: { label: string; valor: string }) {
@@ -109,6 +118,16 @@ export default function InformeFicha({
         <Campo label="Proyecto" valor={pedido.proyectos?.nombre ?? "—"} />
         <Campo label="Fecha inicio" valor={formatoFechaDMA(pedido.fecha_pedido)} />
         <Campo label="Fecha término" valor={formatoFechaDMA(pedido.fecha_entrega)} />
+        {informe.lote && (
+          <>
+            <Campo label="Piezas" valor={`${informe.lote.cantidad} ${informe.lote.unidad ?? "pz"}`} />
+            <Campo
+              label="Lote"
+              valor={`${informe.lote.equipo} · ${informe.lote.proceso} · entregado ${formatoFechaDMA(informe.lote.fechaEntrega)}`}
+            />
+            {informe.lote.folioRechazo && <Campo label="Retrabajo de" valor={informe.lote.folioRechazo} />}
+          </>
+        )}
         <Campo label="Fecha del informe" valor={fechaInforme} />
         <Campo label="Elaboró" valor={informe.elaboradoPorNombre ?? "—"} />
         {!informe.aprobado && nombreCategoria(informe.categoria) && (

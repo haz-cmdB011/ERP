@@ -567,6 +567,29 @@ export default function ItemsLiberacionTable({
               <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
             </svg>
           </Link>
+          {item.tipo_registro === "MO" && (
+            <Link
+              href={`/produccion/pedidos/${pedidoId}/despiece/${item.id}`}
+              title="Despiece"
+              aria-label={`Despiece del ítem ${item.item_code}`}
+              className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
+            >
+              {/* Capas: el mueble desglosado en sus piezas. */}
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+                <path d="m3 13 9 5 9-5" />
+              </svg>
+            </Link>
+          )}
           {puedeSolicitarEliminacion && (
             <button
               type="button"

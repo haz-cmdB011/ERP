@@ -114,6 +114,46 @@ describe("POST /api/produccion/entregas", () => {
     expect(ruta).not.toBe(RUTA);
   });
 
+  it("'cumple': la entrega se registra ya revisada (pasa a Calidad)", async () => {
+    const r = await POST(peticion({ resultado: "cumple", motivo: "se ignora" }));
+    expect(r.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      "registrar_entrega_produccion",
+      expect.objectContaining({ p_resultado: "cumple", p_motivo_rechazo: null })
+    );
+  });
+
+  it("'no_cumple' manda el motivo para regresarla al equipo", async () => {
+    const r = await POST(peticion({ resultado: "no_cumple", motivo: "  Rayones en la cubierta  " }));
+    expect(r.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      "registrar_entrega_produccion",
+      expect.objectContaining({ p_resultado: "no_cumple", p_motivo_rechazo: "Rayones en la cubierta" })
+    );
+  });
+
+  it("'no_cumple' sin motivo es 400 y no sube la foto", async () => {
+    const r = await POST(peticion({ resultado: "no_cumple", motivo: "   " }));
+    expect(r.status).toBe(400);
+    expect((await r.json()).error).toBe("Escribe por qué no cumplen las piezas.");
+    expect(subir).not.toHaveBeenCalled();
+  });
+
+  it("un resultado desconocido es 400", async () => {
+    const r = await POST(peticion({ resultado: "tal_vez" }));
+    expect(r.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("una captura de la pantalla anterior (sin resultado) queda por verificar", async () => {
+    const r = await POST(peticion());
+    expect(r.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      "registrar_entrega_produccion",
+      expect.objectContaining({ p_resultado: null, p_motivo_rechazo: null })
+    );
+  });
+
   it("sigue validando lo de siempre: sin foto es 400", async () => {
     expect((await POST(peticion({ foto: null }))).status).toBe(400);
   });

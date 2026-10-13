@@ -53,7 +53,7 @@ export default async function CalidadLayout({
           Pedidos
         </SubnavLink>
         <SubnavLink href="/calidad/entregas" icono="por_revisar">
-          Entregas por inspeccionar
+          Lotes por evaluar
         </SubnavLink>
         <SubnavLink href="/calidad/escanear" icono="escanear">
           Escanear QR

@@ -277,11 +277,12 @@ export default async function AsignacionesPedidoPage({
   );
 }
 
-// Asignado y entregado por proceso, sin contar las asignaciones canceladas.
+// Asignado y entregado por proceso, sin contar las asignaciones canceladas ni
+// los retrabajos (rehacen piezas rechazadas: no cuentan contra la cantidad).
 function resumenPorProceso(
   asignaciones: AsignacionResumen[]
 ): Record<Proceso, { asignado: number; entregado: number }> {
-  const activas = asignaciones.filter((a) => !a.cancelada_en);
+  const activas = asignaciones.filter((a) => !a.cancelada_en && !a.informe_rechazo_id);
   return Object.fromEntries(
     PROCESOS.map((p) => {
       const deP = activas.filter((a) => a.proceso === p);
@@ -327,6 +328,9 @@ function FilaAsignacion({
           )}
           <span className="font-medium text-slate-900">{a.equipo}</span>
           <span className="text-slate-600">{PROCESO_LABELS[a.proceso]}</span>
+          {a.folio_rechazo && (
+            <span className="text-xs font-medium text-rose-700">Retrabajo · {a.folio_rechazo}</span>
+          )}
           <span className="text-slate-600">
             {Number(a.entregado)}/{Number(a.cantidad)} {a.unidad ?? ""}
           </span>

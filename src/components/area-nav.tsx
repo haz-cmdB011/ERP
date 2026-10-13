@@ -172,7 +172,7 @@ export default async function AreaNav({
                 aria-current={area === a.area ? "page" : undefined}
                 className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 ${
                   area === a.area
-                    ? "bg-brand-500 text-on-brand shadow-sm"
+                    ? "bg-brand-500 text-on-brand"
                     : "text-on-nav-suave hover:bg-nav-hover hover:text-on-nav"
                 }`}
               >
@@ -183,7 +183,7 @@ export default async function AreaNav({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-125"
+                  className="h-4 w-4 shrink-0"
                   aria-hidden="true"
                 >
                   {a.icono}

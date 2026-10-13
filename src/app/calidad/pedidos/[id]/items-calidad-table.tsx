@@ -15,6 +15,7 @@ import {
   estadoDe,
   funcionNoExiste,
   idsPorAprobar,
+  porLotes,
   type EstadoCalidad,
 } from "@/lib/calidad/estado-item";
 import { CATEGORIAS_DEFECTO, nombreCategoria, type CategoriaDefecto } from "@/lib/calidad/categorias";
@@ -24,6 +25,8 @@ import {
   ultimosInformes,
 } from "@/lib/calidad/verificar-evaluacion";
 import { formatoFechaDMA, formatoFechaHora } from "@/lib/resumen/entrega";
+import type { LoteCalidad, ResumenLotes } from "@/lib/calidad/lotes";
+import EvaluarLote from "../../evaluar-lote";
 
 export interface InformeResumen {
   id: string;
@@ -32,6 +35,8 @@ export interface InformeResumen {
   elaborado_en: string;
   descripcion: string | null;
   categoria: string | null;
+  // Piezas que cubre el informe (solo los de un lote; los componentes no llevan).
+  cantidad: number | null;
 }
 
 export interface ItemCalidadRow {
@@ -47,10 +52,18 @@ export interface ItemCalidadRow {
   imagenUrl: string | null;
   imagenGrandeUrl: string | null;
   liberadoEn: string | null;
+  // La base deja evaluarlo (Producción ya preaprobó piezas del mueble, o la
+  // verificación está apagada).
+  evaluable: boolean;
+  // Si todavía no es evaluable: dónde está el mueble en Producción.
+  situacion: { corto: string; detalle: string } | null;
   estadoRevision: string | null;
   motivoCancelacion: string | null;
   // Historial completo del ítem, ordenado desc — [0] es el más reciente.
   informes: InformeResumen[];
+  // Solo muebles: piezas de sus lotes y los lotes con piezas por evaluar.
+  lotes: ResumenLotes | null;
+  lotesPendientes: LoteCalidad[];
 }
 
 type FiltroCalidad = "todos" | EstadoCalidad;
@@ -288,7 +301,10 @@ export default function ItemsCalidadTable({
       p_item_ids: idsAprobables,
     });
     if (!error) {
-      hechos = Array.isArray(data) ? data.length : idsAprobables.length;
+      // Un mueble puede dar varios folios (uno por lote): se cuentan ítems.
+      hechos = Array.isArray(data)
+        ? new Set((data as { item_id: string }[]).map((d) => d.item_id)).size
+        : idsAprobables.length;
     } else if (funcionNoExiste(error)) {
       // La migración de aprobación en bloque aún no está en la base: uno por uno.
       for (const id of idsAprobables) {
@@ -357,6 +373,9 @@ export default function ItemsCalidadTable({
   // y el historial de folios viven aparte (FolioCelda).
   function EstadoBadge({ item }: { item: ItemCalidadRow }) {
     const ultimo = item.informes[0];
+    if (item.lotes && porLotes(item) && item.estadoRevision !== "cancelado") {
+      return EstadoMueble({ item, r: item.lotes });
+    }
 
     if (item.estadoRevision === "cancelado") {
       return (
@@ -377,16 +396,22 @@ export default function ItemsCalidadTable({
     if (!ultimo) {
       const dias = diasSinEvaluar(item, new Date());
       const antiguo = dias !== null && dias >= DIAS_ANTIGUEDAD_ALERTA;
+      // Lo que todavía no se puede evaluar dice dónde está en Producción. Quien
+      // evalúa ve el detalle junto a los botones; quien solo consulta, aquí.
       return (
         <div>
           <span
+            title={item.situacion?.detalle}
             className={`inline-flex items-center gap-1.5 text-sm font-medium ${
               antiguo ? "text-amber-600" : "text-slate-500"
             }`}
           >
             <IconoReloj />
-            Sin evaluar
+            {item.situacion?.corto ?? "Sin evaluar"}
           </span>
+          {item.situacion && !puedeEvaluar && (
+            <p className="mt-0.5 max-w-[240px] text-[11px] leading-snug text-slate-500">{item.situacion.detalle}</p>
+          )}
           {antiguo && (
             <p className="mt-1 text-[11px] font-medium text-amber-600">
               ⚠ {dias} día{dias === 1 ? "" : "s"} esperando evaluación
@@ -425,6 +450,36 @@ export default function ItemsCalidadTable({
     );
   }
 
+  // Un mueble con lotes se evalúa por lote: su estado sale de las piezas.
+  function EstadoMueble({ item, r }: { item: ItemCalidadRow; r: ResumenLotes }) {
+    const unidad = item.unidad ?? "pz";
+    const estado = estadoDe(item);
+    const detalle = [
+      r.aprobadas > 0 ? `${r.aprobadas} aprobadas` : null,
+      r.porEvaluar > 0 ? `${r.porEvaluar} por evaluar` : null,
+      r.enRetrabajo > 0 ? `${r.enRetrabajo} en retrabajo` : null,
+    ].filter(Boolean);
+    return (
+      <div>
+        <span
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium ${
+            estado === "aprobado"
+              ? "text-emerald-700"
+              : estado === "no_aprobado"
+                ? "text-rose-700"
+                : "text-amber-700"
+          }`}
+        >
+          {estado === "aprobado" ? <IconoCheck /> : estado === "no_aprobado" ? <IconoX /> : <IconoReloj />}
+          {estado === "aprobado" ? "Aprobado" : estado === "no_aprobado" ? "En retrabajo" : "Por evaluar"}
+        </span>
+        <p className="mt-0.5 text-[11px] text-slate-600">
+          {detalle.join(" · ")} {detalle.length > 0 ? `(${unidad})` : ""}
+        </p>
+      </div>
+    );
+  }
+
   // El folio (CAL-…) del último informe del ítem, enlazado a su ficha, y el
   // historial de los folios anteriores (un ítem puede evaluarse varias veces;
   // ninguno se pierde, tampoco si el ítem se cancela).
@@ -444,6 +499,11 @@ export default function ItemsCalidadTable({
         >
           {ultimo.folio}
         </Link>
+        {ultimo.cantidad !== null && (
+          <span className={`ml-1 text-[11px] ${ultimo.aprobado ? "text-emerald-700" : "text-rose-700"}`}>
+            {ultimo.cantidad} {item.unidad ?? "pz"}
+          </span>
+        )}
         {historialAnterior.length > 0 && (
           <div className="mt-1">
             <button
@@ -462,7 +522,8 @@ export default function ItemsCalidadTable({
                       onClick={() => setPreviewInforme({ item, informe: inf })}
                       className="text-left text-[11px] text-slate-500 underline hover:text-slate-700"
                     >
-                      {inf.folio} · {inf.aprobado ? "Aprobado" : "No aprobado"} —{" "}
+                      {inf.folio} · {inf.aprobado ? "Aprobado" : "No aprobado"}
+                      {inf.cantidad !== null ? ` · ${inf.cantidad} ${item.unidad ?? "pz"}` : ""} —{" "}
                       {formatoFechaDMA(inf.elaborado_en)}
                     </button>
                   </li>
@@ -478,6 +539,48 @@ export default function ItemsCalidadTable({
   // Botones de aprobar / no aprobar (o "Aprobando… Deshacer" durante la espera).
   function Acciones({ item }: { item: ItemCalidadRow }) {
     if (estadoDe(item) === "cancelado") return <span className="text-xs text-slate-500">—</span>;
+    // Todavía no se puede evaluar: los botones se ven (deshabilitados) y al
+    // lado qué falta en Producción, para saber a quién preguntar.
+    if (!item.evaluable) {
+      const motivo = item.situacion?.detalle ?? "Producción todavía no preaprueba piezas de este mueble.";
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled
+              title={motivo}
+              aria-label={`Aprobar ítem ${item.item_code}: todavía no se puede. ${motivo}`}
+              className={`${BOTON_ICONO} cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300`}
+            >
+              <IconoCheck />
+            </button>
+            <button
+              type="button"
+              disabled
+              title={motivo}
+              aria-label={`No aprobar ítem ${item.item_code}: todavía no se puede. ${motivo}`}
+              className={`${BOTON_ICONO} cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300`}
+            >
+              <IconoX />
+            </button>
+          </div>
+          <p className="max-w-[240px] text-[11px] leading-snug text-slate-500">{motivo}</p>
+        </div>
+      );
+    }
+    if (item.lotes && porLotes(item)) {
+      if (item.lotesPendientes.length === 0) {
+        return <span className="text-xs text-slate-500">Sin lotes por evaluar</span>;
+      }
+      return (
+        <div className="flex flex-col items-start gap-1">
+          {item.lotesPendientes.map((l) => (
+            <EvaluarLote key={l.entrega_id} lote={l} compacto />
+          ))}
+        </div>
+      );
+    }
     if (enEspera.has(item.id)) {
       return (
         <span className="flex items-center gap-2 text-xs font-medium text-emerald-700">
@@ -668,7 +771,7 @@ export default function ItemsCalidadTable({
       {puedeEvaluar && idsAprobables.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
           <span>
-            <strong>{idsAprobables.length}</strong> ítem{idsAprobables.length === 1 ? "" : "s"} sin evaluar
+            <strong>{idsAprobables.length}</strong> ítem{idsAprobables.length === 1 ? "" : "s"} por evaluar
             {filtroCalidad === "todos" && !busqueda.trim() ? "" : " en esta vista"}
           </span>
           <button
@@ -679,13 +782,15 @@ export default function ItemsCalidadTable({
           >
             Aprobar los {idsAprobables.length}
           </button>
-          <span className="text-xs text-emerald-800">Cada uno recibe su propio folio.</span>
+          <span className="text-xs text-emerald-800">
+            Cada uno recibe su propio folio; de los muebles se aprueban todas sus piezas por evaluar.
+          </span>
         </div>
       )}
       <ConfirmDialog
         open={confirmandoTodos}
         title={`Aprobar ${idsAprobables.length} ítem${idsAprobables.length === 1 ? "" : "s"}`}
-        message="Se genera un informe aprobado con folio propio para cada uno. Los folios son permanentes: no se pueden borrar después."
+        message="Se genera un informe aprobado con folio propio para cada componente y para cada lote pendiente de los muebles (todas sus piezas por evaluar). Los folios son permanentes: no se pueden borrar después."
         confirmLabel={aprobandoTodos ? "Aprobando…" : `Aprobar ${idsAprobables.length}`}
         busy={aprobandoTodos}
         onConfirm={() => void aprobarTodos()}

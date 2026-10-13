@@ -1,0 +1,42 @@
+/* ---------------------------------------------------------------------------
+   Acento personalizado del estilo clásico. Solo aplica con <html data-marca>,
+   que pone el script de <head> (src/lib/apariencia.ts) cuando alguien eligió
+   otro color en "Personalizar apariencia". Sin ese atributo el clásico se ve
+   con los verdes de globals.css, intactos.
+
+   Reutiliza las variables --vidrio-marca-* que globals.css ya lee con
+   respaldo, así que no hay que tocar ninguna pantalla. --marca y --sobre-marca
+   salen del style de <html>. En el estilo vidrio manda vidrio.css.
+   --------------------------------------------------------------------------- */
+
+:root[data-marca]:not([data-estilo="vidrio"]) {
+  --vidrio-marca-50: color-mix(in oklab, var(--marca) 8%, #fff);
+  --vidrio-marca-100: color-mix(in oklab, var(--marca) 16%, #fff);
+  --vidrio-marca-200: color-mix(in oklab, var(--marca) 30%, #fff);
+  --vidrio-marca-300: color-mix(in oklab, var(--marca) 50%, #fff);
+  --vidrio-marca-400: color-mix(in oklab, var(--marca) 75%, #fff);
+  --vidrio-marca-500: var(--marca);
+  --vidrio-marca-600: color-mix(in oklab, var(--marca) 74%, #000);
+  --vidrio-marca-700: color-mix(in oklab, var(--marca) 48%, #000);
+  --vidrio-marca-800: color-mix(in oklab, var(--marca) 38%, #000);
+  --vidrio-marca-900: color-mix(in oklab, var(--marca) 30%, #000);
+  --vidrio-marca-950: color-mix(in oklab, var(--marca) 15%, #000);
+  --vidrio-sobre-marca: var(--sobre-marca);
+
+}
+
+/* Fichas que se exportan a PDF o se imprimen: marca original. */
+:where(:root[data-marca]:not([data-estilo="vidrio"])) :is([data-informe], [data-viajero-ficha], [data-siempre-claro]) {
+  --vidrio-marca-50: initial;
+  --vidrio-marca-100: initial;
+  --vidrio-marca-200: initial;
+  --vidrio-marca-300: initial;
+  --vidrio-marca-400: initial;
+  --vidrio-marca-500: initial;
+  --vidrio-marca-600: initial;
+  --vidrio-marca-700: initial;
+  --vidrio-marca-800: initial;
+  --vidrio-marca-900: initial;
+  --vidrio-marca-950: initial;
+  --vidrio-sobre-marca: initial;
+}

@@ -79,6 +79,12 @@ export interface AsignacionResumen {
   verificado: number;
   por_verificar: number;
   ultima_verificacion: string | null;
+  // Retrabajo: el informe de Calidad que rechazó las piezas que se rehacen.
+  informe_rechazo_id: string | null;
+  folio_rechazo: string | null;
+  // Folios CAL- que Calidad generó al evaluar las entregas de la asignación.
+  // (folios_calidad, en cambio, es el folio de la hoja de entrega en papel.)
+  folios_cal: string | null;
 }
 
 export interface EntregaProduccion {
@@ -106,6 +112,16 @@ export function revisionEntrega(
   if (e.rechazada_en) return "rechazada";
   if (e.verificada_en) return "verificada";
   return "por_verificar";
+}
+
+// Lo que decide quien registra la entrega al tomar la foto de la hoja: si las
+// piezas cumplen, la entrega nace verificada y pasa a Calidad; si no, nace
+// rechazada (con motivo) y el equipo vuelve a entregarlas.
+export const RESULTADOS_REVISION = ["cumple", "no_cumple"] as const;
+export type ResultadoRevision = (typeof RESULTADOS_REVISION)[number];
+
+export function esResultadoRevision(valor: unknown): valor is ResultadoRevision {
+  return typeof valor === "string" && (RESULTADOS_REVISION as readonly string[]).includes(valor);
 }
 
 export interface EquipoProduccion {

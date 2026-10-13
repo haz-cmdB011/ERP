@@ -5,13 +5,18 @@ import {
   APARIENCIA_INICIAL,
   CLAVE_APARIENCIA,
   CLAVE_ESTILO,
+  CLAVE_MARCA_CLASICA,
   ESTILO_INICIAL,
   LIMITES,
+  MARCA_CLASICA_INICIAL,
   PRESETS,
+  PRESETS_CLASICO,
   aplicarApariencia,
   aplicarEstilo,
+  aplicarMarcaClasica,
   esEstilo,
   normalizarApariencia,
+  normalizarMarcaClasica,
   type Apariencia,
   type Estilo,
 } from "@/lib/apariencia";
@@ -51,6 +56,23 @@ function guardar(a: Apariencia) {
   }
 }
 
+function leerMarcaClasica(): string {
+  try {
+    return normalizarMarcaClasica(localStorage.getItem(CLAVE_MARCA_CLASICA));
+  } catch {
+    return MARCA_CLASICA_INICIAL;
+  }
+}
+
+function guardarMarcaClasica(marca: string) {
+  try {
+    if (marca === MARCA_CLASICA_INICIAL) localStorage.removeItem(CLAVE_MARCA_CLASICA);
+    else localStorage.setItem(CLAVE_MARCA_CLASICA, marca);
+  } catch {
+    // Sin localStorage el color dura hasta recargar; no es grave.
+  }
+}
+
 function iguales(a: Apariencia, b: Apariencia) {
   return (Object.keys(a) as (keyof Apariencia)[]).every((k) => a[k] === b[k]);
 }
@@ -63,12 +85,13 @@ const CAMPOS_COLOR: { clave: "marca" | "fondo1" | "fondo2" | "fondo3"; etiqueta:
 ];
 
 // Botón de la barra (paleta) que abre un panel para elegir el estilo (clásico
-// o vidrio) y, en el de vidrio, los colores y la intensidad. Los cambios se ven al momento y se guardan en este
-// navegador; otras pestañas abiertas se actualizan solas.
+// o vidrio) y los colores: en el clásico el acento, en el de vidrio también el fondo y la
+// intensidad. Los cambios se ven al momento y se guardan en este navegador; otras pestañas abiertas se actualizan solas.
 export default function PersonalizarApariencia() {
   const [abierto, setAbierto] = useState(false);
   const [estilo, setEstilo] = useState<Estilo>(ESTILO_INICIAL);
   const [valores, setValores] = useState<Apariencia>(APARIENCIA_INICIAL);
+  const [marcaClasica, setMarcaClasica] = useState(MARCA_CLASICA_INICIAL);
   const boton = useRef<HTMLButtonElement>(null);
 
   // Cambios hechos en otra pestaña.
@@ -77,12 +100,20 @@ export default function PersonalizarApariencia() {
       if (e.key === CLAVE_ESTILO) {
         const otro = esEstilo(e.newValue) ? e.newValue : ESTILO_INICIAL;
         aplicarEstilo(otro);
+        if (otro === "vidrio") aplicarApariencia(leerGuardada());
+        else aplicarMarcaClasica(leerMarcaClasica());
         setEstilo(otro);
+        return;
+      }
+      if (e.key === CLAVE_MARCA_CLASICA) {
+        const m = leerMarcaClasica();
+        if (leerEstilo() !== "vidrio") aplicarMarcaClasica(m);
+        setMarcaClasica(m);
         return;
       }
       if (e.key !== CLAVE_APARIENCIA) return;
       const a = leerGuardada();
-      aplicarApariencia(a);
+      if (leerEstilo() === "vidrio") aplicarApariencia(a);
       setValores(a);
     }
     window.addEventListener("storage", desdeOtraPestana);
@@ -101,6 +132,7 @@ export default function PersonalizarApariencia() {
   function abrir() {
     setEstilo(leerEstilo());
     setValores(leerGuardada());
+    setMarcaClasica(leerMarcaClasica());
     setAbierto(true);
   }
 
@@ -117,6 +149,15 @@ export default function PersonalizarApariencia() {
     setEstilo(nuevo);
     aplicarEstilo(nuevo);
     guardarEstilo(nuevo);
+    // Cada estilo recuerda su propio acento.
+    if (nuevo === "vidrio") aplicarApariencia(valores);
+    else aplicarMarcaClasica(marcaClasica);
+  }
+
+  function cambiarMarcaClasica(marca: string) {
+    setMarcaClasica(marca);
+    aplicarMarcaClasica(marca);
+    guardarMarcaClasica(marca);
   }
 
   function cambiar(nuevos: Apariencia) {
@@ -208,6 +249,53 @@ export default function PersonalizarApariencia() {
                 ))}
               </div>
             </fieldset>
+
+            {estilo === "clasico" && (
+              <>
+                <fieldset className="mt-5">
+                  <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Combinaciones
+                  </legend>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {PRESETS_CLASICO.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => cambiarMarcaClasica(p.marca)}
+                        aria-pressed={marcaClasica === p.marca}
+                        className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-xs font-medium transition-colors ${
+                          marcaClasica === p.marca
+                            ? "border-brand-500 bg-brand-50 text-slate-900"
+                            : "border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span
+                          className="h-9 w-full rounded-lg border border-black/5"
+                          style={{ background: p.marca }}
+                          aria-hidden="true"
+                        />
+                        {p.nombre}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset className="mt-5">
+                  <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Colores
+                  </legend>
+                  <label className="mt-2 flex items-center gap-2 rounded-lg p-1 text-sm">
+                    <input
+                      type="color"
+                      value={marcaClasica}
+                      onChange={(e) => cambiarMarcaClasica(e.target.value)}
+                      className="h-8 w-10 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-transparent p-0.5"
+                    />
+                    <span className="min-w-0 truncate">Acento (botones, pestañas y barra)</span>
+                  </label>
+                </fieldset>
+              </>
+            )}
 
             {estilo === "vidrio" && (
               <>
@@ -315,9 +403,12 @@ export default function PersonalizarApariencia() {
             <div className="mt-6 flex justify-end gap-2 [&>button:first-child]:mr-auto">
               <button
                 type="button"
-                onClick={() => cambiar(APARIENCIA_INICIAL)}
-                disabled={iguales(valores, APARIENCIA_INICIAL)}
-                hidden={estilo !== "vidrio"}
+                onClick={() => (estilo === "vidrio" ? cambiar(APARIENCIA_INICIAL) : cambiarMarcaClasica(MARCA_CLASICA_INICIAL))}
+                disabled={
+                  estilo === "vidrio"
+                    ? iguales(valores, APARIENCIA_INICIAL)
+                    : marcaClasica === MARCA_CLASICA_INICIAL
+                }
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Restablecer

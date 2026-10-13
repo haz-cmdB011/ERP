@@ -21,6 +21,10 @@ interface AuditoriaRow {
     ot?: string | null;
     renglones?: number;
     total?: number;
+    // Producción y Calidad (ver 20261008183835_auditoria_produccion_calidad.sql).
+    equipo?: string | null;
+    proceso?: string | null;
+    cantidad?: number | null;
   } | null;
 }
 
@@ -51,6 +55,18 @@ const ACCIONES = [
   "estado_revisado",
   "estado_pagado",
   "estado_pendiente",
+  "asignado",
+  "retrabajo_asignado",
+  "asignacion_cancelada",
+  "entrega_registrada",
+  "entrega_verificada",
+  "entrega_rechazada",
+  "entrega_anulada",
+  "informe_aprobado",
+  "informe_no_aprobado",
+  "equipo_creado",
+  "equipo_desactivado",
+  "equipo_reactivado",
 ];
 
 // Quita lo que rompería la sintaxis de filtros de PostgREST (.or) y acota la
@@ -90,6 +106,30 @@ function describirAccion(accion: string): { etiqueta: string; tono: Tono } {
       return { etiqueta: "Recibo pagado", tono: "emerald" };
     case "estado_pendiente":
       return { etiqueta: "Recibo vuelto a pendiente", tono: "amber" };
+    case "asignado":
+      return { etiqueta: "Asignado a equipo", tono: "sky" };
+    case "retrabajo_asignado":
+      return { etiqueta: "Retrabajo asignado", tono: "amber" };
+    case "asignacion_cancelada":
+      return { etiqueta: "Asignación cancelada", tono: "slate" };
+    case "entrega_registrada":
+      return { etiqueta: "Entrega registrada", tono: "sky" };
+    case "entrega_verificada":
+      return { etiqueta: "Entrega verificada", tono: "emerald" };
+    case "entrega_rechazada":
+      return { etiqueta: "Entrega rechazada por Producción", tono: "rose" };
+    case "entrega_anulada":
+      return { etiqueta: "Entrega anulada", tono: "slate" };
+    case "informe_aprobado":
+      return { etiqueta: "Calidad: aprobado", tono: "emerald" };
+    case "informe_no_aprobado":
+      return { etiqueta: "Calidad: no aprobado", tono: "rose" };
+    case "equipo_creado":
+      return { etiqueta: "Equipo dado de alta", tono: "sky" };
+    case "equipo_desactivado":
+      return { etiqueta: "Equipo desactivado", tono: "slate" };
+    case "equipo_reactivado":
+      return { etiqueta: "Equipo reactivado", tono: "emerald" };
     default:
       return { etiqueta: accion, tono: "slate" };
   }
@@ -100,9 +140,14 @@ const FILTROS: [string, string][] = [
   ["pedidos", "Pedidos"],
   ["planeacion_items", "Ítems"],
   ["recibos", "Recibos"],
+  ["produccion", "Producción"],
+  ["informes_calidad", "Calidad"],
 ];
 
 const TABLAS_RECIBOS = ["recibos", "recibos_electrificacion"];
+const TABLAS_PRODUCCION = ["asignaciones_produccion", "entregas_produccion", "equipos_produccion"];
+// Filtros que juntan varias tablas.
+const TABLAS_POR_FILTRO: Record<string, string[]> = { recibos: TABLAS_RECIBOS, produccion: TABLAS_PRODUCCION };
 const TIPO_RECIBO: Record<string, string> = {
   acabados: "Acabados",
   armado: "Armado",
@@ -144,6 +189,7 @@ export default async function AuditoriaPage({
       "folio",
       "contratista",
       "ot",
+      "equipo",
     ].map((campo) => `detalle->>${campo}.ilike.${patron}`);
     if (accionesQueCoinciden.length) partes.push(`accion.in.(${accionesQueCoinciden.join(",")})`);
     if (usuarios?.length) partes.push(`usuario_id.in.(${usuarios.map((u) => u.id).join(",")})`);
@@ -151,7 +197,7 @@ export default async function AuditoriaPage({
   }
 
   let conteoQuery = supabase.from("auditoria").select("id", { count: "exact", head: true });
-  if (filtro === "recibos") conteoQuery = conteoQuery.in("tabla", TABLAS_RECIBOS);
+  if (TABLAS_POR_FILTRO[filtro]) conteoQuery = conteoQuery.in("tabla", TABLAS_POR_FILTRO[filtro]);
   else if (filtro !== "todos") conteoQuery = conteoQuery.eq("tabla", filtro);
   if (condicionBusqueda) conteoQuery = conteoQuery.or(condicionBusqueda);
   const { count, error: errorConteo } = await conteoQuery;
@@ -170,7 +216,7 @@ export default async function AuditoriaPage({
       .order("en", { ascending: false })
       .order("id", { ascending: false })
       .range((pagina - 1) * TAMANO_PAGINA, pagina * TAMANO_PAGINA - 1);
-    if (filtro === "recibos") consulta = consulta.in("tabla", TABLAS_RECIBOS);
+    if (TABLAS_POR_FILTRO[filtro]) consulta = consulta.in("tabla", TABLAS_POR_FILTRO[filtro]);
     else if (filtro !== "todos") consulta = consulta.eq("tabla", filtro);
     if (condicionBusqueda) consulta = consulta.or(condicionBusqueda);
     const { data, error: errorFilas } = await consulta.returns<AuditoriaRow[]>();
@@ -208,8 +254,9 @@ export default async function AuditoriaPage({
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Auditoría</h1>
         <p className="mt-1 text-sm text-slate-500">
           Bitácora de quién hizo qué y cuándo: cancelaciones y reversiones, papelera y
-          restauraciones, eliminaciones definitivas, envíos a producción y cambios de estado de
-          revisión. Se registra automáticamente y no se puede editar ni borrar.
+          restauraciones, eliminaciones definitivas, envíos a producción, cambios de estado de
+          revisión, asignaciones y entregas de los equipos, y cada folio de Calidad. Se registra
+          automáticamente y no se puede editar ni borrar.
         </p>
       </div>
 
@@ -333,10 +380,20 @@ export default async function AuditoriaPage({
                           {d.contratista ? ` · ${d.contratista}` : ""}
                           {d.ot ? ` · OT ${d.ot}` : ""}
                         </>
+                      ) : f.tabla === "equipos_produccion" ? (
+                        <>
+                          Equipo {d.equipo ?? "—"}
+                          {d.proceso ? ` · ${d.proceso}` : ""}
+                        </>
                       ) : (
                         <>
+                          {d.numero_pedido && f.tabla !== "planeacion_items" ? `${d.numero_pedido} · ` : ""}
                           Ítem {d.item_code ?? "—"}
                           {d.modelo ? ` — ${d.modelo}` : ""}
+                          {d.equipo ? ` · ${d.equipo}` : ""}
+                          {d.proceso && TABLAS_PRODUCCION.includes(f.tabla) ? ` (${d.proceso})` : ""}
+                          {d.cantidad != null ? ` · ${Number(d.cantidad)} pz` : ""}
+                          {d.folio && !TABLAS_RECIBOS.includes(f.tabla) ? ` · ${d.folio}` : ""}
                         </>
                       )}
                     </td>

@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { detectarFormatoImagen, LIMITE_PIXELES } from "@/lib/seguridad/imagen";
 
-// Foto de la hoja con los folios de Calidad que sube el encargado al
+// Foto de la hoja de entrega (papel) que sube el encargado al
 // registrar una entrega. Tiene que leerse la letra escrita a mano, así que se
 // deja más grande que las imágenes de los ítems, pero acotada: una foto de
 // celular (4000 px, 3–8 MB) queda en ~150–400 KB en WebP.

@@ -120,6 +120,17 @@ en el repo. Por eso:
    `select statements from supabase_migrations.schema_migrations where version = '...'`
    y guardarla en el repo.
 
+## Preaprobación de Producción
+
+Calidad solo evalúa piezas que Producción preaprobó. La preaprobación se hace al **registrar la
+entrega**: quien toma la foto marca si las piezas cumplen (nace verificada y pasa a Calidad) o no
+cumplen (nace rechazada, con motivo). Lo controla el ajuste `verificacion_produccion` de la tabla
+`ajustes_flujo`, hoy ENCENDIDO (migración `entrega_con_preaprobacion`). Apagado, Calidad evalúa todo
+ítem liberado aunque no haya entregas (un mueble sin entregas se evalúa completo) y las entregas nacen
+verificadas. Cómo apagarlo o encenderlo y qué anotar después: `docs/operacion.md` ("Si Calidad no puede
+evaluar un mueble"). La pantalla lee el ajuste con `src/lib/calidad/ajustes-flujo.ts`; si no puede
+leerlo asume el flujo con verificación.
+
 ## Capturas sin conexión
 
 En el taller a veces se cae el Wi-Fi. La **entrega de Producción** (con su foto) se guarda en el
