@@ -122,21 +122,21 @@ export function Pastel({
   );
 }
 
-export interface PuntoSemana {
+export interface PuntoPeriodo {
   etiqueta: string;
   importe: number;
   detalle?: string;
 }
 
-// Barras por semana. `resaltar`: índice de la semana que se está viendo; las
+// Barras por periodo (semana, mes o año). `resaltar`: índice del periodo que se está viendo; las
 // demás van más tenues. `compacta`: versión pequeña para cada maquilador.
-export function BarrasSemanales({
+export function BarrasPorPeriodo({
   puntos,
   resaltar,
   compacta = false,
   titulo,
 }: {
-  puntos: PuntoSemana[];
+  puntos: PuntoPeriodo[];
   resaltar: number;
   compacta?: boolean;
   titulo: string;
@@ -216,5 +216,90 @@ export function BarrasSemanales({
         );
       })}
     </svg>
+  );
+}
+
+// "$12.3 k", "$1.2 M": cifras cortas para rotular las barras (el importe exacto
+// va en el tooltip y en la tabla de al lado).
+export function importeCompacto(n: number): string {
+  const abs = Math.abs(n);
+  const f = (v: number) => v.toLocaleString("es-MX", { maximumFractionDigits: 1 });
+  if (abs >= 1_000_000) return `$${f(n / 1_000_000)} M`;
+  if (abs >= 1_000) return `$${f(n / 1_000)} k`;
+  return `$${f(n)}`;
+}
+
+export interface GrupoComparado {
+  etiqueta: string;
+  actual: number;
+  anterior: number;
+}
+
+// Barras agrupadas: por cada grupo (un área), el periodo anterior en gris y el
+// actual en color, a la misma escala. La leyenda y los valores también van en
+// texto (la tabla de al lado).
+export function BarrasComparadas({
+  grupos,
+  etiquetaActual,
+  etiquetaAnterior,
+  titulo,
+}: {
+  grupos: GrupoComparado[];
+  etiquetaActual: string;
+  etiquetaAnterior: string;
+  titulo: string;
+}) {
+  const ancho = 520;
+  const alto = 200;
+  const margenInferior = 22;
+  const margenSuperior = 22;
+  const util = alto - margenInferior - margenSuperior;
+  const maximo = Math.max(...grupos.flatMap((g) => [g.actual, g.anterior]), 0);
+  const paso = ancho / Math.max(grupos.length, 1);
+  const barra = Math.min(paso * 0.28, 44);
+  const base = alto - margenInferior;
+
+  return (
+    <figure className="flex flex-col gap-2">
+      <svg viewBox={`0 0 ${ancho} ${alto}`} role="img" aria-label={titulo} className="w-full">
+        <line x1="0" x2={ancho} y1={base} y2={base} stroke="var(--serie-pista)" strokeWidth="1" />
+        {grupos.map((g, i) => {
+          const centro = i * paso + paso / 2;
+          return (
+            <g key={g.etiqueta}>
+              {[
+                { valor: g.anterior, x: centro - barra - 2, color: "var(--serie-otros)", opacidad: 0.55, nombre: etiquetaAnterior },
+                { valor: g.actual, x: centro + 2, color: "var(--serie-1)", opacidad: 1, nombre: etiquetaActual },
+              ].map((b) => {
+                const h = maximo > 0 ? (b.valor / maximo) * util : 0;
+                return (
+                  <g key={b.nombre}>
+                    <rect x={b.x} y={base - Math.max(h, b.valor > 0 ? 1 : 0)} width={barra} height={Math.max(h, b.valor > 0 ? 1 : 0)} rx="2" fill={b.color} opacity={b.opacidad} className="anim-barra">
+                      <title>{`${g.etiqueta} · ${b.nombre}: ${money(b.valor)}`}</title>
+                    </rect>
+                    <text x={b.x + barra / 2} y={base - h - 5} textAnchor="middle" fontSize="11" className="fill-slate-600">
+                      {b.valor > 0 ? importeCompacto(b.valor) : "—"}
+                    </text>
+                  </g>
+                );
+              })}
+              <text x={centro} y={alto - 6} textAnchor="middle" fontSize="12" className="fill-slate-700">
+                {g.etiqueta}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--serie-otros)", opacity: 0.55 }} />
+          {etiquetaAnterior}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--serie-1)" }} />
+          {etiquetaActual}
+        </span>
+      </figcaption>
+    </figure>
   );
 }

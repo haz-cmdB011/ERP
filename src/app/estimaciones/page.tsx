@@ -36,7 +36,7 @@ const TARJETAS: {
   },
   {
     href: "/estimaciones/reportes",
-    titulo: "Reporte semanal",
+    titulo: "Reporte de pagos",
     icono: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   },
 ];

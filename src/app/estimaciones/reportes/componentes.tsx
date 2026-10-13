@@ -2,12 +2,13 @@ import Link from "next/link";
 import { money } from "@/lib/estimaciones/motor-precio";
 import { NOMBRE_TIPO_CUALQUIERA } from "@/lib/estimaciones/revision-db";
 import type { KpiMaquilador, Porcion } from "@/lib/estimaciones/reporte-dashboard";
+import type { FilaComparativa, Metrica } from "@/lib/estimaciones/reporte-comparativa";
+import { etiquetaCortaPeriodo, type TextosPeriodo } from "@/lib/estimaciones/reporte-periodos";
 import type { armarReporte } from "@/lib/estimaciones/reporte-semanal";
 import { claveContratista } from "@/lib/estimaciones/reporte-semanal";
-import { BarrasSemanales, colorDe } from "./graficos";
+import { BarrasPorPeriodo, colorDe } from "./graficos";
 
-// Piezas visuales del dashboard del reporte semanal (ver page.tsx).
-export const etiquetaCorta = (s: { semana: number }) => `S${s.semana}`;
+// Piezas visuales del dashboard del reporte (ver page.tsx).
 
 export function Cambio({ valor, sufijo }: { valor: number | null; sufijo: string }) {
   if (valor == null) return <span className="text-xs text-slate-500">{`— ${sufijo}`}</span>;
@@ -77,7 +78,7 @@ export function Dato({ etiqueta, valor, nota }: { etiqueta: string; valor: strin
 
 
 // El color de un maquilador en la sección es el de su rebanada del pastel; si
-// no está en el pastel (no cobró esta semana o cayó en "Otros") va en gris.
+// no está en el pastel (no cobró en el periodo o cayó en "Otros") va en gris.
 const piezas = (n: number) => n.toLocaleString("es-MX", { maximumFractionDigits: 2 });
 
 export function colorMaquilador(
@@ -148,17 +149,18 @@ export function SeccionMaquilador({
   color,
   grupo,
   indiceVista,
-  semanas,
+  textos,
 }: {
   m: KpiMaquilador;
   color: string;
   grupo: ReturnType<typeof armarReporte>["grupos"][number] | undefined;
   indiceVista: number;
-  semanas: number;
+  textos: TextosPeriodo;
 }) {
-  const cobro = m.importeSemana > 0;
+  const cobro = m.importe > 0;
+  const periodos = m.historial.length;
   const puntos = m.historial.map((h) => ({
-    etiqueta: etiquetaCorta(h.semana),
+    etiqueta: etiquetaCortaPeriodo(h.periodo),
     importe: h.importe,
     detalle: `${h.recibos} recibo${h.recibos === 1 ? "" : "s"}`,
   }));
@@ -175,19 +177,19 @@ export function SeccionMaquilador({
           <span className="block truncate text-sm font-semibold text-slate-900">{m.contratista}</span>
           <span className="text-xs text-slate-500">
             {cobro
-              ? `${m.porcentajeSemana.toLocaleString("es-MX", { maximumFractionDigits: 1 })}% del total · lugar ${m.lugar}`
-              : "Sin pago esta semana"}
+              ? `${m.porcentaje.toLocaleString("es-MX", { maximumFractionDigits: 1 })}% del total · lugar ${m.lugar}`
+              : `Sin pago ${textos.este}`}
           </span>
         </span>
         <span className="flex flex-col items-end">
           <span className="font-mono text-sm font-semibold tabular-nums text-slate-900">
-            {money(m.importeSemana)}
+            {money(m.importe)}
           </span>
-          {cobro && <Cambio valor={m.cambioVsAnterior} sufijo="vs sem. anterior" />}
+          {cobro && <Cambio valor={m.cambioVsAnterior} sufijo={textos.vsAnterior} />}
         </span>
-        <BarrasSemanales
+        <BarrasPorPeriodo
           compacta
-          titulo={`Pagado a ${m.contratista} en las últimas ${semanas} semanas`}
+          titulo={`Pagado a ${m.contratista} en los últimos ${periodos} ${textos.plural}`}
           resaltar={indiceVista}
           puntos={puntos}
         />
@@ -198,11 +200,11 @@ export function SeccionMaquilador({
 
       <div className="flex flex-col gap-4 border-t border-slate-200 p-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <Dato etiqueta="Pagado en la semana" valor={money(m.importeSemana)} />
+          <Dato etiqueta={`Pagado ${textos.este}`} valor={money(m.importe)} />
           <Dato
-            etiqueta="Promedio semanal"
-            valor={m.semanasConPago > 0 ? money(m.promedioSemanal) : "—"}
-            nota={m.semanasConPago > 0 ? `en ${m.semanasConPago} semanas con pago` : undefined}
+            etiqueta={textos.promedio}
+            valor={m.periodosConPago > 0 ? money(m.promedio) : "—"}
+            nota={m.periodosConPago > 0 ? `en ${m.periodosConPago} ${textos.plural} con pago` : undefined}
           />
           <Dato
             etiqueta="Contra su promedio"
@@ -211,31 +213,31 @@ export function SeccionMaquilador({
                 ? "—"
                 : `${m.cambioVsPromedio > 0 ? "+" : ""}${m.cambioVsPromedio.toLocaleString("es-MX", { maximumFractionDigits: 1 })}%`
             }
-            nota="de las otras semanas"
+            nota={`de los otros ${textos.plural}`}
           />
           <Dato
             etiqueta="Constancia"
-            valor={`${m.semanasConPago} de ${semanas}`}
-            nota="semanas con pago"
+            valor={`${m.periodosConPago} de ${periodos}`}
+            nota={`${textos.plural} con pago`}
           />
           <Dato
-            etiqueta="Mejor semana"
-            valor={m.mejorSemana ? money(m.mejorSemana.importe) : "—"}
-            nota={m.mejorSemana ? `Semana ${m.mejorSemana.semana.semana}` : undefined}
+            etiqueta={textos.mejor}
+            valor={m.mejor ? money(m.mejor.importe) : "—"}
+            nota={m.mejor ? etiquetaCortaPeriodo(m.mejor.periodo) : undefined}
           />
           <Dato
             etiqueta="Piezas trabajadas"
             valor={grupo ? piezas(grupo.piezas) : "0"}
-            nota={`${m.recibosSemana} recibo${m.recibosSemana === 1 ? "" : "s"} · ${m.otsSemana} O.T.`}
+            nota={`${m.recibos} recibo${m.recibos === 1 ? "" : "s"} · ${m.ots} O.T.`}
           />
         </div>
 
         <div>
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Pagado por semana
+            Pagado por {textos.singular}
           </h3>
-          <BarrasSemanales
-            titulo={`Pagado a ${m.contratista} por semana`}
+          <BarrasPorPeriodo
+            titulo={`Pagado a ${m.contratista} por ${textos.singular}`}
             resaltar={indiceVista}
             puntos={puntos}
           />
@@ -276,5 +278,140 @@ export function SeccionMaquilador({
         )}
       </div>
     </details>
+  );
+}
+
+const ROTULO_ESTADO: Partial<Record<FilaComparativa["estado"], string>> = {
+  nuevo: "Nuevo",
+  "sin-pago": "Sin pago",
+};
+
+const firmado = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${money(Math.abs(n))}`;
+
+// Cambio de cada fila contra el periodo anterior: barras que salen a la derecha
+// (cobró más) o a la izquierda (cobró menos) de un eje central, a una misma
+// escala. El importe con signo y el % van en texto: el color no es lo único.
+export function CambiosDivergentes({ filas }: { filas: FilaComparativa[] }) {
+  const maximo = Math.max(...filas.map((f) => Math.abs(f.diferencia)), 0);
+  return (
+    <ul className="flex flex-col gap-2">
+      {filas.map((f) => {
+        const ancho = maximo > 0 ? (Math.abs(f.diferencia) / maximo) * 50 : 0;
+        const sube = f.diferencia > 0;
+        const rotulo = ROTULO_ESTADO[f.estado];
+        return (
+          <li
+            key={f.etiqueta}
+            className="grid grid-cols-[minmax(0,7rem)_minmax(4rem,1fr)_6.5rem] items-center gap-2 text-sm sm:grid-cols-[minmax(0,11rem)_minmax(6rem,1fr)_10.5rem]"
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-slate-700" title={f.etiqueta}>
+                {f.etiqueta}
+              </span>
+              {rotulo && <span className="text-[11px] font-medium text-slate-500">{rotulo}</span>}
+            </span>
+            <span
+              role="img"
+              aria-label={`${f.etiqueta}: ${firmado(f.diferencia)}`}
+              className="relative block h-3.5 rounded bg-slate-50"
+            >
+              <span className="absolute inset-y-0 left-1/2 w-px bg-slate-300" />
+              {f.diferencia !== 0 && (
+                <span
+                  className={`absolute inset-y-0.5 rounded-sm ${
+                    sube ? "left-1/2 bg-emerald-500" : "right-1/2 bg-rose-500"
+                  }`}
+                  style={{ width: `${ancho}%` }}
+                />
+              )}
+            </span>
+            <span className="flex flex-col items-end whitespace-nowrap text-right sm:flex-row sm:items-baseline sm:justify-end sm:gap-2">
+              <span
+                className={`font-mono text-xs font-semibold tabular-nums ${
+                  f.diferencia > 0 ? "text-emerald-700" : f.diferencia < 0 ? "text-rose-700" : "text-slate-500"
+                }`}
+              >
+                {f.diferencia === 0 ? "Igual" : firmado(f.diferencia)}
+              </span>
+              {f.estado !== "nuevo" && f.estado !== "sin-pago" && f.cambio != null && f.diferencia !== 0 && (
+                <span className="font-mono text-[11px] tabular-nums text-slate-500 sm:w-12">
+                  {f.cambio > 0 ? "+" : ""}
+                  {f.cambio.toLocaleString("es-MX", { maximumFractionDigits: 1 })}%
+                </span>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+interface FilaMetrica {
+  nombre: string;
+  m: Metrica;
+  // Importe en pesos (si no, un conteo).
+  dinero?: boolean;
+}
+
+// Cada cifra clave con dos barras a la misma escala: el periodo anterior en gris
+// y el actual en color, con su cambio al lado. Los valores van también en texto.
+export function MetricasComparadas({
+  filas,
+  etiquetaActual,
+  etiquetaAnterior,
+}: {
+  filas: FilaMetrica[];
+  etiquetaActual: string;
+  etiquetaAnterior: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--serie-otros)", opacity: 0.55 }} />
+          {etiquetaAnterior}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--serie-1)" }} />
+          {etiquetaActual}
+        </span>
+      </div>
+      {filas.map(({ nombre, m, dinero }) => {
+        const formato = (n: number) => (dinero ? money(n) : String(n));
+        const maximo = Math.max(m.actual, m.anterior, 0);
+        const ancho = (n: number) => (maximo > 0 ? Math.max((n / maximo) * 100, n > 0 ? 1.5 : 0) : 0);
+        return (
+          <div key={nombre} className="flex flex-col gap-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-sm font-medium text-slate-900">{nombre}</span>
+              {m.diferencia === 0 ? (
+                <span className="text-xs text-slate-500">Igual</span>
+              ) : m.cambio == null ? (
+                <span className="text-xs font-medium text-slate-600">Nuevo</span>
+              ) : (
+                <Cambio valor={m.cambio} sufijo="" />
+              )}
+            </div>
+            {[
+              { valor: m.anterior, color: "var(--serie-otros)", opacidad: 0.55, nombre: etiquetaAnterior },
+              { valor: m.actual, color: "var(--serie-1)", opacidad: 1, nombre: etiquetaActual },
+            ].map((b) => (
+              <div key={b.nombre} className="flex items-center gap-2" title={`${b.nombre}: ${formato(b.valor)}`}>
+                <span className="h-2.5 min-w-0 flex-1 rounded-sm bg-slate-50">
+                  <span
+                    className="anim-crecer-x block h-full rounded-sm"
+                    style={{ width: `${ancho(b.valor)}%`, background: b.color, opacity: b.opacidad }}
+                  />
+                </span>
+                <span className="w-24 shrink-0 text-right font-mono text-xs tabular-nums text-slate-600">
+                  {formato(b.valor)}
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
   );
 }
