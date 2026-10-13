@@ -16,6 +16,18 @@ describe("itemDeQrViajero", () => {
     expect(itemDeQrViajero(`  https://x.com${ruta}\n`)?.itemId).toBe(ITEM);
   });
 
+  it("acepta el formato corto de las hojas nuevas (/q/<ítem>) y no trae pedido", () => {
+    expect(itemDeQrViajero(`https://erp.example.com/q/${ITEM}`)).toEqual({ pedidoId: null, itemId: ITEM });
+    expect(itemDeQrViajero(`http://localhost:3000/q/${ITEM}/`)?.itemId).toBe(ITEM);
+    expect(itemDeQrViajero(`https://x.com/q/${ITEM.toUpperCase()}`)?.itemId).toBe(ITEM);
+  });
+
+  it("rechaza /q/ con algo que no es un id o con rutas de más", () => {
+    expect(itemDeQrViajero("https://x.com/q/123")).toBeNull();
+    expect(itemDeQrViajero(`https://x.com/q/${ITEM}/extra`)).toBeNull();
+    expect(itemDeQrViajero(`https://x.com/otra/q/${ITEM}`)).toBeNull();
+  });
+
   it("normaliza los ids a minúsculas", () => {
     const r = itemDeQrViajero(`https://x.com${ruta.toUpperCase()}`);
     expect(r).toEqual({ pedidoId: PEDIDO, itemId: ITEM });

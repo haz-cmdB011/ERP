@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { exigeSegundoPaso, faltaSegundoPaso } from "@/lib/seguridad/mfa";
+import { destinoDeLogin, esRutaProtegida } from "@/lib/seguridad/ruta-protegida";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -35,7 +36,16 @@ export async function updateSession(request: NextRequest) {
   // sesión está en aal1) no puede usar la app ni sus rutas /api: se le manda a
   // terminar de iniciar sesión. Ante cualquier error al leer el nivel NO se
   // bloquea (ver faltaSegundoPaso), para no dejar a nadie fuera por una falla.
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+
+  // Sin sesión en una pantalla protegida (p. ej. al escanear el QR de una hoja con el celular):
+  // al login, recordando a dónde iba para volver ahí al entrar.
+  if (!user && esRutaProtegida(pathname)) {
+    const aLogin = NextResponse.redirect(new URL(destinoDeLogin(pathname, search), request.url));
+    response.cookies.getAll().forEach((cookie) => aLogin.cookies.set(cookie));
+    return aLogin;
+  }
+
   if (user && exigeSegundoPaso(pathname)) {
     try {
       const { data: nivel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();

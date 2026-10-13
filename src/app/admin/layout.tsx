@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import SinAcceso from "@/components/sin-acceso";
+import { puedeEntrarAArea } from "@/lib/auth/acceso";
 import SubnavLink from "@/components/subnav-link";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
 
 // Usuarios vive como panel propio (mismo peso visual que Planeación y
 // Producción en AreaNav), pero solo es accesible para desarrolladores:
-// cualquier otro rol se redirige antes de renderizar nada de /admin/*.
+// cualquier otro rol ve el aviso de sin acceso en lugar de /admin/*.
 export const metadata: Metadata = {
   title: { default: "Administración", template: "%s · Administración" },
 };
@@ -32,8 +34,15 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single();
 
-  if (perfil?.rol !== "desarrollador") {
-    redirect("/planeacion");
+  if (!puedeEntrarAArea(perfil?.rol, "admin")) {
+    return (
+      <SinAcceso
+        titulo="Esta pantalla es solo para desarrolladores"
+        mensaje="Tu cuenta no tiene acceso a Administración."
+        hrefInicio="/"
+        etiquetaInicio="Ir al inicio"
+      />
+    );
   }
 
   return (
