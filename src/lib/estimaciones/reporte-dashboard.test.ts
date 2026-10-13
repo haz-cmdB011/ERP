@@ -6,9 +6,9 @@ import {
   repartoPorArea,
   repartoPorMaquilador,
   semanaDeReporteDe,
-  ultimasSemanas,
   type Porcion,
 } from "./reporte-dashboard";
+import type { Periodo } from "./reporte-periodos";
 import type { ReciboPagado } from "./reporte-semanal";
 
 function recibo(parcial: Partial<ReciboPagado>): ReciboPagado {
@@ -26,19 +26,19 @@ function recibo(parcial: Partial<ReciboPagado>): ReciboPagado {
 }
 
 // La semana 38 (14-20 sep) se paga en la 39 (21-27 sep); la 37 en la 38.
-const SEM_38 = { anio: 2026, semana: 38 };
+const SEM_38: Periodo = { tipo: "semana", anio: 2026, numero: 38 };
 const PAGO_SEM_38 = "2026-09-23T18:00:00Z";
 const PAGO_SEM_37 = "2026-09-16T18:00:00Z";
 
 describe("semana de reporte de un recibo", () => {
   it("un recibo pagado en la semana N+1 cuenta en la semana N", () => {
-    expect(semanaDeReporteDe(PAGO_SEM_38)).toEqual(SEM_38);
+    expect(semanaDeReporteDe(PAGO_SEM_38)).toEqual({ anio: 2026, semana: 38 });
     expect(semanaDeReporteDe(PAGO_SEM_37)).toEqual({ anio: 2026, semana: 37 });
   });
 
   it("usa la hora de la Ciudad de México", () => {
     // Domingo 27 sep 22:00 en México = lunes 28 sep 04:00 UTC: sigue en la 39.
-    expect(semanaDeReporteDe("2026-09-28T04:00:00Z")).toEqual(SEM_38);
+    expect(semanaDeReporteDe("2026-09-28T04:00:00Z")).toEqual({ anio: 2026, semana: 38 });
   });
 
   it("cruza el año", () => {
@@ -71,18 +71,6 @@ describe("comparación contra el promedio", () => {
   it("sin pagos esta semana no hay comparación", () => {
     expect(armarTablero([], SEM_38).cambioTotalVsPromedio).toBeNull();
     expect(cambiosNotables([])).toEqual([]);
-  });
-});
-
-describe("ultimasSemanas", () => {
-  it("termina en la semana vista, de la más antigua a la más reciente", () => {
-    const s = ultimasSemanas({ anio: 2027, semana: 2 }, 4);
-    expect(s).toEqual([
-      { anio: 2026, semana: 52 },
-      { anio: 2026, semana: 53 },
-      { anio: 2027, semana: 1 },
-      { anio: 2027, semana: 2 },
-    ]);
   });
 });
 
@@ -157,38 +145,38 @@ describe("tablero: rendimiento por maquilador", () => {
   const t = armarTablero(recibos, SEM_38, 4);
 
   it("cubre las últimas semanas y totaliza cada una", () => {
-    expect(t.semanas).toHaveLength(4);
-    expect(t.totalesPorSemana.map((x) => x.importe)).toEqual([0, 0, 1800, 1500]);
-    expect(t.importeSemana).toBe(1500);
-    expect(t.recibosSemana).toBe(2);
-    expect(t.otsSemana).toBe(2);
-    expect(t.activosSemana).toBe(1);
+    expect(t.periodos).toHaveLength(4);
+    expect(t.totales.map((x) => x.importe)).toEqual([0, 0, 1800, 1500]);
+    expect(t.importe).toBe(1500);
+    expect(t.recibos).toBe(2);
+    expect(t.ots).toBe(2);
+    expect(t.activos).toBe(1);
     expect(t.ticketPromedio).toBe(750);
     expect(t.cambioTotalVsAnterior).toBeCloseTo(-16.7, 1);
   });
 
   it("calcula los KPI de quien cobró en la semana", () => {
     const ana = t.maquiladores.find((m) => m.contratista === "Ana")!;
-    expect(ana.importeSemana).toBe(1500);
-    expect(ana.recibosSemana).toBe(2);
-    expect(ana.otsSemana).toBe(2);
-    expect(ana.porcentajeSemana).toBe(100);
+    expect(ana.importe).toBe(1500);
+    expect(ana.recibos).toBe(2);
+    expect(ana.ots).toBe(2);
+    expect(ana.porcentaje).toBe(100);
     expect(ana.cambioVsAnterior).toBe(50);
     expect(ana.cambioVsPromedio).toBe(50); // contra 1000 de las otras semanas
-    expect(ana.semanasConPago).toBe(2);
-    expect(ana.promedioSemanal).toBe(1250);
-    expect(ana.mejorSemana?.importe).toBe(1500);
+    expect(ana.periodosConPago).toBe(2);
+    expect(ana.promedio).toBe(1250);
+    expect(ana.mejor?.importe).toBe(1500);
     expect(ana.lugar).toBe(1);
     expect(ana.historial.map((h) => h.importe)).toEqual([0, 0, 1000, 1500]);
   });
 
   it("quien no cobró esta semana queda sin lugar y sin cambio", () => {
     const luis = t.maquiladores.find((m) => m.contratista === "Luis")!;
-    expect(luis.importeSemana).toBe(0);
+    expect(luis.importe).toBe(0);
     expect(luis.lugar).toBe(0);
     expect(luis.cambioVsPromedio).toBeNull();
     expect(luis.cambioVsAnterior).toBe(-100);
-    expect(luis.semanasConPago).toBe(1);
+    expect(luis.periodosConPago).toBe(1);
     expect(t.maquiladores.map((m) => m.contratista)).toEqual(["Ana", "Luis"]);
   });
 
@@ -203,7 +191,7 @@ describe("tablero: rendimiento por maquilador", () => {
     const t3 = armarTablero([], SEM_38);
     expect(t3.maquiladores).toEqual([]);
     expect(t3.ticketPromedio).toBeNull();
-    expect(t3.importeSemana).toBe(0);
-    expect(t3.semanas).toHaveLength(8);
+    expect(t3.importe).toBe(0);
+    expect(t3.periodos).toHaveLength(8);
   });
 });

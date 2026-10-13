@@ -11,6 +11,7 @@ export default function SeccionDesplegable({
   titulo,
   descripcion,
   resumen,
+  abierta = false,
   children,
 }: {
   id: string;
@@ -18,6 +19,8 @@ export default function SeccionDesplegable({
   descripcion?: string;
   // Dato corto a la derecha del título, visible aun con la sección cerrada.
   resumen?: string;
+  // Empieza desplegada (las demás empiezan cerradas).
+  abierta?: boolean;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
@@ -37,6 +40,7 @@ export default function SeccionDesplegable({
     <details
       ref={ref}
       id={id}
+      open={abierta}
       className="group scroll-mt-4 rounded-xl border border-slate-200 bg-white shadow-sm"
     >
       <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4 hover:bg-slate-50">
