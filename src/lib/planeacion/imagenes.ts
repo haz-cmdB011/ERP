@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
+import { firmarUrls } from "@/lib/storage/urls-firmadas";
 
 export const BUCKET_IMAGENES_ITEMS = "planeacion-item-imagenes";
-const SIGNED_URL_EXPIRES_SECONDS = 3600;
 
 interface ImagenRow {
   planeacion_item_id: string;
@@ -15,6 +15,20 @@ export interface ImagenItemUrls {
   // Versión grande para la vista ampliada; null en las cargas anteriores a
   // que se guardara (ahí la vista ampliada usa la miniatura).
   urlGrande: string | null;
+}
+
+// Desde octubre de 2026 cada imagen se guarda con el nombre de su huella
+// (SHA-256 de la imagen ORIGINAL embebida en el Excel): una imagen que ya
+// está en Storage (otra versión del mismo PM, otro PM con el mismo mueble) no
+// se vuelve a comprimir ni a subir, y varias filas pueden apuntar al mismo
+// archivo. Por eso borrar un pedido solo quita las imágenes que ya nadie usa
+// (ver eliminar-pedido-db.ts). El "v1" cambia si cambia la compresión, para
+// no mezclar archivos hechos con parámetros distintos. Las cargas anteriores
+// siguen en "<carga>/<fila>-<n>.webp".
+export const CARPETA_IMAGENES_POR_CONTENIDO = "contenido/v1";
+
+export function rutaImagenPorContenido(huella: string, extension: string): string {
+  return `${CARPETA_IMAGENES_POR_CONTENIDO}/${huella}.${extension}`;
 }
 
 // Ruta de la versión grande de una imagen, por convención junto a la
@@ -44,19 +58,9 @@ export async function getImagenesConGrandePorItem(
       (imagenes ?? []).flatMap((i) => [i.storage_path, rutaImagenGrande(i.storage_path)])
     )
   );
-  const { data: firmadas } = rutas.length
-    ? await supabase.storage
-        .from(BUCKET_IMAGENES_ITEMS)
-        .createSignedUrls(rutas, SIGNED_URL_EXPIRES_SECONDS)
-    : { data: [] };
-
   // Las versiones grandes que no existen (cargas viejas) vuelven con error y
   // quedan fuera del mapa.
-  const urlPorRuta = new Map(
-    (firmadas ?? [])
-      .filter((f): f is typeof f & { signedUrl: string } => !f.error && !!f.signedUrl)
-      .map((f) => [f.path, f.signedUrl])
-  );
+  const urlPorRuta = await firmarUrls(supabase, BUCKET_IMAGENES_ITEMS, rutas);
 
   const imagenesPorItem = new Map<string, ImagenItemUrls[]>();
   for (const img of imagenes ?? []) {
@@ -86,17 +90,10 @@ export async function getImagenesPorItem(
     .order("orden")
     .returns<ImagenRow[]>();
 
-  const rutasUnicas = Array.from(new Set((imagenes ?? []).map((i) => i.storage_path)));
-  const { data: firmadas } = rutasUnicas.length
-    ? await supabase.storage
-        .from(BUCKET_IMAGENES_ITEMS)
-        .createSignedUrls(rutasUnicas, SIGNED_URL_EXPIRES_SECONDS)
-    : { data: [] };
-
-  const urlPorRuta = new Map(
-    (firmadas ?? [])
-      .filter((f): f is typeof f & { signedUrl: string } => !f.error && !!f.signedUrl)
-      .map((f) => [f.path, f.signedUrl])
+  const urlPorRuta = await firmarUrls(
+    supabase,
+    BUCKET_IMAGENES_ITEMS,
+    (imagenes ?? []).map((i) => i.storage_path)
   );
 
   const imagenesPorItem = new Map<string, string[]>();

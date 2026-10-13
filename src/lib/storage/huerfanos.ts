@@ -10,7 +10,10 @@
 import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
 
 export interface ObjetoStorage {
-  /** Ruta dentro del bucket: "<carga>/<fila>-<n>.webp" o "<carga>/hoja-2/<fila>-<n>.webp". */
+  /**
+   * Ruta dentro del bucket: "contenido/v1/<huella>.webp" (cargas desde octubre de 2026, ver
+   * rutaImagenPorContenido) o, en las anteriores, "<carga>/<fila>-<n>.webp" o "<carga>/hoja-2/<fila>-<n>.webp".
+   */
   ruta: string;
   bytes: number;
   creado: string | null;
@@ -57,7 +60,10 @@ export function clasificarObjetos(
 }
 
 export interface GrupoCarga {
-  /** Primera carpeta de la ruta: el id de la carga de Excel que subió esas imágenes. */
+  /**
+   * Primera carpeta de la ruta: el id de la carga de Excel que subió esas imágenes, o
+   * "contenido" para las guardadas por su huella (no son de una carga en particular).
+   */
   carga: string;
   archivos: number;
   bytes: number;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -412,7 +413,7 @@ export default function ItemsCalidadTable({
     }
     return (
       <div>
-        <Link
+        <EnlaceFila
           href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
           title="Ver informe"
           className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium hover:underline ${
@@ -421,7 +422,7 @@ export default function ItemsCalidadTable({
         >
           {ultimo.aprobado ? <IconoCheck /> : <IconoX />}
           {ultimo.aprobado ? "Aprobado" : "No aprobado"}
-        </Link>
+        </EnlaceFila>
         {!ultimo.aprobado && (
           <p className="mt-0.5 text-[11px] font-medium text-rose-600">
             {nombreCategoria(ultimo.categoria) ?? "Por reinspeccionar"}
@@ -482,13 +483,13 @@ export default function ItemsCalidadTable({
 
     return (
       <div>
-        <Link
+        <EnlaceFila
           href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
           title="Ver informe"
           className="whitespace-nowrap font-mono text-xs text-slate-800 hover:text-brand-700 hover:underline"
         >
           {ultimo.folio}
-        </Link>
+        </EnlaceFila>
         {ultimo.cantidad !== null && (
           <span className={`ml-1 text-[11px] ${ultimo.aprobado ? "text-emerald-700" : "text-rose-700"}`}>
             {ultimo.cantidad} {item.unidad ?? "pz"}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import {
   getPerfilActual,
@@ -241,12 +242,12 @@ export default async function AsignacionesPage({
                   <tr className={`align-top ${plazo?.tipo === "vencido" ? "bg-rose-50/60" : ""}`}>
                     <td className="px-3 py-2 font-medium text-slate-900">
                       {a.pedido_id ? (
-                        <Link
+                        <EnlaceFila
                           href={`/produccion/pedidos/${a.pedido_id}/asignaciones`}
                           className="hover:text-brand-700 hover:underline"
                         >
                           {a.numero_pedido}
-                        </Link>
+                        </EnlaceFila>
                       ) : (
                         a.numero_pedido
                       )}

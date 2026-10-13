@@ -34,6 +34,14 @@ export async function consumirLimite({ clave, maximo, ventanaSegundos }: Opcione
   }
 }
 
+/**
+ * Segundos que faltan para que empiece la siguiente ventana (las ventanas son fijas, ver
+ * consumir_limite): lo que de verdad hay que esperar tras topar el límite, no la ventana entera.
+ */
+export function segundosParaReabrir(ventanaSegundos: number, ahoraMs: number = Date.now()): number {
+  return ventanaSegundos - (Math.floor(ahoraMs / 1000) % ventanaSegundos);
+}
+
 /** Respuesta 429 estándar, con Retry-After cuando se conoce la ventana. */
 export function respuestaLimite(mensaje: string, ventanaSegundos?: number) {
   return NextResponse.json(

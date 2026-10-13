@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
+import { firmarUrls } from "@/lib/storage/urls-firmadas";
 import {
   BUCKET_FOTOS_ENTREGA,
   esEstadoAsignacion,
@@ -142,14 +143,10 @@ export async function entregasPorAsignacion(
     calidadPorEntrega.set(i.entrega_id, lista);
   }
 
-  const rutas = Array.from(new Set((data ?? []).map((e) => e.foto_path)));
-  const { data: firmadas } = rutas.length
-    ? await supabase.storage.from(BUCKET_FOTOS_ENTREGA).createSignedUrls(rutas, 3600)
-    : { data: [] };
-  const urlPorRuta = new Map(
-    (firmadas ?? [])
-      .filter((x): x is typeof x & { signedUrl: string } => !x.error && !!x.signedUrl)
-      .map((x) => [x.path, x.signedUrl])
+  const urlPorRuta = await firmarUrls(
+    supabase,
+    BUCKET_FOTOS_ENTREGA,
+    (data ?? []).map((e) => e.foto_path)
   );
 
   for (const e of data ?? []) {

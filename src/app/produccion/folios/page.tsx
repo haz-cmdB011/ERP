@@ -1,4 +1,5 @@
 import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import {
   getPerfilActual,
@@ -395,12 +396,12 @@ export default async function BuscarFolioPage({
                     <td className="hidden px-3 py-2 lg:table-cell">{estadoFolio}</td>
                     <td className="px-3 py-3 lg:py-2">
                       {pedido && !pedido.eliminado_en ? (
-                        <Link
+                        <EnlaceFila
                           href={`/produccion/pedidos/${pedido.id}`}
                           className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                         >
                           {f.numero_pedido ?? "—"}
-                        </Link>
+                        </EnlaceFila>
                       ) : (
                         <span className="font-medium text-slate-900">{f.numero_pedido ?? "—"}</span>
                       )}

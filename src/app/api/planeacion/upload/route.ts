@@ -8,9 +8,10 @@ import {
   comprimirImagenItem,
   quitarImagenesDelExcel,
 } from "@/lib/planeacion/optimizar-almacenamiento";
-import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
+import { createHash } from "node:crypto";
+import { rutaImagenGrande, rutaImagenPorContenido } from "@/lib/planeacion/imagenes";
 import { validarContenidoExcel } from "@/lib/seguridad/excel";
-import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
+import { consumirLimite, respuestaLimite, segundosParaReabrir } from "@/lib/seguridad/limite-tasa";
 import { claveDeHoja, hojasParaCargar } from "@/lib/planeacion/hojas-carga";
 import { pmsDeLasHojas } from "@/lib/planeacion/numero-pm";
 import { validarItemsParaRecibos } from "@/lib/planeacion/validar-para-recibos";
@@ -93,12 +94,60 @@ async function subirConReintentos(
     const { error } = await supabase.storage
       .from(BUCKET_IMAGENES_ITEMS)
       // upsert: un intento anterior pudo haber subido el archivo aunque
-      // respondiera con error.
-      .upload(path, cuerpo, { contentType, upsert: true });
+      // respondiera con error. El archivo nunca cambia (su nombre es su
+      // huella), así que el navegador puede guardarlo en caché un año.
+      .upload(path, cuerpo, { contentType, upsert: true, cacheControl: "31536000" });
     if (!error) return null;
     ultimoError = error;
   }
   return ultimoError;
+}
+
+// Imágenes ya resueltas en esta petición, por huella: el mismo mueble suele
+// repetirse en varias filas (y en varias hojas), y así se procesa una vez
+// aunque dos ítems la pidan al mismo tiempo.
+type ImagenesResueltas = Map<string, Promise<string | null>>;
+
+// Deja en Storage una imagen del Excel y devuelve su ruta (null si no es una
+// foto válida). Si ya estaba (otra versión u otro PM con la misma imagen), no
+// la comprime ni la sube otra vez: comprimir con sharp es lo que más CPU gasta
+// del servidor.
+async function resolverImagen(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  original: { buffer: Buffer; extension: string },
+  huella: string,
+  fila: number
+): Promise<string | null> {
+  // Casi todas quedan en WebP (ver comprimirImagenItem); si existe, ya se hizo.
+  const rutaWebp = rutaImagenPorContenido(huella, "webp");
+  const { data: yaEsta } = await supabase.storage.from(BUCKET_IMAGENES_ITEMS).exists(rutaWebp);
+  if (yaEsta) return rutaWebp;
+
+  // La miniatura (la de las tablas y el visor) se redimensiona antes de
+  // subir (ver comprimirImagenItem): el original embebido en el Excel puede
+  // pesar varios cientos de KB.
+  const imagen = await comprimirImagenItem(original.buffer, original.extension);
+  // Formato que no es una foto válida (ver comprimirImagenItem): se omite.
+  if (!imagen) return null;
+  const path = rutaImagenPorContenido(huella, imagen.extension);
+
+  // La versión grande va primero: si la miniatura existe, la grande ya se
+  // intentó (la revisión de arriba solo mira la miniatura). Es un extra: si no
+  // se pudo generar o subir, la carga sigue y se usará la miniatura.
+  const grande = await comprimirImagenGrande(original.buffer);
+  if (grande) {
+    await subirConReintentos(supabase, rutaImagenGrande(path), grande, "image/webp");
+  }
+  const error = await subirConReintentos(
+    supabase,
+    path,
+    imagen.buffer,
+    `image/${imagen.extension === "jpg" ? "jpeg" : imagen.extension}`
+  );
+  if (error) {
+    throw new Error(`No se pudo subir una imagen de la fila ${fila}: ${error.message}`);
+  }
+  return path;
 }
 
 // Las imágenes extraídas por el parser traen el buffer binario en memoria
@@ -106,44 +155,21 @@ async function subirConReintentos(
 // ingestión, que solo recibe las rutas resultantes.
 async function subirImagenesDeItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  // Carpeta del bucket donde quedan las imágenes (la carga, o la carga y la
-  // hoja cuando el archivo trae varios PM).
-  carpeta: string,
-  items: PlaneacionItemParsed[]
+  items: PlaneacionItemParsed[],
+  resueltas: ImagenesResueltas
 ): Promise<ItemParaIngesta[]> {
   return mapConLimite(items, SUBIDAS_SIMULTANEAS, async ({ imagenes, ...resto }) => {
     const imagenPaths: string[] = [];
     // Las imágenes de un mismo ítem, una tras otra.
-    for (const [indice, imagenOriginal] of imagenes.entries()) {
-      // La miniatura (la de las tablas y el visor) se redimensiona antes de
-      // subir (ver comprimirImagenItem): el
-      // original embebido en el Excel puede pesar varios cientos de KB.
-      const imagen = await comprimirImagenItem(
-        imagenOriginal.buffer,
-        imagenOriginal.extension
-      );
-      // Formato que no es una foto válida (ver comprimirImagenItem): se omite.
-      if (!imagen) continue;
-      const path = `${carpeta}/${resto.fila_excel_origen}-${indice}.${imagen.extension}`;
-      const error = await subirConReintentos(
-        supabase,
-        path,
-        imagen.buffer,
-        `image/${imagen.extension === "jpg" ? "jpeg" : imagen.extension}`
-      );
-      if (error) {
-        throw new Error(
-          `No se pudo subir una imagen de la fila ${resto.fila_excel_origen}: ${error.message}`
-        );
+    for (const imagenOriginal of imagenes) {
+      const huella = createHash("sha256").update(imagenOriginal.buffer).digest("hex");
+      let ruta = resueltas.get(huella);
+      if (!ruta) {
+        ruta = resolverImagen(supabase, imagenOriginal, huella, resto.fila_excel_origen);
+        resueltas.set(huella, ruta);
       }
-
-      // Versión grande para la vista ampliada con zoom. Es un extra: si no
-      // se pudo generar o subir, la carga sigue y se usará la miniatura.
-      const grande = await comprimirImagenGrande(imagenOriginal.buffer);
-      if (grande) {
-        await subirConReintentos(supabase, rutaImagenGrande(path), grande, "image/webp");
-      }
-      imagenPaths.push(path);
+      const path = await ruta;
+      if (path) imagenPaths.push(path);
     }
     return { ...resto, imagen_paths: imagenPaths };
   });
@@ -183,11 +209,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tu usuario no tiene permiso para cargar pedidos." }, { status: 403 });
   }
 
-  // Analizar un Excel es lo más pesado del servidor: tope por persona.
-  if (!(await consumirLimite({ clave: `upload:${user.id}`, maximo: 15, ventanaSegundos: 600 }))) {
-    return respuestaLimite("Has cargado muchos archivos en poco tiempo. Espera unos minutos e inténtalo de nuevo.", 600);
-  }
-
   // El navegador sube el Excel directo a Storage (carpeta "entrantes/") y
   // aquí solo llega su ruta: Vercel rechaza cuerpos de más de 4.5 MB, y un
   // Excel con muchas imágenes los pasa fácilmente (el navegador lo veía
@@ -204,32 +225,58 @@ export async function POST(request: Request) {
   // (true), solo las visibles (false) o aún no se le preguntó (null).
   let incluirOcultas: boolean | null = null;
 
-  if ((request.headers.get("content-type") ?? "").includes("application/json")) {
-    const body = await request.json().catch(() => null);
-    const storagePath = typeof body?.storagePath === "string" ? body.storagePath : "";
-    nombreArchivo = typeof body?.nombreArchivo === "string" ? body.nombreArchivo : "";
+  const esJson = (request.headers.get("content-type") ?? "").includes("application/json");
+  const body = esJson ? await request.json().catch(() => null) : null;
+  const rutaEnCuerpo = typeof body?.storagePath === "string" ? body.storagePath : "";
+  const nombreEnCuerpo = typeof body?.nombreArchivo === "string" ? body.nombreArchivo : "";
+  if (esJson) {
     // Solo archivos que el propio usuario subió a su carpeta de entrantes.
-    if (!storagePath.startsWith(`${user.id}/entrantes/`) || storagePath.includes("..") || !nombreArchivo) {
+    if (!rutaEnCuerpo.startsWith(`${user.id}/entrantes/`) || rutaEnCuerpo.includes("..") || !nombreEnCuerpo) {
       return NextResponse.json({ error: "Archivo no válido." }, { status: 400 });
     }
     // La persona decidió no cargar el archivo que esperaba su confirmación: se
     // quita de "entrantes/" (service role: el usuario no puede borrar en Storage).
-    if (body?.descartar === true) {
-      await createAdminClient().storage.from("cargas-excel").remove([storagePath]);
+    // No cuenta para el tope: no analiza nada.
+    if (body.descartar === true) {
+      await createAdminClient().storage.from("cargas-excel").remove([rutaEnCuerpo]);
       return NextResponse.json({ ok: true, descartado: true });
     }
-    confirmarImpacto = body?.confirmarImpacto === true;
-    if (typeof body?.incluirOcultas === "boolean") incluirOcultas = body.incluirOcultas;
+    confirmarImpacto = body.confirmarImpacto === true;
+    if (typeof body.incluirOcultas === "boolean") incluirOcultas = body.incluirOcultas;
+  }
+
+  // Analizar un Excel es lo más pesado del servidor: tope por persona. Cuenta
+  // archivos, no envíos: volver a mandar un archivo con lo que la persona
+  // decidió (hojas ocultas, trabajo en marcha) va a otro contador, más holgado,
+  // para que un archivo con preguntas no gaste el tope de varios.
+  const esConfirmacion = confirmarImpacto || incluirOcultas !== null;
+  const tope = esConfirmacion
+    ? { clave: `upload-confirmar:${user.id}`, maximo: 80, ventanaSegundos: 600 }
+    : { clave: `upload:${user.id}`, maximo: 40, ventanaSegundos: 600 };
+  if (!(await consumirLimite(tope))) {
+    // El navegador ya subió el Excel: no se queda suelto en "entrantes/" (la
+    // pantalla lo vuelve a subir al reintentar).
+    if (rutaEnCuerpo) await createAdminClient().storage.from("cargas-excel").remove([rutaEnCuerpo]);
+    const espera = segundosParaReabrir(tope.ventanaSegundos);
+    const minutos = Math.max(1, Math.ceil(espera / 60));
+    return respuestaLimite(
+      `Has cargado muchos archivos en poco tiempo. Espera ${minutos === 1 ? "1 minuto" : `${minutos} minutos`} e inténtalo de nuevo.`,
+      espera
+    );
+  }
+
+  if (esJson) {
+    nombreArchivo = nombreEnCuerpo;
     const { data: descargado, error: descargaError } = await supabase.storage
       .from("cargas-excel")
-      .download(storagePath);
+      .download(rutaEnCuerpo);
     if (descargaError || !descargado) {
       return NextResponse.json(
         { error: `No se pudo leer el archivo subido: ${descargaError?.message ?? "no encontrado"}` },
         { status: 400 }
       );
     }
-    rutaEntrante = storagePath;
+    rutaEntrante = rutaEnCuerpo;
     buffer = Buffer.from(await descargado.arrayBuffer());
     tamanoBytes = buffer.length;
   } else {
@@ -480,6 +527,8 @@ export async function POST(request: Request) {
   const pedidos: PedidoCargado[] = [];
   const avisos: FilaError[] = [];
   let errorCarga: string | null = null;
+  // Compartido entre hojas: la misma imagen en dos hojas se procesa una vez.
+  const imagenesResueltas: ImagenesResueltas = new Map();
 
   for (const hoja of hojasCargar) {
     if (!hoja.resultado.ok) continue; // ya validado arriba
@@ -504,9 +553,7 @@ export async function POST(request: Request) {
 
     let itemsParaIngesta: ItemParaIngesta[];
     try {
-      // Carpeta por hoja: los números de fila se repiten entre hojas.
-      const carpeta = varias ? `${carga.id}/hoja-${hoja.indiceHoja + 1}` : carga.id;
-      itemsParaIngesta = await subirImagenesDeItems(supabase, carpeta, items);
+      itemsParaIngesta = await subirImagenesDeItems(supabase, items, imagenesResueltas);
     } catch (err) {
       errorCarga = conHoja(hoja.nombreHoja, err instanceof Error ? err.message : "error desconocido");
       break;

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const rpc = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc }) }));
 
-import { consumirLimite, respuestaLimite } from "./limite-tasa";
+import { consumirLimite, respuestaLimite, segundosParaReabrir } from "./limite-tasa";
 
 const opciones = { clave: "registro:ip:1.2.3.4", maximo: 5, ventanaSegundos: 900 };
 
@@ -48,5 +48,16 @@ describe("respuestaLimite", () => {
 
   it("sin ventana no manda Retry-After", () => {
     expect(respuestaLimite("Espera.").headers.get("Retry-After")).toBeNull();
+  });
+});
+
+describe("segundosParaReabrir", () => {
+  it("cuenta lo que falta para la siguiente ventana fija, no la ventana entera", () => {
+    // 600 s de ventana: a los 450 s de la actual faltan 150.
+    expect(segundosParaReabrir(600, 1_200_450_000)).toBe(150);
+  });
+
+  it("justo al empezar una ventana falta la ventana completa", () => {
+    expect(segundosParaReabrir(600, 1_200_000_000)).toBe(600);
   });
 });
