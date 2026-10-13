@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import { ResumenMenuProvider } from "@/components/resumen-menu";
 import SubnavLink from "@/components/subnav-link";
 import {
   contarPendientes,
@@ -66,6 +67,7 @@ export default async function EstimacionesLayout({
       : 0;
 
   return (
+    <ResumenMenuProvider>
     <div className="min-h-screen">
       <AreaNav
         area="estimaciones"
@@ -116,5 +118,6 @@ export default async function EstimacionesLayout({
       {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
     </div>
+    </ResumenMenuProvider>
   );
 }

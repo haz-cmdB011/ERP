@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual } from "@/lib/auth/get-perfil";
-import Avatar from "./avatar";
-import { urlAvatar } from "@/lib/cuenta/avatar";
 
 // La empresa trabaja en hora del centro de México; el servidor corre en UTC.
 const ZONA = "America/Mexico_City";
@@ -22,9 +20,8 @@ export interface AccionBienvenida {
   etiqueta: string;
 }
 
-// Banda de bienvenida al inicio de cada área: el nombre de usuario de quien
-// entró y la fecha, más accesos directos.
-// La primera acción es la principal (verde); las demás, secundarias.
+// Saludo de una línea al inicio de cada área: el nombre de usuario de quien entró y la fecha.
+// Si se le pasan `acciones`, salen como enlaces discretos a la derecha.
 export default async function Bienvenida({ acciones = [] }: { acciones?: AccionBienvenida[] }) {
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
@@ -43,49 +40,26 @@ export default async function Bienvenida({ acciones = [] }: { acciones?: AccionB
     const propio = perfil.rol === "maquilador" ? perfil.contratista : null;
     nombre = data?.nombre_completo?.trim() || propio?.trim() || data?.email?.split("@")[0] || null;
   }
-  const avatarUrl = perfil ? await urlAvatar(perfil.userId, perfil.avatarPath) : null;
   const ahora = new Date();
 
   return (
     <section
       aria-label="Bienvenida"
-      className="border-b border-slate-200 pb-5"
+      className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1"
     >
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <Avatar
-            url={avatarUrl}
-            inicial={(nombre?.[0] ?? "?").toUpperCase()}
-            tamano="h-14 w-14 sm:h-16 sm:w-16"
-            textoClase="text-2xl"
-          />
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-              {fechaLarga(ahora)}
-            </p>
-            <h2 className="mt-1.5 text-2xl font-light tracking-tight text-slate-900 sm:text-3xl">
-              <span className="font-semibold">{nombre ?? "Bienvenido"}</span>
-            </h2>
-          </div>
+      <p className="min-w-0 text-lg text-slate-500">
+        Hola, <span className="font-semibold text-slate-900">{nombre ?? "bienvenido"}</span>
+        <span className="text-sm"> · {fechaLarga(ahora)}</span>
+      </p>
+      {acciones.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {acciones.map((a) => (
+            <Link key={a.href} href={a.href} className="font-medium text-brand-700 hover:underline">
+              {a.etiqueta}
+            </Link>
+          ))}
         </div>
-        {acciones.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {acciones.map((a, i) => (
-              <Link
-                key={a.href}
-                href={a.href}
-                className={
-                  i === 0
-                    ? "inline-flex min-h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-400"
-                    : "inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                }
-              >
-                {a.etiqueta}
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </section>
   );
 }

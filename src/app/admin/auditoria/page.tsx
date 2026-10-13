@@ -252,12 +252,6 @@ export default async function AuditoriaPage({
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Auditoría</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Bitácora de quién hizo qué y cuándo: cancelaciones y reversiones, papelera y
-          restauraciones, eliminaciones definitivas, envíos a producción, cambios de estado de
-          revisión, asignaciones y entregas de los equipos, y cada folio de Calidad. Se registra
-          automáticamente y no se puede editar ni borrar.
-        </p>
       </div>
 
       <form action="/admin/auditoria" className="flex gap-2">

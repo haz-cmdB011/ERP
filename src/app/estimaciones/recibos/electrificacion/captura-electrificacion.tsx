@@ -637,11 +637,9 @@ export default function CapturaElectrificacion({
               ? `Modificar recibo ${reciboExistente.folio}`
               : "Recibo de Electrificación"}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {reciboExistente
-              ? "Corrige lo que capturaste. Al guardar se reemplazan los renglones de este recibo."
-              : "Modelo + cantidad + metros de LED y kit de charolas por pieza; el motor sugiere el precio por pieza."}
-          </p>
+          {reciboExistente && (
+            <p className="mt-1 text-sm text-slate-500">Al guardar se reemplazan los renglones de este recibo.</p>
+          )}
         </div>
         {puedeVerSugerido && (
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">

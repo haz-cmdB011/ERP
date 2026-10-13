@@ -8,7 +8,8 @@ import {
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 import Bienvenida from "@/components/bienvenida";
-import ResumenInicio, { type TarjetaResumen } from "@/components/resumen-inicio";
+import { type TarjetaResumen } from "@/components/resumen-inicio";
+import { ResumenEnMenu } from "@/components/resumen-menu";
 import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
@@ -66,7 +67,6 @@ export default async function ProduccionListPage({
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
   const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porLiberar > 0).length;
   const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
-  const totalOts = filas.filter((f) => f.ot).length;
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
   const tarjetas: TarjetaResumen[] = [
@@ -106,28 +106,14 @@ export default async function ProduccionListPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida
-        acciones={[
-          { href: "/produccion/escanear", etiqueta: "Escanear QR" },
-          { href: "/produccion/tablero", etiqueta: "Tablero del taller" },
-          { href: "/produccion/folios", etiqueta: "Folios de producción" },
-        ]}
-      />
-      <ResumenInicio tarjetas={tarjetas} />
+      <Bienvenida />
+      <ResumenEnMenu tarjetas={tarjetas} />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Producción
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Entra a una O.T. para liberar ítems, generar viajeros y asignar a equipos.
-          </p>
         </div>
-        {pedidos && pedidos.length > 0 && (
-          <span className="whitespace-nowrap rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {totalOts} O.T.
-          </span>
-        )}
       </div>
 
       <BuscadorOt
@@ -200,7 +186,6 @@ export default async function ProduccionListPage({
               filas={filas}
               hrefOt={(ot) => `/produccion/ot/${encodeURIComponent(ot)}`}
               hrefPedido={(id) => `/produccion/pedidos/${id}`}
-              sinPmNiEntrega
               columnaEstado={{
                 titulo: "Liberación",
                 celda: (fila) => <EstadoLiberacion cancelado={false} avance={avanceDe(fila)} />,

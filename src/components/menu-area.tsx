@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { ResumenDelMenu, useHayPendientesEnMenu } from "./resumen-menu";
 
 // Avisa a los enlaces del menú (SubnavLink) que cierren el cajón al elegir.
 const CerrarMenu = createContext<() => void>(() => {});
@@ -17,6 +18,7 @@ export default function MenuArea({
   children: React.ReactNode;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const hayPendientes = useHayPendientesEnMenu();
   const boton = useRef<HTMLButtonElement>(null);
   const cajon = useRef<HTMLElement>(null);
 
@@ -53,11 +55,11 @@ export default function MenuArea({
         ref={boton}
         type="button"
         onClick={() => setAbierto(true)}
-        aria-label={`Menú de ${titulo}`}
-        title={`Menú de ${titulo}`}
+        aria-label={`Menú de ${titulo}${hayPendientes ? ", hay pendientes" : ""}`}
+        title={`Menú de ${titulo}${hayPendientes ? " · hay pendientes" : ""}`}
         aria-haspopup="dialog"
         aria-expanded={abierto}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 sm:h-10 sm:w-10"
+        className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 sm:h-10 sm:w-10"
       >
         <svg
           viewBox="0 0 24 24"
@@ -70,6 +72,9 @@ export default function MenuArea({
         >
           <path d="M4 6h16M4 12h16M4 18h16" />
         </svg>
+        {hayPendientes && (
+          <span aria-hidden="true" className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-nav bg-amber-500" />
+        )}
       </button>
 
       {abierto && (
@@ -103,7 +108,10 @@ export default function MenuArea({
               </button>
             </div>
             <CerrarMenu.Provider value={cerrar}>
-              <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">{children}</div>
+              <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
+                {children}
+                <ResumenDelMenu alElegir={cerrar} />
+              </div>
             </CerrarMenu.Provider>
           </nav>
         </div>

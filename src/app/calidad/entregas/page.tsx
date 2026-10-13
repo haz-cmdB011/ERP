@@ -36,10 +36,6 @@ export default async function LotesPorEvaluarPage() {
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Lotes por evaluar</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Entregas de los equipos que Producción ya revisó. Indica cuántas piezas apruebas y cuántas rechazas; lo
-            rechazado regresa a Producción como retrabajo. Los más antiguos van primero.
-          </p>
         </div>
         {lista.length > 0 && (
           <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">

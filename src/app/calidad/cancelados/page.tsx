@@ -201,10 +201,6 @@ export default async function CanceladosCalidadPage() {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6">
       <h1 className="border-b border-slate-200 pb-4 text-2xl font-semibold tracking-tight text-slate-900">Cancelados</h1>
-      <p className="text-sm text-slate-500">
-        Solo se listan ítems que ya habían sido enviados a producción (los únicos relevantes para
-        Calidad).
-      </p>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-sm font-medium text-slate-600">

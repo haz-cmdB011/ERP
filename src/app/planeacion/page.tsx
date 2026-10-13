@@ -12,8 +12,7 @@ import {
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
-import PendientesCuenta from "@/components/pendientes-cuenta";
-import ResumenInicio from "@/components/resumen-inicio";
+import { ResumenEnMenu } from "@/components/resumen-menu";
 import EstadoVacio from "@/components/estado-vacio";
 import { formatoFechaHora } from "@/lib/resumen/entrega";
 import FiltroRecordado from "@/components/filtro-recordado";
@@ -95,7 +94,6 @@ export default async function PlaneacionListPage({
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
   const filas = filtradas.filas;
-  const totalOts = filas.filter((f) => f.ot).length;
 
   // Números de las tarjetas: sobre todas las O.T. vigentes, sin filtros.
   const todas = agruparPorOrdenTrabajo(pedidos ?? []);
@@ -104,9 +102,8 @@ export default async function PlaneacionListPage({
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida />
-      <PendientesCuenta />
       {pedidos && pedidos.length > 0 && (
-        <ResumenInicio
+        <ResumenEnMenu
           tarjetas={[
             { valor: todas.length, etiqueta: "O.T. vigentes", detalle: `${pedidos.length} PM en total`, href: "/planeacion" },
           ]}
@@ -117,22 +114,6 @@ export default async function PlaneacionListPage({
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Planeación
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Entra a una O.T. para ver sus PM y buscar modelos.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {pedidos && pedidos.length > 0 && (
-            <span className="whitespace-nowrap rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {totalOts} O.T.
-            </span>
-          )}
-          <Link
-            href="/planeacion/upload"
-            className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
-          >
-            Cargar Excel
-          </Link>
         </div>
       </div>
 
@@ -207,7 +188,6 @@ export default async function PlaneacionListPage({
       {filas.length > 0 && (
         <TablaOrdenesTrabajo
           filas={filas}
-          sinPmNiEntrega
           hrefOt={(ot) => `/planeacion/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/planeacion/pedidos/${id}`}
           columnaEstado={{

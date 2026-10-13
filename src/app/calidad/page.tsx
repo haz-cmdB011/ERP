@@ -7,7 +7,7 @@ import {
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
-import ResumenInicio from "@/components/resumen-inicio";
+import { ResumenEnMenu } from "@/components/resumen-menu";
 import { cargarResumenCalidad } from "@/lib/calidad/resumen-db";
 import { detallePorEvaluar, type ResumenCalidad } from "@/lib/calidad/resumen";
 import type { AvancePedido } from "@/lib/resumen/avance-items";
@@ -87,18 +87,17 @@ export default async function CalidadListPage({
       !filtroEstado ||
       (filtroEstado === "por-evaluar" ? avanceDe(fila).porEvaluar > 0 : reinspeccionDe(fila) > 0)
   );
-  const totalOts = filas.filter((f) => f.ot).length;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida acciones={[{ href: "/calidad/folios", etiqueta: "Folios de calidad" }]} />
+      <Bienvenida />
       {sinResumen ? (
         <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           No se pudieron calcular los números del panel. Recarga la página para reintentar; la lista de
           abajo sí está completa.
         </p>
       ) : (
-        <ResumenInicio
+        <ResumenEnMenu
           tarjetas={[
             ...(detenidos
               ? [
@@ -150,16 +149,7 @@ export default async function CalidadListPage({
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Pedidos — Calidad
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Órdenes de trabajo con sus PM. Entra a una O.T. para ver sus PM y evaluar los ítems
-            enviados a producción.
-          </p>
         </div>
-        {pedidos.length > 0 && (
-          <span className="whitespace-nowrap rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {totalOts} O.T.
-          </span>
-        )}
       </div>
 
       <form action="/calidad" className="flex gap-2">
@@ -229,7 +219,6 @@ export default async function CalidadListPage({
           filas={filas}
           hrefOt={(ot) => `/calidad/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/calidad/pedidos/${id}`}
-          sinPmNiEntrega
           columnaEstado={{
             titulo: "Evaluación",
             celda: (fila) => (

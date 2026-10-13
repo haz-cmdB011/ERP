@@ -2,12 +2,9 @@ import Link from "next/link";
 import FiltroCliente from "@/components/filtro-cliente";
 import {
   hrefListaPedidos,
-  ultimaEntrega,
   type FilaOrdenTrabajo,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
-import ChipEntrega from "@/components/chip-entrega";
-import { estadoEntrega, formatoFechaDMA } from "@/lib/resumen/entrega";
 
 // Chips de año + filtro de cliente de la lista de Pedidos por O.T. Conservan la
 // búsqueda y, si la lista la tiene, la entrega elegida.
@@ -66,9 +63,6 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   hrefPedido,
   accion,
   columnaEstado,
-  hoy,
-  chipEntrega,
-  sinPmNiEntrega = false,
 }: {
   filas: FilaOrdenTrabajo<P>[];
   hrefOt: (ot: string) => string;
@@ -77,14 +71,6 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   // Columna extra con el estado de cada O.T. (liberación en Producción,
   // evaluación en Calidad).
   columnaEstado?: { titulo: string; celda: (fila: FilaOrdenTrabajo<P>) => React.ReactNode };
-  // Fecha de hoy (YYYY-MM-DD): si se da, la entrega lleva una etiqueta de estado.
-  hoy?: string;
-  // Etiqueta propia junto a la fecha de entrega (en vez de la de `hoy`): para
-  // áreas que saben si todavía queda trabajo pendiente, como Producción.
-  chipEntrega?: (fila: FilaOrdenTrabajo<P>) => React.ReactNode;
-  // Oculta las columnas PM y Entrega (Planeación solo muestra O.T., proyecto,
-  // cliente y avance).
-  sinPmNiEntrega?: boolean;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -93,9 +79,6 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
           <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <th className="px-4 py-3">O.T.</th>
             <th className="px-4 py-3">Proyecto</th>
-            <th className="px-4 py-3">Cliente</th>
-            {!sinPmNiEntrega && <th className="px-4 py-3">PM</th>}
-            {!sinPmNiEntrega && <th className="px-4 py-3">Entrega</th>}
             {columnaEstado && <th className="px-4 py-3">{columnaEstado.titulo}</th>}
             {accion && <th className="px-4 py-3"></th>}
           </tr>
@@ -123,27 +106,12 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                     </span>
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-700">{primero.proyectos?.nombre ?? "—"}</td>
-                <td className="px-4 py-3 text-slate-700">{primero.proyectos?.cliente ?? "—"}</td>
-                {!sinPmNiEntrega && (
                 <td className="px-4 py-3">
-                  {fila.ot ? (
-                    <span className="whitespace-nowrap rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                      {fila.pedidos.length} PM
-                    </span>
-                  ) : (
-                    <span className="text-xs text-slate-500">Sin O.T.</span>
+                  <p className="text-slate-900">{primero.proyectos?.nombre ?? "—"}</p>
+                  {primero.proyectos?.cliente && (
+                    <p className="text-xs text-slate-500">{primero.proyectos.cliente}</p>
                   )}
                 </td>
-                )}
-                {!sinPmNiEntrega && (
-                <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                  <span className="mr-2">{formatoFechaDMA(ultimaEntrega(fila.pedidos))}</span>
-                  {chipEntrega
-                    ? chipEntrega(fila)
-                    : hoy && <ChipEntrega estado={estadoEntrega(ultimaEntrega(fila.pedidos), hoy)} />}
-                </td>
-                )}
                 {columnaEstado && <td className="px-4 py-3">{columnaEstado.celda(fila)}</td>}
                 {accion && <td className="px-4 py-3">{accion(fila)}</td>}
               </tr>

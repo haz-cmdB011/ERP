@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import { ResumenMenuProvider } from "@/components/resumen-menu";
 import SubnavLink from "@/components/subnav-link";
 import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
@@ -40,6 +41,7 @@ export default async function ProduccionLayout({
   const porRevisar = puedeVerPrecioSugerido(perfil) ? await contarPorRevisar(supabase).catch(() => 0) : 0;
 
   return (
+    <ResumenMenuProvider>
     <div className="min-h-screen">
       <AreaNav
         area="produccion"
@@ -58,6 +60,9 @@ export default async function ProduccionLayout({
         <SubnavLink href="/produccion/asignaciones" icono="asignaciones">
           Asignaciones
         </SubnavLink>
+        <SubnavLink href="/produccion/equipos" icono="equipos">
+          Equipos
+        </SubnavLink>
         <SubnavLink href="/produccion/rechazos" icono="retrabajo">
           Rechazado por Calidad
         </SubnavLink>
@@ -74,5 +79,6 @@ export default async function ProduccionLayout({
       {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
     </div>
+    </ResumenMenuProvider>
   );
 }
