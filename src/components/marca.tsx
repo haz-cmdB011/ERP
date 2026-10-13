@@ -28,23 +28,14 @@ export default function Marca({
   sobreOscuro?: boolean;
   className?: string;
 }) {
-  const img = (variante: string, extra = "") => (
+  return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`/branding/mobiliarium-logo-ui${variante}.svg`}
+      src={`/branding/mobiliarium-logo-ui${sobreOscuro ? "-claro" : ""}.svg`}
       alt="Mobiliarium — creating lifestyle"
       width={239}
       height={47}
-      className={`w-auto ${className} ${extra}`}
+      className={`w-auto ${className}`}
     />
-  );
-  // Sobre la barra se pintan las dos versiones y el CSS elige la que contrasta
-  // con el color de la barra (ver .logo-sobre-nav-* en globals.css).
-  if (!sobreOscuro) return img("");
-  return (
-    <>
-      {img("", "logo-sobre-nav-claro")}
-      {img("-claro", "logo-sobre-nav-oscuro")}
-    </>
   );
 }

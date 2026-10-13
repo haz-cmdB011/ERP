@@ -23,6 +23,12 @@
   --vidrio-marca-950: color-mix(in oklab, var(--marca) 15%, #000);
   --vidrio-sobre-marca: var(--sobre-marca);
 
+  /* Barra superior sólida, teñida con el acento. */
+  --vidrio-nav: color-mix(in oklab, var(--marca) 14%, #0a0d0b);
+  --vidrio-nav-hover: color-mix(in oklab, var(--marca) 20%, #151a17);
+  --vidrio-nav-linea: color-mix(in oklab, var(--marca) 22%, #1b201d);
+  --vidrio-sobre-nav: #eef3f0;
+  --vidrio-sobre-nav-suave: #b3c0bb;
 }
 
 /* Fichas que se exportan a PDF o se imprimen: marca original. */
