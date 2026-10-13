@@ -5,9 +5,15 @@ import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import { leer } from "@/lib/supabase/leer";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import {
+  basePmDesdeJson,
+  diferenciasConPm,
+  lineasConComponenteCaido,
   lineasDesdeJson,
   sugerirDespiece,
+  trasladarLineas,
   type HijoDespiece,
+  type LineaDespiece,
+  type VersionHistorial,
 } from "@/lib/produccion/despiece";
 import DespieceEditor from "./despiece-editor";
 
@@ -41,6 +47,21 @@ interface DespieceGuardado {
   lineas: unknown;
   igual_a_sugerencia: boolean;
   actualizado_en: string;
+  version: number;
+  base_pm: unknown;
+}
+
+interface FilaHistorial {
+  version: number;
+  lineas: unknown;
+  igual_a_sugerencia: boolean;
+  guardado_en: string;
+}
+
+interface DespiecePrevio {
+  lineas: unknown;
+  actualizado_en: string;
+  planeacion_items: { id: string };
 }
 
 // Despiece de un mueble (ítem padre). Antes de que el trabajador lo haga, el
@@ -90,7 +111,7 @@ export default async function DespiecePage({
     leer(
       supabase
         .from("despieces_produccion")
-        .select("lineas, igual_a_sugerencia, actualizado_en")
+        .select("lineas, igual_a_sugerencia, actualizado_en, version, base_pm")
         .eq("planeacion_item_id", item.id)
         .maybeSingle<DespieceGuardado>(),
       "despieces_produccion"
@@ -98,6 +119,67 @@ export default async function DespiecePage({
   ]);
 
   const sugerencia = sugerirDespiece(item, hijos ?? []);
+  const lineasGuardadas = guardado ? lineasDesdeJson(guardado.lineas) : [];
+
+  // Historial del despiece (las últimas versiones guardadas).
+  let historial: VersionHistorial[] = [];
+  if (guardado) {
+    const filas = await leer(
+      supabase
+        .from("despieces_produccion_historial")
+        .select("version, lineas, igual_a_sugerencia, guardado_en, despieces_produccion!inner ( planeacion_item_id )")
+        .eq("despieces_produccion.planeacion_item_id", item.id)
+        .order("version", { ascending: false })
+        .limit(15)
+        .returns<FilaHistorial[]>(),
+      "despieces_produccion_historial"
+    );
+    historial = (filas ?? []).map((f) => ({
+      version: f.version,
+      guardadoEn: f.guardado_en,
+      igualASugerencia: f.igual_a_sugerencia,
+      lineas: lineasDesdeJson(f.lineas),
+    }));
+  }
+
+  // Sin despiece en esta versión del PM: ¿hay uno de una versión anterior? Se ofrece
+  // como punto de partida, con sus componentes vueltos a ligar por número de ítem.
+  let deVersionAnterior: { lineas: LineaDespiece[]; guardadoEn: string } | null = null;
+  if (!guardado) {
+    const previos = await leer(
+      supabase
+        .from("despieces_produccion")
+        .select(
+          "lineas, actualizado_en, planeacion_items!inner ( id, item_code, pedido_versiones!inner ( pedido_id, es_version_activa ) )"
+        )
+        .eq("planeacion_items.item_code", item.item_code)
+        .eq("planeacion_items.pedido_versiones.pedido_id", id)
+        .eq("planeacion_items.pedido_versiones.es_version_activa", false)
+        .order("actualizado_en", { ascending: false })
+        .limit(1)
+        .returns<DespiecePrevio[]>(),
+      "despieces_produccion"
+    );
+    const previo = previos?.[0];
+    if (previo) {
+      const hijosAnteriores = await leer(
+        supabase
+          .from("planeacion_items")
+          .select("id, item_code")
+          .eq("parent_item_id", previo.planeacion_items.id)
+          .returns<{ id: string; item_code: number }[]>(),
+        "planeacion_items"
+      );
+      deVersionAnterior = {
+        lineas: trasladarLineas(lineasDesdeJson(previo.lineas), hijosAnteriores ?? [], hijos ?? []),
+        guardadoEn: previo.actualizado_en,
+      };
+    }
+  }
+
+  // Cambios del PM después de guardar el despiece.
+  const cambiosPm = guardado ? diferenciasConPm(basePmDesdeJson(guardado.base_pm), item, hijos ?? []) : [];
+  const lineasCaidas = guardado ? lineasConComponenteCaido(lineasGuardadas, hijos ?? []) : [];
 
   // Por qué solo se puede ver (la base lo exige igual): sin permiso de edición
   // no hay motivo que mostrar.
@@ -128,14 +210,21 @@ export default async function DespiecePage({
       </header>
 
       <DespieceEditor
+        // Al cambiar la versión guardada (otra persona, o tras guardar) se arma de nuevo.
+        key={guardado?.version ?? 0}
         itemId={item.id}
+        version={guardado?.version ?? 0}
+        historial={historial}
+        deVersionAnterior={deVersionAnterior}
+        cambiosPm={cambiosPm}
+        lineasCaidas={lineasCaidas}
         muebles={Number(item.cantidad_total) || 0}
         unidadMueble={item.unidad}
         sugerencia={sugerencia}
         guardado={
           guardado
             ? {
-                lineas: lineasDesdeJson(guardado.lineas),
+                lineas: lineasGuardadas,
                 igualASugerencia: guardado.igual_a_sugerencia,
                 actualizadoEn: guardado.actualizado_en,
               }

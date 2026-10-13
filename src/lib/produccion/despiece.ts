@@ -50,6 +50,8 @@ export interface SugerenciaDespiece {
   avisosPorLinea: (string | null)[];
   // Avisos del mueble completo.
   avisos: string[];
+  // true si había más componentes de los que caben y la sugerencia quedó incompleta.
+  cortada: boolean;
 }
 
 // Mismos límites que valida la base (guardar_despiece_produccion).
@@ -105,9 +107,75 @@ export function etiquetaMaterial(crudo: string | null | undefined): string | nul
   return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
 }
 
+function materialEscrito(crudo: string | null | undefined): string | null {
+  const texto = (crudo ?? "").replace(/\s+/g, " ").trim();
+  if (!texto) return null;
+  return MATERIALES[sinAcentos(texto).toUpperCase()] ?? texto;
+}
+
+// Formas en que se suele escribir cada unidad, para que "pza", "Pzas." y "pieza"
+// cuenten como lo mismo (el campo sigue siendo libre).
+const SINONIMOS_UNIDAD: Record<string, string> = {
+  PZA: "PZA",
+  PZAS: "PZA",
+  PZ: "PZA",
+  PZS: "PZA",
+  PIEZA: "PZA",
+  PIEZAS: "PZA",
+  JGO: "JUEGO",
+  JGOS: "JUEGO",
+  JUEGO: "JUEGO",
+  JUEGOS: "JUEGO",
+  MT: "M",
+  MTS: "M",
+  MTO: "M",
+  METRO: "M",
+  METROS: "M",
+  ML: "ML",
+  M2: "M2",
+  "M²": "M2",
+  MT2: "M2",
+  MTS2: "M2",
+  KG: "KG",
+  KGS: "KG",
+  KILO: "KG",
+  KILOS: "KG",
+  LT: "LT",
+  LTS: "LT",
+  LITRO: "LT",
+  LITROS: "LT",
+  LOTE: "LOTE",
+  ROLLO: "ROLLO",
+  HOJA: "HOJA",
+  HOJAS: "HOJA",
+};
+
+export const UNIDADES_SUGERIDAS = [...new Set(Object.values(SINONIMOS_UNIDAD))];
+
+// Unidad en mayúsculas y con su forma habitual ("pzas." -> "PZA"); lo que no
+// conoce lo deja en mayúsculas, como la base.
+export function etiquetaUnidad(crudo: string | null | undefined): string | null {
+  const texto = (crudo ?? "").replace(/\s+/g, " ").trim();
+  if (!texto) return null;
+  const clave = sinAcentos(texto).toUpperCase().replace(/\./g, "");
+  return (SINONIMOS_UNIDAD[clave] ?? texto.toUpperCase()).slice(0, MAX_UNIDAD);
+}
+
 // Piezas de una línea para todos los muebles del padre.
 export function totalLinea(piezasPorMueble: number, muebles: number): number {
   return redondear(piezasPorMueble * muebles);
+}
+
+// Componentes que cuentan (sin los cancelados ni los enviados a la papelera),
+// en el orden del Excel.
+export function hijosVigentes<T extends HijoDespiece>(hijos: T[]): T[] {
+  return hijos
+    .filter((h) => !h.eliminacion_solicitada_en && h.estado_revision !== "cancelado")
+    .sort(
+      (a, b) =>
+        Number(a.item_code) - Number(b.item_code) ||
+        (a.fila_excel_origen ?? 0) - (b.fila_excel_origen ?? 0)
+    );
 }
 
 // Arma la sugerencia con los componentes (hijos) del mueble. Una línea por
@@ -120,13 +188,7 @@ export function sugerirDespiece(padre: PadreDespiece, hijos: HijoDespiece[]): Su
     avisos.push("El PM no trae la cantidad de este mueble (o es 0): los totales saldrán en 0.");
   }
 
-  const vigentes = hijos
-    .filter((h) => !h.eliminacion_solicitada_en && h.estado_revision !== "cancelado")
-    .sort(
-      (a, b) =>
-        Number(a.item_code) - Number(b.item_code) ||
-        (a.fila_excel_origen ?? 0) - (b.fila_excel_origen ?? 0)
-    );
+  const vigentes = hijosVigentes(hijos);
 
   const lineas: LineaDespiece[] = [];
   const avisosPorLinea: (string | null)[] = [];
@@ -148,8 +210,9 @@ export function sugerirDespiece(padre: PadreDespiece, hijos: HijoDespiece[]): Su
       notas.push("El Excel no trae la cantidad por mueble; se calculó con el total.");
     }
     if (!(piezas > 0)) {
-      piezas = 1;
-      notas.push("El Excel no trae la cantidad; se puso 1, revísala.");
+      // No se inventa una cantidad: queda en blanco y hay que escribirla.
+      piezas = 0;
+      notas.push("El Excel no trae la cantidad; escríbela.");
     } else if (porMueble > 0 && total > 0 && muebles > 0 && Math.abs(total - piezas * muebles) >= 0.01) {
       notas.push(
         `En el Excel suma ${total} en total, pero ${piezas} por mueble × ${muebles} = ${redondear(piezas * muebles)}.`
@@ -157,7 +220,7 @@ export function sugerirDespiece(padre: PadreDespiece, hijos: HijoDespiece[]): Su
     }
     if (!descripcion) notas.push("Sin descripción en el Excel.");
 
-    const clave = `${sinAcentos(descripcion).toLowerCase()}|${sinAcentos(h.modelo ?? "").toLowerCase()}|${(h.unidad ?? "").toLowerCase()}`;
+    const clave = `${sinAcentos(descripcion).toLowerCase()}|${sinAcentos(h.modelo ?? "").toLowerCase()}|${etiquetaUnidad(h.unidad) ?? ""}`;
     if (descripcion) {
       const anterior = primeroConDescripcion.get(clave);
       if (anterior !== undefined) notas.push(`Se repite: es igual al componente ${anterior}.`);
@@ -167,14 +230,15 @@ export function sugerirDespiece(padre: PadreDespiece, hijos: HijoDespiece[]): Su
     lineas.push({
       descripcion: descripcion || `Componente ${h.item_code}`,
       material: etiquetaMaterial(h.tipo_material),
-      unidad: (h.unidad ?? "").trim().slice(0, MAX_UNIDAD) || null,
+      unidad: etiquetaUnidad(h.unidad),
       piezas_por_mueble: piezas,
       hijo_id: h.id,
     });
     avisosPorLinea.push(notas.length > 0 ? notas.join(" ") : null);
   }
 
-  if (lineas.length > MAX_LINEAS) {
+  const cortada = lineas.length > MAX_LINEAS;
+  if (cortada) {
     avisos.push(`El mueble tiene más de ${MAX_LINEAS} componentes; la sugerencia se cortó en ${MAX_LINEAS}.`);
     lineas.length = MAX_LINEAS;
     avisosPorLinea.length = MAX_LINEAS;
@@ -185,14 +249,14 @@ export function sugerirDespiece(padre: PadreDespiece, hijos: HijoDespiece[]): Su
     lineas.push({
       descripcion: primeraLinea(padre.descripcion) || (padre.modelo ?? "").trim() || `Ítem ${padre.item_code}`,
       material: etiquetaMaterial(padre.tipo_material),
-      unidad: (padre.unidad ?? "").trim().slice(0, MAX_UNIDAD) || null,
+      unidad: etiquetaUnidad(padre.unidad),
       piezas_por_mueble: 1,
       hijo_id: null,
     });
     avisosPorLinea.push(null);
   }
 
-  return { lineas, avisosPorLinea, avisos };
+  return { lineas, avisosPorLinea, avisos, cortada };
 }
 
 // Pasa el despiece como lo guarda la base: textos sin espacios de más y
@@ -200,8 +264,9 @@ export function sugerirDespiece(padre: PadreDespiece, hijos: HijoDespiece[]): Su
 export function limpiarLineas(lineas: LineaDespiece[]): LineaDespiece[] {
   return lineas.map((l) => ({
     descripcion: l.descripcion.replace(/\s+/g, " ").trim(),
-    material: l.material?.replace(/\s+/g, " ").trim() || null,
-    unidad: l.unidad?.replace(/\s+/g, " ").trim() || null,
+    // Lo que escribe la persona se respeta; solo los materiales conocidos se unifican.
+    material: materialEscrito(l.material),
+    unidad: etiquetaUnidad(l.unidad),
     piezas_por_mueble: redondear(Number(l.piezas_por_mueble)),
     hijo_id: l.hijo_id,
   }));
@@ -212,6 +277,7 @@ export function limpiarLineas(lineas: LineaDespiece[]): LineaDespiece[] {
 export function validarLineas(lineas: LineaDespiece[]): string | null {
   if (lineas.length === 0) return "El despiece necesita al menos una línea.";
   if (lineas.length > MAX_LINEAS) return `El despiece no puede pasar de ${MAX_LINEAS} líneas.`;
+  const hijosVistos = new Set<string>();
   for (const [i, l] of limpiarLineas(lineas).entries()) {
     const n = i + 1;
     if (!l.descripcion) return `Línea ${n}: escribe la descripción.`;
@@ -222,6 +288,10 @@ export function validarLineas(lineas: LineaDespiece[]): string | null {
       return `Línea ${n}: la cantidad por mueble debe ser mayor que cero.`;
     }
     if (l.piezas_por_mueble > MAX_PIEZAS) return `Línea ${n}: la cantidad por mueble es demasiado grande.`;
+    if (l.hijo_id) {
+      if (hijosVistos.has(l.hijo_id)) return `Línea ${n}: ese componente del PM ya está en otra línea.`;
+      hijosVistos.add(l.hijo_id);
+    }
   }
   return null;
 }
@@ -267,4 +337,128 @@ export function lineasDesdeJson(valor: unknown): LineaDespiece[] {
     });
   }
   return lineas;
+}
+
+// --- Cambios del PM después de guardar ---------------------------------------
+//
+// Al guardar, la base toma una foto del PM (`base_pm` en despieces_produccion):
+// la cantidad del mueble y sus componentes vigentes. Al abrir el despiece se
+// compara con el PM de hoy para avisar si Planeación cambió algo.
+
+export interface BasePm {
+  muebles: number;
+  hijos: {
+    id: string;
+    item_code: number;
+    descripcion: string;
+    cantidad_x_mueble: number | null;
+    cantidad_total: number;
+  }[];
+}
+
+export function basePmDesdeJson(valor: unknown): BasePm | null {
+  if (!valor || typeof valor !== "object") return null;
+  const v = valor as Record<string, unknown>;
+  if (!Array.isArray(v.hijos)) return null;
+  const hijos: BasePm["hijos"] = [];
+  for (const crudo of v.hijos) {
+    if (!crudo || typeof crudo !== "object") continue;
+    const h = crudo as Record<string, unknown>;
+    if (typeof h.id !== "string") continue;
+    hijos.push({
+      id: h.id,
+      item_code: Number(h.item_code) || 0,
+      descripcion: typeof h.descripcion === "string" ? h.descripcion : "",
+      cantidad_x_mueble: h.cantidad_x_mueble == null ? null : Number(h.cantidad_x_mueble) || 0,
+      cantidad_total: Number(h.cantidad_total) || 0,
+    });
+  }
+  return { muebles: Number(v.muebles) || 0, hijos };
+}
+
+function nombreHijo(h: { item_code: number; descripcion: string | null }): string {
+  const d = primeraLinea(h.descripcion).slice(0, 60);
+  return `${h.item_code}${d ? ` (${d})` : ""}`;
+}
+
+// Qué cambió en el PM desde que se guardó el despiece. Vacío si nada, o si el
+// despiece es anterior a esta función y no tiene foto del PM.
+export function diferenciasConPm(base: BasePm | null, padre: PadreDespiece, hijos: HijoDespiece[]): string[] {
+  if (!base) return [];
+  const difs: string[] = [];
+  const muebles = Number(padre.cantidad_total) || 0;
+  if (Math.abs(muebles - base.muebles) >= 0.005) {
+    difs.push(`La cantidad del mueble pasó de ${base.muebles} a ${muebles} en el PM.`);
+  }
+  const antes = new Map(base.hijos.map((h) => [h.id, h]));
+  const ahora = new Map(hijosVigentes(hijos).map((h) => [h.id, h]));
+  for (const [id, h] of ahora) {
+    const previo = antes.get(id);
+    if (!previo) {
+      difs.push(`Componente nuevo en el PM: ${nombreHijo(h)}.`);
+      continue;
+    }
+    const x = h.cantidad_x_mueble == null ? null : Number(h.cantidad_x_mueble);
+    if (
+      (x ?? 0) !== (previo.cantidad_x_mueble ?? 0) ||
+      Math.abs((Number(h.cantidad_total) || 0) - previo.cantidad_total) >= 0.005
+    ) {
+      difs.push(`Cambió la cantidad del componente ${nombreHijo(h)}.`);
+    }
+  }
+  for (const [id, h] of antes) {
+    if (!ahora.has(id)) difs.push(`El componente ${nombreHijo(h)} ya no está vigente en el PM.`);
+  }
+  return difs;
+}
+
+// Líneas ligadas a componentes que ya no están vigentes en el PM.
+export function lineasConComponenteCaido(lineas: LineaDespiece[], hijos: HijoDespiece[]): number[] {
+  const vigentes = new Set(hijosVigentes(hijos).map((h) => h.id));
+  const caidas: number[] = [];
+  lineas.forEach((l, i) => {
+    if (l.hijo_id && !vigentes.has(l.hijo_id)) caidas.push(i);
+  });
+  return caidas;
+}
+
+// --- Despiece de una versión anterior del PM ----------------------------------
+//
+// Cuando Planeación sube una versión nueva del PM, los ítems son otros y el
+// despiece de la versión anterior no se ve. Se ofrece como punto de partida
+// (nunca se guarda solo): cada línea se vuelve a ligar al componente que tenga
+// el mismo número de ítem; si no hay uno único, queda sin ligar.
+export function trasladarLineas(
+  lineas: LineaDespiece[],
+  hijosAnteriores: { id: string; item_code: number }[],
+  hijosNuevos: { id: string; item_code: number }[]
+): LineaDespiece[] {
+  const codigoAnterior = new Map(hijosAnteriores.map((h) => [h.id, Number(h.item_code)]));
+  const nuevosPorCodigo = new Map<number, string[]>();
+  for (const h of hijosNuevos) {
+    const c = Number(h.item_code);
+    nuevosPorCodigo.set(c, [...(nuevosPorCodigo.get(c) ?? []), h.id]);
+  }
+  const usados = new Set<string>();
+  return lineas.map((l) => {
+    let hijo: string | null = null;
+    if (l.hijo_id) {
+      const codigo = codigoAnterior.get(l.hijo_id);
+      const candidatos = codigo === undefined ? [] : (nuevosPorCodigo.get(codigo) ?? []);
+      if (candidatos.length === 1 && !usados.has(candidatos[0])) {
+        hijo = candidatos[0];
+        usados.add(hijo);
+      }
+    }
+    return { ...l, hijo_id: hijo };
+  });
+}
+
+// --- Historial -----------------------------------------------------------------
+
+export interface VersionHistorial {
+  version: number;
+  guardadoEn: string;
+  igualASugerencia: boolean;
+  lineas: LineaDespiece[];
 }
