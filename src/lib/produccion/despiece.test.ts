@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_LINEAS,
+  basePmDesdeJson,
+  diferenciasConPm,
   etiquetaMaterial,
+  etiquetaUnidad,
   leerCantidad,
+  lineasConComponenteCaido,
   lineasDesdeJson,
   limpiarLineas,
   mismasLineas,
   sugerirDespiece,
   totalLinea,
+  trasladarLineas,
   validarLineas,
   type HijoDespiece,
   type LineaDespiece,
@@ -80,10 +85,12 @@ describe("sugerirDespiece", () => {
     expect(s.avisosPorLinea[0]).toMatch(/calculó con el total/);
   });
 
-  it("sin ninguna cantidad pone 1 y pide revisarla", () => {
+  it("sin ninguna cantidad no inventa una: la deja en 0 para que se escriba", () => {
     const s = sugerirDespiece(padre, [hijo("a", { cantidad_x_mueble: null, cantidad_total: 0 })]);
-    expect(s.lineas[0].piezas_por_mueble).toBe(1);
-    expect(s.avisosPorLinea[0]).toMatch(/revísala/);
+    expect(s.lineas[0].piezas_por_mueble).toBe(0);
+    expect(s.avisosPorLinea[0]).toMatch(/escríbela/);
+    // Y por eso no se puede guardar así.
+    expect(validarLineas(s.lineas)).toMatch(/cantidad por mueble/);
   });
 
   it("avisa cuando el total del Excel no es cantidad por mueble × muebles", () => {
@@ -135,6 +142,29 @@ describe("sugerirDespiece", () => {
     expect(s.lineas).toHaveLength(MAX_LINEAS);
     expect(s.avisosPorLinea).toHaveLength(MAX_LINEAS);
     expect(s.avisos.some((a) => a.includes("se cortó"))).toBe(true);
+    expect(s.cortada).toBe(true);
+  });
+
+  it("no marca como cortada una sugerencia completa", () => {
+    expect(sugerirDespiece(padre, [hijo("a")]).cortada).toBe(false);
+  });
+
+  it("unifica la unidad escrita de distintas formas", () => {
+    const s = sugerirDespiece(padre, [hijo("a", { unidad: "pzas." })]);
+    expect(s.lineas[0].unidad).toBe("PZA");
+  });
+});
+
+describe("etiquetaUnidad", () => {
+  it("unifica sinónimos y deja el resto en mayúsculas", () => {
+    expect(etiquetaUnidad("pza")).toBe("PZA");
+    expect(etiquetaUnidad(" Pzas. ")).toBe("PZA");
+    expect(etiquetaUnidad("pieza")).toBe("PZA");
+    expect(etiquetaUnidad("jgo")).toBe("JUEGO");
+    expect(etiquetaUnidad("m²")).toBe("M2");
+    expect(etiquetaUnidad("tramo")).toBe("TRAMO");
+    expect(etiquetaUnidad("  ")).toBeNull();
+    expect(etiquetaUnidad(null)).toBeNull();
   });
 });
 
@@ -184,6 +214,13 @@ describe("validarLineas", () => {
     expect(validarLineas([{ ...lineaBase, piezas_por_mueble: 1_000_000 }])).toMatch(/demasiado grande/);
   });
 
+  it("no deja el mismo componente del PM en dos líneas", () => {
+    expect(validarLineas([lineaBase, { ...lineaBase, descripcion: "OTRO" }])).toBe(
+      "Línea 2: ese componente del PM ya está en otra línea."
+    );
+    expect(validarLineas([lineaBase, { ...lineaBase, hijo_id: null }, { ...lineaBase, hijo_id: null }])).toBeNull();
+  });
+
   it("rechaza demasiadas líneas", () => {
     expect(validarLineas(Array.from({ length: MAX_LINEAS + 1 }, () => lineaBase))).toMatch(/no puede pasar/);
   });
@@ -194,6 +231,15 @@ describe("limpiarLineas y mismasLineas", () => {
     expect(
       limpiarLineas([{ descripcion: "  TABLERO   MDF ", material: " ", unidad: "", piezas_por_mueble: 1.005, hijo_id: null }])
     ).toEqual([{ descripcion: "TABLERO MDF", material: null, unidad: null, piezas_por_mueble: 1.01, hijo_id: null }]);
+  });
+
+  it("unifica la unidad y los materiales conocidos pero respeta lo que escribe la persona", () => {
+    const [l] = limpiarLineas([
+      { descripcion: "X", material: "metal", unidad: "pzas", piezas_por_mueble: 1, hijo_id: null },
+    ]);
+    expect(l.material).toBe("Metal");
+    expect(l.unidad).toBe("PZA");
+    expect(limpiarLineas([{ ...lineaBase, material: "MDF 18mm RH" }])[0].material).toBe("MDF 18mm RH");
   });
 
   it("reconoce la sugerencia guardada tal cual y detecta cualquier cambio", () => {
@@ -228,5 +274,81 @@ describe("lineasDesdeJson", () => {
     ]);
     expect(lineasDesdeJson(null)).toEqual([]);
     expect(lineasDesdeJson({})).toEqual([]);
+  });
+});
+
+describe("diferenciasConPm", () => {
+  const base = basePmDesdeJson({
+    muebles: 3,
+    hijos: [
+      { id: "a", item_code: 13.01, descripcion: "TABLERO", cantidad_x_mueble: 1, cantidad_total: 3 },
+      { id: "b", item_code: 13.02, descripcion: "ESTRUCTURA", cantidad_x_mueble: 2, cantidad_total: 6 },
+    ],
+  });
+  const hijosIguales = [
+    hijo("a", { item_code: 13.01, cantidad_x_mueble: 1, cantidad_total: 3 }),
+    hijo("b", { item_code: 13.02, cantidad_x_mueble: 2, cantidad_total: 6 }),
+  ];
+
+  it("no avisa si el PM sigue igual o si no hay foto del PM", () => {
+    expect(diferenciasConPm(base, padre, hijosIguales)).toEqual([]);
+    expect(diferenciasConPm(null, padre, hijosIguales)).toEqual([]);
+  });
+
+  it("avisa de la cantidad del mueble, componentes nuevos, quitados y cantidades distintas", () => {
+    const difs = diferenciasConPm(base, { ...padre, cantidad_total: 5 }, [
+      hijo("a", { item_code: 13.01, cantidad_x_mueble: 4, cantidad_total: 12 }),
+      hijo("c", { item_code: 13.03, descripcion: "NUEVO" }),
+      hijo("b", { item_code: 13.02, estado_revision: "cancelado" }),
+    ]);
+    expect(difs).toHaveLength(4);
+    expect(difs[0]).toMatch(/pasó de 3 a 5/);
+    expect(difs.some((d) => /Cambió la cantidad del componente 13.01/.test(d))).toBe(true);
+    expect(difs.some((d) => /nuevo en el PM: 13.03/.test(d))).toBe(true);
+    expect(difs.some((d) => /13.02.*ya no está vigente/.test(d))).toBe(true);
+  });
+
+  it("basePmDesdeJson descarta lo que no tiene forma", () => {
+    expect(basePmDesdeJson(null)).toBeNull();
+    expect(basePmDesdeJson({ muebles: 1 })).toBeNull();
+    expect(basePmDesdeJson({ muebles: 2, hijos: [null, { id: 5 }, { id: "x" }] })?.hijos).toHaveLength(1);
+  });
+});
+
+describe("lineasConComponenteCaido", () => {
+  it("encuentra las líneas ligadas a un componente que ya no está vigente", () => {
+    const lineas: LineaDespiece[] = [
+      { ...lineaBase, hijo_id: "a" },
+      { ...lineaBase, hijo_id: "b" },
+      { ...lineaBase, hijo_id: null },
+    ];
+    expect(lineasConComponenteCaido(lineas, [hijo("a"), hijo("b", { estado_revision: "cancelado" })])).toEqual([1]);
+  });
+});
+
+describe("trasladarLineas", () => {
+  it("vuelve a ligar cada línea al componente con el mismo número de ítem", () => {
+    const lineas: LineaDespiece[] = [
+      { ...lineaBase, hijo_id: "viejo1" },
+      { ...lineaBase, hijo_id: "viejo2" },
+      { ...lineaBase, hijo_id: "viejo3" },
+      { ...lineaBase, hijo_id: null },
+    ];
+    const r = trasladarLineas(
+      lineas,
+      [
+        { id: "viejo1", item_code: 13.01 },
+        { id: "viejo2", item_code: 13.02 },
+        { id: "viejo3", item_code: 13.03 },
+      ],
+      [
+        { id: "nuevo1", item_code: 13.01 },
+        // Dos con el mismo número: ambiguo, queda sin ligar.
+        { id: "nuevo2a", item_code: 13.02 },
+        { id: "nuevo2b", item_code: 13.02 },
+      ]
+    );
+    expect(r.map((l) => l.hijo_id)).toEqual(["nuevo1", null, null, null]);
+    expect(r[0].descripcion).toBe("TABLERO");
   });
 });

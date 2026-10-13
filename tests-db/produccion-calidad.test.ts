@@ -67,6 +67,11 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
       p_foto_path: `${UUID_NULO}/prueba.webp`,
       p_resultado: "cumple",
     };
+    const despiece = {
+      p_item_id: UUID_NULO,
+      p_lineas: [{ descripcion: "prueba", piezas_por_mueble: 1 }],
+      p_version_esperada: 0,
+    };
     const funciones: [string, Record<string, unknown>][] = [
       ["registrar_entrega_produccion", entrega],
       ["verificar_entrega_produccion", { p_entrega_id: UUID_NULO }],
@@ -80,6 +85,7 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
         { p_informe_id: UUID_NULO, p_equipo_id: UUID_NULO, p_cantidad: 1, p_fecha_asignacion: "2026-10-08", p_notas: "" },
       ],
       ["faltantes_reglas_produccion_calidad", {}],
+      ["guardar_despiece_produccion", despiece],
     ];
     for (const [funcion, args] of funciones) {
       it(`${funcion}: no la puede ejecutar un usuario sin sesión`, async () => {
@@ -103,6 +109,7 @@ describe.skipIf(!hayVariables)("Producción y Calidad (solo lectura)", () => {
         { p_informe_id: UUID_NULO, p_equipo_id: UUID_NULO, p_cantidad: 1, p_fecha_asignacion: "2026-10-08", p_notas: "" },
         "Solo Producción puede reasignar",
       ],
+      ["guardar_despiece_produccion", despiece, "Solo Producción puede guardar el despiece"],
     ];
     for (const [funcion, args, mensaje] of porRol) {
       it(`${funcion} rechaza a quien no tiene el rol`, async () => {

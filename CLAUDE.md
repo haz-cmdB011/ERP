@@ -144,6 +144,10 @@ pruebas), almacén en `almacen-indexeddb.ts`, pegamento del navegador en `cola-n
 - Para llevar **otra captura** a la cola: que su ruta de servidor acepte `claveEnvio` y sea idempotente
   (si la operación crea algo, la clave debe identificarlo de forma única) y mandarla con
   `enviarOGuardar` en vez de `fetch`. No encolar lo que no sea seguro repetir.
+- El **despiece** de Producción también va por la cola (`/api/produccion/despiece`): su `claveEnvio`
+  queda en `despieces_produccion_historial` y `guardar_despiece_produccion` no guarda dos veces la misma
+  clave. Guardar exige la versión que se tenía abierta (bloqueo optimista): si alguien guardó antes, la
+  cola lo muestra como rechazado (409) y el trabajo sigue en la pantalla (hay borrador local).
 - Solo se manda con la **misma sesión** que capturó (el servidor registra a quien esté dentro).
 - Hoy NO cubre: abrir pantallas nuevas sin red (el escáner de QR y el detalle de cada mueble necesitan
   conexión para cargar), ni Calidad ni Estimaciones.
