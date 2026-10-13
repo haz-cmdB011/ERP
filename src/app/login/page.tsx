@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { codigoValido, faltaSegundoPaso, normalizarCodigo } from "@/lib/seguridad/mfa";
+import { rutaInternaSegura } from "@/lib/seguridad/redireccion";
 import AuthShell, {
   AVISO_ERROR_AUTH,
   BOTON_AUTH,
@@ -33,6 +34,16 @@ async function guardarEnGestorDelNavegador(correo: string, contrasena: string) {
     }
   } catch {
     // Sin permiso o sin soporte: no es un error de inicio de sesión.
+  }
+}
+
+// A dónde ir al entrar: la pantalla que se quería abrir (?next=, p. ej. la hoja de un QR escaneado
+// sin sesión) si es una ruta interna; si no, el inicio ("/", que manda a cada rol a lo suyo).
+function destinoTrasLogin(): string {
+  try {
+    return rutaInternaSegura(new URLSearchParams(window.location.search).get("next"), "/");
+  } catch {
+    return "/";
   }
 }
 
@@ -113,7 +124,7 @@ export default function LoginPage() {
       // Sin localStorage no se puede recordar el correo; el acceso sigue.
     }
     if (recordar) await guardarEnGestorDelNavegador(email, password);
-    router.push("/planeacion");
+    router.push(destinoTrasLogin());
     router.refresh();
   }
 
@@ -148,7 +159,7 @@ export default function LoginPage() {
     } catch {
       // Sin localStorage no se puede recordar el correo; el acceso sigue.
     }
-    router.push("/planeacion");
+    router.push(destinoTrasLogin());
     router.refresh();
   }
 

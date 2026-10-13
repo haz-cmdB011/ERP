@@ -104,7 +104,7 @@ export default async function EstimacionesLayout({
               Registro de recibos
             </SubnavLink>
             <SubnavLink href="/estimaciones/reportes" icono="reporte">
-              Reporte de pagos
+              Análisis de pagos
             </SubnavLink>
             {decideDiscrepancias && (
               <SubnavLink href="/estimaciones/discrepancias" icono="discrepancias">

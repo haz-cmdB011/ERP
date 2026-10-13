@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import SinAcceso from "@/components/sin-acceso";
+import { puedeEntrarAArea } from "@/lib/auth/acceso";
 import { ResumenMenuProvider } from "@/components/resumen-menu";
 import SubnavLink from "@/components/subnav-link";
 import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
@@ -32,9 +34,17 @@ export default async function ProduccionLayout({
     .eq("id", user.id)
     .single();
 
-  // El maquilador es externo: solo tiene acceso a Estimaciones.
-  if (perfil?.rol === "maquilador") {
-    redirect("/estimaciones/recibos");
+  // El maquilador es externo: solo tiene acceso a Estimaciones. No se le mueve en silencio (un enlace
+  // a esta pantalla parecería no funcionar): se le avisa y se le ofrece ir a lo suyo.
+  if (!puedeEntrarAArea(perfil?.rol, "produccion")) {
+    return (
+      <SinAcceso
+        titulo="Esta pantalla es del personal interno"
+        mensaje="Tu cuenta es de maquilador y solo tiene acceso a Estimaciones."
+        hrefInicio="/estimaciones/recibos"
+        etiquetaInicio="Ir a mis recibos"
+      />
+    );
   }
 
   // Aviso de recibos por revisar en la pestaña Estimaciones (solo a quien los revisa).

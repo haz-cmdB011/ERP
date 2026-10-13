@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   // Solo rutas internas: ver rutaInternaSegura (redirección abierta).
-  const next = rutaInternaSegura(searchParams.get("next"));
+  const next = rutaInternaSegura(searchParams.get("next"), "/");
 
   if (code) {
     const supabase = await createClient();

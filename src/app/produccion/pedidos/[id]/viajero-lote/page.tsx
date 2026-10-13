@@ -130,7 +130,7 @@ export default async function ViajeroLotePage({
               item={item}
               padre={item.parent_item_id ? padresPorId.get(item.parent_item_id) ?? null : null}
               folio={folioPorItem.get(item.id) ?? null}
-              qrUrl={`${baseUrl}/produccion/pedidos/${id}/viajero/${item.id}`}
+              qrUrl={`${baseUrl}/q/${item.id}`}
               imagenUrls={imagenesPorItem.get(item.id) ?? []}
             />
           </div>

@@ -12,7 +12,7 @@ export default function QrCode({ value, size = 120 }: { value: string; size?: nu
 
   useEffect(() => {
     let cancelado = false;
-    QRCode.toDataURL(value, { margin: 1, width: size })
+    QRCode.toDataURL(value, { margin: 3, scale: 8 })
       .then((url) => {
         if (!cancelado) setDataUrl(url);
       })
@@ -22,7 +22,7 @@ export default function QrCode({ value, size = 120 }: { value: string; size?: nu
     return () => {
       cancelado = true;
     };
-  }, [value, size]);
+  }, [value]);
 
   return (
     <div

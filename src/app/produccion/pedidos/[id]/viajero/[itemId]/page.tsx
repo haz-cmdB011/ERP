@@ -98,7 +98,7 @@ export default async function ViajeroPage({
         item={item}
         padre={padre}
         folio={folioRow?.folio ?? null}
-        qrUrl={`${baseUrl}/produccion/pedidos/${id}/viajero/${item.id}`}
+        qrUrl={`${baseUrl}/q/${item.id}`}
         imagenUrls={imagenesPorItem.get(item.id) ?? []}
       />
     </main>

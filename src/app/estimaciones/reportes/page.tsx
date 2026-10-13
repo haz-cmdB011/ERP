@@ -83,7 +83,7 @@ import PanelPmCobrado from "./panel-pm-cobrado";
 import Pestanas from "./pestanas";
 import SeccionDesplegable from "./seccion-desplegable";
 
-export const metadata = { title: "Reporte de pagos" };
+export const metadata = { title: "Análisis de pagos" };
 
 const claseSelect = "rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900";
 const claseBotonPrimario =
@@ -91,7 +91,7 @@ const claseBotonPrimario =
 const claseBotonFlecha =
   "inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50";
 
-// Dashboard del reporte de pagos (sustituye "Estimaciones SEM nn" y "FORMATO
+// Dashboard del análisis de pagos (sustituye "Estimaciones SEM nn" y "FORMATO
 // MAQUILA"): recibos PAGADOS de las tres áreas, por semana, mes o año. En la
 // semana N se junta lo pagado en la semana N+1; en un mes o año, lo pagado en
 // ese mes o año. Arriba, las cifras del periodo; luego una comparativa contra el
@@ -205,7 +205,7 @@ export default async function ReportePage({
     <main className="graficas mx-auto flex max-w-7xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Reporte de pagos</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Análisis de pagos</h1>
           <p className="mt-1 text-sm text-slate-500">
             Pagado del {formatoFechaDMA(pago.desde)} al {formatoFechaDMA(pago.hasta)}
           </p>

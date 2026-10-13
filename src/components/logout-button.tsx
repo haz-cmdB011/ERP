@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { enviosPendientesDe, usuarioActualId } from "@/lib/offline/cola-navegador";
 
-export default function LogoutButton() {
+// `etiqueta`: botón de texto (p. ej. "Entrar con otra cuenta" en la pantalla de sin acceso) en lugar
+// del ícono de la barra superior.
+export default function LogoutButton({ etiqueta }: { etiqueta?: string } = {}) {
   const router = useRouter();
 
   async function handleLogout() {
@@ -28,6 +30,18 @@ export default function LogoutButton() {
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  }
+
+  if (etiqueta) {
+    return (
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="min-h-11 rounded-lg px-3 text-sm underline underline-offset-2 transition-colors hover:text-on-nav focus-visible:outline-brand-500"
+      >
+        {etiqueta}
+      </button>
+    );
   }
 
   return (

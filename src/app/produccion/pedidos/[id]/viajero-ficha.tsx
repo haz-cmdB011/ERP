@@ -82,8 +82,8 @@ export default function ViajeroFicha({
           )}
         </div>
         <div className="flex shrink-0 flex-col items-center gap-1">
-          <ViajeroQr value={qrUrl} size={110} />
-          <p className="max-w-[110px] text-center text-[10px] text-gray-500">
+          <ViajeroQr value={qrUrl} size={128} />
+          <p className="max-w-[128px] text-center text-[10px] text-gray-500">
             Escanea para abrir esta hoja o registrar su entrega
           </p>
         </div>
