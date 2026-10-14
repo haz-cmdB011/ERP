@@ -38,6 +38,13 @@ const TRAZOS = {
       <path d="M14 2v6h6M9 13h6M9 17h6" />
     </>
   ),
+  // Triángulo de alerta: reportes de no conformidad e incidencias de Calidad.
+  incidencias: (
+    <>
+      <path d="m10.29 3.86-8.18 14.14A2 2 0 0 0 3.82 21h16.36a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+      <path d="M12 9v4M12 17h.01" />
+    </>
+  ),
   panel: (
     <>
       <rect x="3" y="3" width="7" height="9" rx="1" />

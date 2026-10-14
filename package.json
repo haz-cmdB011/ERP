@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "test:db": "node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.db.config.ts",
     "db:verificar": "node scripts/db/verificar-migraciones.mjs",
-    "db:huerfanos": "node --env-file=.env.local --import tsx scripts/db/limpiar-huerfanos.mts"
+    "db:huerfanos": "node --env-file=.env.local --import tsx scripts/db/limpiar-huerfanos.mts",
+    "calidad:importar-incidencias": "node --env-file=.env.local --import tsx scripts/calidad/importar-incidencias.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
