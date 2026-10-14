@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   categoriaDeMotivo,
+  fechaDesdeExcel,
   filtrarIncidencias,
   hrefIncidencias,
   incidenciaDesdeFilaExcel,
@@ -10,6 +11,8 @@ import {
   normalizarEstado,
   normalizarTipo,
   resumirIncidencias,
+  resumirPorSemana,
+  semanaDe,
   SIN_FILTROS,
   textoNormalizado,
   type Incidencia,
@@ -76,6 +79,7 @@ describe("incidenciaDesdeFilaExcel", () => {
     origen: "INGENIERIA, PROYECTOS",
     reporta: "BARNIZ",
     estado: "CERRADO",
+    fecha: new Date("2026-01-06T00:00:00.000Z"),
   };
 
   it("funde área y origen, normaliza y arma la clave de importación", () => {
@@ -90,6 +94,7 @@ describe("incidenciaDesdeFilaExcel", () => {
       categoria_motivo: "Fabricación o armado",
       areas_reporta: ["BARNIZ"],
       estado: "cerrado",
+      fecha: "2026-01-06",
       origen_importacion: "madera:5",
     });
   });
@@ -101,11 +106,19 @@ describe("incidenciaDesdeFilaExcel", () => {
       mueble: "",
       reporta: "",
       estado: "",
+      fecha: "24-06-0206",
     });
     expect(incidencia?.estado).toBe("abierto");
     expect(incidencia?.proyecto).toBeNull();
+    expect(incidencia?.fecha).toBeNull();
     expect(avisos).toEqual(
-      expect.arrayContaining(["sin proyecto", "sin mueble", "sin área que reporta", "sin estado (se importa como abierto)"])
+      expect.arrayContaining([
+        "sin proyecto",
+        "sin mueble",
+        "sin área que reporta",
+        "sin estado (se importa como abierto)",
+        "fecha vacía o no entendida (\"24-06-0206\")",
+      ])
     );
   });
 
@@ -127,6 +140,7 @@ describe("resumen del dashboard", () => {
     categoria_motivo: "Dimensión",
     areas_reporta: ["PROD-ARMADO-MAD"],
     estado: "abierto",
+    fecha: "2026-01-05",
   };
   const filas: Incidencia[] = [
     { ...base, id: "1" },
@@ -165,14 +179,69 @@ describe("resumen del dashboard", () => {
   });
 });
 
+describe("fechas y semanas", () => {
+  it("lee fechas de celda y de texto, y no adivina años mal escritos", () => {
+    expect(fechaDesdeExcel(new Date("2026-01-05T00:00:00.000Z"))).toBe("2026-01-05");
+    expect(fechaDesdeExcel("24/06/2026")).toBe("2026-06-24");
+    expect(fechaDesdeExcel("2026-06-24")).toBe("2026-06-24");
+    expect(fechaDesdeExcel("24-06-0206")).toBeNull();
+    expect(fechaDesdeExcel("31/02/2026")).toBeNull();
+    expect(fechaDesdeExcel(null)).toBeNull();
+    expect(fechaDesdeExcel("")).toBeNull();
+  });
+
+  it("numera las semanas como la hoja ESTATUS (ISO, de lunes a domingo)", () => {
+    expect(semanaDe("2026-01-05")).toMatchObject({ clave: "2026-W02", inicio: "2026-01-05", fin: "2026-01-11" });
+    expect(semanaDe("2026-01-01")).toMatchObject({ clave: "2026-W01", inicio: "2025-12-29" });
+    expect(semanaDe("2026-01-11")?.clave).toBe("2026-W02");
+    expect(semanaDe("2026-01-12")?.clave).toBe("2026-W03");
+    expect(semanaDe("2026-12-31")?.clave).toBe("2026-W53");
+    expect(semanaDe("mal")).toBeNull();
+  });
+
+  const f = (id: string, fecha: string | null, estado: "abierto" | "cerrado" = "abierto"): Incidencia => ({
+    id,
+    linea: "madera",
+    tipo: "Incidencia",
+    proyecto: null,
+    muebles: [],
+    areas: [],
+    motivo: null,
+    categoria_motivo: "Sin clasificar",
+    areas_reporta: [],
+    estado,
+    fecha,
+  });
+
+  it("cuenta por semana, rellena las vacías y aparte las sin fecha", () => {
+    const r = resumirPorSemana([f("1", "2026-01-05"), f("2", "2026-01-07", "cerrado"), f("3", "2026-01-20"), f("4", null)]);
+    expect(r.sinFecha).toBe(1);
+    expect(r.semanas.map((s) => [s.clave, s.total, s.abiertas])).toEqual([
+      ["2026-W02", 2, 1],
+      ["2026-W03", 0, 0],
+      ["2026-W04", 1, 1],
+    ]);
+    expect(resumirPorSemana([])).toEqual({ semanas: [], sinFecha: 0 });
+  });
+
+  it("filtra por semana y por sin fecha", () => {
+    const filas = [f("1", "2026-01-05"), f("2", "2026-01-13"), f("3", null)];
+    expect(filtrarIncidencias(filas, { ...SIN_FILTROS, semana: "2026-W02" }).map((i) => i.id)).toEqual(["1"]);
+    expect(filtrarIncidencias(filas, { ...SIN_FILTROS, semana: "sin-fecha" }).map((i) => i.id)).toEqual(["3"]);
+  });
+});
+
 describe("filtros en la URL", () => {
   it("ignora valores que no existen", () => {
+    expect(leerFiltrosIncidencias({ semana: "x" }).semana).toBeNull();
+    expect(leerFiltrosIncidencias({ semana: "2026-W05" }).semana).toBe("2026-W05");
     expect(leerFiltrosIncidencias({ linea: "otra", tipo: "x", estado: "cerrado", area: " INGENIERIA ", proyecto: "" })).toEqual({
       linea: null,
       tipo: null,
       estado: "cerrado",
       area: "INGENIERIA",
       proyecto: null,
+      semana: null,
     });
   });
 

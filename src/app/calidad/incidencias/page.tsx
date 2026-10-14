@@ -12,11 +12,14 @@ import {
   hrefIncidencias,
   leerFiltrosIncidencias,
   resumirIncidencias,
+  resumirPorSemana,
+  semanaDe,
   type FiltrosIncidencias,
   type Incidencia,
   type ParametrosIncidencias,
 } from "@/lib/calidad/incidencias";
 import Barras from "./barras";
+import Semanas, { diaCorto } from "./semanas";
 
 export const metadata = { title: "Incidencias" };
 
@@ -24,7 +27,7 @@ const BASE = "/calidad/incidencias";
 const FILAS_EN_LISTA = 100;
 
 const COLUMNAS =
-  "id, linea, tipo, proyecto, muebles, areas, motivo, categoria_motivo, areas_reporta, estado";
+  "id, linea, tipo, proyecto, muebles, areas, motivo, categoria_motivo, areas_reporta, estado, fecha";
 
 const NOMBRE_LINEA = { madera: "Madera", metal: "Metal" } as const;
 
@@ -76,7 +79,11 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
     { contexto: "las incidencias" }
   );
 
-  const filas = filtrarIncidencias(todas, filtros);
+  const filas = filtrarIncidencias(todas, filtros).sort(
+    (a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? "") || a.id.localeCompare(b.id)
+  );
+  // La gráfica por semana ignora el filtro de semana: así se ven todas y se marca la elegida.
+  const { semanas, sinFecha } = resumirPorSemana(filtrarIncidencias(todas, { ...filtros, semana: null }));
   const r = resumirIncidencias(filas);
   const opcionesArea = resumirIncidencias(todas).porArea.map((a) => a.nombre);
   const opcionesProyecto = resumirIncidencias(todas).porProyecto.map((p) => p.nombre);
@@ -188,6 +195,13 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
             />
           </div>
 
+          <Semanas
+            semanas={semanas}
+            sinFecha={sinFecha}
+            seleccionada={filtros.semana}
+            hrefDe={(clave) => filtrarPor({ semana: clave })}
+          />
+
           <div className="grid gap-4 md:grid-cols-2">
             <Barras
               titulo="Por tipo de reporte"
@@ -267,6 +281,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
+                    <th className="px-3 py-2 font-semibold">Fecha</th>
                     <th className="px-3 py-2 font-semibold">Estado</th>
                     <th className="px-3 py-2 font-semibold">Tipo</th>
                     <th className="px-3 py-2 font-semibold">Proyecto</th>
@@ -279,6 +294,10 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                 <tbody>
                   {filas.slice(0, FILAS_EN_LISTA).map((i) => (
                     <tr key={i.id} className="border-t border-slate-100 align-top">
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                        {i.fecha ? diaCorto(i.fecha) : "—"}
+                        {i.fecha && <span className="block text-xs text-slate-400">Sem {semanaDe(i.fecha)?.numero}</span>}
+                      </td>
                       <td className="px-3 py-2">
                         <span
                           className={`rounded-full border px-2 py-0.5 text-xs font-medium ${

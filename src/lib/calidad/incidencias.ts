@@ -43,6 +43,8 @@ export interface Incidencia {
   categoria_motivo: CategoriaMotivo;
   areas_reporta: string[];
   estado: EstadoIncidencia;
+  // Día del reporte, "AAAA-MM-DD"; nulo si el Excel no la trae o la trae mal.
+  fecha: string | null;
 }
 
 export type NuevaIncidencia = Omit<Incidencia, "id"> & { origen_importacion: string | null };
@@ -100,6 +102,99 @@ export function normalizarEstado(valor: unknown): EstadoIncidencia {
   return textoNormalizado(valor) === "CERRADO" ? "cerrado" : "abierto";
 }
 
+// --- Fechas y semanas --------------------------------------------------------
+
+const DIA_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function diaValido(anio: number, mes: number, dia: number): string | null {
+  // Años como 0206 (un 2026 mal escrito en el Excel) no se adivinan.
+  if (anio < 2000 || anio > 2100) return null;
+  const f = new Date(Date.UTC(anio, mes - 1, dia));
+  if (f.getUTCFullYear() !== anio || f.getUTCMonth() !== mes - 1 || f.getUTCDate() !== dia) return null;
+  return f.toISOString().slice(0, 10);
+}
+
+// Fecha del Excel: una fecha de celda (Excel las guarda a medianoche UTC) o un
+// texto "dd-mm-aaaa", "dd/mm/aaaa" o "aaaa-mm-dd". Lo que no se entiende da null.
+export function fechaDesdeExcel(valor: unknown): string | null {
+  if (valor instanceof Date) {
+    return Number.isNaN(valor.getTime()) ? null : diaValido(valor.getUTCFullYear(), valor.getUTCMonth() + 1, valor.getUTCDate());
+  }
+  const texto = textoSimple(valor);
+  const iso = DIA_ISO.exec(texto);
+  if (iso) return diaValido(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  const latino = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(texto);
+  if (latino) return diaValido(Number(latino[3]), Number(latino[2]), Number(latino[1]));
+  return null;
+}
+
+export interface Semana {
+  // "2026-W02": se ordena como texto.
+  clave: string;
+  anio: number;
+  numero: number;
+  // Lunes y domingo de la semana, "AAAA-MM-DD".
+  inicio: string;
+  fin: string;
+}
+
+const MS_DIA = 86_400_000;
+
+function aDia(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+// Semana ISO (de lunes a domingo; la 1 es la que contiene el primer jueves del
+// año): la misma numeración que usa la hoja ESTATUS del Excel.
+export function semanaDe(dia: string): Semana | null {
+  const m = DIA_ISO.exec(dia);
+  if (!m) return null;
+  const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const lunes = ms - ((new Date(ms).getUTCDay() + 6) % 7) * MS_DIA;
+  const jueves = new Date(lunes + 3 * MS_DIA);
+  const anio = jueves.getUTCFullYear();
+  const numero = Math.floor((jueves.getTime() - Date.UTC(anio, 0, 1)) / (7 * MS_DIA)) + 1;
+  return {
+    clave: `${anio}-W${String(numero).padStart(2, "0")}`,
+    anio,
+    numero,
+    inicio: aDia(lunes),
+    fin: aDia(lunes + 6 * MS_DIA),
+  };
+}
+
+export interface ConteoSemana extends Semana {
+  total: number;
+  abiertas: number;
+}
+
+// Una fila por semana, desde la primera hasta la última con incidencias, y con
+// las semanas sin ninguna en cero (si no, la gráfica "salta" huecos).
+export function resumirPorSemana(filas: Incidencia[]): { semanas: ConteoSemana[]; sinFecha: number } {
+  const porClave = new Map<string, ConteoSemana>();
+  let sinFecha = 0;
+  for (const i of filas) {
+    const s = i.fecha ? semanaDe(i.fecha) : null;
+    if (!s) {
+      sinFecha += 1;
+      continue;
+    }
+    const c = porClave.get(s.clave) ?? { ...s, total: 0, abiertas: 0 };
+    c.total += 1;
+    if (i.estado === "abierto") c.abiertas += 1;
+    porClave.set(s.clave, c);
+  }
+  const existentes = [...porClave.values()].sort((a, b) => a.inicio.localeCompare(b.inicio));
+  if (existentes.length === 0) return { semanas: [], sinFecha };
+  const semanas: ConteoSemana[] = [];
+  const ultimo = Date.parse(existentes[existentes.length - 1].inicio);
+  for (let ms = Date.parse(existentes[0].inicio); ms <= ultimo; ms += 7 * MS_DIA) {
+    const s = semanaDe(aDia(ms))!;
+    semanas.push(porClave.get(s.clave) ?? { ...s, total: 0, abiertas: 0 });
+  }
+  return { semanas, sinFecha };
+}
+
 // --- Categoría del motivo ----------------------------------------------------
 // Reglas por palabras sobre el texto sin acentos. El orden importa: la primera
 // que coincide gana. Es una propuesta: lo que no entra queda "Sin clasificar".
@@ -142,6 +237,7 @@ export interface FilaExcelIncidencia {
   origen: unknown;
   reporta: unknown;
   estado: unknown;
+  fecha: unknown;
 }
 
 export interface ResultadoFila {
@@ -170,6 +266,8 @@ export function incidenciaDesdeFilaExcel(linea: Linea, numeroFila: number, fila:
   const areasReporta = listaDeAreas(fila.reporta);
   if (areasReporta.length === 0) avisos.push("sin área que reporta");
   if (textoNormalizado(fila.estado) === "") avisos.push("sin estado (se importa como abierto)");
+  const fecha = fechaDesdeExcel(fila.fecha);
+  if (!fecha) avisos.push(`fecha vacía o no entendida ("${textoSimple(fila.fecha)}")`);
 
   return {
     incidencia: {
@@ -182,6 +280,7 @@ export function incidenciaDesdeFilaExcel(linea: Linea, numeroFila: number, fila:
       categoria_motivo: categoriaDeMotivo(motivo),
       areas_reporta: areasReporta,
       estado: normalizarEstado(fila.estado),
+      fecha,
       origen_importacion: `${linea}:${numeroFila}`,
     },
     avisos,
@@ -196,9 +295,20 @@ export interface FiltrosIncidencias {
   estado: EstadoIncidencia | null;
   area: string | null;
   proyecto: string | null;
+  // Clave de semana ("2026-W02"), o "sin-fecha" para las que no traen fecha.
+  semana: string | null;
 }
 
-export const SIN_FILTROS: FiltrosIncidencias = { linea: null, tipo: null, estado: null, area: null, proyecto: null };
+export const SEMANA_SIN_FECHA = "sin-fecha";
+
+export const SIN_FILTROS: FiltrosIncidencias = {
+  linea: null,
+  tipo: null,
+  estado: null,
+  area: null,
+  proyecto: null,
+  semana: null,
+};
 
 export function filtrarIncidencias(filas: Incidencia[], f: FiltrosIncidencias): Incidencia[] {
   return filas.filter(
@@ -207,7 +317,9 @@ export function filtrarIncidencias(filas: Incidencia[], f: FiltrosIncidencias): 
       (!f.tipo || i.tipo === f.tipo) &&
       (!f.estado || i.estado === f.estado) &&
       (!f.area || i.areas.includes(f.area)) &&
-      (!f.proyecto || i.proyecto === f.proyecto)
+      (!f.proyecto || i.proyecto === f.proyecto) &&
+      (!f.semana ||
+        (f.semana === SEMANA_SIN_FECHA ? !i.fecha || !semanaDe(i.fecha) : (i.fecha ? semanaDe(i.fecha)?.clave : null) === f.semana))
   );
 }
 
@@ -282,7 +394,9 @@ export function resumirIncidencias(filas: Incidencia[]): ResumenIncidencias {
 
 // --- Parámetros de la URL ----------------------------------------------------
 
-export type ParametrosIncidencias = Partial<Record<"linea" | "tipo" | "estado" | "area" | "proyecto", string>>;
+export type ParametrosIncidencias = Partial<
+  Record<"linea" | "tipo" | "estado" | "area" | "proyecto" | "semana", string>
+>;
 
 export function leerFiltrosIncidencias(p: ParametrosIncidencias): FiltrosIncidencias {
   return {
@@ -291,6 +405,7 @@ export function leerFiltrosIncidencias(p: ParametrosIncidencias): FiltrosInciden
     estado: ESTADOS_INCIDENCIA.find((e) => e === p.estado) ?? null,
     area: p.area?.trim() || null,
     proyecto: p.proyecto?.trim() || null,
+    semana: p.semana && (p.semana === SEMANA_SIN_FECHA || /^\d{4}-W\d{2}$/.test(p.semana)) ? p.semana : null,
   };
 }
 

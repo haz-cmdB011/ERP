@@ -19,6 +19,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   incidenciaDesdeFilaExcel,
   resumirIncidencias,
+  resumirPorSemana,
   type Incidencia,
   type Linea,
   type NuevaIncidencia,
@@ -30,7 +31,7 @@ const HOJAS: ReadonlyArray<readonly [string, Linea]> = [
 ];
 const PRIMERA_FILA_DATOS = 3;
 // Columnas de las hojas (la fila 2 trae los encabezados).
-const COL = { folio: 2, tipo: 4, proyecto: 6, mueble: 7, area: 10, motivo: 14, origen: 19, reporta: 20, estado: 23 };
+const COL = { fecha: 1, folio: 2, tipo: 4, proyecto: 6, mueble: 7, area: 10, motivo: 14, origen: 19, reporta: 20, estado: 23 };
 const LOTE = 200;
 
 const args = process.argv.slice(2);
@@ -69,7 +70,7 @@ for (const [nombreHoja, linea] of HOJAS) {
   for (let n = PRIMERA_FILA_DATOS; n <= hoja.rowCount; n++) {
     const fila = hoja.getRow(n);
     const g = (col: number) => valorDeCelda(fila.getCell(col));
-    // Una fila sin folio es una fila vacía de la hoja; el folio solo sirve para esto.
+    // Una fila sin folio es una fila vacía de la hoja; el folio solo sirve para esto (no se guarda).
     if (!String(g(COL.folio) ?? "").trim()) continue;
     const { incidencia, avisos } = incidenciaDesdeFilaExcel(linea, n, {
       tipo: g(COL.tipo),
@@ -80,6 +81,7 @@ for (const [nombreHoja, linea] of HOJAS) {
       origen: g(COL.origen),
       reporta: g(COL.reporta),
       estado: g(COL.estado),
+      fecha: g(COL.fecha),
     });
     const clave = `${linea}:${n}`;
     if (!incidencia) {
@@ -99,6 +101,8 @@ const lista = (c: Array<{ nombre: string; total: number }>, n = 8) =>
 console.log(`\nModo: ${aplicar ? "APLICAR (escribe en la base)" : "SIMULACIÓN (no escribe nada)"}`);
 console.log(`Filas leídas: ${nuevas.length + omitidas.length} · a importar: ${nuevas.length} · omitidas: ${omitidas.length}`);
 console.log(`Madera ${r.porLinea.madera} · Metal ${r.porLinea.metal} · abiertas ${r.abiertas} · cerradas ${r.cerradas}`);
+const porSemana = resumirPorSemana(filas);
+console.log(`Semanas: ${porSemana.semanas.length} (de ${porSemana.semanas[0]?.clave} a ${porSemana.semanas.at(-1)?.clave}) · sin fecha: ${porSemana.sinFecha}`);
 console.log(`Tipos: ${lista(r.porTipo)}`);
 console.log(`Áreas (${r.porArea.length} distintas): ${lista(r.porArea)}`);
 console.log(`Área que reporta (${r.porAreaQueReporta.length} distintas): ${lista(r.porAreaQueReporta)}`);
