@@ -3,6 +3,9 @@
 import Link from "next/link";
 import EnlaceFila from "@/components/enlace-fila";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AsistenteNoConformidad, { type ResultadoAsistente } from "@/app/calidad/asistente-no-conformidad";
+import { guardarNoConformidad } from "@/lib/calidad/guardar-no-conformidad";
+import { validarDetalle } from "@/lib/calidad/no-conformidad";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ImagenAmpliable from "@/components/imagen-ampliable";
@@ -19,7 +22,7 @@ import {
   porLotes,
   type EstadoCalidad,
 } from "@/lib/calidad/estado-item";
-import { CATEGORIAS_DEFECTO, nombreCategoria, type CategoriaDefecto } from "@/lib/calidad/categorias";
+import { nombreCategoria } from "@/lib/calidad/categorias";
 import {
   cambiosDesdeLaPantalla,
   mensajeEvaluacionNueva,
@@ -95,9 +98,7 @@ export default function ItemsCalidadTable({
 }) {
   const router = useRouter();
   const [dialogo, setDialogo] = useState<{ item: ItemCalidadRow } | null>(null);
-  const [descripcion, setDescripcion] = useState("");
-  const [categoria, setCategoria] = useState<CategoriaDefecto | "">("");
-  const [errorMotivo, setErrorMotivo] = useState(false);
+  const [errorRechazo, setErrorRechazo] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   // Aprobaciones en espera (con "Deshacer"): id del ítem -> temporizador.
   const [enEspera, setEnEspera] = useState<Set<string>>(new Set());
@@ -151,14 +152,12 @@ export default function ItemsCalidadTable({
 
   function abrirDialogoRechazo(item: ItemCalidadRow) {
     setDialogo({ item });
-    setErrorMotivo(false);
+    setErrorRechazo(null);
   }
 
   function cerrarDialogo() {
     setDialogo(null);
-    setDescripcion("");
-    setCategoria("");
-    setErrorMotivo(false);
+    setErrorRechazo(null);
   }
 
   function toggleHistorial(itemId: string) {
@@ -321,13 +320,15 @@ export default function ItemsCalidadTable({
     router.refresh();
   }
 
-  // No aprobar sí exige el motivo, por eso pasa por el diálogo.
-  async function confirmarRechazo() {
+  // No aprobar pasa por el asistente: motivo, foto, origen y acción correctiva.
+  async function confirmarRechazo(r: ResultadoAsistente) {
     if (!dialogo) return;
-    if (!descripcion.trim()) {
-      setErrorMotivo(true);
+    const problema = !r.descripcion.trim() ? "Elige el motivo." : validarDetalle(r.detalle, true);
+    if (problema) {
+      setErrorRechazo(problema);
       return;
     }
+    setErrorRechazo(null);
     setEnviando(true);
     setMensaje(null);
     const itemRechazado = dialogo.item;
@@ -337,22 +338,25 @@ export default function ItemsCalidadTable({
       return;
     }
     const supabase = createClient();
-    const base = { p_item_id: itemRechazado.id, p_aprobado: false, p_descripcion: descripcion };
+    const base = { p_item_id: itemRechazado.id, p_aprobado: false, p_descripcion: r.descripcion };
     let { data, error } = await supabase.rpc("crear_informe_calidad", {
       ...base,
-      ...(categoria ? { p_categoria: categoria } : {}),
+      ...(r.categoria ? { p_categoria: r.categoria } : {}),
     });
     // Si la base aún no conoce la categoría, se guarda el informe sin ella.
-    if (error && categoria && funcionNoExiste(error)) {
+    if (error && r.categoria && funcionNoExiste(error)) {
       ({ data, error } = await supabase.rpc("crear_informe_calidad", base));
     }
-    setEnviando(false);
     if (error) {
-      setMensaje({ tipo: "error", texto: error.message });
+      setEnviando(false);
+      setErrorRechazo(error.message);
       return;
     }
     const informeId = data;
+    const incompleto = await guardarNoConformidad(informeId, r.detalle, r.fotos);
+    setEnviando(false);
     cerrarDialogo();
+    if (incompleto) setMensaje({ tipo: "error", texto: `Ítem ${itemRechazado.item_code}: ${incompleto}` });
     avisar(`Ítem ${itemRechazado.item_code}: informe de no aprobado generado.`, "exito", {
       etiqueta: "Ver informe",
       alHacer: () => router.push(`/calidad/pedidos/${pedidoId}/informe/${informeId}`),
@@ -860,73 +864,14 @@ export default function ItemsCalidadTable({
       )}
 
       {dialogo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
-          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
-            <h2 className="text-sm font-semibold text-slate-900">
-              No aprobar ítem {dialogo.item.item_code}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Indica el motivo por el que no se aprueba. Se genera un informe de calidad nuevo con
-              folio propio.
-            </p>
-            <fieldset className="mt-3">
-              <legend className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                Tipo de defecto (opcional)
-              </legend>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {CATEGORIAS_DEFECTO.map((c) => (
-                  <button
-                    key={c.valor}
-                    type="button"
-                    aria-pressed={categoria === c.valor}
-                    onClick={() => setCategoria(categoria === c.valor ? "" : c.valor)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                      categoria === c.valor
-                        ? "border-rose-500 bg-rose-50 text-rose-700"
-                        : "border-slate-300 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {c.nombre}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            <textarea
-              value={descripcion}
-              onChange={(e) => {
-                setDescripcion(e.target.value);
-                if (e.target.value.trim()) setErrorMotivo(false);
-              }}
-              placeholder="Motivo por el que no se aprueba (obligatorio)"
-              rows={4}
-              className={`mt-3 w-full rounded-lg border p-2 text-sm focus:outline-none ${
-                errorMotivo ? "border-rose-400 focus:border-rose-500" : "border-slate-300 focus:border-slate-400"
-              }`}
-            />
-            {errorMotivo && (
-              <p className="mt-1 text-xs text-rose-600">
-                Debes indicar el motivo por el que no se aprueba.
-              </p>
-            )}
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={cerrarDialogo}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={confirmarRechazo}
-                disabled={enviando}
-                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-rose-700 disabled:opacity-50"
-              >
-                {enviando ? "Generando..." : "Generar informe"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AsistenteNoConformidad
+          titulo={`No aprobar ítem ${dialogo.item.item_code}`}
+          subtitulo={dialogo.item.modelo ?? undefined}
+          enviando={enviando}
+          error={errorRechazo}
+          onCancelar={cerrarDialogo}
+          onEnviar={confirmarRechazo}
+        />
       )}
 
       {previewInforme && (
