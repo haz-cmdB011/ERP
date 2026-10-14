@@ -81,11 +81,12 @@ claves en chats, issues ni commits.
 
 ## Si Calidad no puede evaluar un mueble
 
-Calidad solo evalúa piezas que Producción ya preaprobó. La preaprobación se hace al **registrar la
-entrega**: quien toma la foto de la hoja marca si las piezas *cumplen* (pasan a Calidad) o *no cumplen*
-(regresan al equipo con motivo). En la tabla de Calidad, junto a los botones deshabilitados, se ve qué
-falta: *Sin asignar*, *En taller* (con qué equipo y cuánto lleva entregado) o *Por preaprobar*
-(entregas viejas sin decidir: se revisan en Producción → Control de asignaciones).
+Calidad solo **ve y evalúa** muebles que Producción ya preaprobó (más lo que ya tiene informes, como
+historial). La preaprobación se hace al **registrar la entrega**: quien toma la foto de la hoja marca si
+las piezas *cumplen* (pasan a Calidad) o *no cumplen* (regresan al equipo con motivo). Lo que sigue en
+taller, sin asignar o con la entrega sin decidir **no aparece** en las pantallas de Calidad. Si Calidad
+pregunta por un mueble que no ve, revisar en Producción → Control de asignaciones si falta registrar la
+entrega o preaprobarla (las entregas viejas sin decisión se revisan ahí).
 
 Si hay que dejar que Calidad evalúe sin preaprobación (emergencia), se apaga desde el SQL Editor y queda
 registrado en la base:

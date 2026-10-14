@@ -114,7 +114,7 @@ function hojaDiferenciasPm(wb: ExcelJS.Workbook, filas: FilaPmCobrado[]) {
     ws.addRow([
       f.ot,
       f.proyecto,
-      f.modelo,
+      f.esComponente ? `${f.modelo} · componente ${f.itemCodigo ?? ""}`.trim() : f.modelo,
       f.descripcion,
       f.cantidadPm,
       f.acabados,

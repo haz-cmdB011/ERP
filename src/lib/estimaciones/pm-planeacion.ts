@@ -37,6 +37,13 @@ export interface ModeloOtRecibo {
   cantidadRegistrada: number;
   // En qué PM de la OT viene ("2PM193-24, 7PM193-24").
   pms: string;
+  // Un componente (hijo) de un mueble, no el mueble: un recibo de Acabados o
+  // Armado también puede cobrarlo suelto y se compara contra su propia cantidad.
+  esComponente: boolean;
+  // Solo componentes: su número ("4.02"), material y el código de su mueble.
+  itemCodigo: string | null;
+  material: string | null;
+  padreModelo: string | null;
 }
 
 // null si la consulta falla.
@@ -75,6 +82,11 @@ export async function listarModelosOtRecibo(
       pms: string | null;
       descripcion_pm: string | null;
       variantes: number;
+      // Desde el cuadre con Calidad; faltan si la migración aún no está en la base.
+      es_componente?: boolean | null;
+      item_codigo?: string | null;
+      material?: string | null;
+      padre_modelo?: string | null;
     }[]
   ).map((r) => ({
     modelo: r.modelo,
@@ -84,5 +96,9 @@ export async function listarModelosOtRecibo(
     variantes: Number(r.variantes) || 1,
     cantidadRegistrada: Number(r.cantidad_registrada),
     pms: r.pms ?? "",
+    esComponente: r.es_componente === true,
+    itemCodigo: r.item_codigo ?? null,
+    material: r.material ?? null,
+    padreModelo: r.padre_modelo ?? null,
   }));
 }

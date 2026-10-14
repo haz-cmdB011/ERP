@@ -104,6 +104,22 @@ export function evaluablesPorCalidad(
     : new Set(items.map((i) => i.id));
 }
 
+// Ítems que Calidad VE (no solo los que puede evaluar). Con la verificación de
+// Producción activa son los muebles que Producción ya preaprobó, sus componentes
+// y todo lo que ya tiene informes (el historial no se esconde); lo que sigue en
+// taller, sin asignar o por preaprobar no aparece. Apagada la verificación, todo
+// lo liberado a producción.
+export function visiblesParaCalidad(
+  items: Pick<ItemEvaluable, "id" | "tipo_registro" | "parent_item_id">[],
+  mueblesVerificados: ReadonlySet<string>,
+  idsConInforme: ReadonlySet<string>,
+  verificacionActiva: boolean
+): Set<string> {
+  const visibles = evaluablesPorCalidad(items, mueblesVerificados, verificacionActiva);
+  for (const i of items) if (idsConInforme.has(i.id)) visibles.add(i.id);
+  return visibles;
+}
+
 // El mueble (MO) de un ítem escaneado junto con sus componentes (FU). Si el
 // QR es de un componente, se toma su mueble. Lista vacía si el ítem no está.
 export function grupoDelItem<T extends Pick<ItemEvaluable, "id" | "tipo_registro" | "parent_item_id">>(

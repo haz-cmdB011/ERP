@@ -3,6 +3,7 @@ import {
   diasSinEvaluar,
   estadoDe,
   evaluablesPorCalidad,
+  visiblesParaCalidad,
   funcionNoExiste,
   grupoDelItem,
   idsPorAprobar,
@@ -88,6 +89,30 @@ describe("evaluablesPorCalidad", () => {
   });
   it("con la verificación apagada, todo ítem liberado, haya o no entregas", () => {
     expect([...evaluablesPorCalidad(items, new Set(), false)].sort()).toEqual(["f1", "m1", "m2"]);
+  });
+});
+
+describe("visiblesParaCalidad", () => {
+  const items = [
+    { id: "m1", tipo_registro: "MO" as const, parent_item_id: null },
+    { id: "f1", tipo_registro: "FU" as const, parent_item_id: "m1" },
+    { id: "m2", tipo_registro: "MO" as const, parent_item_id: null },
+    { id: "f2", tipo_registro: "FU" as const, parent_item_id: "m2" },
+  ];
+  it("con la verificación activa, solo el mueble preaprobado y sus componentes", () => {
+    expect([...visiblesParaCalidad(items, new Set(["m1"]), new Set(), true)].sort()).toEqual(["f1", "m1"]);
+  });
+  it("lo que no se ha preaprobado no aparece (taller, sin asignar)", () => {
+    expect([...visiblesParaCalidad(items, new Set(), new Set(), true)]).toEqual([]);
+  });
+  it("lo que ya tiene informes se conserva como historial", () => {
+    expect([...visiblesParaCalidad(items, new Set(["m1"]), new Set(["m2"]), true)].sort()).toEqual(["f1", "m1", "m2"]);
+  });
+  it("un informe de un ítem que no está en la lista no lo agrega", () => {
+    expect([...visiblesParaCalidad(items, new Set(), new Set(["otro"]), true)]).toEqual([]);
+  });
+  it("con la verificación apagada, todo lo liberado", () => {
+    expect([...visiblesParaCalidad(items, new Set(), new Set(), false)].sort()).toEqual(["f1", "f2", "m1", "m2"]);
   });
 });
 

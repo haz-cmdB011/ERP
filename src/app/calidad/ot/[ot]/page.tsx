@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { traerTodo } from "@/lib/supabase/traer-todo";
 import { ErrorLectura } from "@/lib/supabase/paginar";
+import { visiblesParaCalidad } from "@/lib/calidad/estado-item";
+import { verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
+import { cargarMueblesPreaprobados } from "@/lib/calidad/preaprobados-db";
 
 interface PedidoOt {
   id: string;
@@ -17,6 +20,8 @@ interface PedidoOt {
 interface ItemEnviado {
   id: string;
   pedido_version_id: string;
+  tipo_registro: "MO" | "FU";
+  parent_item_id: string | null;
 }
 
 interface InformeResumen {
@@ -82,7 +87,7 @@ export default async function OrdenTrabajoCalidadPage({
         traerTodo<ItemEnviado>((desde, hasta) =>
           supabase
             .from("planeacion_items")
-            .select("id, pedido_version_id")
+            .select("id, pedido_version_id, tipo_registro, parent_item_id")
             .in("pedido_version_id", idsVersiones)
             .eq("estado_liberacion", "enviado_a_produccion")
             .or("estado_revision.is.null,estado_revision.neq.cancelado")
@@ -110,6 +115,18 @@ export default async function OrdenTrabajoCalidadPage({
     throw new ErrorLectura(`No se pudo leer el avance de la O.T.: ${errorItems ?? errorInformes}`);
   }
 
+  // Calidad ve solo lo que Producción ya preaprobó (y el historial con informes).
+  const [preaprobados, verificacionActiva] = await Promise.all([
+    cargarMueblesPreaprobados(supabase, pms.map((p) => p.id)),
+    verificacionProduccionActiva(supabase),
+  ]);
+  const visibles = visiblesParaCalidad(
+    items,
+    preaprobados,
+    new Set(informes.map((i) => i.planeacion_item_id)),
+    verificacionActiva
+  );
+
   // Vienen del más reciente al más antiguo: el primero de cada ítem manda.
   const ultimoInforme = new Map<string, boolean>();
   for (const inf of informes) {
@@ -118,6 +135,7 @@ export default async function OrdenTrabajoCalidadPage({
 
   const avancePorVersion = new Map<string, Avance>();
   for (const item of items) {
+    if (!visibles.has(item.id)) continue;
     const a = avancePorVersion.get(item.pedido_version_id) ?? { enviados: 0, aprobados: 0, rechazados: 0 };
     a.enviados += 1;
     const ultimo = ultimoInforme.get(item.id);
@@ -125,6 +143,12 @@ export default async function OrdenTrabajoCalidadPage({
     else if (ultimo === false) a.rechazados += 1;
     avancePorVersion.set(item.pedido_version_id, a);
   }
+
+  // Los PM sin muebles preaprobados no aparecen.
+  const pmsVisibles = pms.filter((p) => {
+    const activa = versionActiva.get(p.id);
+    return (activa ? (avancePorVersion.get(activa.id)?.enviados ?? 0) : 0) > 0;
+  });
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
@@ -139,10 +163,16 @@ export default async function OrdenTrabajoCalidadPage({
         )}
       </div>
 
-      {pms.length > 0 && (
+      {pmsVisibles.length === 0 && (
+        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          Producción todavía no preaprueba muebles de esta O.T. Cuando lo haga, aparecerán aquí.
+        </p>
+      )}
+
+      {pmsVisibles.length > 0 && (
         <div className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-slate-600">
-            {pms.length} PM en esta O.T.
+            {pmsVisibles.length} PM con muebles liberados a Calidad
           </h2>
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
@@ -152,14 +182,14 @@ export default async function OrdenTrabajoCalidadPage({
                   <th className="px-4 py-3">Proyecto</th>
                   <th className="px-4 py-3">Entrega</th>
                   <th className="px-4 py-3">Versión activa</th>
-                  <th className="px-4 py-3 text-right">En producción</th>
+                  <th className="px-4 py-3 text-right">En Calidad</th>
                   <th className="px-4 py-3 text-right">Aprobados</th>
                   <th className="px-4 py-3 text-right">Rechazados</th>
                   <th className="px-4 py-3 text-right">Sin evaluar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {pms.map((p) => {
+                {pmsVisibles.map((p) => {
                   const activa = versionActiva.get(p.id);
                   const a = activa ? avancePorVersion.get(activa.id) : undefined;
                   const sinEvaluar = a ? a.enviados - a.aprobados - a.rechazados : 0;

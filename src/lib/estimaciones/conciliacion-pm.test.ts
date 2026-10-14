@@ -6,6 +6,7 @@ import {
   claveSaldo,
   claveVariante,
   conciliarRenglones,
+  coincideModeloConBusqueda,
   requiereMotivo,
   saldosDeVariantes,
   type SaldoModeloPm,
@@ -14,6 +15,79 @@ import {
 const saldo = (cantidadPm: number, cantidadRegistrada = 0): SaldoModeloPm => ({
   cantidadPm,
   cantidadRegistrada,
+});
+
+describe("componentes en la lista de modelos", () => {
+  const mueble = { modelo: "M-RED", descripcionPm: "MESA REDONDA", cantidadPm: 2, cantidadRegistrada: 0 };
+  const hijo = {
+    modelo: "M-RED",
+    descripcionPm: "SOPORTE DE NIVELADOR",
+    cantidadPm: 8,
+    cantidadRegistrada: 0,
+    esComponente: true,
+  };
+
+  it("un componente es una variante más con su propio saldo, pero no suma en el saldo por código", () => {
+    const saldos = saldosDeVariantes([mueble, hijo]);
+    expect(saldos.get(claveVariante("M-RED", "SOPORTE DE NIVELADOR"))).toEqual({ cantidadPm: 8, cantidadRegistrada: 0 });
+    // El saldo por código es el del mueble (2), como en la base: no 2 + 8.
+    expect(saldos.get(claveModelo("M-RED"))).toMatchObject({ cantidadPm: 2 });
+    expect(saldos.get(claveModelo("M-RED"))?.varianteUnica).toBe(claveVariante("M-RED", "MESA REDONDA"));
+  });
+
+  it("cobrar un componente se concilia contra su cantidad, no contra la del mueble", () => {
+    const saldos = saldosDeVariantes([mueble, hijo]);
+    const dentro = conciliarRenglones(
+      [{ modelo: "M-RED", descripcionPm: "SOPORTE DE NIVELADOR", cantidad: 8 }],
+      saldos
+    );
+    expect(dentro[0]).toEqual({ estado: "dentro", cantidadPm: 8, acumulada: 8 });
+    const excede = conciliarRenglones(
+      [{ modelo: "M-RED", descripcionPm: "SOPORTE DE NIVELADOR", cantidad: 9 }],
+      saldos
+    );
+    expect(excede[0]).toMatchObject({ estado: "excede", excedente: 1 });
+  });
+
+  it("escribir solo el código sigue contra el mueble (los componentes no lo inflan)", () => {
+    const saldos = saldosDeVariantes([mueble, hijo]);
+    const r = conciliarRenglones([{ modelo: "M-RED", cantidad: 3 }], saldos);
+    expect(r[0]).toMatchObject({ estado: "excede", cantidadPm: 2, excedente: 1 });
+  });
+});
+
+describe("coincideModeloConBusqueda", () => {
+  const mueble = { modelo: "M-CONT-M", descripcion: "MUEBLE DE CONTROL MUROS" };
+  const hijo = {
+    modelo: "M-CONT",
+    descripcion: "SOPORTE DE NIVELADOR",
+    esComponente: true,
+    itemCodigo: "1.05",
+    padreModelo: "M-CONT-M",
+  };
+
+  it("sin texto, todas", () => {
+    expect(coincideModeloConBusqueda(mueble, "")).toBe(true);
+    expect(coincideModeloConBusqueda(hijo, "  ")).toBe(true);
+  });
+
+  it("por código, sin importar guiones ni mayúsculas", () => {
+    expect(coincideModeloConBusqueda(mueble, "m cont")).toBe(true);
+    expect(coincideModeloConBusqueda(mueble, "XX-9")).toBe(false);
+  });
+
+  it("escribir el código del mueble muestra también sus componentes aunque tengan otro código", () => {
+    expect(coincideModeloConBusqueda(hijo, "M-CONT-M")).toBe(true);
+    // Un mueble no aparece por el código de otro.
+    expect(coincideModeloConBusqueda({ modelo: "P-COL", descripcion: "PORTA COLCHONETAS" }, "M-CONT-M")).toBe(false);
+  });
+
+  it("por nombre (sin acentos) y por el número del componente", () => {
+    expect(coincideModeloConBusqueda(hijo, "nivelador")).toBe(true);
+    expect(coincideModeloConBusqueda(mueble, "control muros")).toBe(true);
+    expect(coincideModeloConBusqueda(hijo, "1.05")).toBe(true);
+    expect(coincideModeloConBusqueda(mueble, "1.05")).toBe(false);
+  });
 });
 
 describe("conciliarRenglones", () => {

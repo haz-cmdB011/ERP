@@ -56,14 +56,18 @@ export default async function CalidadListPage({
     cargarDetenidos(supabase, hoyMexico()).catch(() => null),
   ]);
 
-  const filtradas = filtrarOrdenesTrabajo(pedidos, {
+  const sinResumen = resumen === null;
+  // Calidad ve solo los pedidos con muebles que Producción ya preaprobó (o con
+  // historial de informes). Si el resumen no se pudo calcular se muestran todos
+  // y arriba se avisa.
+  const pedidosParaCalidad = sinResumen ? pedidos : pedidos.filter((p) => resumen.porPedido.has(p.id));
+  const filtradas = filtrarOrdenesTrabajo(pedidosParaCalidad, {
     anio: anioFiltro,
     cliente: clienteFiltro,
     busqueda,
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
 
-  const sinResumen = resumen === null;
   const pedidoIdsDe = (fila: (typeof filtradas.filas)[number]) => fila.pedidos.map((p) => p.id);
   // Avance de una O.T. con la forma que espera la etiqueta de estado.
   const avanceDe = (fila: (typeof filtradas.filas)[number]): AvancePedido => {
@@ -136,8 +140,8 @@ export default async function CalidadListPage({
             },
             {
               valor: resumen!.liberados,
-              etiqueta: "Ítems en producción",
-              detalle: "liberados por Producción",
+              etiqueta: "Ítems liberados a Calidad",
+              detalle: "preaprobados por Producción",
               href: "/calidad",
               tono: "suave",
             },
@@ -208,7 +212,13 @@ export default async function CalidadListPage({
         q={busqueda || undefined}
       />
 
-      {pedidos.length > 0 && filas.length === 0 && (
+      {pedidos.length > 0 && pedidosParaCalidad.length === 0 && (
+        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          Producción todavía no preaprueba muebles para Calidad. Cuando lo haga, aparecerán aquí.
+        </p>
+      )}
+
+      {pedidosParaCalidad.length > 0 && filas.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Ninguna O.T. coincide con los filtros.
         </p>

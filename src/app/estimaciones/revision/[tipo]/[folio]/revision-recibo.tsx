@@ -57,6 +57,8 @@ type Props = (
 ) & {
   // Diferencias con el PM (se arman en el servidor, ver discrepancias-recibo.tsx).
   discrepancias?: React.ReactNode;
+  // Lo cobrado contra lo que Calidad aprobó (aviso, no bloquea; ver calidad-recibo.tsx).
+  calidad?: React.ReactNode;
   // Siguiente recibo pendiente de revisión (null si no queda otro).
   siguiente?: (RefRecibo & { restantes: number }) | null;
 };
@@ -408,6 +410,7 @@ export default function RevisionRecibo(props: Props) {
       )}
 
       {props.discrepancias}
+      {props.calidad}
 
       {editable && precedentesFallo && (
         <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
