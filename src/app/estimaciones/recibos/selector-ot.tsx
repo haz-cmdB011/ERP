@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { claveModelo, claveOt, claveVariante } from "@/lib/estimaciones/conciliacion-pm";
+import {
+  claveModelo,
+  claveOt,
+  claveVariante,
+  coincideModeloConBusqueda,
+} from "@/lib/estimaciones/conciliacion-pm";
 import {
   listarModelosOtRecibo,
   listarOtsRecibos,
@@ -106,10 +111,15 @@ export function SelectorOt({
 }
 
 // Campo de modelo con la lista de modelos de la OT elegida (todos sus PM): se
-// abre al enfocarlo y filtra mientras se escribe. Elegir una opción fija el
-// código y la variante (descripcionPm); escribir a mano borra la variante (la
-// base la completa si el código tiene una sola en la OT). Se puede escribir un
-// modelo que no esté en la lista.
+// abre al enfocarlo y filtra mientras se escribe (por código o por nombre).
+// Elegir una opción fija el código y la variante (descripcionPm); escribir a
+// mano borra la variante (la base la completa si el código tiene una sola en la
+// OT). Se puede escribir un modelo que no esté en la lista.
+//
+// Además de los muebles, la lista trae sus COMPONENTES (hijos), sangrados debajo
+// de su mueble: un recibo puede cobrar un componente suelto y se compara contra
+// la cantidad de ese componente en el PM. Es el mismo campo: no hay nada nuevo
+// que llenar.
 export function CampoModeloOt({
   value,
   descripcionPm,
@@ -128,7 +138,7 @@ export function CampoModeloOt({
   const [abierto, setAbierto] = useState(false);
   const q = claveModelo(value);
   // Todos los modelos de la OT (la lista se desplaza y se filtra al escribir).
-  const opciones = (seleccion.modelos ?? []).filter((m) => !q || claveModelo(m.modelo).includes(q));
+  const opciones = (seleccion.modelos ?? []).filter((m) => coincideModeloConBusqueda(m, value));
   const variosPm = (seleccion.otElegida?.numPms ?? 0) > 1;
   const elegida =
     descripcionPm != null
@@ -136,9 +146,10 @@ export function CampoModeloOt({
           (m) => claveVariante(m.modelo, m.descripcionPm) === claveVariante(value, descripcionPm)
         )
       : undefined;
-  // Variantes del código escrito: si hay más de una y no se eligió, se avisa.
+  // Variantes del código escrito (de muebles; un componente no es una variante): si
+  // hay más de una y no se eligió, se avisa.
   const variantesDelCodigo = q
-    ? (seleccion.modelos ?? []).filter((m) => claveModelo(m.modelo) === q).length
+    ? (seleccion.modelos ?? []).filter((m) => !m.esComponente && claveModelo(m.modelo) === q).length
     : 0;
 
   return (
@@ -160,6 +171,12 @@ export function CampoModeloOt({
       />
       {descripcionPm != null && descripcionPm !== "" ? (
         <p className="mt-0.5 truncate text-[11px] text-slate-500" title={descripcionPm}>
+          {elegida?.esComponente && (
+            <span className="mr-1 rounded bg-slate-100 px-1 font-medium text-slate-600">
+              componente {elegida.itemCodigo}
+              {elegida.material ? ` · ${elegida.material}` : ""}
+            </span>
+          )}
           {elegida?.descripcion ?? descripcionPm.split("\n")[0]}
         </p>
       ) : (
@@ -173,7 +190,7 @@ export function CampoModeloOt({
       {abierto && opciones.length > 0 && (
         <ul className="anim-menu absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {opciones.map((m) => (
-            <li key={claveVariante(m.modelo, m.descripcionPm)}>
+            <li key={`${m.esComponente ? "c" : "m"}|${claveVariante(m.modelo, m.descripcionPm)}`}>
               <button
                 type="button"
                 // mouseDown (no click): se dispara antes del blur del input.
@@ -182,17 +199,33 @@ export function CampoModeloOt({
                   onChange(m.modelo, m.descripcionPm);
                   setAbierto(false);
                 }}
-                className="flex w-full flex-col px-2.5 py-1.5 text-left text-sm hover:bg-brand-50"
+                className={`flex w-full flex-col py-1.5 pr-2.5 text-left text-sm hover:bg-brand-50 ${
+                  m.esComponente ? "pl-6" : "pl-2.5"
+                }`}
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-slate-900">
-                    {m.modelo}
-                    {m.variantes > 1 && (
-                      <span className="ml-1.5 rounded bg-amber-50 px-1 font-sans text-[10px] text-amber-700 ring-1 ring-amber-200">
-                        variante
+                  {m.esComponente ? (
+                    <span className="text-slate-800">
+                      <span className="mr-1 text-slate-400" aria-hidden>
+                        ↳
                       </span>
-                    )}
-                  </span>
+                      <span className="font-mono">{m.itemCodigo ?? m.modelo}</span>
+                      {m.material && (
+                        <span className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] uppercase text-slate-600">
+                          {m.material}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="font-mono text-slate-900">
+                      {m.modelo}
+                      {m.variantes > 1 && (
+                        <span className="ml-1.5 rounded bg-amber-50 px-1 font-sans text-[10px] text-amber-700 ring-1 ring-amber-200">
+                          variante
+                        </span>
+                      )}
+                    </span>
+                  )}
                   <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
                     {m.cantidadPm} en la OT
                     {m.cantidadRegistrada > 0 && (
@@ -210,7 +243,10 @@ export function CampoModeloOt({
                   </span>
                 </span>
                 {m.descripcion && (
-                  <span className="truncate text-[11px] text-slate-500">{m.descripcion}</span>
+                  <span className="truncate text-[11px] text-slate-500">
+                    {m.esComponente && m.padreModelo ? `componente de ${m.padreModelo} · ` : ""}
+                    {m.descripcion}
+                  </span>
                 )}
                 {variosPm && m.pms && (
                   <span className="truncate font-mono text-[10px] text-slate-600">{m.pms}</span>

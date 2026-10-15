@@ -122,7 +122,9 @@ en el repo. Por eso:
 
 ## Preaprobación de Producción
 
-Calidad solo evalúa piezas que Producción preaprobó. La preaprobación se hace al **registrar la
+Calidad solo evalúa piezas que Producción preaprobó, y sus pantallas solo **muestran** esos muebles
+(más lo que ya tiene informes): lo que sigue en taller no aparece (`visiblesParaCalidad` en
+`src/lib/calidad/estado-item.ts`, lectura en `preaprobados-db.ts`). La preaprobación se hace al **registrar la
 entrega**: quien toma la foto marca si las piezas cumplen (nace verificada y pasa a Calidad) o no
 cumplen (nace rechazada, con motivo). Lo controla el ajuste `verificacion_produccion` de la tabla
 `ajustes_flujo`, hoy ENCENDIDO (migración `entrega_con_preaprobacion`). Apagado, Calidad evalúa todo
@@ -130,6 +132,26 @@ cumplen (nace rechazada, con motivo). Lo controla el ajuste `verificacion_produc
 verificadas. Cómo apagarlo o encenderlo y qué anotar después: `docs/operacion.md` ("Si Calidad no puede
 evaluar un mueble"). La pantalla lee el ajuste con `src/lib/calidad/ajustes-flujo.ts`; si no puede
 leerlo asume el flujo con verificación.
+
+## Cuadre con Calidad (Estimaciones)
+
+"PM contra cobrado" (`/estimaciones/pm-cobrado/<OT>` y el reporte semanal) cruza, por O.T. y variante del
+modelo (código + descripción), lo que declaró Planeación, lo que Calidad aprobó y lo cobrado en recibos
+(migración `cuadre_calidad_recibos`). Sin campos nuevos para el maquilador:
+
+- **Componentes (hijos)**: salen como filas aparte bajo su mueble y el campo "Modelo" del recibo de
+  Acabados/Armado también los ofrece (`CampoModeloOt`). Un recibo puede cobrar un componente suelto y se
+  compara contra la cantidad de ese componente: el trigger `est_conciliar_renglon_pm` no cambió, solo
+  `cantidad_pm_variante` los incluye. Electrificación sigue solo con padres con iluminación. El saldo por
+  código (`cantidad_pm_ot`, `saldosDeVariantes`) NO suma componentes.
+- **"Calidad aprobó" por área** (`aprobado_calidad_variante`, interna): barniz → Acabados y armado → Armado, de
+  lotes de equipos que no son de planta (la planta no cobra recibo); en un componente, su último informe (todo
+  o nada). Solo hay dato si Producción asignó el mueble en el sistema; si no, es null y no se marca nada.
+  Electrificación no se compara con Calidad.
+- **Listo para cobrar** = aprobado por Calidad − cobrado (filtro de la O.T. y del reporte). Un recibo cobrado
+  de más se **marca al revisarlo** (`recibo_contra_calidad`, `src/app/estimaciones/calidad-recibo.tsx`): es un
+  aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece si Calidad aprueba.
+- No cubre el doble cobro (el mueble y también sus componentes por el mismo trabajo): salen juntos en pantalla.
 
 ## Capturas sin conexión
 

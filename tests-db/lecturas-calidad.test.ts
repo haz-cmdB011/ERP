@@ -50,14 +50,18 @@ describe.skipIf(!hayVariables)("lecturas de Calidad (solo lectura)", () => {
     expect(filas).toHaveLength(count ?? 0);
   });
 
-  it("el resumen del panel se calcula y es coherente con el avance", async () => {
+  it("el resumen del panel se calcula, solo cuenta lo que Calidad ve y es coherente con el avance", async () => {
     const [resumen, avance] = await Promise.all([
       cargarResumenCalidad(servicio),
       avancePorPedidoEstricto(servicio, { conCalidad: true }),
     ]);
     const a = sumarAvance(avance);
-    expect(resumen.liberados).toBe(a.liberados);
-    expect(resumen.porEvaluar).toBe(a.porEvaluar);
+    // Calidad ve solo los muebles que Producción preaprobó (y lo que ya tiene
+    // informes): un subconjunto de lo liberado a Producción. Todo lo evaluado
+    // se ve siempre, así que los evaluados coinciden.
+    expect(resumen.liberados).toBeLessThanOrEqual(a.liberados);
+    expect(resumen.porEvaluar).toBeLessThanOrEqual(a.porEvaluar);
+    expect(resumen.evaluados).toBe(a.evaluados);
     expect(resumen.evaluados + resumen.porEvaluar).toBe(resumen.liberados);
   });
 

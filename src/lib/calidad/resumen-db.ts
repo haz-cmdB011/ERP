@@ -5,9 +5,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import { resumirCalidad, type InformeBasico, type ItemLiberado, type ResumenCalidad } from "./resumen";
 import { lotesPorEvaluar, normalizarLote, type LoteCalidad } from "./lotes";
+import { visiblesParaCalidad } from "./estado-item";
+import { verificacionProduccionActiva } from "./ajustes-flujo";
+import { cargarMueblesPreaprobados } from "./preaprobados-db";
 
 interface FilaItem {
   id: string;
+  tipo_registro: "MO" | "FU";
+  parent_item_id: string | null;
   liberado_en: string | null;
   estado_revision: string | null;
   eliminacion_solicitada_en: string | null;
@@ -18,14 +23,16 @@ interface FilaItem {
 }
 
 // Resumen vigente: ítems enviados a producción de la versión activa de pedidos
-// no cancelados ni eliminados, y todos los informes.
+// no cancelados ni eliminados, y todos los informes. Solo cuenta lo que Calidad
+// ve: con la verificación de Producción activa, los muebles preaprobados (y sus
+// componentes) y lo que ya tiene informes.
 export async function cargarResumenCalidad(supabase: SupabaseClient, ahora = new Date()): Promise<ResumenCalidad> {
   const filas = await paginarTodo<FilaItem>(
     (desde, hasta) =>
       supabase
         .from("planeacion_items")
         .select(
-          "id, liberado_en, estado_revision, eliminacion_solicitada_en, pedido_versiones!inner ( pedido_id, es_version_activa, pedidos!inner ( eliminado_en, eliminado_definitivo_en, cancelado_en ) )"
+          "id, tipo_registro, parent_item_id, liberado_en, estado_revision, eliminacion_solicitada_en, pedido_versiones!inner ( pedido_id, es_version_activa, pedidos!inner ( eliminado_en, eliminado_definitivo_en, cancelado_en ) )"
         )
         .eq("estado_liberacion", "enviado_a_produccion")
         .eq("pedido_versiones.es_version_activa", true)
@@ -34,25 +41,44 @@ export async function cargarResumenCalidad(supabase: SupabaseClient, ahora = new
         .returns<FilaItem[]>(),
     { contexto: "los ítems liberados" }
   );
-  const items: ItemLiberado[] = [];
+  const candidatos: (ItemLiberado & Pick<FilaItem, "tipo_registro" | "parent_item_id">)[] = [];
   for (const f of filas) {
     const pedido = f.pedido_versiones?.pedidos;
     if (!f.pedido_versiones || !pedido) continue;
     if (pedido.eliminado_en || pedido.eliminado_definitivo_en || pedido.cancelado_en) continue;
     if (f.estado_revision === "cancelado" || f.eliminacion_solicitada_en) continue;
-    items.push({ id: f.id, pedidoId: f.pedido_versiones.pedido_id, liberadoEn: f.liberado_en });
+    candidatos.push({
+      id: f.id,
+      pedidoId: f.pedido_versiones.pedido_id,
+      liberadoEn: f.liberado_en,
+      tipo_registro: f.tipo_registro,
+      parent_item_id: f.parent_item_id,
+    });
   }
 
-  const informes = await paginarTodo<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string; piezas_verificadas: number | string | null }>(
-    (desde, hasta) =>
-      supabase
-        .from("informes_calidad")
-        .select("planeacion_item_id, aprobado, elaborado_en")
-        .order("id")
-        .range(desde, hasta)
-        .returns<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string; piezas_verificadas: number | string | null }[]>(),
-    { contexto: "los informes de calidad" }
+  const [informes, preaprobados, verificacionActiva] = await Promise.all([
+    paginarTodo<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string }>(
+      (desde, hasta) =>
+        supabase
+          .from("informes_calidad")
+          .select("planeacion_item_id, aprobado, elaborado_en")
+          .order("id")
+          .range(desde, hasta)
+          .returns<{ planeacion_item_id: string; aprobado: boolean; elaborado_en: string }[]>(),
+      { contexto: "los informes de calidad" }
+    ),
+    cargarMueblesPreaprobados(supabase),
+    verificacionProduccionActiva(supabase),
+  ]);
+  const visibles = visiblesParaCalidad(
+    candidatos,
+    preaprobados,
+    new Set(informes.map((i) => i.planeacion_item_id)),
+    verificacionActiva
   );
+  const items: ItemLiberado[] = candidatos
+    .filter((c) => visibles.has(c.id))
+    .map(({ id, pedidoId, liberadoEn }) => ({ id, pedidoId, liberadoEn }));
   const basicos: InformeBasico[] = informes.map((i) => ({
     itemId: i.planeacion_item_id,
     aprobado: i.aprobado,

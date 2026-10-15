@@ -12,8 +12,15 @@ function coincide(r: ResumenOt, texto: string): boolean {
 }
 
 function conDiferencias(r: ResumenOt): boolean {
-  return r.excedidos > 0 || r.fueraDelPm > 0 || r.discrepanciasPendientes > 0;
+  return r.excedidos > 0 || r.fueraDelPm > 0 || r.discrepanciasPendientes > 0 || r.sobreCalidad > 0;
 }
+
+// Calidad ya aprobó algo en esta O.T. que todavía no tiene recibo.
+function conListo(r: ResumenOt): boolean {
+  return r.listoParaCobrar > 0 || r.listoComponentes > 0;
+}
+
+type Filtro = "todos" | "diferencias" | "listo";
 
 // Contenido de la sección "PM contra cobrado" del dashboard (el título y el
 // desplegable los pone SeccionDesplegable): avance global por área y las O.T.
@@ -27,7 +34,7 @@ export default function PanelPmCobrado({
   error: string | null;
 }) {
   const [texto, setTexto] = useState("");
-  const [soloDiferencias, setSoloDiferencias] = useState(false);
+  const [filtro, setFiltro] = useState<Filtro>("todos");
 
   const global = useMemo(() => {
     const avance = {
@@ -45,20 +52,22 @@ export default function PanelPmCobrado({
   }, [resumenes]);
 
   const totalConDiferencias = useMemo(() => resumenes.filter(conDiferencias).length, [resumenes]);
+  const totalConListo = useMemo(() => resumenes.filter(conListo).length, [resumenes]);
   const visibles = useMemo(() => {
     const busqueda = texto.trim();
     // Las O.T. con diferencias por revisar van primero (el sort es estable).
     return resumenes
       .filter((r) => !busqueda || coincide(r, busqueda))
-      .filter((r) => !soloDiferencias || conDiferencias(r))
+      .filter((r) => filtro === "todos" || (filtro === "diferencias" ? conDiferencias(r) : conListo(r)))
       .sort((a, b) => Number(conDiferencias(b)) - Number(conDiferencias(a)));
-  }, [resumenes, texto, soloDiferencias]);
+  }, [resumenes, texto, filtro]);
 
   return (
     <>
       <p className="text-sm text-slate-500">
         Cada área tiene su propio saldo; los reprocesos se pagan aparte y Electrificación se mide
-        contra los muebles con iluminación. Entra a una O.T. para ver el detalle por modelo.
+        contra los muebles con iluminación. <strong className="font-medium">Listo para cobrar</strong> es lo que
+        Calidad ya aprobó y todavía no tiene recibo. Entra a una O.T. para ver el detalle por modelo.
       </p>
 
       {error && (
@@ -102,9 +111,9 @@ export default function PanelPmCobrado({
             />
             <button
               type="button"
-              onClick={() => setSoloDiferencias(false)}
+              onClick={() => setFiltro("todos")}
               className={`rounded border px-3 py-1 text-sm font-medium pointer-coarse:py-2 ${
-                !soloDiferencias
+                filtro === "todos"
                   ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
@@ -113,9 +122,20 @@ export default function PanelPmCobrado({
             </button>
             <button
               type="button"
-              onClick={() => setSoloDiferencias(true)}
+              onClick={() => setFiltro("listo")}
               className={`rounded border px-3 py-1 text-sm font-medium pointer-coarse:py-2 ${
-                soloDiferencias
+                filtro === "listo"
+                  ? "border-emerald-600 bg-emerald-600 text-white"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              }`}
+            >
+              Listo para cobrar ({totalConListo})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltro("diferencias")}
+              className={`rounded border px-3 py-1 text-sm font-medium pointer-coarse:py-2 ${
+                filtro === "diferencias"
                   ? "border-rose-600 bg-rose-600 text-white"
                   : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
               }`}
@@ -126,9 +146,11 @@ export default function PanelPmCobrado({
 
           {visibles.length === 0 && (
             <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
-              {soloDiferencias && !texto.trim()
+              {filtro === "diferencias" && !texto.trim()
                 ? "Ninguna O.T. tiene diferencias con lo cobrado."
-                : "Ninguna O.T. coincide con la búsqueda."}
+                : filtro === "listo" && !texto.trim()
+                  ? "Calidad no tiene nada aprobado pendiente de cobro."
+                  : "Ninguna O.T. coincide con la búsqueda."}
             </p>
           )}
 
@@ -154,8 +176,19 @@ export default function PanelPmCobrado({
                   <BarraAvance key={a} etiqueta={ETIQUETA_AREA[a]} avance={r.avance[a]} />
                 ))}
               </div>
-              {conDiferencias(r) && (
+              {(conDiferencias(r) || conListo(r)) && (
                 <div className="flex flex-wrap gap-2 text-xs">
+                  {conListo(r) && (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">
+                      {r.listoParaCobrar} {r.listoParaCobrar === 1 ? "renglón listo" : "renglones listos"} para cobrar
+                      {r.listoComponentes > 0 && ` · ${r.listoComponentes} de componentes`}
+                    </span>
+                  )}
+                  {r.sobreCalidad > 0 && (
+                    <span className="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 ring-1 ring-rose-200">
+                      {r.sobreCalidad} {r.sobreCalidad === 1 ? "cobrado" : "cobrados"} sin la aprobación de Calidad
+                    </span>
+                  )}
                   {r.excedidos > 0 && (
                     <span className="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 ring-1 ring-rose-200">
                       {r.excedidos} {r.excedidos === 1 ? "modelo cobrado" : "modelos cobrados"} de

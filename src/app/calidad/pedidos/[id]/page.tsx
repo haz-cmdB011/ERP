@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
-import { evaluablesPorCalidad, grupoDelItem } from "@/lib/calidad/estado-item";
+import { evaluablesPorCalidad, grupoDelItem, visiblesParaCalidad } from "@/lib/calidad/estado-item";
 import { verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
 import {
@@ -206,11 +206,10 @@ export default async function PedidoCalidadPage({
     if (!l.planeacion_item_id) continue;
     lotesPorMueble.set(l.planeacion_item_id, [...(lotesPorMueble.get(l.planeacion_item_id) ?? []), l]);
   }
-  const verificados = evaluablesPorCalidad(
-    items,
-    new Set([...lotesPorMueble].filter(([, ls]) => ls.some((l) => l.cantidad > 0)).map(([id]) => id)),
-    verificacionActiva
+  const mueblesPreaprobados = new Set(
+    [...lotesPorMueble].filter(([, ls]) => ls.some((l) => l.cantidad > 0)).map(([id]) => id)
   );
+  const verificados = evaluablesPorCalidad(items, mueblesPreaprobados, verificacionActiva);
 
   // Lo que todavía no se puede evaluar dice dónde está en Producción (un
   // componente, lo de su mueble).
@@ -238,7 +237,11 @@ export default async function PedidoCalidadPage({
     informesPorItem.set(inf.planeacion_item_id, lista);
   }
 
-  const itemsConInforme: ItemCalidadRow[] = items.map((item) => {
+  // Calidad ve solo lo que Producción ya preaprobó (y lo que ya tiene informes):
+  // lo que sigue en taller o sin asignar no aparece.
+  const visibles = visiblesParaCalidad(items, mueblesPreaprobados, new Set(informesPorItem.keys()), verificacionActiva);
+
+  const itemsConInforme: ItemCalidadRow[] = items.filter((item) => visibles.has(item.id)).map((item) => {
     const evaluable = verificados.has(item.id);
     return {
       id: item.id,
@@ -276,6 +279,8 @@ export default async function PedidoCalidadPage({
   const itemEnfocado = itemParam && esUuid(itemParam) ? itemParam : null;
   const grupoEnfocado = itemEnfocado ? grupoDelItem(itemsConInforme, itemEnfocado) : [];
   const enfoque = itemEnfocado !== null && grupoEnfocado.length > 0;
+  // El QR es de un mueble liberado a producción que Producción aún no preaprueba.
+  const enfocadoSinPreaprobar = itemEnfocado !== null && !enfoque && items.some((i) => i.id === itemEnfocado);
   const hrefTodoElPedido = `/calidad/pedidos/${id}${
     versionSeleccionada ? `?version=${versionSeleccionada.numero_version}` : ""
   }`;
@@ -332,7 +337,9 @@ export default async function PedidoCalidadPage({
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
           {enfoque
             ? "Mostrando el mueble que escaneaste."
-            : "Ese mueble todavía no se ha enviado a producción en esta versión, así que no se puede evaluar."}
+            : enfocadoSinPreaprobar
+              ? "Ese mueble todavía no está liberado para Calidad: Producción no ha preaprobado sus piezas."
+              : "Ese mueble todavía no se ha enviado a producción en esta versión, así que no se puede evaluar."}
           <Link href={hrefTodoElPedido} className="font-medium underline-offset-2 hover:underline">
             Ver todo el pedido
           </Link>
@@ -342,7 +349,13 @@ export default async function PedidoCalidadPage({
         </p>
       )}
 
-      {versionSeleccionada && (
+      {versionSeleccionada && itemsConInforme.length === 0 && !enfoque && (
+        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          Producción todavía no preaprueba muebles de este pedido. Cuando lo haga, aparecerán aquí.
+        </p>
+      )}
+
+      {versionSeleccionada && itemsConInforme.length > 0 && (
         <ItemsCalidadTable
           items={enfoque ? grupoEnfocado : itemsConInforme}
           pedidoId={id}
