@@ -4,6 +4,8 @@
 // autorizadores vienen del catálogo M-R-A (tablas motivos_calidad, areas_calidad
 // y autorizadores_calidad).
 
+import type { Proceso } from "@/lib/produccion/asignaciones";
+
 // Tipos de reporte del formato vigente de Calidad (aún puede cambiar).
 export const TIPOS_REPORTE = ["Incidencia", "Desviación", "Producto No Conforme", "Mejora de Producto"] as const;
 // Un rechazo de Calidad es, por defecto, un producto no conforme.
@@ -166,7 +168,7 @@ export function argumentosDetalle(informeId: string, d: DetalleNoConformidad) {
 
 // Lo que se sabe de quien produjo un lote rechazado.
 export interface OrigenLote {
-  proceso: "armado" | "barniz";
+  proceso: Proceso;
   equipo: string;
   esPlanta: boolean;
   encargado: string | null;
@@ -187,7 +189,10 @@ export function origenSugerido(
     if (!existe("MAQUILADOR")) return null;
     return { areaOrigen: "MAQUILADOR", responsableOrigen: origen.encargado?.trim() || origen.equipo };
   }
-  const area = origen.proceso === "armado" ? "PROD-ARMADO-MAD" : "BARNIZ";
+  // Electrificación y Superficie Sólida no tienen área de planta en el catálogo: se elige a mano.
+  const area =
+    origen.proceso === "armado" ? "PROD-ARMADO-MAD" : origen.proceso === "barniz" ? "BARNIZ" : null;
+  if (!area) return null;
   if (!existe(area)) return null;
   const delCatalogo = responsablesDeArea(areas, area);
   return {

@@ -57,7 +57,7 @@ export async function generarExcelAsignaciones(
       Number(a.cantidad),
       Number(a.entregado),
       a.es_planta ? `${a.equipo} (planta)` : a.equipo,
-      a.equipo_encargado,
+      a.encargado ?? a.equipo_encargado,
       PROCESO_LABELS[a.proceso],
       fechaExcel(a.fecha_asignacion),
       // La fecha de entrega es la de la última entrega, y solo cuando terminó.

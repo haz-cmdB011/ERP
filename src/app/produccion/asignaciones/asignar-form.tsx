@@ -8,7 +8,9 @@ import {
   PROCESO_LABELS,
   PROCESOS,
   hoyMexico,
+  encargadosDeEquipo,
   mensajeErrorRpc,
+  type EncargadoEquipo,
   type EquipoProduccion,
   type Proceso,
 } from "@/lib/produccion/asignaciones";
@@ -18,6 +20,7 @@ import Modal, {
   estiloCampo,
   estiloEtiqueta,
 } from "./modal";
+import CampoEncargado from "./campo-encargado";
 
 // Asigna parte (o todo) un mueble a un equipo. Se puede repetir para repartir
 // el mismo modelo entre varios equipos o con la planta; la base no deja pasar
@@ -28,12 +31,14 @@ export default function AsignarForm({
   unidad,
   disponible,
   equipos,
+  encargados,
 }: {
   itemId: string;
   descripcion: string;
   unidad: string | null;
   disponible: Record<Proceso, number>;
   equipos: EquipoProduccion[];
+  encargados: EncargadoEquipo[];
 }) {
   const router = useRouter();
   const procesoInicial = PROCESOS.find((p) => disponible[p] > 0) ?? "armado";
@@ -43,6 +48,7 @@ export default function AsignarForm({
   const [cantidad, setCantidad] = useState("");
   const [fecha, setFecha] = useState("");
   const [notas, setNotas] = useState("");
+  const [encargado, setEncargado] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +64,7 @@ export default function AsignarForm({
     setCantidad(String(disponible[procesoInicial]));
     setFecha(hoyMexico());
     setNotas("");
+    setEncargado("");
     setError(null);
     setAbierto(true);
   }
@@ -79,6 +86,7 @@ export default function AsignarForm({
       p_cantidad: Number(cantidad.replace(",", ".")),
       p_fecha_asignacion: fecha,
       p_notas: notas,
+      p_encargado: encargado,
     });
     setEnviando(false);
     if (error) {
@@ -104,7 +112,7 @@ export default function AsignarForm({
       {abierto && (
         <Modal titulo="Asignar a un equipo" subtitulo={descripcion} onCerrar={() => !enviando && setAbierto(false)}>
           <form onSubmit={enviar} className="flex flex-col gap-3">
-            <fieldset className="flex gap-2">
+            <fieldset className="grid grid-cols-2 gap-2">
               <legend className="mb-1 text-sm font-medium text-slate-700">Proceso</legend>
               {PROCESOS.map((p) => (
                 <label
@@ -149,6 +157,11 @@ export default function AsignarForm({
                 ))}
               </select>
             </label>
+            <CampoEncargado
+              valor={encargado}
+              onCambio={setEncargado}
+              sugerencias={encargadosDeEquipo(encargados, equipoId)}
+            />
             <div className="grid grid-cols-2 gap-3">
               <label className={estiloEtiqueta}>
                 Cantidad

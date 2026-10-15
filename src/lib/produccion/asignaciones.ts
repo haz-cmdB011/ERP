@@ -3,12 +3,14 @@
 // Calidad. Las reglas reales viven en las funciones SQL de la migración
 // asignaciones_produccion; aquí solo hay lo que comparte la interfaz.
 
-export const PROCESOS = ["armado", "barniz"] as const;
+export const PROCESOS = ["armado", "barniz", "electrificacion", "superficie_solida"] as const;
 export type Proceso = (typeof PROCESOS)[number];
 
 export const PROCESO_LABELS: Record<Proceso, string> = {
   armado: "Armado",
   barniz: "Barniz",
+  electrificacion: "Electrificación",
+  superficie_solida: "Superficie Sólida",
 };
 
 export const ESTADOS_ASIGNACION = ["en_proceso", "parcial", "entregada", "cancelada"] as const;
@@ -61,6 +63,8 @@ export interface AsignacionResumen {
   equipo_id: string;
   equipo: string;
   equipo_encargado: string | null;
+  // Encargado de esas piezas, escrito al asignar (cambia de una asignación a otra).
+  encargado: string | null;
   es_planta: boolean;
   proceso: Proceso;
   cantidad: number;
@@ -131,6 +135,16 @@ export interface EquipoProduccion {
   es_planta: boolean;
   procesos: Proceso[];
   activo: boolean;
+}
+
+// Encargados ya escritos en cada equipo, para elegirlos al asignar.
+export interface EncargadoEquipo {
+  equipo_id: string;
+  nombre: string;
+}
+
+export function encargadosDeEquipo(encargados: EncargadoEquipo[], equipoId: string): string[] {
+  return encargados.filter((e) => e.equipo_id === equipoId).map((e) => e.nombre);
 }
 
 export const BUCKET_FOTOS_ENTREGA = "produccion-entregas";

@@ -271,7 +271,7 @@ export default async function AsignacionesPage({
                       <span className="font-medium text-slate-900">{a.equipo}</span>
                       <span className="block text-xs text-slate-500">
                         {PROCESO_LABELS[a.proceso]}
-                        {a.es_planta ? " · planta" : a.equipo_encargado ? ` · ${a.equipo_encargado}` : ""}
+                        {a.es_planta ? " · planta" : (a.encargado ?? a.equipo_encargado) ? ` · ${a.encargado ?? a.equipo_encargado}` : ""}
                       </span>
                       {a.folio_rechazo && (
                         <span className="mt-0.5 block text-xs font-medium text-rose-700">

@@ -7,6 +7,8 @@ import { avisar } from "@/components/avisos";
 import {
   PROCESO_LABELS,
   PROCESOS,
+  encargadosDeEquipo,
+  type EncargadoEquipo,
   type EquipoProduccion,
   type Proceso,
 } from "@/lib/produccion/asignaciones";
@@ -22,7 +24,7 @@ type Borrador = Omit<EquipoProduccion, "id"> & { id: string | null };
 const NUEVO: Borrador = {
   id: null,
   nombre: "",
-  encargado: "",
+  encargado: null,
   es_planta: false,
   procesos: ["armado"],
   activo: true,
@@ -32,9 +34,11 @@ const NUEVO: Borrador = {
 // historial de asignaciones).
 export default function EquiposEditor({
   equipos,
+  encargados,
   puedeEditar,
 }: {
   equipos: EquipoProduccion[];
+  encargados: EncargadoEquipo[];
   puedeEditar: boolean;
 }) {
   const router = useRouter();
@@ -43,7 +47,7 @@ export default function EquiposEditor({
   const [error, setError] = useState<string | null>(null);
 
   function editar(b: Borrador) {
-    setBorrador({ ...b, encargado: b.encargado ?? "" });
+    setBorrador({ ...b });
     setError(null);
   }
 
@@ -66,7 +70,6 @@ export default function EquiposEditor({
     setError(null);
     const datos = {
       nombre: borrador.nombre.trim(),
-      encargado: borrador.encargado?.trim() || null,
       es_planta: borrador.es_planta,
       procesos: borrador.procesos,
       activo: borrador.activo,
@@ -113,7 +116,10 @@ export default function EquiposEditor({
             {equipos.map((e) => (
               <tr key={e.id} className={e.activo ? "" : "text-slate-500"}>
                 <td className="px-4 py-3 font-medium">{e.nombre}</td>
-                <td className="px-4 py-3">{e.encargado ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {[...(e.encargado ? [e.encargado] : []), ...encargadosDeEquipo(encargados, e.id)].join(", ") ||
+                    "—"}
+                </td>
                 <td className="px-4 py-3">{e.procesos.map((p) => PROCESO_LABELS[p]).join(", ")}</td>
                 <td className="px-4 py-3">{e.es_planta ? "Planta" : "Maquilador"}</td>
                 <td className="px-4 py-3">{e.activo ? "Activo" : "Inactivo"}</td>
@@ -151,15 +157,9 @@ export default function EquiposEditor({
                 className={estiloCampo}
               />
             </label>
-            <label className={estiloEtiqueta}>
-              Encargado del equipo (opcional)
-              <input
-                maxLength={80}
-                value={borrador.encargado ?? ""}
-                onChange={(e) => setBorrador({ ...borrador, encargado: e.target.value })}
-                className={estiloCampo}
-              />
-            </label>
+            <p className="text-xs text-slate-500">
+              El encargado no se captura aquí: se escribe al asignar piezas al equipo y queda guardado en él.
+            </p>
             <fieldset className="flex flex-col gap-1">
               <legend className="mb-1 text-sm font-medium text-slate-700">Procesos que hace</legend>
               {PROCESOS.map((p) => (
