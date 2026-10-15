@@ -8,7 +8,9 @@ import {
   PROCESO_LABELS,
   PROCESOS,
   hoyMexico,
+  encargadosDeEquipo,
   mensajeErrorRpc,
+  type EncargadoEquipo,
   type EquipoProduccion,
   type Proceso,
 } from "@/lib/produccion/asignaciones";
@@ -18,6 +20,7 @@ import Modal, {
   estiloCampo,
   estiloEtiqueta,
 } from "./modal";
+import CampoEncargado from "./campo-encargado";
 
 export interface MuebleParaLote {
   id: string;
@@ -44,9 +47,11 @@ const MOTIVO_DESHACER = "Deshecha por quien la creó (asignación en lote).";
 export default function AsignarLote({
   muebles,
   equipos,
+  encargados,
 }: {
   muebles: MuebleParaLote[];
   equipos: EquipoProduccion[];
+  encargados: EncargadoEquipo[];
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
@@ -54,6 +59,7 @@ export default function AsignarLote({
   const [equipoId, setEquipoId] = useState("");
   const [fecha, setFecha] = useState("");
   const [notas, setNotas] = useState("");
+  const [encargado, setEncargado] = useState("");
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [enviando, setEnviando] = useState(false);
   const [progreso, setProgreso] = useState<{ hecho: number; total: number } | null>(null);
@@ -76,6 +82,7 @@ export default function AsignarLote({
     setEquipoId("");
     setFecha(hoyMexico());
     setNotas("");
+    setEncargado("");
     setSeleccion(new Set(muebles.filter((m) => m.disponible[inicial] > 0).map((m) => m.id)));
     setFallos([]);
     setProgreso(null);
@@ -133,6 +140,7 @@ export default function AsignarLote({
         p_cantidad: m.disponible[proceso],
         p_fecha_asignacion: fecha,
         p_notas: notas,
+        p_encargado: encargado,
       });
       if (error || typeof data !== "string") {
         falladas.push({ id: m.id, texto: error ? mensajeErrorRpc(error.message) : "Sin respuesta." });
@@ -178,7 +186,7 @@ export default function AsignarLote({
           onCerrar={() => !enviando && setAbierto(false)}
         >
           <form onSubmit={enviar} className="flex flex-col gap-3">
-            <fieldset className="flex gap-2">
+            <fieldset className="grid grid-cols-2 gap-2">
               <legend className="mb-1 text-sm font-medium text-slate-700">Proceso</legend>
               {PROCESOS.map((p) => {
                 const hay = muebles.filter((m) => m.disponible[p] > 0).length;
@@ -228,6 +236,13 @@ export default function AsignarLote({
                 ))}
               </select>
             </label>
+
+            <CampoEncargado
+              valor={encargado}
+              onCambio={setEncargado}
+              sugerencias={encargadosDeEquipo(encargados, equipoId)}
+              disabled={enviando}
+            />
 
             <label className={estiloEtiqueta}>
               Fecha de asignación

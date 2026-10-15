@@ -8,7 +8,11 @@
 // alcanza su cantidad total. No se suman piezas entre muebles porque sus
 // unidades pueden ser distintas.
 
-import { PROCESOS, type Proceso } from "@/lib/produccion/asignaciones";
+// La línea de tiempo sigue solo armado y barniz: Electrificación aplica a una parte de los
+// muebles (los de iluminación) y Superficie Sólida no tiene un total contra el cual contar.
+export const PROCESOS_LINEA_TIEMPO = ["armado", "barniz"] as const;
+type Proceso = (typeof PROCESOS_LINEA_TIEMPO)[number];
+type ProcesoAsignacion = string;
 
 export interface ItemTiempo {
   id: string;
@@ -21,7 +25,7 @@ export interface ItemTiempo {
 
 export interface AsignacionTiempo {
   planeacion_item_id: string | null;
-  proceso: Proceso;
+  proceso: ProcesoAsignacion;
   cantidad: number;
   entregado: number;
   cancelada_en: string | null;
@@ -72,8 +76,8 @@ export function armarLineaTiempo(
     itemsVigentes: vigentes.length,
     itemsLiberados: liberados.length,
     mueblesLiberados: mueblesLiberados.length,
-    asignados: Object.fromEntries(PROCESOS.map((p) => [p, contar(asignadoPor, p)])) as Record<Proceso, number>,
-    entregados: Object.fromEntries(PROCESOS.map((p) => [p, contar(entregadoPor, p)])) as Record<Proceso, number>,
+    asignados: Object.fromEntries(PROCESOS_LINEA_TIEMPO.map((p) => [p, contar(asignadoPor, p)])) as Record<Proceso, number>,
+    entregados: Object.fromEntries(PROCESOS_LINEA_TIEMPO.map((p) => [p, contar(entregadoPor, p)])) as Record<Proceso, number>,
     evaluados: liberados.filter((i) => idsConInforme.has(i.id)).length,
   };
 }

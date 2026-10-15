@@ -11,6 +11,7 @@ import {
   PROCESOS,
   formatoFecha,
   type AsignacionResumen,
+  type EncargadoEquipo,
   type EquipoProduccion,
   type Proceso,
 } from "@/lib/produccion/asignaciones";
@@ -21,6 +22,7 @@ import DetalleAsignacion, {
   EstadoAsignacionBadge,
 } from "@/app/produccion/asignaciones/detalle-asignacion";
 
+import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { leer } from "@/lib/supabase/leer";
 interface MuebleRow {
   id: string;
@@ -73,7 +75,7 @@ export default async function AsignacionesPedidoPage({
     "pedido_versiones"
   );
 
-  const [muebles, asignaciones, equipos] = await Promise.all([
+  const [muebles, asignaciones, equipos, encargados, componentes] = await Promise.all([
     version
       ? leer(
           supabase
@@ -108,7 +110,35 @@ export default async function AsignacionesPedidoPage({
         .returns<EquipoProduccion[]>(),
       "equipos_produccion"
     ),
+    leer(
+      supabase
+        .from("encargados_equipo_produccion")
+        .select("equipo_id, nombre")
+        .order("nombre")
+        .returns<EncargadoEquipo[]>(),
+      "encargados_equipo_produccion"
+    ),
+    // Componentes: Electrificación también se detecta por lo que dicen los hijos.
+    version
+      ? leer(
+          supabase
+            .from("planeacion_items")
+            .select("parent_item_id, descripcion")
+            .eq("pedido_version_id", version.id)
+            .eq("tipo_registro", "FU")
+            .returns<{ parent_item_id: string | null; descripcion: string | null }[]>(),
+          "los componentes"
+        )
+      : Promise.resolve([] as { parent_item_id: string | null; descripcion: string | null }[]),
   ]);
+
+  const descripcionesHijos = new Map<string, string[]>();
+  for (const c of componentes ?? []) {
+    if (!c.parent_item_id || !c.descripcion) continue;
+    const lista = descripcionesHijos.get(c.parent_item_id) ?? [];
+    lista.push(c.descripcion);
+    descripcionesHijos.set(c.parent_item_id, lista);
+  }
 
   const vigentes = (muebles ?? []).filter(
     (m) => !m.eliminacion_solicitada_en && m.estado_revision !== "cancelado"
@@ -141,7 +171,11 @@ export default async function AsignacionesPedidoPage({
     item_code: m.item_code,
     modelo: m.modelo,
     unidad: m.unidad,
-    disponible: disponibleDe(Number(m.cantidad_total), resumenPorProceso(porItem.get(m.id) ?? [])),
+    disponible: disponibleDe(
+      Number(m.cantidad_total),
+      resumenPorProceso(porItem.get(m.id) ?? []),
+      admiteElectrificacion(m.descripcion, descripcionesHijos.get(m.id))
+    ),
   }));
 
   return (
@@ -156,11 +190,11 @@ export default async function AsignacionesPedidoPage({
             {version ? ` · versión ${version.numero_version}` : ""}
           </p>
           <p className="mt-2 text-sm text-slate-500">
-            Un mueble puede repartirse entre varios equipos. Armado y barniz se asignan por separado.
+            Un mueble puede repartirse entre varios equipos. Armado, barniz, electrificación y superficie sólida se asignan por separado; Electrificación solo aplica a muebles que la llevan (iluminación o electrificación en el mueble o sus componentes).
           </p>
         </div>
         {puedeEditar && !pedidoCancelado && liberados.length > 1 && (
-          <AsignarLote muebles={paraLote} equipos={equipos ?? []} />
+          <AsignarLote muebles={paraLote} equipos={equipos ?? []} encargados={encargados ?? []} />
         )}
       </div>
 
@@ -197,7 +231,8 @@ export default async function AsignacionesPedidoPage({
           {liberados.map((m) => {
             const lista = porItem.get(m.id) ?? [];
             const resumen = resumenPorProceso(lista);
-            const disponible = disponibleDe(Number(m.cantidad_total), resumen);
+            const conIluminacion = admiteElectrificacion(m.descripcion, descripcionesHijos.get(m.id));
+            const disponible = disponibleDe(Number(m.cantidad_total), resumen, conIluminacion);
             const descripcion = `${pedido.numero_pedido} · ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`;
 
             return (
@@ -214,7 +249,7 @@ export default async function AsignacionesPedidoPage({
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    {PROCESOS.map((p) => (
+                    {PROCESOS.filter((p) => p !== "electrificacion" || conIluminacion).map((p) => (
                       <div key={p} className="min-w-28 rounded-lg bg-slate-50 px-3 py-1.5 text-xs">
                         <p className="font-semibold text-slate-700">{PROCESO_LABELS[p]}</p>
                         <p className="text-slate-600">
@@ -230,6 +265,7 @@ export default async function AsignacionesPedidoPage({
                         unidad={m.unidad}
                         disponible={disponible}
                         equipos={equipos ?? []}
+                        encargados={encargados ?? []}
                       />
                     )}
                   </div>
@@ -296,10 +332,17 @@ function resumenPorProceso(
 // Lo que falta por asignar de cada proceso.
 function disponibleDe(
   cantidadTotal: number,
-  resumen: Record<Proceso, { asignado: number }>
+  resumen: Record<Proceso, { asignado: number }>,
+  conIluminacion: boolean
 ): Record<Proceso, number> {
   return Object.fromEntries(
-    PROCESOS.map((p) => [p, Math.round((cantidadTotal - resumen[p].asignado) * 100) / 100])
+    PROCESOS.map((p) => [
+      p,
+      // Electrificación solo en muebles que la llevan (ver electrificacion.ts).
+      p === "electrificacion" && !conIluminacion
+        ? 0
+        : Math.round((cantidadTotal - resumen[p].asignado) * 100) / 100,
+    ])
   ) as Record<Proceso, number>;
 }
 
@@ -328,6 +371,7 @@ function FilaAsignacion({
           )}
           <span className="font-medium text-slate-900">{a.equipo}</span>
           <span className="text-slate-600">{PROCESO_LABELS[a.proceso]}</span>
+          {a.encargado && <span className="text-slate-600">Encargado: {a.encargado}</span>}
           {a.folio_rechazo && (
             <span className="text-xs font-medium text-rose-700">Retrabajo · {a.folio_rechazo}</span>
           )}
