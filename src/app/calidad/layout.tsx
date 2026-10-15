@@ -76,6 +76,9 @@ export default async function CalidadLayout({
         <SubnavLink href="/calidad/folios" icono="folios">
           Folios de calidad
         </SubnavLink>
+        <SubnavLink href="/calidad/incidencias" icono="incidencias">
+          Incidencias
+        </SubnavLink>
       </AreaNav>
       {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
