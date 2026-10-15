@@ -1,4 +1,5 @@
 import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import FiltroCliente from "@/components/filtro-cliente";
 import {
   hrefListaPedidos,
@@ -91,7 +92,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
             return (
               <tr key={fila.ot ?? primero.id} className="align-top transition-colors hover:bg-slate-50">
                 <td className="px-4 py-3">
-                  <Link href={href} className="group inline-flex items-center gap-2 whitespace-nowrap">
+                  <EnlaceFila href={href} className="group inline-flex items-center gap-2 whitespace-nowrap">
                     {fila.ot ? (
                       <span className="font-mono font-semibold text-slate-900 group-hover:text-brand-700 group-hover:underline">
                         {fila.ot}
@@ -104,7 +105,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                     <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
                       →
                     </span>
-                  </Link>
+                  </EnlaceFila>
                 </td>
                 <td className="px-4 py-3">
                   <p className="text-slate-900">{primero.proyectos?.nombre ?? "—"}</p>

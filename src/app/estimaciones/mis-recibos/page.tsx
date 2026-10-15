@@ -1,4 +1,4 @@
-import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esMaquilador, getPerfilActual, puedeCapturarTipo } from "@/lib/auth/get-perfil";
@@ -84,12 +84,12 @@ export default async function MisRecibosPage() {
             return (
               <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <Link
+                  <EnlaceFila
                     href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}
                     className="font-mono text-base font-semibold text-slate-900 hover:text-brand-700 hover:underline"
                   >
                     {r.folio}
-                  </Link>
+                  </EnlaceFila>
                   <EstadoReciboBadge estado={r.estado} />
                 </div>
                 <p className="mt-1 text-sm text-slate-700">
@@ -115,12 +115,12 @@ export default async function MisRecibosPage() {
                     <div className="flex flex-col items-end gap-1">
                       <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
                       {puedeCapturarTipo(perfil, r.tipo) && (
-                        <Link
+                        <EnlaceFila
                           href={`/estimaciones/mis-recibos/${r.tipo}/${encodeURIComponent(r.folio)}/modificar`}
                           className="text-xs font-medium text-slate-500 hover:text-brand-700"
                         >
                           Modificar
-                        </Link>
+                        </EnlaceFila>
                       )}
                     </div>
                   )}
@@ -154,12 +154,12 @@ export default async function MisRecibosPage() {
                 return (
                   <tr key={r.id} className="transition-colors hover:bg-slate-50">
                     <td className="px-4 py-3">
-                      <Link
+                      <EnlaceFila
                         href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}
                         className="font-mono font-medium text-slate-900 hover:text-brand-700 hover:underline"
                       >
                         {r.folio}
-                      </Link>
+                      </EnlaceFila>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{NOMBRE_TIPO_CUALQUIERA[r.tipo]}</td>
                     <td className="px-4 py-3 text-slate-700">{formatoFechaDMA(r.fecha)}</td>
@@ -198,12 +198,12 @@ export default async function MisRecibosPage() {
                         <div className="flex flex-col items-end gap-1">
                           <CancelarReciboBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} />
                           {puedeCapturarTipo(perfil, r.tipo) && (
-                            <Link
+                            <EnlaceFila
                               href={`/estimaciones/mis-recibos/${r.tipo}/${encodeURIComponent(r.folio)}/modificar`}
                               className="text-xs font-medium text-slate-500 hover:text-brand-700"
                             >
                               Modificar
-                            </Link>
+                            </EnlaceFila>
                           )}
                         </div>
                       )}

@@ -9,6 +9,12 @@ export interface InformeFichaPedido {
   proyectos: { nombre: string; cliente: string } | null;
 }
 
+// Primera asignación y última entrega de Producción del mueble.
+export interface InformeFichaProduccion {
+  inicio: string | null;
+  termino: string | null;
+}
+
 export interface InformeFichaItem {
   item_code: number;
   modelo: string | null;
@@ -65,6 +71,7 @@ export default function InformeFicha({
   imagenUrls = [],
   qrUrl,
   folioProduccion = null,
+  produccion = null,
 }: {
   pedido: InformeFichaPedido;
   item: InformeFichaItem;
@@ -73,12 +80,13 @@ export default function InformeFicha({
   qrUrl: string;
   // Folio PRD-… del ítem (trazabilidad Producción → Calidad), si ya tiene.
   folioProduccion?: string | null;
+  produccion?: InformeFichaProduccion | null;
 }) {
   // En la zona de la empresa (no la del servidor, que da UTC).
   const fechaInforme = formatoFechaHora(informe.elaborado_en);
 
   return (
-    <article data-informe className="mx-auto flex w-full max-w-sm flex-col gap-3 bg-white p-4">
+    <article data-informe className="mx-auto flex w-full max-w-md flex-col gap-3 bg-white p-4">
       <header className="flex flex-col items-center gap-2 text-center">
         <LogoMobiliarium />
         <div>
@@ -116,8 +124,8 @@ export default function InformeFicha({
         <Campo label="No. Pedido" valor={pedido.numero_pedido} />
         <Campo label="Cliente" valor={pedido.proyectos?.cliente ?? "—"} />
         <Campo label="Proyecto" valor={pedido.proyectos?.nombre ?? "—"} />
-        <Campo label="Fecha inicio" valor={formatoFechaDMA(pedido.fecha_pedido)} />
-        <Campo label="Fecha término" valor={formatoFechaDMA(pedido.fecha_entrega)} />
+        <Campo label="Inicio de producción" valor={produccion?.inicio ? formatoFechaDMA(produccion.inicio) : "—"} />
+        <Campo label="Término de producción" valor={produccion?.termino ? formatoFechaDMA(produccion.termino) : "—"} />
         {informe.lote && (
           <>
             <Campo label="Piezas" valor={`${informe.lote.cantidad} ${informe.lote.unidad ?? "pz"}`} />

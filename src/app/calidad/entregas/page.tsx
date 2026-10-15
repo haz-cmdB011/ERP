@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
 import { cargarLotesPorEvaluar } from "@/lib/calidad/resumen-db";
@@ -58,12 +58,12 @@ export default async function LotesPorEvaluarPage() {
               <li key={l.entrega_id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   {l.planeacion_item_id ? (
-                    <Link
+                    <EnlaceFila
                       href={`/calidad/escanear/${l.planeacion_item_id}`}
                       className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                     >
                       {l.numero_pedido} · {l.modelo ?? `ítem ${l.item_code}`}
-                    </Link>
+                    </EnlaceFila>
                   ) : (
                     <span className="font-medium text-slate-900">
                       {l.numero_pedido} · {l.modelo ?? `ítem ${l.item_code}`}
@@ -110,12 +110,12 @@ export default async function LotesPorEvaluarPage() {
                       <td className="px-4 py-3 font-medium text-slate-900">{l.numero_pedido}</td>
                       <td className="px-4 py-3 text-slate-700">
                         {l.planeacion_item_id ? (
-                          <Link
+                          <EnlaceFila
                             href={`/calidad/escanear/${l.planeacion_item_id}`}
                             className="hover:text-brand-700 hover:underline"
                           >
                             {l.modelo ?? "—"}
-                          </Link>
+                          </EnlaceFila>
                         ) : (
                           (l.modelo ?? "—")
                         )}{" "}

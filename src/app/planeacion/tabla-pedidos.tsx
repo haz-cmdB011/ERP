@@ -1,4 +1,4 @@
-import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import AccionesPedido from "./acciones-pedido";
 
@@ -37,12 +37,12 @@ export default function TablaPedidos({
             return (
               <tr key={p.id} className="align-top transition-colors hover:bg-slate-50">
                 <td className="px-4 py-3">
-                  <Link
+                  <EnlaceFila
                     href={`/planeacion/pedidos/${p.id}`}
                     className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                   >
                     {p.numero_pedido}
-                  </Link>
+                  </EnlaceFila>
                 </td>
                 <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
                 <td className="px-4 py-3 text-slate-700">{p.proyectos?.cliente ?? "—"}</td>
@@ -56,12 +56,12 @@ export default function TablaPedidos({
                         #{activa.numero_version}
                       </span>
                       {activa.numero_version > 1 && (
-                        <Link
+                        <EnlaceFila
                           href={`/planeacion/pedidos/${p.id}/cambios?a=${activa.numero_version}`}
                           className="text-xs text-brand-700 hover:underline"
                         >
                           qué cambió
-                        </Link>
+                        </EnlaceFila>
                       )}
                     </span>
                   ) : (

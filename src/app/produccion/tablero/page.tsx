@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import ChipEstado from "@/components/chip-estado";
 import ResumenInicio from "@/components/resumen-inicio";
@@ -171,12 +172,12 @@ export default async function TableroPage() {
 
 function PmEnlace({ fila }: { fila: FilaTaller }) {
   return fila.pedido_id ? (
-    <Link
+    <EnlaceFila
       href={`/produccion/pedidos/${fila.pedido_id}/asignaciones`}
       className="hover:text-brand-700 hover:underline"
     >
       {fila.numero_pedido}
-    </Link>
+    </EnlaceFila>
   ) : (
     <>{fila.numero_pedido}</>
   );
