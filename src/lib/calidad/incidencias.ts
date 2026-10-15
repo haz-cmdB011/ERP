@@ -45,7 +45,11 @@ export interface Incidencia {
   estado: EstadoIncidencia;
   // Día del reporte, "AAAA-MM-DD"; nulo si el Excel no la trae o la trae mal.
   fecha: string | null;
+  // Quién auditó (persona de Calidad que levantó el reporte); nulo si no consta.
+  auditor: string | null;
 }
+
+export const SIN_AUDITOR = "Sin auditor";
 
 export type NuevaIncidencia = Omit<Incidencia, "id"> & { origen_importacion: string | null };
 
@@ -95,6 +99,18 @@ export function listaDeMuebles(valor: unknown): string[] {
 export function normalizarTipo(valor: unknown): TipoIncidencia | null {
   const clave = textoNormalizado(valor);
   return TIPOS_INCIDENCIA.find((t) => textoNormalizado(t) === clave) ?? null;
+}
+
+// "jovani  CAMORLINGA" → "Jovani Camorlinga": así una misma persona escrita con
+// otras mayúsculas o espacios cuenta una sola vez. Vacío es null.
+export function nombreDePersona(valor: unknown): string | null {
+  const texto = textoSimple(valor);
+  if (!texto || texto === "-") return null;
+  return texto
+    .toLocaleLowerCase("es")
+    .split(" ")
+    .map((p) => p.charAt(0).toLocaleUpperCase("es") + p.slice(1))
+    .join(" ");
 }
 
 // Sin estado cuenta como abierto: una incidencia sin cerrar sigue pendiente.
@@ -195,6 +211,149 @@ export function resumirPorSemana(filas: Incidencia[]): { semanas: ConteoSemana[]
   return { semanas, sinFecha };
 }
 
+// --- Periodos: día, semana, mes y año ------------------------------------------
+
+export const VISTAS = ["dia", "semana", "mes", "anio"] as const;
+export type Vista = (typeof VISTAS)[number];
+
+export function diaValidoIso(valor: string): boolean {
+  const m = DIA_ISO.exec(valor);
+  return !!m && diaValido(Number(m[1]), Number(m[2]), Number(m[3])) === valor;
+}
+
+function aMs(ymd: string): number {
+  const m = DIA_ISO.exec(ymd)!;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+export function sumarDias(ymd: string, dias: number): string {
+  return aDia(aMs(ymd) + dias * MS_DIA);
+}
+
+// Primer día del mes `n` meses después (o antes) del mes de `ymd`.
+function primerDiaDelMes(ymd: string, n = 0): string {
+  const f = new Date(aMs(ymd));
+  return aDia(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() + n, 1));
+}
+
+function ultimoDiaDelMes(ymd: string): string {
+  return sumarDias(primerDiaDelMes(ymd, 1), -1);
+}
+
+export interface Periodo {
+  vista: Vista;
+  // Primer y último día incluidos, "AAAA-MM-DD".
+  inicio: string;
+  fin: string;
+  // Un día cualquiera del periodo anterior y del siguiente (para las flechas).
+  anterior: string;
+  siguiente: string;
+}
+
+// El periodo (día, semana de lunes a domingo, mes o año calendario) que
+// contiene el día `ref`.
+export function periodoDe(vista: Vista, ref: string): Periodo {
+  switch (vista) {
+    case "dia":
+      return { vista, inicio: ref, fin: ref, anterior: sumarDias(ref, -1), siguiente: sumarDias(ref, 1) };
+    case "semana": {
+      const s = semanaDe(ref)!;
+      return { vista, inicio: s.inicio, fin: s.fin, anterior: sumarDias(s.inicio, -7), siguiente: sumarDias(s.inicio, 7) };
+    }
+    case "mes":
+      return {
+        vista,
+        inicio: primerDiaDelMes(ref),
+        fin: ultimoDiaDelMes(ref),
+        anterior: primerDiaDelMes(ref, -1),
+        siguiente: primerDiaDelMes(ref, 1),
+      };
+    case "anio": {
+      const a = Number(ref.slice(0, 4));
+      return { vista, inicio: `${a}-01-01`, fin: `${a}-12-31`, anterior: `${a - 1}-01-01`, siguiente: `${a + 1}-01-01` };
+    }
+  }
+}
+
+export function enPeriodo(fecha: string | null, p: Pick<Periodo, "inicio" | "fin">): boolean {
+  return fecha !== null && fecha >= p.inicio && fecha <= p.fin;
+}
+
+export function filasDelPeriodo(filas: Incidencia[], p: Pick<Periodo, "inicio" | "fin">): Incidencia[] {
+  return filas.filter((i) => enPeriodo(i.fecha, p));
+}
+
+export interface Subperiodo {
+  // Vista a la que lleva (día dentro de una semana, semana dentro de un mes…).
+  vista: Vista;
+  // Un día dentro del subperiodo, para el enlace.
+  ref: string;
+  inicio: string;
+  fin: string;
+  total: number;
+  abiertas: number;
+}
+
+// Cómo se reparte un periodo: una semana en sus 7 días, un mes en sus semanas
+// (recortadas al mes) y un año en sus 12 meses. Un día no se reparte.
+export function desglosarPeriodo(filas: Incidencia[], p: Periodo): Subperiodo[] {
+  const rangos: Array<{ vista: Vista; inicio: string; fin: string }> = [];
+  if (p.vista === "semana") {
+    for (let d = p.inicio; d <= p.fin; d = sumarDias(d, 1)) rangos.push({ vista: "dia", inicio: d, fin: d });
+  } else if (p.vista === "mes") {
+    for (let lunes = semanaDe(p.inicio)!.inicio; lunes <= p.fin; lunes = sumarDias(lunes, 7)) {
+      const fin = sumarDias(lunes, 6);
+      rangos.push({ vista: "semana", inicio: lunes < p.inicio ? p.inicio : lunes, fin: fin > p.fin ? p.fin : fin });
+    }
+  } else if (p.vista === "anio") {
+    for (let m = p.inicio; m <= p.fin; m = primerDiaDelMes(m, 1)) {
+      rangos.push({ vista: "mes", inicio: m, fin: ultimoDiaDelMes(m) });
+    }
+  }
+  return rangos.map((r) => {
+    const dentro = filasDelPeriodo(filas, r);
+    return {
+      ...r,
+      ref: r.inicio,
+      total: dentro.length,
+      abiertas: dentro.filter((i) => i.estado === "abierto").length,
+    };
+  });
+}
+
+// Con qué día abrir el tablero: hoy si hay incidencias en el periodo de hoy; si
+// no, el día de la última incidencia con fecha (para no abrir en una semana
+// vacía); y si no hay ninguna, hoy.
+export function refPorDefecto(filas: Incidencia[], hoy: string, vista: Vista): string {
+  if (filasDelPeriodo(filas, periodoDe(vista, hoy)).length > 0) return hoy;
+  const fechas = filas.map((i) => i.fecha).filter((f): f is string => !!f);
+  return fechas.length ? fechas.reduce((a, b) => (a > b ? a : b)) : hoy;
+}
+
+export interface ConteoAuditor {
+  nombre: string;
+  total: number;
+  abiertas: number;
+  cerradas: number;
+  // Parte del total de reportes del periodo (0 a 1).
+  parte: number;
+}
+
+export function resumirPorAuditor(filas: Incidencia[]): ConteoAuditor[] {
+  const mapa = new Map<string, ConteoAuditor>();
+  for (const i of filas) {
+    const nombre = i.auditor ?? SIN_AUDITOR;
+    const c = mapa.get(nombre) ?? { nombre, total: 0, abiertas: 0, cerradas: 0, parte: 0 };
+    c.total += 1;
+    if (i.estado === "abierto") c.abiertas += 1;
+    else c.cerradas += 1;
+    mapa.set(nombre, c);
+  }
+  return [...mapa.values()]
+    .map((c) => ({ ...c, parte: filas.length === 0 ? 0 : c.total / filas.length }))
+    .sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre, "es"));
+}
+
 // --- Categoría del motivo ----------------------------------------------------
 // Reglas por palabras sobre el texto sin acentos. El orden importa: la primera
 // que coincide gana. Es una propuesta: lo que no entra queda "Sin clasificar".
@@ -238,6 +397,7 @@ export interface FilaExcelIncidencia {
   reporta: unknown;
   estado: unknown;
   fecha: unknown;
+  auditor: unknown;
 }
 
 export interface ResultadoFila {
@@ -268,6 +428,8 @@ export function incidenciaDesdeFilaExcel(linea: Linea, numeroFila: number, fila:
   if (textoNormalizado(fila.estado) === "") avisos.push("sin estado (se importa como abierto)");
   const fecha = fechaDesdeExcel(fila.fecha);
   if (!fecha) avisos.push(`fecha vacía o no entendida ("${textoSimple(fila.fecha)}")`);
+  const auditor = nombreDePersona(fila.auditor);
+  if (!auditor) avisos.push("sin auditor");
 
   return {
     incidencia: {
@@ -281,6 +443,7 @@ export function incidenciaDesdeFilaExcel(linea: Linea, numeroFila: number, fila:
       areas_reporta: areasReporta,
       estado: normalizarEstado(fila.estado),
       fecha,
+      auditor,
       origen_importacion: `${linea}:${numeroFila}`,
     },
     avisos,
@@ -295,11 +458,8 @@ export interface FiltrosIncidencias {
   estado: EstadoIncidencia | null;
   area: string | null;
   proyecto: string | null;
-  // Clave de semana ("2026-W02"), o "sin-fecha" para las que no traen fecha.
-  semana: string | null;
+  auditor: string | null;
 }
-
-export const SEMANA_SIN_FECHA = "sin-fecha";
 
 export const SIN_FILTROS: FiltrosIncidencias = {
   linea: null,
@@ -307,7 +467,7 @@ export const SIN_FILTROS: FiltrosIncidencias = {
   estado: null,
   area: null,
   proyecto: null,
-  semana: null,
+  auditor: null,
 };
 
 export function filtrarIncidencias(filas: Incidencia[], f: FiltrosIncidencias): Incidencia[] {
@@ -318,8 +478,7 @@ export function filtrarIncidencias(filas: Incidencia[], f: FiltrosIncidencias): 
       (!f.estado || i.estado === f.estado) &&
       (!f.area || i.areas.includes(f.area)) &&
       (!f.proyecto || i.proyecto === f.proyecto) &&
-      (!f.semana ||
-        (f.semana === SEMANA_SIN_FECHA ? !i.fecha || !semanaDe(i.fecha) : (i.fecha ? semanaDe(i.fecha)?.clave : null) === f.semana))
+      (!f.auditor || (i.auditor ?? SIN_AUDITOR) === f.auditor)
   );
 }
 
@@ -395,7 +554,7 @@ export function resumirIncidencias(filas: Incidencia[]): ResumenIncidencias {
 // --- Parámetros de la URL ----------------------------------------------------
 
 export type ParametrosIncidencias = Partial<
-  Record<"linea" | "tipo" | "estado" | "area" | "proyecto" | "semana", string>
+  Record<"linea" | "tipo" | "estado" | "area" | "proyecto" | "auditor" | "vista" | "ref", string>
 >;
 
 export function leerFiltrosIncidencias(p: ParametrosIncidencias): FiltrosIncidencias {
@@ -405,13 +564,30 @@ export function leerFiltrosIncidencias(p: ParametrosIncidencias): FiltrosInciden
     estado: ESTADOS_INCIDENCIA.find((e) => e === p.estado) ?? null,
     area: p.area?.trim() || null,
     proyecto: p.proyecto?.trim() || null,
-    semana: p.semana && (p.semana === SEMANA_SIN_FECHA || /^\d{4}-W\d{2}$/.test(p.semana)) ? p.semana : null,
+    auditor: p.auditor?.trim() || null,
   };
 }
 
-export function hrefIncidencias(base: string, f: FiltrosIncidencias): string {
+// Enlace al tablero con los filtros puestos y, si se da, el periodo que se mira.
+export function hrefIncidencias(
+  base: string,
+  f: FiltrosIncidencias,
+  periodo?: { vista: Vista; ref: string }
+): string {
   const q = new URLSearchParams();
   for (const [clave, valor] of Object.entries(f)) if (valor) q.set(clave, valor);
+  if (periodo) {
+    q.set("vista", periodo.vista);
+    q.set("ref", periodo.ref);
+  }
   const s = q.toString();
   return s ? `${base}?${s}` : base;
+}
+
+export function leerVista(valor: string | undefined): Vista {
+  return VISTAS.find((v) => v === valor) ?? "semana";
+}
+
+export function leerRef(valor: string | undefined): string | null {
+  return valor && diaValidoIso(valor) ? valor : null;
 }

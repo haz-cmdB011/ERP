@@ -19,6 +19,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   incidenciaDesdeFilaExcel,
   resumirIncidencias,
+  resumirPorAuditor,
   resumirPorSemana,
   type Incidencia,
   type Linea,
@@ -31,7 +32,7 @@ const HOJAS: ReadonlyArray<readonly [string, Linea]> = [
 ];
 const PRIMERA_FILA_DATOS = 3;
 // Columnas de las hojas (la fila 2 trae los encabezados).
-const COL = { fecha: 1, folio: 2, tipo: 4, proyecto: 6, mueble: 7, area: 10, motivo: 14, origen: 19, reporta: 20, estado: 23 };
+const COL = { fecha: 1, folio: 2, tipo: 4, proyecto: 6, mueble: 7, area: 10, motivo: 14, origen: 19, reporta: 20, auditor: 18, estado: 23 };
 const LOTE = 200;
 
 const args = process.argv.slice(2);
@@ -82,6 +83,7 @@ for (const [nombreHoja, linea] of HOJAS) {
       reporta: g(COL.reporta),
       estado: g(COL.estado),
       fecha: g(COL.fecha),
+      auditor: g(COL.auditor),
     });
     const clave = `${linea}:${n}`;
     if (!incidencia) {
@@ -103,6 +105,7 @@ console.log(`Filas leídas: ${nuevas.length + omitidas.length} · a importar: ${
 console.log(`Madera ${r.porLinea.madera} · Metal ${r.porLinea.metal} · abiertas ${r.abiertas} · cerradas ${r.cerradas}`);
 const porSemana = resumirPorSemana(filas);
 console.log(`Semanas: ${porSemana.semanas.length} (de ${porSemana.semanas[0]?.clave} a ${porSemana.semanas.at(-1)?.clave}) · sin fecha: ${porSemana.sinFecha}`);
+console.log(`Auditores: ${resumirPorAuditor(filas).map((a) => `${a.nombre} (${a.total})`).join(", ")}`);
 console.log(`Tipos: ${lista(r.porTipo)}`);
 console.log(`Áreas (${r.porArea.length} distintas): ${lista(r.porArea)}`);
 console.log(`Área que reporta (${r.porAreaQueReporta.length} distintas): ${lista(r.porAreaQueReporta)}`);
