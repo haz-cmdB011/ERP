@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
 import {
-  PROCESO_LABELS,
-  PROCESOS,
   hoyMexico,
   encargadosDeEquipo,
   mensajeErrorRpc,
@@ -22,18 +20,38 @@ import Modal, {
 } from "./modal";
 import CampoEncargado from "./campo-encargado";
 
-// Asigna parte (o todo) un mueble a un equipo. Se puede repetir para repartir
-// el mismo modelo entre varios equipos o con la planta; la base no deja pasar
-// de la cantidad del mueble por proceso.
+// Un paso de la ruta del mueble, tal como se ofrece en el formulario.
+export interface OpcionPaso {
+  // Posición en la ruta (0 = primer paso).
+  indice: number;
+  // null mientras la ruta sea la sugerida y no se haya guardado: la base usa el
+  // paso de ese proceso.
+  id: string | null;
+  proceso: Proceso;
+  etiqueta: string;
+  // Lo que falta por asignar en el paso (tope: la cantidad del mueble).
+  disponible: number;
+  // Lo que ya entregó el paso anterior y aún no se asigna aquí.
+  listo: number;
+  // Etiqueta del paso anterior (null en el primero).
+  anterior: string | null;
+}
+
+const fmt = (n: number) => String(Math.round(n * 100) / 100);
+
+// Asigna parte (o todo) un paso de la ruta de un mueble a un equipo. Se puede
+// repetir para repartir el mismo paso entre varios equipos o con la planta; la
+// base no deja pasar de la cantidad del mueble en cada paso. Asignar más de lo
+// que el paso anterior ya entregó se permite, con aviso: queda marcado como
+// adelantado.
 export default function AsignarForm({
   itemId,
   descripcion,
   unidad,
-  disponible,
-  aplica,
+  pasos,
   equipos,
   encargados,
-  procesoInicial: procesoPedido,
+  pasoInicial: pasoPedido,
   children,
   className,
   titulo,
@@ -41,26 +59,23 @@ export default function AsignarForm({
   itemId: string;
   descripcion: string;
   unidad: string | null;
-  disponible: Record<Proceso, number>;
-  // Procesos que el mueble lleva (Electrificación y Superficie Sólida dependen
-  // de su descripción o la de sus componentes). Sin el dato, todos aplican.
-  aplica?: Record<Proceso, boolean>;
+  pasos: OpcionPaso[];
   equipos: EquipoProduccion[];
   encargados: EncargadoEquipo[];
-  // Para abrir el formulario ya en un proceso (desde el flujo del PM).
-  procesoInicial?: Proceso;
+  // Para abrir el formulario ya en un paso (desde el flujo del PM).
+  pasoInicial?: number;
   // Contenido y estilo del botón que lo abre (por omisión, "Asignar").
   children?: ReactNode;
   className?: string;
   titulo?: string;
 }) {
   const router = useRouter();
-  const procesoInicial =
-    procesoPedido && disponible[procesoPedido] > 0
-      ? procesoPedido
-      : (PROCESOS.find((p) => disponible[p] > 0) ?? "armado");
+  const indiceInicial =
+    pasoPedido !== undefined && (pasos[pasoPedido]?.disponible ?? 0) > 0
+      ? pasoPedido
+      : Math.max(0, pasos.findIndex((p) => p.disponible > 0));
   const [abierto, setAbierto] = useState(false);
-  const [proceso, setProceso] = useState<Proceso>(procesoInicial);
+  const [indice, setIndice] = useState(indiceInicial);
   const [equipoId, setEquipoId] = useState("");
   const [cantidad, setCantidad] = useState("");
   const [fecha, setFecha] = useState("");
@@ -69,16 +84,27 @@ export default function AsignarForm({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const paso = pasos[indice] as OpcionPaso | undefined;
+  const proceso = paso?.proceso;
   const equiposDelProceso = useMemo(
-    () => equipos.filter((e) => e.activo && e.procesos.includes(proceso)),
+    () => (proceso ? equipos.filter((e) => e.activo && e.procesos.includes(proceso)) : []),
     [equipos, proceso]
   );
-  const sinDisponible = PROCESOS.every((p) => disponible[p] <= 0);
+  const sinDisponible = pasos.every((p) => p.disponible <= 0);
+  const cantidadNum = Number(cantidad.replace(",", "."));
+  // Cuánto se adelanta al paso anterior (solo aviso).
+  const adelanto =
+    paso && paso.anterior && Number.isFinite(cantidadNum) && cantidadNum > paso.listo
+      ? Math.round((cantidadNum - paso.listo) * 100) / 100
+      : 0;
+
+  // Por omisión, lo que ya está listo; si nada lo está, todo lo disponible.
+  const cantidadSugerida = (p: OpcionPaso) => fmt(p.listo > 0 ? p.listo : p.disponible);
 
   function abrir() {
-    setProceso(procesoInicial);
+    setIndice(indiceInicial);
     setEquipoId("");
-    setCantidad(String(disponible[procesoInicial]));
+    setCantidad(pasos[indiceInicial] ? cantidadSugerida(pasos[indiceInicial]) : "");
     setFecha(hoyMexico());
     setNotas("");
     setEncargado("");
@@ -86,24 +112,26 @@ export default function AsignarForm({
     setAbierto(true);
   }
 
-  function cambiarProceso(p: Proceso) {
-    setProceso(p);
-    setCantidad(String(disponible[p]));
-    if (!equipos.some((e) => e.id === equipoId && e.procesos.includes(p))) setEquipoId("");
+  function cambiarPaso(i: number) {
+    setIndice(i);
+    setCantidad(cantidadSugerida(pasos[i]));
+    if (!equipos.some((e) => e.id === equipoId && e.procesos.includes(pasos[i].proceso))) setEquipoId("");
   }
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
+    if (!paso) return;
     setEnviando(true);
     setError(null);
     const { error } = await createClient().rpc("crear_asignacion_produccion", {
       p_item_id: itemId,
       p_equipo_id: equipoId,
-      p_proceso: proceso,
-      p_cantidad: Number(cantidad.replace(",", ".")),
+      p_proceso: paso.proceso,
+      p_cantidad: cantidadNum,
       p_fecha_asignacion: fecha,
       p_notas: notas,
       p_encargado: encargado,
+      p_paso_id: paso.id,
     });
     setEnviando(false);
     if (error) {
@@ -111,7 +139,7 @@ export default function AsignarForm({
       return;
     }
     setAbierto(false);
-    avisar("Asignación guardada");
+    avisar(adelanto > 0 ? "Asignación guardada (adelantada al paso anterior)" : "Asignación guardada");
     router.refresh();
   }
 
@@ -133,29 +161,30 @@ export default function AsignarForm({
         <Modal titulo="Asignar a un equipo" subtitulo={descripcion} onCerrar={() => !enviando && setAbierto(false)}>
           <form onSubmit={enviar} className="flex flex-col gap-3">
             <fieldset className="grid grid-cols-2 gap-2">
-              <legend className="mb-1 text-sm font-medium text-slate-700">Proceso</legend>
-              {PROCESOS.map((p) => (
+              <legend className="mb-1 text-sm font-medium text-slate-700">Paso de la ruta</legend>
+              {pasos.map((p) => (
                 <label
-                  key={p}
+                  key={p.indice}
                   className={`flex flex-1 cursor-pointer flex-col rounded-lg border px-3 py-2 text-sm ${
-                    proceso === p ? "border-slate-900 bg-slate-50" : "border-slate-200"
-                  } ${disponible[p] <= 0 ? "cursor-not-allowed opacity-50" : ""}`}
+                    indice === p.indice ? "border-slate-900 bg-slate-50" : "border-slate-200"
+                  } ${p.disponible <= 0 ? "cursor-not-allowed opacity-50" : ""}`}
                 >
                   <span className="flex items-center gap-2 font-medium text-slate-900">
                     <input
                       type="radio"
-                      name="proceso"
-                      value={p}
-                      checked={proceso === p}
-                      disabled={disponible[p] <= 0}
-                      onChange={() => cambiarProceso(p)}
+                      name="paso"
+                      value={p.indice}
+                      checked={indice === p.indice}
+                      disabled={p.disponible <= 0}
+                      onChange={() => cambiarPaso(p.indice)}
                     />
-                    {PROCESO_LABELS[p]}
+                    {p.indice + 1}. {p.etiqueta}
                   </span>
                   <span className="text-xs text-slate-500">
-                    {aplica && !aplica[p]
-                      ? "No aplica a este mueble"
-                      : `${disponible[p]} ${unidad ?? ""} por asignar`}
+                    {p.disponible <= 0
+                      ? "Ya está asignado todo"
+                      : `${fmt(p.disponible)} ${unidad ?? ""} por asignar`}
+                    {p.anterior && p.disponible > 0 ? ` · ${fmt(p.listo)} listas` : ""}
                   </span>
                 </label>
               ))}
@@ -191,7 +220,7 @@ export default function AsignarForm({
                   type="number"
                   required
                   min="0.01"
-                  max={disponible[proceso]}
+                  max={paso?.disponible}
                   step="any"
                   inputMode="decimal"
                   value={cantidad}
@@ -220,6 +249,13 @@ export default function AsignarForm({
                 className={estiloCampo}
               />
             </label>
+            {adelanto > 0 && paso && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800">
+                {paso.anterior} solo ha entregado {fmt(paso.listo)} {unidad ?? ""} listas para este paso.
+                Si asignas {fmt(cantidadNum)}, {fmt(adelanto)} se adelantan: se puede, pero la asignación
+                queda marcada como adelantada.
+              </p>
+            )}
             {error && (
               <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</p>
             )}
@@ -233,7 +269,7 @@ export default function AsignarForm({
                 Cancelar
               </button>
               <button type="submit" disabled={enviando || !equipoId} className={estiloBotonPrimario}>
-                {enviando ? "Guardando…" : "Asignar"}
+                {enviando ? "Guardando…" : adelanto > 0 ? "Asignar de todos modos" : "Asignar"}
               </button>
             </div>
           </form>

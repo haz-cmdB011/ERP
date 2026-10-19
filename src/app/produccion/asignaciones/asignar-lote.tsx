@@ -27,8 +27,12 @@ export interface MuebleParaLote {
   item_code: number;
   modelo: string | null;
   unidad: string | null;
-  // Lo que falta por asignar de cada proceso.
+  // Lo que falta por asignar de cada proceso (en el primer paso de la ruta con
+  // ese proceso que aún tiene lugar; 0 si la ruta no lo lleva).
   disponible: Record<Proceso, number>;
+  // De eso, lo que el paso anterior ya entregó. Asignar más se puede, pero la
+  // asignación queda marcada como adelantada.
+  listo: Record<Proceso, number>;
 }
 
 interface Fallo {
@@ -106,6 +110,8 @@ export default function AsignarLote({
   }
 
   const todosMarcados = candidatos.length > 0 && candidatos.every((m) => seleccion.has(m.id));
+  const seAdelanta = (m: MuebleParaLote) => m.disponible[proceso] > m.listo[proceso];
+  const adelantados = candidatos.filter((m) => seleccion.has(m.id) && seAdelanta(m)).length;
 
   async function deshacer(ids: string[]) {
     const supabase = createClient();
@@ -286,6 +292,14 @@ export default function AsignarLote({
                         {m.item_code}
                         {m.modelo ? ` · ${m.modelo}` : ""}
                       </span>
+                      {seAdelanta(m) && (
+                        <span
+                          className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                          title="El paso anterior todavía no entrega todas estas piezas"
+                        >
+                          {m.listo[proceso]} listas
+                        </span>
+                      )}
                       <span className="whitespace-nowrap text-xs text-slate-600">
                         {m.disponible[proceso]} {m.unidad ?? ""}
                       </span>
@@ -311,6 +325,13 @@ export default function AsignarLote({
                 className={estiloCampo}
               />
             </label>
+
+            {adelantados > 0 && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800">
+                En {adelantados} de los muebles marcados el paso anterior todavía no entrega todo: se
+                puede asignar, pero esas asignaciones quedan marcadas como adelantadas.
+              </p>
+            )}
 
             {progreso && (
               <div>

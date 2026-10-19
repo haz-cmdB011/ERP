@@ -5,15 +5,18 @@ import {
   ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
   PROCESO_LABELS,
-  PROCESOS,
   formatoFecha,
   type EncargadoEquipo,
   type EquipoProduccion,
   type Proceso,
 } from "@/lib/produccion/asignaciones";
 import {
-  avanceProceso,
+  asignacionesDelPaso,
+  avancePaso,
   estadoMueble,
+  estadoObra,
+  indiceSiguiente,
+  pasoConAsignaciones,
   porcentaje,
   siguientePaso,
   totalesProceso,
@@ -21,14 +24,15 @@ import {
   type EstadoProceso,
   type MuebleFlujo,
 } from "@/lib/produccion/flujo-mueble";
-import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
+import { ORDEN_SUGERIDO, etiquetaPaso, textoRuta } from "@/lib/produccion/ruta";
+import AsignarForm, { type OpcionPaso } from "@/app/produccion/asignaciones/asignar-form";
+import EditarRuta from "./editar-ruta";
 
 // Color de cada estado (variables de la paleta: el tema oscuro las invierte).
 const COLOR: Record<EstadoProceso, string> = {
   terminado: "var(--color-emerald-500)",
   en_proceso: "var(--color-sky-500)",
   sin_asignar: "var(--color-amber-500)",
-  no_aplica: "var(--color-slate-300)",
 };
 
 const FILTROS: { valor: EstadoMueble | "todos"; etiqueta: string }[] = [
@@ -44,14 +48,31 @@ export interface AsignarDesdeFlujo {
   encargados: EncargadoEquipo[];
   // Prefijo del subtítulo del formulario ("PM135-26").
   numeroPedido: string;
-  // Lo que falta por asignar de cada proceso, por mueble.
-  disponible: Record<string, Record<Proceso, number>>;
 }
 
+// Los pasos de la ruta del mueble como opciones del formulario de asignación.
+function opcionesDePasos(m: MuebleFlujo): OpcionPaso[] {
+  return m.ruta.map((p, i) => {
+    const a = avancePaso(m, i);
+    return {
+      indice: i,
+      id: p.id,
+      proceso: p.proceso,
+      etiqueta: etiquetaPaso(m.ruta, i),
+      disponible: a.disponible,
+      listo: a.listo,
+      anterior: i > 0 ? etiquetaPaso(m.ruta, i - 1) : null,
+    };
+  });
+}
+
+const subtitulo = (m: MuebleFlujo, asignar: AsignarDesdeFlujo) =>
+  `${asignar.numeroPedido} · ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`;
+
 // El avance del PM de un vistazo: cuánto lleva cada proceso y, por mueble, en
-// qué paso va (Armado → Barniz → Electrificación → Superficie Sólida). Los
-// procesos que un mueble no lleva salen apagados. Tocar un proceso con piezas
-// por asignar abre el formulario de asignación en ese proceso.
+// qué paso de su ruta va (la sugerida es Armado → Superficie Sólida → Barniz →
+// Electrificación; el trabajador la cambia y puede repetir pasos). Tocar un
+// paso con piezas por asignar abre el formulario de asignación en ese paso.
 export default function FlujoMuebles({
   muebles,
   asignar,
@@ -66,7 +87,7 @@ export default function FlujoMuebles({
   const [filtro, setFiltro] = useState<EstadoMueble | "todos">("todos");
   const [abierto, setAbierto] = useState<string | null>(null);
 
-  const procesos = PROCESOS.filter((p) => muebles.some((m) => m.aplica[p]));
+  const procesos = ORDEN_SUGERIDO.filter((p) => muebles.some((m) => m.ruta.some((x) => x.proceso === p)));
   const estados = new Map(muebles.map((m) => [m.id, estadoMueble(m)]));
   const cuenta = (f: EstadoMueble | "todos") =>
     f === "todos"
@@ -108,8 +129,8 @@ export default function FlujoMuebles({
         </div>
         {asignar && (
           <p className="text-xs text-slate-500">
-            Toca un proceso con <span className="font-bold">+</span> para
-            asignarlo.
+            Toca un paso con <span className="font-bold">+</span> para
+            asignarlo. La ruta se cambia en el detalle del mueble.
           </p>
         )}
       </div>
@@ -124,7 +145,6 @@ export default function FlujoMuebles({
             <FilaMueble
               key={m.id}
               mueble={m}
-              procesos={procesos}
               asignar={asignar}
               detalles={detalles}
               abierto={abierto === m.id}
@@ -178,17 +198,17 @@ function ResumenProceso({
   );
 }
 
-// Botón que abre el formulario de asignación ya en un proceso.
+// Botón que abre el formulario de asignación ya en un paso.
 function BotonAsignar({
   mueble: m,
-  proceso,
+  indice,
   asignar,
   className,
   titulo,
   children,
 }: {
   mueble: MuebleFlujo;
-  proceso: Proceso;
+  indice: number;
   asignar: AsignarDesdeFlujo;
   className: string;
   titulo?: string;
@@ -197,13 +217,12 @@ function BotonAsignar({
   return (
     <AsignarForm
       itemId={m.id}
-      descripcion={`${asignar.numeroPedido} · ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`}
+      descripcion={subtitulo(m, asignar)}
       unidad={m.unidad}
-      disponible={asignar.disponible[m.id]}
-      aplica={m.aplica}
+      pasos={opcionesDePasos(m)}
       equipos={asignar.equipos}
       encargados={asignar.encargados}
-      procesoInicial={proceso}
+      pasoInicial={indice}
       className={className}
       titulo={titulo}
     >
@@ -214,22 +233,20 @@ function BotonAsignar({
 
 function porAsignar(
   m: MuebleFlujo,
-  p: Proceso,
+  indice: number,
   asignar: AsignarDesdeFlujo | null,
 ): asignar is AsignarDesdeFlujo {
-  return !!asignar && (asignar.disponible[m.id]?.[p] ?? 0) > 0;
+  return !!asignar && avancePaso(m, indice).disponible > 0;
 }
 
 function FilaMueble({
   mueble: m,
-  procesos,
   asignar,
   detalles,
   abierto,
   onAlternar,
 }: {
   mueble: MuebleFlujo;
-  procesos: Proceso[];
   asignar: AsignarDesdeFlujo | null;
   detalles: Record<string, ReactNode>;
   abierto: boolean;
@@ -237,10 +254,10 @@ function FilaMueble({
 }) {
   const siguiente = siguientePaso(m);
   const terminado = siguiente === "Terminado";
-  // El proceso que toca asignar (para el botón de la derecha).
-  const procesoSiguiente = PROCESOS.find(
-    (p) => avanceProceso(m, p).estado === "sin_asignar",
-  );
+  const obra = estadoObra(m);
+  // El paso que toca asignar (para el botón de la derecha).
+  const i = indiceSiguiente(m);
+  const indiceAsignar = i !== null && avancePaso(m, i).estado === "sin_asignar" ? i : null;
   const estiloPildora =
     "self-start rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap sm:self-center";
 
@@ -270,18 +287,18 @@ function FilaMueble({
           </span>
         </button>
 
-        <ol className="flex flex-1 items-center">
-          {procesos.map((p, i) => (
-            <li key={p} className="flex flex-1 items-center last:flex-none">
-              {porAsignar(m, p, asignar) ? (
+        <ol className="flex flex-1 items-center overflow-x-auto">
+          {m.ruta.map((p, j) => (
+            <li key={p.id ?? `${p.proceso}-${j}`} className="flex flex-1 items-start last:flex-none">
+              {porAsignar(m, j, asignar) ? (
                 <BotonAsignar
                   mueble={m}
-                  proceso={p}
+                  indice={j}
                   asignar={asignar}
-                  titulo={`Asignar ${PROCESO_LABELS[p]}`}
+                  titulo={`Asignar ${etiquetaPaso(m.ruta, j)}`}
                   className="group rounded-lg p-1 transition-colors hover:bg-slate-100 focus-visible:bg-slate-100"
                 >
-                  <Paso mueble={m} proceso={p} conMas />
+                  <Paso mueble={m} indice={j} conMas />
                 </BotonAsignar>
               ) : (
                 <button
@@ -289,16 +306,18 @@ function FilaMueble({
                   onClick={onAlternar}
                   className="rounded-lg p-1 transition-colors hover:bg-slate-50"
                 >
-                  <Paso mueble={m} proceso={p} />
+                  <Paso mueble={m} indice={j} />
                 </button>
               )}
-              {i < procesos.length - 1 && (
+              {j < m.ruta.length - 1 && (
+                // A la altura del centro del círculo (p-1 del botón + mitad de size-10,
+                // menos la mitad del grosor), no del paso con su etiqueta.
                 <span
                   aria-hidden
-                  className="mx-1 h-0.5 flex-1 rounded-full transition-colors"
+                  className="mx-1 mt-[23px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
                   style={{
                     background:
-                      avanceProceso(m, p).estado === "terminado"
+                      avancePaso(m, j).estado === "terminado"
                         ? COLOR.terminado
                         : "var(--color-slate-200)",
                   }}
@@ -308,18 +327,25 @@ function FilaMueble({
           ))}
         </ol>
 
-        {terminado ? (
-          <span className={`${estiloPildora} bg-emerald-50 text-emerald-700`}>
-            ✓ Terminado
+        {terminado && obra === "en_revision_final" ? (
+          <span
+            className={`${estiloPildora} bg-sky-50 text-sky-700`}
+            title="Toda la ruta está terminada; falta la revisión final de Calidad"
+          >
+            Revisión final {m.revisionFinal?.aprobadas ?? 0}/{m.cantidad}
           </span>
-        ) : procesoSiguiente && porAsignar(m, procesoSiguiente, asignar) ? (
+        ) : terminado ? (
+          <span className={`${estiloPildora} bg-emerald-50 text-emerald-700`}>
+            {obra === "liberado" ? "✓ Liberado a obra" : "✓ Terminado"}
+          </span>
+        ) : indiceAsignar !== null && porAsignar(m, indiceAsignar, asignar) ? (
           <BotonAsignar
             mueble={m}
-            proceso={procesoSiguiente}
+            indice={indiceAsignar}
             asignar={asignar}
             className={`${estiloPildora} bg-amber-500 text-white shadow-sm transition-colors hover:bg-amber-600`}
           >
-            + Asignar {PROCESO_LABELS[procesoSiguiente]}
+            + Asignar {etiquetaPaso(m.ruta, indiceAsignar)}
           </BotonAsignar>
         ) : (
           <span
@@ -337,7 +363,6 @@ function FilaMueble({
       {abierto && (
         <DetalleMueble
           mueble={m}
-          procesos={procesos}
           asignar={asignar}
           detalles={detalles}
         />
@@ -350,28 +375,24 @@ function FilaMueble({
 // lleva un "+" porque al tocarlo se asigna.
 function Paso({
   mueble: m,
-  proceso,
+  indice,
   conMas = false,
 }: {
   mueble: MuebleFlujo;
-  proceso: Proceso;
+  indice: number;
   conMas?: boolean;
 }) {
-  const a = avanceProceso(m, proceso);
+  const a = avancePaso(m, indice);
+  const etiqueta = etiquetaPaso(m.ruta, indice);
   const pct =
     a.estado === "terminado" ? 100 : porcentaje(a.entregado, m.cantidad);
   const color = COLOR[a.estado];
-  const titulo =
-    a.estado === "no_aplica"
-      ? `${PROCESO_LABELS[proceso]}: no aplica`
-      : `${PROCESO_LABELS[proceso]}: ${a.entregado}/${m.cantidad} entregadas, ${a.asignado} asignadas`;
+  const titulo = `${indice + 1}. ${etiqueta}: ${a.entregado}/${m.cantidad} entregadas, ${a.asignado} asignadas`;
 
   return (
     <span className="flex flex-col items-center gap-1" title={titulo}>
       <span
-        className={`relative grid size-10 place-items-center rounded-full transition-[background,transform] duration-300 group-hover:scale-110 ${
-          a.estado === "no_aplica" ? "opacity-40" : ""
-        }`}
+        className="relative grid size-10 place-items-center rounded-full transition-[background,transform] duration-300 group-hover:scale-110"
         style={{
           background:
             a.estado === "sin_asignar"
@@ -383,17 +404,13 @@ function Paso({
       >
         <span
           className="grid size-8 place-items-center rounded-full bg-white text-[10px] font-bold tabular-nums"
-          style={{
-            color: a.estado === "no_aplica" ? "var(--color-slate-400)" : color,
-          }}
+          style={{ color }}
         >
           {a.estado === "terminado"
             ? "✓"
-            : a.estado === "no_aplica"
-              ? "—"
-              : a.estado === "sin_asignar"
-                ? "+"
-                : `${pct}%`}
+            : a.estado === "sin_asignar"
+              ? "+"
+              : `${pct}%`}
         </span>
         {conMas && a.estado !== "sin_asignar" && (
           <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-amber-500 text-[10px] font-bold leading-none text-white">
@@ -401,14 +418,8 @@ function Paso({
           </span>
         )}
       </span>
-      <span
-        className={`text-[11px] leading-tight ${
-          a.estado === "no_aplica"
-            ? "text-slate-400 line-through"
-            : "font-medium text-slate-700"
-        }`}
-      >
-        {PROCESO_LABELS[proceso]}
+      <span className="text-[11px] font-medium leading-tight whitespace-nowrap text-slate-700">
+        {etiqueta}
       </span>
     </span>
   );
@@ -416,84 +427,111 @@ function Paso({
 
 function DetalleMueble({
   mueble: m,
-  procesos,
   asignar,
   detalles,
 }: {
   mueble: MuebleFlujo;
-  procesos: Proceso[];
   asignar: AsignarDesdeFlujo | null;
   detalles: Record<string, ReactNode>;
 }) {
   return (
-    <div className="grid gap-3 border-t border-slate-100 bg-slate-50 p-3 lg:grid-cols-2">
-      {procesos.map((p) => {
-        const lista = m.asignaciones.filter((a) => a.proceso === p);
-        return (
-          <div key={p} className="flex flex-col gap-1.5 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <p className="font-semibold text-slate-700">
-                {PROCESO_LABELS[p]}
-              </p>
-              {porAsignar(m, p, asignar) && (
-                <BotonAsignar
-                  mueble={m}
-                  proceso={p}
-                  asignar={asignar}
-                  className="rounded-md bg-brand-500 px-2 py-0.5 text-[11px] font-semibold text-on-brand transition-colors hover:bg-brand-400"
-                >
-                  + Asignar ({asignar.disponible[m.id][p]})
-                </BotonAsignar>
+    <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <p className="text-slate-600">
+          <span className="font-semibold text-slate-700">Ruta:</span> {textoRuta(m.ruta)}
+          {m.versionRuta === 0 && <span className="text-slate-400"> (sugerida)</span>}
+        </p>
+        {asignar && (
+          <EditarRuta
+            itemId={m.id}
+            descripcion={subtitulo(m, asignar)}
+            ruta={m.ruta}
+            version={m.versionRuta}
+            aplica={m.aplica}
+            bloqueados={m.ruta.map((_, i) => pasoConAsignaciones(m, i))}
+          />
+        )}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {m.ruta.map((p, i) => {
+          const lista = asignacionesDelPaso(m, i);
+          const a = avancePaso(m, i);
+          return (
+            <div key={p.id ?? `${p.proceso}-${i}`} className="flex flex-col gap-1.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-slate-700">
+                  {i + 1}. {etiquetaPaso(m.ruta, i)}
+                  {i > 0 && a.disponible > 0 && (
+                    <span className="ml-1 font-normal text-slate-500">· {a.listo} listas</span>
+                  )}
+                </p>
+                {porAsignar(m, i, asignar) && (
+                  <BotonAsignar
+                    mueble={m}
+                    indice={i}
+                    asignar={asignar}
+                    className="rounded-md bg-brand-500 px-2 py-0.5 text-[11px] font-semibold text-on-brand transition-colors hover:bg-brand-400"
+                  >
+                    + Asignar ({a.disponible})
+                  </BotonAsignar>
+                )}
+              </div>
+              {lista.length === 0 ? (
+                <p className="text-amber-700">Sin asignar</p>
+              ) : (
+                <ul className="flex flex-col gap-1.5">
+                  {lista.map((x) => (
+                    <li key={x.id}>
+                      <details className="rounded-lg bg-white">
+                        <summary className="cursor-pointer p-2">
+                          <p className="flex flex-wrap items-center gap-x-2 font-medium text-slate-900">
+                            {x.equipo}
+                            {x.encargado ? ` · ${x.encargado}` : ""}
+                            {x.folio_rechazo ? " (retrabajo)" : ""}
+                            {x.folio_revision_final ? ` (retrabajo de ${x.folio_revision_final})` : ""}
+                            <span
+                              className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${ESTADO_ASIGNACION_ESTILOS[x.estado]}`}
+                            >
+                              {ESTADO_ASIGNACION_LABELS[x.estado]}
+                            </span>
+                            {x.adelantada && (
+                              <span
+                                className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                                title="Se asignó antes de que el paso anterior entregara esas piezas"
+                              >
+                                Adelantada
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-slate-600 tabular-nums">
+                            {Number(x.entregado)}/{Number(x.cantidad)} · asig.{" "}
+                            {formatoFecha(x.fecha_asignacion)}
+                            {x.ultima_entrega
+                              ? ` · entr. ${formatoFecha(x.ultima_entrega)}`
+                              : ""}
+                          </p>
+                          {(x.folios_calidad || x.folios_cal) && (
+                            <p className="text-slate-500">
+                              {[x.folios_calidad, x.folios_cal]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          )}
+                        </summary>
+                        {detalles[x.id] && (
+                          <div className="border-t border-slate-100 p-2">
+                            {detalles[x.id]}
+                          </div>
+                        )}
+                      </details>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
-            {!m.aplica[p] ? (
-              <p className="text-slate-400">No aplica a este mueble</p>
-            ) : lista.length === 0 ? (
-              <p className="text-amber-700">Sin asignar</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5">
-                {lista.map((a) => (
-                  <li key={a.id}>
-                    <details className="rounded-lg bg-white">
-                      <summary className="cursor-pointer p-2">
-                        <p className="flex flex-wrap items-center gap-x-2 font-medium text-slate-900">
-                          {a.equipo}
-                          {a.encargado ? ` · ${a.encargado}` : ""}
-                          {a.folio_rechazo ? " (retrabajo)" : ""}
-                          <span
-                            className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${ESTADO_ASIGNACION_ESTILOS[a.estado]}`}
-                          >
-                            {ESTADO_ASIGNACION_LABELS[a.estado]}
-                          </span>
-                        </p>
-                        <p className="text-slate-600 tabular-nums">
-                          {Number(a.entregado)}/{Number(a.cantidad)} · asig.{" "}
-                          {formatoFecha(a.fecha_asignacion)}
-                          {a.ultima_entrega
-                            ? ` · entr. ${formatoFecha(a.ultima_entrega)}`
-                            : ""}
-                        </p>
-                        {(a.folios_calidad || a.folios_cal) && (
-                          <p className="text-slate-500">
-                            {[a.folios_calidad, a.folios_cal]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
-                        )}
-                      </summary>
-                      {detalles[a.id] && (
-                        <div className="border-t border-slate-100 p-2">
-                          {detalles[a.id]}
-                        </div>
-                      )}
-                    </details>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -23,6 +23,11 @@ import DetalleAsignacion, {
 
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
+import { avancePaso, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
+import { rutaSugerida } from "@/lib/produccion/ruta";
+import { cargarRutas } from "@/lib/produccion/rutas-db";
+import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
+import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import FlujoMuebles from "./flujo-muebles";
 import { leer } from "@/lib/supabase/leer";
 interface MuebleRow {
@@ -38,7 +43,8 @@ interface MuebleRow {
 }
 
 // Asignación de los muebles de un PM a equipos (maquiladores o planta). Solo
-// se asignan muebles (ítems padre) liberados de la versión activa.
+// se asignan muebles (ítems padre) liberados de la versión activa, paso por paso
+// de su ruta (ver src/lib/produccion/ruta.ts).
 export default async function AsignacionesPedidoPage({
   params,
 }: {
@@ -149,10 +155,18 @@ export default async function AsignacionesPedidoPage({
   const idsLiberados = new Set(liberados.map((m) => m.id));
 
   const todas = asignaciones ?? [];
-  const entregas = await entregasPorAsignacion(
-    supabase,
-    todas.map((a) => a.id)
-  );
+  const [entregas, rutas, finalActiva] = await Promise.all([
+    entregasPorAsignacion(
+      supabase,
+      todas.map((a) => a.id)
+    ),
+    cargarRutas(supabase, liberados.map((m) => m.id)),
+    revisionFinalActiva(supabase),
+  ]);
+  // Revisión final de Calidad (ajuste revision_final, hoy apagado).
+  const revisionFinal = finalActiva
+    ? (await cargarRevisionFinal(supabase, liberados.map((m) => m.id))).resumen
+    : null;
   const porItem = new Map<string, AsignacionResumen[]>();
   for (const a of todas) {
     if (!a.planeacion_item_id || !idsLiberados.has(a.planeacion_item_id)) continue;
@@ -177,17 +191,31 @@ export default async function AsignacionesPedidoPage({
     };
   };
 
+  // Cada mueble con su ruta: la guardada o, si aún no tiene, la sugerida.
+  const flujo: MuebleFlujo[] = liberados.map((m) => {
+    const guardada = rutas.get(m.id);
+    const aplica = aplicaA(m);
+    return {
+      id: m.id,
+      item_code: m.item_code,
+      modelo: m.modelo,
+      unidad: m.unidad,
+      cantidad: Number(m.cantidad_total),
+      aplica,
+      ruta: guardada && guardada.pasos.length > 0 ? guardada.pasos : rutaSugerida(aplica),
+      versionRuta: guardada?.version ?? 0,
+      asignaciones: porItem.get(m.id) ?? [],
+      revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
+    };
+  });
+
   // Para asignar varios muebles de una vez: lo que falta de cada uno.
-  const paraLote: MuebleParaLote[] = liberados.map((m) => ({
+  const paraLote: MuebleParaLote[] = flujo.map((m) => ({
     id: m.id,
     item_code: m.item_code,
     modelo: m.modelo,
     unidad: m.unidad,
-    disponible: disponibleDe(
-      Number(m.cantidad_total),
-      resumenPorProceso(porItem.get(m.id) ?? []),
-      aplicaA(m)
-    ),
+    ...disponibleDe(m),
   }));
 
   return (
@@ -202,7 +230,7 @@ export default async function AsignacionesPedidoPage({
             {version ? ` · versión ${version.numero_version}` : ""}
           </p>
           <p className="mt-2 text-sm text-slate-500">
-            Un mueble puede repartirse entre varios equipos. Armado, barniz, electrificación y superficie sólida se asignan por separado; Electrificación y Superficie Sólida solo se habilitan en los muebles que las llevan (lo dice la descripción del mueble o de sus componentes).
+            Cada mueble sigue su ruta (la sugerida es Armado → Superficie Sólida → Barniz → Electrificación) y cada paso se asigna por separado, aunque se repita. Electrificación y Superficie Sólida solo entran en los muebles que las llevan (lo dice la descripción del mueble o de sus componentes). Asignar antes de que el paso anterior entregue se puede, pero queda marcado como adelantado.
           </p>
         </div>
         {puedeEditar && !pedidoCancelado && liberados.length > 1 && (
@@ -240,22 +268,13 @@ export default async function AsignacionesPedidoPage({
         </div>
       ) : (
         <FlujoMuebles
-          muebles={liberados.map((m) => ({
-            id: m.id,
-            item_code: m.item_code,
-            modelo: m.modelo,
-            unidad: m.unidad,
-            cantidad: Number(m.cantidad_total),
-            aplica: aplicaA(m),
-            asignaciones: porItem.get(m.id) ?? [],
-          }))}
+          muebles={flujo}
           asignar={
             puedeEditar && !pedidoCancelado
               ? {
                   equipos: equipos ?? [],
                   encargados: encargados ?? [],
                   numeroPedido: pedido.numero_pedido,
-                  disponible: Object.fromEntries(paraLote.map((m) => [m.id, m.disponible])),
                 }
               : null
           }
@@ -297,37 +316,21 @@ export default async function AsignacionesPedidoPage({
   );
 }
 
-// Asignado y entregado por proceso, sin contar las asignaciones canceladas ni
-// los retrabajos (rehacen piezas rechazadas: no cuentan contra la cantidad).
-function resumenPorProceso(
-  asignaciones: AsignacionResumen[]
-): Record<Proceso, { asignado: number; entregado: number }> {
-  const activas = asignaciones.filter((a) => !a.cancelada_en && !a.informe_rechazo_id);
-  return Object.fromEntries(
-    PROCESOS.map((p) => {
-      const deP = activas.filter((a) => a.proceso === p);
-      const asignado = deP.reduce((s, a) => s + Number(a.cantidad), 0);
-      const entregado = deP.reduce((s, a) => s + Number(a.entregado), 0);
-      return [p, { asignado, entregado }];
-    })
-  ) as Record<Proceso, { asignado: number; entregado: number }>;
-}
-
-// Lo que falta por asignar de cada proceso.
-function disponibleDe(
-  cantidadTotal: number,
-  resumen: Record<Proceso, { asignado: number }>,
-  aplica: Record<Proceso, boolean>
-): Record<Proceso, number> {
-  return Object.fromEntries(
-    PROCESOS.map((p) => [
-      p,
-      // Lo que el mueble no lleva no se asigna (ver electrificacion.ts y superficie-solida.ts).
-      !aplica[p]
-        ? 0
-        : Math.round((cantidadTotal - resumen[p].asignado) * 100) / 100,
-    ])
-  ) as Record<Proceso, number>;
+// Por proceso, lo que falta por asignar en el primer paso de ese proceso que
+// aún tiene lugar (el mismo que elige crear_asignacion_produccion cuando no se
+// le dice el paso) y cuánto de eso ya entregó el paso anterior. Lo que la ruta
+// no lleva queda en 0.
+function disponibleDe(m: MuebleFlujo): Pick<MuebleParaLote, "disponible" | "listo"> {
+  const disponible = Object.fromEntries(PROCESOS.map((p) => [p, 0])) as Record<Proceso, number>;
+  const listo = { ...disponible };
+  for (const p of PROCESOS) {
+    const i = m.ruta.findIndex((x, j) => x.proceso === p && avancePaso(m, j).disponible > 0);
+    if (i < 0) continue;
+    const a = avancePaso(m, i);
+    disponible[p] = a.disponible;
+    listo[p] = a.listo;
+  }
+  return { disponible, listo };
 }
 
 function FilaAsignacion({

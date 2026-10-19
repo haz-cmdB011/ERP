@@ -133,6 +133,38 @@ verificadas. Cómo apagarlo o encenderlo y qué anotar después: `docs/operacion
 evaluar un mueble"). La pantalla lee el ajuste con `src/lib/calidad/ajustes-flujo.ts`; si no puede
 leerlo asume el flujo con verificación.
 
+## Ruta de Producción
+
+Cada mueble padre liberado tiene una **ruta**: pasos en orden que se pueden repetir (Armado → Barniz →
+Armado). La sugerida es Armado → Superficie Sólida → Barniz → Electrificación (S.S. y Electrificación solo
+si el mueble o sus componentes las llevan); se crea con la primera asignación o al guardar la ruta
+(`guardar_ruta_produccion`, bloqueo optimista por versión). Migración `ruta_produccion`, lógica sin base en
+`src/lib/produccion/ruta.ts` y `flujo-mueble.ts`.
+
+- Cada asignación es de un paso (`asignaciones_produccion.paso_id`) y el tope es **por paso** (la cantidad
+  del mueble), no por proceso. El retrabajo no cuenta y hereda el paso (`trg_paso_de_retrabajo`).
+- Asignar más de lo que el paso anterior entregó y verificó **no se bloquea**: se avisa y la asignación
+  queda `adelantada`.
+- Un paso con asignaciones vigentes no se quita; los quitados quedan con `retirado_en`.
+- Un proceso que la ruta repite **se cobra cada vez**: en Estimaciones lo esperado de un mueble padre en
+  Armado/Acabados es cantidad del PM × pasos de armado/barniz de su ruta (mínimo 1; `veces_proceso_ruta`,
+  migración `recibos_procesos_repetidos`). Componentes y Electrificación siguen 1×. Lo usan el control al
+  guardar el renglón, el campo Modelo de la captura y "PM contra cobrado" (`cantidad_pm_acabados/armado`).
+
+## Revisión final de Calidad (apagada)
+
+Además de los lotes por proceso, Calidad puede revisar el **mueble completo** antes de mandarlo a obra
+(migración `revision_final_calidad`). Está detrás del ajuste `revision_final` de `ajustes_flujo`, creado
+**apagado** hasta que Calidad confirme que así trabaja (cómo encenderlo: `docs/operacion.md`).
+
+- Listas = aprobado por Calidad en el **último paso** de la ruta + retrabajos de la propia revisión final
+  ya aprobados − lo revisado (`piezas_listas_revision_final`, vista `revision_final_muebles`).
+- `registrar_revision_final`: folio `FIN-` por resultado; lo rechazado lleva motivo y el paso de la ruta al
+  que regresa. Producción lo reasigna con `crear_retrabajo_revision_final` (vista `rechazos_revision_final`,
+  pantalla Rechazado por Calidad); ese retrabajo no cuenta contra el tope del paso.
+- Solo muebles padre. No cambia el cobro ni la revisión por lotes. Liberado a obra = la final aprobó la
+  cantidad del mueble.
+
 ## Cuadre con Calidad (Estimaciones)
 
 "PM contra cobrado" (`/estimaciones/pm-cobrado/<OT>` y el reporte semanal) cruza, por O.T. y variante del

@@ -94,6 +94,17 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
       ["cantidad_registrada_variante", { p_ot: "X", p_modelo: "X", p_descripcion: "X", p_area: "acabados" }],
       ["variante_unica_ot", { p_ot: "X", p_modelo: "X", p_solo_iluminacion: false }],
       ["ot_contra_cobrado", {}],
+      // Procesos repetidos de la ruta (20261019155404_recibos_procesos_repetidos.sql).
+      ["veces_proceso_ruta", { p_item_id: UUID_NULO, p_area: "armado" }],
+      ["cantidad_pm_variante_area", { p_ot: "X", p_modelo: "X", p_descripcion: "X", p_area: "armado" }],
+      ["cantidad_pm_ot_area", { p_ot: "X", p_modelo: "X", p_area: "armado" }],
+      // Revisión final (20261019164854_revision_final_calidad.sql).
+      ["registrar_revision_final", { p_item_id: UUID_NULO, p_aprobadas: 1, p_rechazadas: 0 }],
+      [
+        "crear_retrabajo_revision_final",
+        { p_revision_id: UUID_NULO, p_equipo_id: UUID_NULO, p_cantidad: 1, p_fecha_asignacion: "2026-01-01", p_notas: "" },
+      ],
+      ["piezas_listas_revision_final", { p_item_id: UUID_NULO }],
       ["pedido_id_por_ot", { p_ot: "X" }],
       ["auditar_recibos", {}],
     ];
@@ -287,5 +298,92 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
         expect(cantidad).toBe(esperado);
       });
     }
+  });
+
+  describe("revisión final de Calidad", () => {
+    // 20261019164854_revision_final_calidad.sql: se creó apagada hasta que Calidad
+    // confirme que así trabaja. Si se enciende a propósito, cambiar esta prueba.
+    it("el ajuste revision_final existe y está apagado", async () => {
+      const { data, error } = await servicio
+        .from("ajustes_flujo")
+        .select("activo")
+        .eq("clave", "revision_final")
+        .maybeSingle<{ activo: boolean }>();
+      expect(error).toBeNull();
+      expect(data?.activo).toBe(false);
+    });
+
+    it("solo Calidad registra la revisión final", async () => {
+      const { error } = await servicio.rpc("registrar_revision_final", {
+        p_item_id: UUID_NULO,
+        p_aprobadas: 1,
+        p_rechazadas: 0,
+      });
+      expect(error?.message).toContain("No tienes permiso");
+    });
+
+    it("solo Producción reasigna lo que rechazó la revisión final", async () => {
+      const { error } = await servicio.rpc("crear_retrabajo_revision_final", {
+        p_revision_id: UUID_NULO,
+        p_equipo_id: UUID_NULO,
+        p_cantidad: 1,
+        p_fecha_asignacion: "2026-01-01",
+        p_notas: "",
+      });
+      expect(error?.message).toContain("Solo Producción");
+    });
+  });
+
+  describe("procesos repetidos de la ruta", () => {
+    // Lo esperado por área es la cantidad del PM por las veces que la ruta lleva
+    // el proceso (mínimo 1): 20261019155404_recibos_procesos_repetidos.sql.
+    it("un mueble sin ruta cuenta una vez", async () => {
+      for (const area of ["armado", "acabados", "electrificacion"]) {
+        const { data, error } = await servicio.rpc("veces_proceso_ruta", { p_item_id: UUID_NULO, p_area: area });
+        expect(error, area).toBeNull();
+        expect(data, area).toBe(1);
+      }
+    });
+
+    it("cada mueble con ruta cuenta sus pasos vigentes de armado y de barniz", async (ctx) => {
+      const { data: pasos, error } = await servicio
+        .from("pasos_ruta_produccion")
+        .select("planeacion_item_id, proceso")
+        .is("retirado_en", null)
+        .limit(1000);
+      expect(error).toBeNull();
+      if (!pasos?.length) {
+        console.warn("[test:db] Sin rutas guardadas: se omite el conteo de pasos.");
+        return ctx.skip();
+      }
+      const cuenta = new Map<string, { armado: number; barniz: number }>();
+      for (const p of pasos as { planeacion_item_id: string; proceso: string }[]) {
+        const c = cuenta.get(p.planeacion_item_id) ?? { armado: 0, barniz: 0 };
+        if (p.proceso === "armado") c.armado += 1;
+        if (p.proceso === "barniz") c.barniz += 1;
+        cuenta.set(p.planeacion_item_id, c);
+      }
+      for (const [item, c] of [...cuenta].slice(0, 20)) {
+        const armado = await servicio.rpc("veces_proceso_ruta", { p_item_id: item, p_area: "armado" });
+        const acabados = await servicio.rpc("veces_proceso_ruta", { p_item_id: item, p_area: "acabados" });
+        expect(armado.data, item).toBe(Math.max(1, c.armado));
+        expect(acabados.data, item).toBe(Math.max(1, c.barniz));
+      }
+    });
+
+    it("Electrificación espera lo mismo que antes (solo muebles con iluminación)", async (ctx) => {
+      const antes = await servicio.rpc("cantidad_pm_ot", { p_ot: "193-24", p_modelo: "VRG-01", p_solo_iluminacion: true });
+      if (antes.data == null) {
+        console.warn("[test:db] La OT 193-24 no está cargada: se omite VRG-01.");
+        return ctx.skip();
+      }
+      const ahora = await servicio.rpc("cantidad_pm_ot_area", {
+        p_ot: "193-24",
+        p_modelo: "VRG-01",
+        p_area: "electrificacion",
+      });
+      expect(ahora.error).toBeNull();
+      expect(Number(ahora.data)).toBe(Number(antes.data));
+    });
   });
 });

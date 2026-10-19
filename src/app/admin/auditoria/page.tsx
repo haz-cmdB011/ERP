@@ -25,6 +25,8 @@ interface AuditoriaRow {
     equipo?: string | null;
     proceso?: string | null;
     cantidad?: number | null;
+    // Ruta de un mueble (ver 20261019152042_ruta_produccion.sql).
+    ruta?: string | null;
   } | null;
 }
 
@@ -67,6 +69,9 @@ const ACCIONES = [
   "equipo_creado",
   "equipo_desactivado",
   "equipo_reactivado",
+  "ruta_guardada",
+  "revision_final_aprobada",
+  "revision_final_rechazada",
 ];
 
 // Quita lo que rompería la sintaxis de filtros de PostgREST (.or) y acota la
@@ -130,6 +135,12 @@ function describirAccion(accion: string): { etiqueta: string; tono: Tono } {
       return { etiqueta: "Equipo desactivado", tono: "slate" };
     case "equipo_reactivado":
       return { etiqueta: "Equipo reactivado", tono: "emerald" };
+    case "ruta_guardada":
+      return { etiqueta: "Ruta cambiada", tono: "sky" };
+    case "revision_final_aprobada":
+      return { etiqueta: "Revisión final: aprobado", tono: "emerald" };
+    case "revision_final_rechazada":
+      return { etiqueta: "Revisión final: rechazado", tono: "rose" };
     default:
       return { etiqueta: accion, tono: "slate" };
   }
@@ -145,9 +156,19 @@ const FILTROS: [string, string][] = [
 ];
 
 const TABLAS_RECIBOS = ["recibos", "recibos_electrificacion"];
-const TABLAS_PRODUCCION = ["asignaciones_produccion", "entregas_produccion", "equipos_produccion"];
+const TABLAS_PRODUCCION = [
+  "asignaciones_produccion",
+  "entregas_produccion",
+  "equipos_produccion",
+  "rutas_produccion",
+];
 // Filtros que juntan varias tablas.
-const TABLAS_POR_FILTRO: Record<string, string[]> = { recibos: TABLAS_RECIBOS, produccion: TABLAS_PRODUCCION };
+const TABLAS_POR_FILTRO: Record<string, string[]> = {
+  recibos: TABLAS_RECIBOS,
+  produccion: TABLAS_PRODUCCION,
+  // Calidad: los informes de lote y la revisión final del mueble.
+  informes_calidad: ["informes_calidad", "revisiones_finales_calidad"],
+};
 const TIPO_RECIBO: Record<string, string> = {
   acabados: "Acabados",
   armado: "Armado",
@@ -386,6 +407,7 @@ export default async function AuditoriaPage({
                           {d.modelo ? ` — ${d.modelo}` : ""}
                           {d.equipo ? ` · ${d.equipo}` : ""}
                           {d.proceso && TABLAS_PRODUCCION.includes(f.tabla) ? ` (${d.proceso})` : ""}
+                          {d.ruta ? ` · ${d.ruta}` : ""}
                           {d.cantidad != null ? ` · ${Number(d.cantidad)} pz` : ""}
                           {d.folio && !TABLAS_RECIBOS.includes(f.tabla) ? ` · ${d.folio}` : ""}
                         </>

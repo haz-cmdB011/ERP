@@ -31,6 +31,12 @@ export interface FilaPmCobrado {
   cantidadPm: number | null;
   // Parte del PM con iluminación (lo que se electrifica).
   cantidadPmIluminacion: number;
+  // Lo esperado en Acabados y en Armado: la cantidad del PM por las veces que la
+  // ruta de Producción del mueble lleva Barniz o Armado (mínimo 1; ver
+  // supabase/migrations/20261019155404_recibos_procesos_repetidos.sql). null si
+  // el modelo no está en el PM.
+  cantidadPmAcabados: number | null;
+  cantidadPmArmado: number | null;
   acabados: number;
   armado: number;
   electrificacion: number;
@@ -62,10 +68,24 @@ export type EstadoCobro =
 
 // Contra qué cantidad se compara cada área. Electrificación, para todos, solo
 // contra los muebles con iluminación (misma regla que el control al guardar):
-// electrificar un mueble sin iluminación cuenta como cobrado de más.
+// electrificar un mueble sin iluminación cuenta como cobrado de más. Acabados y
+// Armado, contra la cantidad del PM tantas veces como la ruta repita el proceso.
 export function baseArea(fila: FilaPmCobrado, area: AreaCobro): number | null {
   if (fila.cantidadPm == null) return null;
-  return area === "electrificacion" ? fila.cantidadPmIluminacion : fila.cantidadPm;
+  if (area === "electrificacion") return fila.cantidadPmIluminacion;
+  return (area === "acabados" ? fila.cantidadPmAcabados : fila.cantidadPmArmado) ?? fila.cantidadPm;
+}
+
+// Áreas que esperan más que la cantidad del PM porque la ruta repite su proceso
+// (para explicarlo en pantalla): [área, lo esperado].
+export function areasRepetidas(fila: FilaPmCobrado): ["acabados" | "armado", number][] {
+  if (fila.cantidadPm == null) return [];
+  const salida: ["acabados" | "armado", number][] = [];
+  for (const area of ["armado", "acabados"] as const) {
+    const base = baseArea(fila, area);
+    if (base != null && base > fila.cantidadPm) salida.push([area, base]);
+  }
+  return salida;
 }
 
 export function estadoCobro(cobrado: number, base: number | null): EstadoCobro {
@@ -241,6 +261,9 @@ interface FilaRpc {
   padre_modelo?: string | null;
   aprobado_acabados?: number | null;
   aprobado_armado?: number | null;
+  // Desde los procesos repetidos de la ruta; faltan si la migración aún no está en la base.
+  cantidad_pm_acabados?: number | null;
+  cantidad_pm_armado?: number | null;
 }
 
 const PAGINA = 1000;
@@ -267,6 +290,8 @@ export async function cargarOtContraCobrado(
         descripcion: r.descripcion || null,
         cantidadPm: r.cantidad_pm == null ? null : Number(r.cantidad_pm),
         cantidadPmIluminacion: Number(r.cantidad_pm_iluminacion),
+        cantidadPmAcabados: r.cantidad_pm_acabados == null ? null : Number(r.cantidad_pm_acabados),
+        cantidadPmArmado: r.cantidad_pm_armado == null ? null : Number(r.cantidad_pm_armado),
         acabados: Number(r.acabados),
         armado: Number(r.armado),
         electrificacion: Number(r.electrificacion),

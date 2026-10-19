@@ -22,7 +22,9 @@ import Modal, {
 
 // Reasigna (todo o parte de) lo que Calidad rechazó en un lote a un equipo que
 // haga el mismo proceso. Sugiere el equipo que lo entregó; el retrabajo no
-// cuenta contra la cantidad del mueble.
+// cuenta contra la cantidad del mueble. Con `revisionFinal`, informeId es una
+// revisión final (folio FIN-) y el retrabajo va al paso de la ruta que eligió
+// Calidad.
 export default function ReasignarRetrabajo({
   informeId,
   folio,
@@ -32,6 +34,7 @@ export default function ReasignarRetrabajo({
   porReasignar,
   unidad,
   equipos,
+  revisionFinal = false,
 }: {
   informeId: string;
   folio: string;
@@ -41,6 +44,7 @@ export default function ReasignarRetrabajo({
   porReasignar: number;
   unidad: string | null;
   equipos: EquipoProduccion[];
+  revisionFinal?: boolean;
 }) {
   const router = useRouter();
   const opciones = useMemo(
@@ -75,13 +79,10 @@ export default function ReasignarRetrabajo({
     if (!f) return setError("Fecha no válida.");
     setEnviando(true);
     setError(null);
-    const { error } = await createClient().rpc("crear_retrabajo_produccion", {
-      p_informe_id: informeId,
-      p_equipo_id: equipoId,
-      p_cantidad: n,
-      p_fecha_asignacion: f,
-      p_notas: notas,
-    });
+    const comun = { p_equipo_id: equipoId, p_cantidad: n, p_fecha_asignacion: f, p_notas: notas };
+    const { error } = revisionFinal
+      ? await createClient().rpc("crear_retrabajo_revision_final", { p_revision_id: informeId, ...comun })
+      : await createClient().rpc("crear_retrabajo_produccion", { p_informe_id: informeId, ...comun });
     setEnviando(false);
     if (error) {
       setError(mensajeErrorRpc(error.message));
