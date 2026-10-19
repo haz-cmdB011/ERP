@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { LoteCalidad } from "@/lib/calidad/lotes";
-import { PROCESO_LABELS } from "@/lib/produccion/asignaciones";
+import { etiquetaProceso } from "@/lib/produccion/asignaciones";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/site-url";
 import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
@@ -136,9 +136,9 @@ export default async function InformeCalidadPage({
     ? await leer(
         supabase
           .from("lotes_calidad")
-          .select("unidad, equipo, proceso, fecha_entrega, folio_rechazo")
+          .select("unidad, equipo, proceso, fecha_entrega, folio_rechazo, vez_paso, veces_proceso")
           .eq("entrega_id", informe.entrega_id)
-          .maybeSingle<Pick<LoteCalidad, "unidad" | "equipo" | "proceso" | "fecha_entrega" | "folio_rechazo">>(),
+          .maybeSingle<Pick<LoteCalidad, "unidad" | "equipo" | "proceso" | "fecha_entrega" | "folio_rechazo" | "vez_paso" | "veces_proceso">>(),
         "lotes_calidad"
       )
     : null;
@@ -237,7 +237,7 @@ export default async function InformeCalidadPage({
           cantidad: Number(informe.cantidad),
           unidad: lote.unidad,
           equipo: lote.equipo,
-          proceso: PROCESO_LABELS[lote.proceso],
+          proceso: etiquetaProceso(lote),
           fechaEntrega: lote.fecha_entrega,
           folioRechazo: lote.folio_rechazo,
         }

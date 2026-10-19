@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import {
   ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
@@ -387,7 +388,9 @@ function Paso({
   const pct =
     a.estado === "terminado" ? 100 : porcentaje(a.entregado, m.cantidad);
   const color = COLOR[a.estado];
-  const titulo = `${indice + 1}. ${etiqueta}: ${a.entregado}/${m.cantidad} entregadas, ${a.asignado} asignadas`;
+  const titulo = `${indice + 1}. ${etiqueta}: ${a.entregado}/${m.cantidad} entregadas, ${a.asignado} asignadas${
+    a.porReasignar > 0 ? `, ${a.porReasignar} rechazadas por Calidad sin reasignar` : ""
+  }`;
 
   return (
     <span className="flex flex-col items-center gap-1" title={titulo}>
@@ -412,6 +415,11 @@ function Paso({
               ? "+"
               : `${pct}%`}
         </span>
+        {a.porReasignar > 0 && (
+          <span className="absolute -top-1 -left-1 grid size-4 place-items-center rounded-full bg-rose-500 text-[10px] font-bold leading-none text-white">
+            !
+          </span>
+        )}
         {conMas && a.estado !== "sin_asignar" && (
           <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-amber-500 text-[10px] font-bold leading-none text-white">
             +
@@ -476,6 +484,14 @@ function DetalleMueble({
                   </BotonAsignar>
                 )}
               </div>
+              {a.porReasignar > 0 && (
+                <p className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
+                  Calidad rechazó {a.porReasignar} {m.unidad ?? "pz"} que faltan por reasignar ·{" "}
+                  <Link href="/produccion/rechazos" className="font-medium underline">
+                    Rechazado por Calidad
+                  </Link>
+                </p>
+              )}
               {lista.length === 0 ? (
                 <p className="text-amber-700">Sin asignar</p>
               ) : (

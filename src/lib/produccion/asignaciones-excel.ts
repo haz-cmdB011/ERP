@@ -4,7 +4,7 @@
 import ExcelJS from "exceljs";
 import {
   ESTADO_ASIGNACION_LABELS,
-  PROCESO_LABELS,
+  etiquetaProceso,
   diasEnProceso,
   type AsignacionResumen,
 } from "./asignaciones";
@@ -58,7 +58,7 @@ export async function generarExcelAsignaciones(
       Number(a.entregado),
       a.es_planta ? `${a.equipo} (planta)` : a.equipo,
       a.encargado ?? a.equipo_encargado,
-      PROCESO_LABELS[a.proceso],
+      etiquetaProceso(a),
       fechaExcel(a.fecha_asignacion),
       // La fecha de entrega es la de la última entrega, y solo cuando terminó.
       a.estado === "entregada" ? fechaExcel(a.ultima_entrega) : null,

@@ -48,7 +48,7 @@ export default function RevisionFinalSeccion({
       <h2 className="text-base font-semibold text-slate-900">Revisión final</h2>
       <p className="text-sm text-slate-500">
         El mueble completo, ya con todos sus procesos aprobados, antes de mandarlo a obra. Lo que no pase
-        regresa al paso de la ruta que elijas.
+        regresa al paso de la ruta que elijas y sigue el resto de la ruta desde ahí.
       </p>
       <ul className="flex flex-col divide-y divide-slate-100">
         {muebles.map((m) => (

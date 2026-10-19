@@ -110,7 +110,8 @@ trabaja. Apagada no cambia nada. Encendida:
 - En Calidad (detalle del PM) aparece "Revisión final" con los muebles que ya pasaron todos los pasos de su
   ruta (lo que Calidad aprobó en el último paso). Cada resultado lleva folio `FIN-`.
 - Lo rechazado regresa al paso de la ruta que elija Calidad y aparece en Producción → Rechazado por Calidad
-  para reasignarlo. Al entregarse y aprobarse su lote, vuelve a la revisión final.
+  para reasignarlo. Desde ese paso sigue el resto de la ruta (se reasigna paso por paso) y, cuando Calidad lo
+  aprueba en el último paso, vuelve a la revisión final.
 - En Producción el mueble dice "Revisión final x/y" y, cuando se aprueba completo, "Liberado a obra".
 - No cambia el cobro de los maquiladores (se cobra por proceso aprobado).
 

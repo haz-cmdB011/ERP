@@ -107,6 +107,43 @@ describe("armarLineaTiempo", () => {
     expect(t.asignados.armado).toBe(1);
   });
 
+  it("con un proceso repetido en la ruta, cuenta hasta terminar todas sus pasadas", () => {
+    const pasos = new Map([
+      ["m1", [
+        { id: "p1", proceso: "armado" },
+        { id: "p2", proceso: "barniz" },
+        { id: "p3", proceso: "armado" },
+      ]],
+    ]);
+    const primera = armarLineaTiempo(
+      [item("m1", liberado)],
+      [asig("m1", "armado", 10, 10, { paso_id: "p1" }), asig("m1", "barniz", 10, 10, { paso_id: "p2" })],
+      new Set(),
+      pasos
+    );
+    expect(primera.entregados).toEqual({ armado: 0, barniz: 1 });
+    const segunda = armarLineaTiempo(
+      [item("m1", liberado)],
+      [
+        asig("m1", "armado", 10, 10, { paso_id: "p1" }),
+        asig("m1", "barniz", 10, 10, { paso_id: "p2" }),
+        asig("m1", "armado", 10, 10, { paso_id: "p3" }),
+      ],
+      new Set(),
+      pasos
+    );
+    expect(segunda.entregados).toEqual({ armado: 1, barniz: 1 });
+  });
+
+  it("los retrabajos no completan un proceso", () => {
+    const t = armarLineaTiempo(
+      [item("m1", liberado)],
+      [asig("m1", "armado", 6, 6), asig("m1", "armado", 4, 4, { informe_rechazo_id: "inf" })],
+      new Set()
+    );
+    expect(t.entregados.armado).toBe(0);
+  });
+
   it("solo evalúa por Calidad lo que está liberado", () => {
     const t = armarLineaTiempo(
       [item("m1", liberado), item("m2"), item("c1", { ...liberado, tipo_registro: "FU" })],

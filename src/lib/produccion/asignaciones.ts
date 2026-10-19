@@ -97,6 +97,21 @@ export interface AsignacionResumen {
   // Retrabajo de lo que rechazó la revisión final de Calidad (folio FIN-).
   revision_final_rechazo_id: string | null;
   folio_revision_final: string | null;
+  // Piezas de sus lotes que Calidad rechazó y siguen sin reasignar.
+  rechazado_por_reasignar: number;
+  // Qué vez del proceso es en la ruta del mueble (Armado 2 de 2); null sin paso.
+  vez_paso: number | null;
+  veces_proceso: number | null;
+}
+
+// "Armado", o "Armado 2" cuando la ruta del mueble repite el proceso.
+export function etiquetaProceso(a: {
+  proceso: Proceso;
+  vez_paso?: number | null;
+  veces_proceso?: number | null;
+}): string {
+  const veces = Number(a.veces_proceso ?? 0);
+  return veces > 1 && a.vez_paso ? `${PROCESO_LABELS[a.proceso]} ${a.vez_paso}` : PROCESO_LABELS[a.proceso];
 }
 
 // Un retrabajo (de un lote o de la revisión final) no cuenta contra la cantidad

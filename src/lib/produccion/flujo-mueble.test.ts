@@ -63,6 +63,16 @@ describe("avancePaso", () => {
     const m = mueble([asig("armado", 10, 6, { verificado: 4 }), asig("barniz", 3, 0)]);
     expect(avancePaso(m, 1)).toMatchObject({ disponible: 7, listo: 1 });
   });
+  it("con piezas rechazadas por Calidad sin reasignar el paso no está terminado", () => {
+    const m = mueble([asig("armado", 10, 10, { rechazado_por_reasignar: 3 })]);
+    expect(avancePaso(m, 0)).toMatchObject({ estado: "en_proceso", porReasignar: 3 });
+    expect(siguientePaso(m)).toBe("En Armado");
+    const reasignado = mueble([
+      asig("armado", 10, 10),
+      asig("armado", 3, 3, { informe_rechazo_id: "inf" }),
+    ]);
+    expect(avancePaso(reasignado, 0)).toMatchObject({ estado: "terminado", porReasignar: 0 });
+  });
   it("las canceladas no cuentan", () => {
     const m = mueble([asig("armado", 10, 0, { cancelada_en: "2026-10-19" })]);
     expect(avancePaso(m, 0)).toMatchObject({ estado: "sin_asignar", disponible: 10 });

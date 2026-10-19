@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
 import { cargarLotesPorEvaluar } from "@/lib/calidad/resumen-db";
 import type { LoteCalidad } from "@/lib/calidad/lotes";
-import { PROCESO_LABELS, formatoFecha, hoyMexico } from "@/lib/produccion/asignaciones";
+import { etiquetaProceso, formatoFecha, hoyMexico } from "@/lib/produccion/asignaciones";
 import { DIAS_SIN_EVALUAR_LOTE, diasEsperando } from "@/lib/produccion/detenidos";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import ChipEstado from "@/components/chip-estado";
@@ -72,7 +72,7 @@ export default async function LotesPorEvaluarPage() {
                   <Origen lote={l} />
                 </div>
                 <p className="mt-1 text-sm text-slate-600">
-                  {l.equipo} · {PROCESO_LABELS[l.proceso]} · entregado el {formatoFecha(l.fecha_entrega)}
+                  {l.equipo} · {etiquetaProceso(l)} · entregado el {formatoFecha(l.fecha_entrega)}
                   {l.folio_hoja ? ` · hoja ${l.folio_hoja}` : ""}
                 </p>
                 <p className="text-sm text-slate-600">
@@ -124,7 +124,7 @@ export default async function LotesPorEvaluarPage() {
                       <td className="px-4 py-3 text-slate-700">
                         {l.equipo}
                         <span className="block text-xs text-slate-500">
-                          {PROCESO_LABELS[l.proceso]} · entregó {formatoFecha(l.fecha_entrega)}
+                          {etiquetaProceso(l)} · entregó {formatoFecha(l.fecha_entrega)}
                         </span>
                         {l.folio_hoja && (
                           <span className="block text-xs text-slate-500">Hoja: {l.folio_hoja}</span>

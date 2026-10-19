@@ -7,7 +7,7 @@ import {
   puedeEditarProduccion,
 } from "@/lib/auth/get-perfil";
 import {
-  PROCESO_LABELS,
+  etiquetaProceso,
   PROCESOS,
   formatoFecha,
   type AsignacionResumen,
@@ -357,7 +357,7 @@ function FilaAsignacion({
             </span>
           )}
           <span className="font-medium text-slate-900">{a.equipo}</span>
-          <span className="text-slate-600">{PROCESO_LABELS[a.proceso]}</span>
+          <span className="text-slate-600">{etiquetaProceso(a)}</span>
           {a.encargado && <span className="text-slate-600">Encargado: {a.encargado}</span>}
           {a.folio_rechazo && (
             <span className="text-xs font-medium text-rose-700">Retrabajo · {a.folio_rechazo}</span>
