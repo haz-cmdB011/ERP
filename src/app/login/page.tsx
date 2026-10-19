@@ -51,6 +51,18 @@ function suscribirNada() {
   return () => {};
 }
 
+// Enlace de recuperación vencido o ya usado (/auth/callback y /auth/restablecer mandan aquí con ?error=).
+function leerAvisoDeEnlace(): string | null {
+  try {
+    const motivo = new URLSearchParams(window.location.search).get("error");
+    return motivo === "auth" || motivo === "enlace"
+      ? "El enlace venció o ya se usó. Pulsa «¿Olvidaste tu contraseña?» para pedir otro."
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function leerCorreoGuardado(): string | null {
   try {
     return localStorage.getItem(CLAVE_CORREO);
@@ -75,7 +87,11 @@ export default function LoginPage() {
 
   const [codigo, setCodigo] = useState("");
   const [enviado, setEnviado] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // null = nada escrito todavía (se muestra el aviso del enlace, si lo hay); "" = ya se limpió.
+  const [errorPropio, setErrorPropio] = useState<string | null>(null);
+  const setError = (mensaje: string | null) => setErrorPropio(mensaje ?? "");
+  const avisoDeEnlace = useSyncExternalStore(suscribirNada, leerAvisoDeEnlace, () => null);
+  const error = errorPropio ?? avisoDeEnlace;
   const [enviando, setEnviando] = useState(false);
 
   // Volver al login con una sesión que aún no pasó el segundo paso (p. ej. el
@@ -178,7 +194,7 @@ export default function LoginPage() {
 
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/planeacion/cuenta`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/restablecer`,
     });
 
     setEnviando(false);

@@ -15,9 +15,9 @@ import LineaTiempoPm from "./linea-tiempo-pm";
 import { armarLineaTiempo, type LineaTiempo } from "@/lib/planeacion/linea-tiempo";
 import { asignacionesDePedido, idsConInformeDeCalidad } from "@/lib/planeacion/linea-tiempo-db";
 import { cargarRutas, type RutaGuardada } from "@/lib/produccion/rutas-db";
-import { formatoFechaDMA, formatoFechaHora } from "@/lib/resumen/entrega";
+import { formatoFechaDMA } from "@/lib/resumen/entrega";
 
-import { leer } from "@/lib/supabase/leer";
+import { paginarTodo } from "@/lib/supabase/paginar";
 interface VersionRow {
   id: string;
   numero_version: number;
@@ -119,28 +119,36 @@ export default async function PedidoDetailPage({
   const versionActiva = versiones?.find((v) => v.es_version_activa) ?? versiones?.[0] ?? null;
   const itemsParaCancelar =
     puedeEditar && !pedido.cancelado_en && versionActiva
-      ? await leer(
-        supabase
-          .from("planeacion_items")
-          .select("tipo_registro, estado_liberacion, estado_revision, eliminacion_solicitada_en")
-          .eq("pedido_version_id", versionActiva.id)
-          .returns<ItemParaCancelar[]>(),
-        "planeacion_items"
-      )
+      ? await paginarTodo<ItemParaCancelar>(
+          (desde, hasta) =>
+            supabase
+              .from("planeacion_items")
+              .select("id, tipo_registro, estado_liberacion, estado_revision, eliminacion_solicitada_en")
+              .eq("pedido_version_id", versionActiva.id)
+              .order("id")
+              .range(desde, hasta)
+              .returns<ItemParaCancelar[]>(),
+          { contexto: "planeacion_items" }
+        )
       : null;
   const resumenCancelacion = itemsParaCancelar ? resumirCancelacion(itemsParaCancelar) : null;
 
   const items = versionSeleccionada
-    ? await leer(
-        supabase
-        .from("planeacion_items")
-        .select(
-          "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, estado_liberacion, estado_revision, motivo_cancelacion, eliminacion_solicitada_en"
-        )
-        .eq("pedido_version_id", versionSeleccionada.id)
-        .order("fila_excel_origen")
-        .returns<ItemRow[]>(),
-        "planeacion_items"
+    ? // Por páginas: Supabase corta cada respuesta en 1000 filas sin avisar, y un PM
+      // grande se vería incompleto.
+      await paginarTodo<ItemRow>(
+        (desde, hasta) =>
+          supabase
+            .from("planeacion_items")
+            .select(
+              "id, item_code, tipo_registro, tipo_material, modelo, descripcion, cantidad_x_mueble, unidad, cantidad_total, parent_item_id, fila_excel_origen, estado_liberacion, estado_revision, motivo_cancelacion, eliminacion_solicitada_en"
+            )
+            .eq("pedido_version_id", versionSeleccionada.id)
+            .order("fila_excel_origen")
+            .order("id")
+            .range(desde, hasta)
+            .returns<ItemRow[]>(),
+        { contexto: "planeacion_items" }
       )
     : null;
 
@@ -252,8 +260,6 @@ export default async function PedidoDetailPage({
         resumen={resumenCancelacion}
       />
 
-      {tiempo && <LineaTiempoPm tiempo={tiempo} />}
-
       {versiones && versiones.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
@@ -283,14 +289,6 @@ export default async function PedidoDetailPage({
         </div>
       )}
 
-      {versionSeleccionada?.cargas_archivo && (
-        <p className="text-xs text-slate-500">
-          Archivo: {versionSeleccionada.cargas_archivo.nombre_archivo} ·{" "}
-          {versionSeleccionada.cargas_archivo.filas_exitosas ?? 0} filas
-          ingeridas · {formatoFechaHora(versionSeleccionada.created_at)}
-        </p>
-      )}
-
       {!versionSeleccionada && (
         <p className="text-sm text-slate-600">Este pedido no tiene versiones.</p>
       )}
@@ -305,6 +303,9 @@ export default async function PedidoDetailPage({
           filtroInicial={modelo ?? ""}
         />
       )}
+
+      {/* Al final: es mucha información y no siempre se necesita. */}
+      {tiempo && <LineaTiempoPm tiempo={tiempo} />}
     </main>
   );
 }

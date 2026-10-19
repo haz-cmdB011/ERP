@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { firmarUrls } from "@/lib/storage/urls-firmadas";
+import { leerPorLotes } from "@/lib/supabase/por-lotes";
 
 export const BUCKET_IMAGENES_ITEMS = "planeacion-item-imagenes";
 
@@ -38,6 +39,31 @@ export function rutaImagenGrande(rutaMiniatura: string): string {
   return rutaMiniatura.replace(/\.[^./]+$/, "") + "-hd.webp";
 }
 
+// Imágenes de los ítems, pidiendo los ids por lotes: una lista de cientos de
+// ids no cabe en la dirección de una sola consulta (y las imágenes desaparecían
+// sin avisar). Si falla, los ítems se muestran sin imagen (como antes) en vez
+// de romper la pantalla.
+async function imagenesDeItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  itemIds: string[]
+): Promise<ImagenRow[]> {
+  try {
+    return await leerPorLotes(
+      itemIds,
+      (ids) =>
+        supabase
+          .from("planeacion_item_imagenes")
+          .select("planeacion_item_id, storage_path, orden")
+          .in("planeacion_item_id", ids)
+          .order("orden")
+          .returns<ImagenRow[]>(),
+      { contexto: "las imágenes" }
+    );
+  } catch {
+    return [];
+  }
+}
+
 // Igual que getImagenesPorItem, pero cada imagen trae también su versión
 // grande (si existe) para la vista ampliada con zoom.
 export async function getImagenesConGrandePorItem(
@@ -46,16 +72,11 @@ export async function getImagenesConGrandePorItem(
 ): Promise<Map<string, ImagenItemUrls[]>> {
   if (itemIds.length === 0) return new Map();
 
-  const { data: imagenes } = await supabase
-    .from("planeacion_item_imagenes")
-    .select("planeacion_item_id, storage_path, orden")
-    .in("planeacion_item_id", itemIds)
-    .order("orden")
-    .returns<ImagenRow[]>();
+  const imagenes = await imagenesDeItems(supabase, itemIds);
 
   const rutas = Array.from(
     new Set(
-      (imagenes ?? []).flatMap((i) => [i.storage_path, rutaImagenGrande(i.storage_path)])
+      imagenes.flatMap((i) => [i.storage_path, rutaImagenGrande(i.storage_path)])
     )
   );
   // Las versiones grandes que no existen (cargas viejas) vuelven con error y
@@ -63,7 +84,7 @@ export async function getImagenesConGrandePorItem(
   const urlPorRuta = await firmarUrls(supabase, BUCKET_IMAGENES_ITEMS, rutas);
 
   const imagenesPorItem = new Map<string, ImagenItemUrls[]>();
-  for (const img of imagenes ?? []) {
+  for (const img of imagenes) {
     const url = urlPorRuta.get(img.storage_path);
     if (!url) continue;
     const lista = imagenesPorItem.get(img.planeacion_item_id) ?? [];
@@ -83,21 +104,16 @@ export async function getImagenesPorItem(
 ): Promise<Map<string, string[]>> {
   if (itemIds.length === 0) return new Map();
 
-  const { data: imagenes } = await supabase
-    .from("planeacion_item_imagenes")
-    .select("planeacion_item_id, storage_path, orden")
-    .in("planeacion_item_id", itemIds)
-    .order("orden")
-    .returns<ImagenRow[]>();
+  const imagenes = await imagenesDeItems(supabase, itemIds);
 
   const urlPorRuta = await firmarUrls(
     supabase,
     BUCKET_IMAGENES_ITEMS,
-    (imagenes ?? []).map((i) => i.storage_path)
+    imagenes.map((i) => i.storage_path)
   );
 
   const imagenesPorItem = new Map<string, string[]>();
-  for (const img of imagenes ?? []) {
+  for (const img of imagenes) {
     const url = urlPorRuta.get(img.storage_path);
     if (!url) continue;
     const lista = imagenesPorItem.get(img.planeacion_item_id) ?? [];
