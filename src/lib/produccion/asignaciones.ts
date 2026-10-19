@@ -89,6 +89,22 @@ export interface AsignacionResumen {
   // Folios CAL- que Calidad generó al evaluar las entregas de la asignación.
   // (folios_calidad, en cambio, es el folio de la hoja de entrega en papel.)
   folios_cal: string | null;
+  // Paso de la ruta del mueble (ver ruta.ts); null solo si el mueble se borró.
+  paso_id: string | null;
+  // Se asignó antes de que el paso anterior entregara (y Producción verificara)
+  // esas piezas: no se bloquea, solo queda marcado.
+  adelantada: boolean;
+  // Retrabajo de lo que rechazó la revisión final de Calidad (folio FIN-).
+  revision_final_rechazo_id: string | null;
+  folio_revision_final: string | null;
+}
+
+// Un retrabajo (de un lote o de la revisión final) no cuenta contra la cantidad
+// del mueble en su paso.
+export function esRetrabajo(
+  a: Pick<AsignacionResumen, "informe_rechazo_id" | "revision_final_rechazo_id">
+): boolean {
+  return !!a.informe_rechazo_id || !!a.revision_final_rechazo_id;
 }
 
 export interface EntregaProduccion {

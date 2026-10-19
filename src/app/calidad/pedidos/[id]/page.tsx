@@ -6,7 +6,11 @@ import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import { evaluablesPorCalidad, grupoDelItem, visiblesParaCalidad } from "@/lib/calidad/estado-item";
-import { verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
+import { revisionFinalActiva, verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
+import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
+import { cargarRutas } from "@/lib/produccion/rutas-db";
+import { etiquetaPaso } from "@/lib/produccion/ruta";
+import RevisionFinalSeccion, { type MuebleRevisionFinal } from "./revision-final";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
 import {
   situacionesPorMueble,
@@ -163,7 +167,7 @@ export default async function PedidoCalidadPage({
   // asignaciones vigentes (para decir dónde está lo que aún no se puede
   // evaluar) y si la verificación de Producción está encendida se piden a la vez.
   const muebleIds = items.filter((i) => i.tipo_registro === "MO").map((i) => i.id);
-  const [informes, imagenesPorItem, filasLotes, asignacionesMuebles, verificacionActiva] = await Promise.all([
+  const [informes, imagenesPorItem, filasLotes, asignacionesMuebles, verificacionActiva, finalActiva] = await Promise.all([
     itemIds.length
       ? leer(
           supabase
@@ -200,6 +204,14 @@ export default async function PedidoCalidadPage({
       : Promise.resolve([] as AsignacionDelMueble[]),
     // Solo decide qué botones se muestran (la regla la aplica la base).
     verificacionProduccionActiva(supabase),
+    revisionFinalActiva(supabase),
+  ]);
+
+  // Revisión final (ajuste revision_final, hoy apagado): solo de la versión activa.
+  const muebleIdsFinal = finalActiva && versionSeleccionada?.es_version_activa ? muebleIds : [];
+  const [revisionFinal, rutas] = await Promise.all([
+    cargarRevisionFinal(supabase, muebleIdsFinal),
+    cargarRutas(supabase, muebleIdsFinal),
   ]);
   const lotesPorMueble = new Map<string, LoteCalidad[]>();
   for (const l of (filasLotes ?? []).map(normalizarLote)) {
@@ -277,6 +289,27 @@ export default async function PedidoCalidadPage({
   // Llegó escaneando el QR de un mueble: se muestra solo ese mueble (con sus
   // componentes) para evaluarlo sin buscarlo entre todo el pedido.
   const itemEnfocado = itemParam && esUuid(itemParam) ? itemParam : null;
+
+  // Muebles con piezas listas para la revisión final o con revisiones anteriores.
+  const mueblesFinal: MuebleRevisionFinal[] = items
+    .filter((i) => i.tipo_registro === "MO" && (!itemEnfocado || i.id === itemEnfocado))
+    .flatMap((i) => {
+      const resumen = revisionFinal.resumen.get(i.id);
+      const revisiones = revisionFinal.revisiones.get(i.id) ?? [];
+      if (!resumen || (resumen.listas <= 0 && revisiones.length === 0)) return [];
+      const pasos = rutas.get(i.id)?.pasos ?? [];
+      return [
+        {
+          id: i.id,
+          item_code: i.item_code,
+          modelo: i.modelo,
+          unidad: i.unidad,
+          resumen,
+          revisiones,
+          pasos: pasos.flatMap((p, n) => (p.id ? [{ id: p.id, etiqueta: `${n + 1}. ${etiquetaPaso(pasos, n)}` }] : [])),
+        },
+      ];
+    });
   const grupoEnfocado = itemEnfocado ? grupoDelItem(itemsConInforme, itemEnfocado) : [];
   const enfoque = itemEnfocado !== null && grupoEnfocado.length > 0;
   // El QR es de un mueble liberado a producción que Producción aún no preaprueba.
@@ -354,6 +387,12 @@ export default async function PedidoCalidadPage({
           Producción todavía no preaprueba muebles de este pedido. Cuando lo haga, aparecerán aquí.
         </p>
       )}
+
+      <RevisionFinalSeccion
+        muebles={mueblesFinal}
+        numeroPedido={pedido.numero_pedido}
+        puedeEvaluar={puedeEvaluar && !pedido.cancelado_en}
+      />
 
       {versionSeleccionada && itemsConInforme.length > 0 && (
         <ItemsCalidadTable

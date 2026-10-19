@@ -6,6 +6,7 @@ import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import {
   AREAS_COBRO,
   aprobadoArea,
+  areasRepetidas,
   baseArea,
   cargarOtContraCobrado,
   cobradoSobreCalidad,
@@ -270,6 +271,15 @@ export default async function PmCobradoDetallePage({
                             {f.cantidadPmIluminacion} con iluminación
                           </span>
                         )}
+                        {areasRepetidas(f).map(([area, base]) => (
+                          <span
+                            key={area}
+                            className="block text-[11px] text-slate-500"
+                            title="La ruta de Producción repite este proceso: cada pasada se cobra"
+                          >
+                            {area === "armado" ? "Armado" : "Acabados"} espera {base} (ruta)
+                          </span>
+                        ))}
                       </>
                     )}
                   </td>

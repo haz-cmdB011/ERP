@@ -101,6 +101,26 @@ Calidad puede evaluar un mueble completo sin entrega. Al volver a encenderlo, an
 `PERIODOS_SIN_VERIFICACION` de `tests-db/produccion-calidad.test.ts` (esos informes no siguen las reglas
 normales).
 
+## Revisión final del mueble (apagada)
+
+Calidad revisa cada proceso por lotes. La **revisión final** del mueble completo antes de mandarlo a obra
+existe pero se creó **apagada** (ajuste `revision_final`), a la espera de que Calidad confirme que así
+trabaja. Apagada no cambia nada. Encendida:
+
+- En Calidad (detalle del PM) aparece "Revisión final" con los muebles que ya pasaron todos los pasos de su
+  ruta (lo que Calidad aprobó en el último paso). Cada resultado lleva folio `FIN-`.
+- Lo rechazado regresa al paso de la ruta que elija Calidad y aparece en Producción → Rechazado por Calidad
+  para reasignarlo. Al entregarse y aprobarse su lote, vuelve a la revisión final.
+- En Producción el mueble dice "Revisión final x/y" y, cuando se aprueba completo, "Liberado a obra".
+- No cambia el cobro de los maquiladores (se cobra por proceso aprobado).
+
+Para encenderla (o apagarla con `false`) desde el SQL Editor:
+
+```sql
+update public.ajustes_flujo set activo = true, actualizado_en = now()
+  where clave = 'revision_final';
+```
+
 ## Cambios de base de datos
 
 Siempre como archivo nuevo en `supabase/migrations/`, aplicado por **una sola vía** y verificado con

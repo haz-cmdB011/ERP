@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   aprobadoArea,
+  areasRepetidas,
   baseArea,
   cobradoSobreCalidad,
   estadoCelda,
@@ -26,6 +27,8 @@ function fila(parcial: Partial<FilaPmCobrado>): FilaPmCobrado {
     descripcion: null,
     cantidadPm: 10,
     cantidadPmIluminacion: 0,
+    cantidadPmAcabados: null,
+    cantidadPmArmado: null,
     acabados: 0,
     armado: 0,
     electrificacion: 0,
@@ -65,6 +68,21 @@ describe("baseArea", () => {
     const f = fila({ cantidadPm: 6, cantidadPmIluminacion: 4 });
     expect(baseArea(f, "acabados")).toBe(6);
     expect(baseArea(f, "electrificacion")).toBe(4);
+  });
+
+  it("si la ruta repite Armado, Armado espera cada pasada; las demás áreas no cambian", () => {
+    const f = fila({ cantidadPmArmado: 20, cantidadPmAcabados: 10, armado: 20, acabados: 10 });
+    expect(baseArea(f, "armado")).toBe(20);
+    expect(estadoCelda(f, "armado")).toBe("completo");
+    expect(estadoCelda({ ...f, armado: 21 }, "armado")).toBe("excedido");
+    expect(areasRepetidas(f)).toEqual([["armado", 20]]);
+    expect(resumirPorOt([f])[0].avance.armado).toEqual({ cobrado: 20, base: 20 });
+    expect(resumirPorOt([f])[0].piezasPm).toBe(10);
+  });
+
+  it("sin el dato por área (base anterior) se usa la cantidad del PM", () => {
+    expect(baseArea(fila({}), "armado")).toBe(10);
+    expect(areasRepetidas(fila({}))).toEqual([]);
   });
 
   it("un mueble sin iluminación no aplica en Electrificación; si se electrificó, es de más", () => {
