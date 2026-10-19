@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/confirm-dialog";
@@ -100,12 +101,12 @@ export default function TablaRegistro({
     return (
       <div className="flex items-center justify-end gap-3">
         {(r.estado === "pendiente" || r.estado === "revisado") && (
-          <Link
+          <EnlaceFila
             href={`/estimaciones/revision/${r.tipo}/${folioUrl}`}
             className="whitespace-nowrap rounded bg-brand-500 px-2.5 py-1 text-xs font-semibold text-on-brand hover:bg-brand-400"
           >
             {r.estado === "pendiente" ? "Revisar" : "Pagar"}
-          </Link>
+          </EnlaceFila>
         )}
         {esDesarrollador ? (
           <EliminarReciboDefinitivoBoton tipo={r.tipo} reciboId={r.id} folio={r.folio} variante="icono" />
@@ -184,12 +185,12 @@ export default function TablaRegistro({
                     className="h-5 w-5 accent-emerald-700"
                   />
                 )}
-                <Link
+                <EnlaceFila
                   href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}
                   className="font-mono text-base font-semibold text-slate-900 hover:text-brand-700 hover:underline"
                 >
                   {r.folio}
-                </Link>
+                </EnlaceFila>
                 <PuntoPrioridad prioridad={r.prioridad} />
               </div>
               <EstadoReciboBadge estado={r.estado} />
@@ -246,12 +247,12 @@ export default function TablaRegistro({
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <Link
+                  <EnlaceFila
                     href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}
                     className="font-mono font-medium text-slate-900 hover:text-brand-700 hover:underline"
                   >
                     {r.folio}
-                  </Link>
+                  </EnlaceFila>
                 </td>
                 <td className="px-4 py-3 text-slate-700">{NOMBRE_TIPO_CUALQUIERA[r.tipo]}</td>
                 <td className="whitespace-nowrap px-4 py-3 font-mono text-slate-700">{formatoFechaDMA(r.fecha)}</td>

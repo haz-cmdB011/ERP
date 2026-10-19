@@ -73,6 +73,10 @@ export interface VarianteModeloPm {
   descripcionPm: string;
   cantidadPm: number;
   cantidadRegistrada: number;
+  // Un componente (hijo) que comparte código con su mueble: es una variante más
+  // para elegirla en la lista, pero no suma en el saldo por código (ahí solo
+  // cuentan los muebles padre, igual que en la base).
+  esComponente?: boolean;
 }
 
 // Saldos para conciliarRenglones: uno por variante (claveVariante) y uno por
@@ -84,6 +88,7 @@ export function saldosDeVariantes(variantes: VarianteModeloPm[]): Map<string, Sa
   for (const v of variantes) {
     const kv = claveVariante(v.modelo, v.descripcionPm);
     saldos.set(kv, { cantidadPm: v.cantidadPm, cantidadRegistrada: v.cantidadRegistrada });
+    if (v.esComponente) continue;
     const km = claveModelo(v.modelo);
     const previo = porCodigo.get(km) ?? { saldo: { cantidadPm: 0, cantidadRegistrada: 0 }, claves: [] };
     previo.saldo.cantidadPm += v.cantidadPm;
@@ -95,6 +100,30 @@ export function saldosDeVariantes(variantes: VarianteModeloPm[]): Map<string, Sa
     saldos.set(km, claves.length === 1 ? { ...saldo, varianteUnica: claves[0] } : saldo);
   }
   return saldos;
+}
+
+// ¿Esta opción de la lista de modelos coincide con lo que se está escribiendo?
+// Se busca por código (el del mueble o el del componente), por el código del
+// mueble del que es parte un componente (escribir M-CONT-M muestra también sus
+// partes), por el texto de la descripción y por el número de un componente
+// ("4.02"). Sin texto, todas.
+export function coincideModeloConBusqueda(
+  opcion: {
+    modelo: string;
+    descripcion?: string | null;
+    esComponente?: boolean;
+    itemCodigo?: string | null;
+    padreModelo?: string | null;
+  },
+  texto: string
+): boolean {
+  const q = claveModelo(texto);
+  if (!q) return true;
+  if (claveModelo(opcion.modelo).includes(q)) return true;
+  if (opcion.esComponente && opcion.padreModelo && claveModelo(opcion.padreModelo).includes(q)) return true;
+  if (opcion.esComponente && opcion.itemCodigo && claveModelo(opcion.itemCodigo).includes(q)) return true;
+  const d = claveDescripcion(texto);
+  return d !== "" && claveDescripcion(opcion.descripcion).includes(d);
 }
 
 // Con qué saldo se compara un renglón: su variante si está en la OT; si no

@@ -7,20 +7,28 @@ import {
   puedeEditarProduccion,
 } from "@/lib/auth/get-perfil";
 import {
-  PROCESO_LABELS,
+  etiquetaProceso,
   PROCESOS,
   formatoFecha,
   type AsignacionResumen,
+  type EncargadoEquipo,
   type EquipoProduccion,
   type Proceso,
 } from "@/lib/produccion/asignaciones";
 import { entregasPorAsignacion, type EntregaConFoto } from "@/lib/produccion/consultar-asignaciones";
-import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
 import AsignarLote, { type MuebleParaLote } from "@/app/produccion/asignaciones/asignar-lote";
 import DetalleAsignacion, {
   EstadoAsignacionBadge,
 } from "@/app/produccion/asignaciones/detalle-asignacion";
 
+import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
+import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
+import { avancePaso, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
+import { rutaSugerida } from "@/lib/produccion/ruta";
+import { cargarRutas } from "@/lib/produccion/rutas-db";
+import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
+import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
+import FlujoMuebles from "./flujo-muebles";
 import { leer } from "@/lib/supabase/leer";
 interface MuebleRow {
   id: string;
@@ -35,7 +43,8 @@ interface MuebleRow {
 }
 
 // Asignación de los muebles de un PM a equipos (maquiladores o planta). Solo
-// se asignan muebles (ítems padre) liberados de la versión activa.
+// se asignan muebles (ítems padre) liberados de la versión activa, paso por paso
+// de su ruta (ver src/lib/produccion/ruta.ts).
 export default async function AsignacionesPedidoPage({
   params,
 }: {
@@ -73,7 +82,7 @@ export default async function AsignacionesPedidoPage({
     "pedido_versiones"
   );
 
-  const [muebles, asignaciones, equipos] = await Promise.all([
+  const [muebles, asignaciones, equipos, encargados, componentes] = await Promise.all([
     version
       ? leer(
           supabase
@@ -108,7 +117,35 @@ export default async function AsignacionesPedidoPage({
         .returns<EquipoProduccion[]>(),
       "equipos_produccion"
     ),
+    leer(
+      supabase
+        .from("encargados_equipo_produccion")
+        .select("equipo_id, nombre")
+        .order("nombre")
+        .returns<EncargadoEquipo[]>(),
+      "encargados_equipo_produccion"
+    ),
+    // Componentes: Electrificación también se detecta por lo que dicen los hijos.
+    version
+      ? leer(
+          supabase
+            .from("planeacion_items")
+            .select("parent_item_id, descripcion")
+            .eq("pedido_version_id", version.id)
+            .eq("tipo_registro", "FU")
+            .returns<{ parent_item_id: string | null; descripcion: string | null }[]>(),
+          "los componentes"
+        )
+      : Promise.resolve([] as { parent_item_id: string | null; descripcion: string | null }[]),
   ]);
+
+  const descripcionesHijos = new Map<string, string[]>();
+  for (const c of componentes ?? []) {
+    if (!c.parent_item_id || !c.descripcion) continue;
+    const lista = descripcionesHijos.get(c.parent_item_id) ?? [];
+    lista.push(c.descripcion);
+    descripcionesHijos.set(c.parent_item_id, lista);
+  }
 
   const vigentes = (muebles ?? []).filter(
     (m) => !m.eliminacion_solicitada_en && m.estado_revision !== "cancelado"
@@ -118,10 +155,18 @@ export default async function AsignacionesPedidoPage({
   const idsLiberados = new Set(liberados.map((m) => m.id));
 
   const todas = asignaciones ?? [];
-  const entregas = await entregasPorAsignacion(
-    supabase,
-    todas.map((a) => a.id)
-  );
+  const [entregas, rutas, finalActiva] = await Promise.all([
+    entregasPorAsignacion(
+      supabase,
+      todas.map((a) => a.id)
+    ),
+    cargarRutas(supabase, liberados.map((m) => m.id)),
+    revisionFinalActiva(supabase),
+  ]);
+  // Revisión final de Calidad (ajuste revision_final, hoy apagado).
+  const revisionFinal = finalActiva
+    ? (await cargarRevisionFinal(supabase, liberados.map((m) => m.id))).resumen
+    : null;
   const porItem = new Map<string, AsignacionResumen[]>();
   for (const a of todas) {
     if (!a.planeacion_item_id || !idsLiberados.has(a.planeacion_item_id)) continue;
@@ -135,13 +180,42 @@ export default async function AsignacionesPedidoPage({
 
   const pedidoCancelado = !!pedido.cancelado_en;
 
+  // Electrificación y Superficie Sólida solo si el mueble o sus componentes las llevan.
+  const aplicaA = (m: MuebleRow): Record<Proceso, boolean> => {
+    const hijos = descripcionesHijos.get(m.id);
+    return {
+      armado: true,
+      barniz: true,
+      electrificacion: admiteElectrificacion(m.descripcion, hijos),
+      superficie_solida: admiteSuperficieSolida(m.descripcion, hijos),
+    };
+  };
+
+  // Cada mueble con su ruta: la guardada o, si aún no tiene, la sugerida.
+  const flujo: MuebleFlujo[] = liberados.map((m) => {
+    const guardada = rutas.get(m.id);
+    const aplica = aplicaA(m);
+    return {
+      id: m.id,
+      item_code: m.item_code,
+      modelo: m.modelo,
+      unidad: m.unidad,
+      cantidad: Number(m.cantidad_total),
+      aplica,
+      ruta: guardada && guardada.pasos.length > 0 ? guardada.pasos : rutaSugerida(aplica),
+      versionRuta: guardada?.version ?? 0,
+      asignaciones: porItem.get(m.id) ?? [],
+      revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
+    };
+  });
+
   // Para asignar varios muebles de una vez: lo que falta de cada uno.
-  const paraLote: MuebleParaLote[] = liberados.map((m) => ({
+  const paraLote: MuebleParaLote[] = flujo.map((m) => ({
     id: m.id,
     item_code: m.item_code,
     modelo: m.modelo,
     unidad: m.unidad,
-    disponible: disponibleDe(Number(m.cantidad_total), resumenPorProceso(porItem.get(m.id) ?? [])),
+    ...disponibleDe(m),
   }));
 
   return (
@@ -156,11 +230,11 @@ export default async function AsignacionesPedidoPage({
             {version ? ` · versión ${version.numero_version}` : ""}
           </p>
           <p className="mt-2 text-sm text-slate-500">
-            Un mueble puede repartirse entre varios equipos. Armado y barniz se asignan por separado.
+            Cada mueble sigue su ruta (la sugerida es Armado → Superficie Sólida → Barniz → Electrificación) y cada paso se asigna por separado, aunque se repita. Electrificación y Superficie Sólida solo entran en los muebles que las llevan (lo dice la descripción del mueble o de sus componentes). Asignar antes de que el paso anterior entregue se puede, pero queda marcado como adelantado.
           </p>
         </div>
         {puedeEditar && !pedidoCancelado && liberados.length > 1 && (
-          <AsignarLote muebles={paraLote} equipos={equipos ?? []} />
+          <AsignarLote muebles={paraLote} equipos={equipos ?? []} encargados={encargados ?? []} />
         )}
       </div>
 
@@ -193,65 +267,30 @@ export default async function AsignacionesPedidoPage({
           </Link>
         </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {liberados.map((m) => {
-            const lista = porItem.get(m.id) ?? [];
-            const resumen = resumenPorProceso(lista);
-            const disponible = disponibleDe(Number(m.cantidad_total), resumen);
-            const descripcion = `${pedido.numero_pedido} · ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`;
-
-            return (
-              <li key={m.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-slate-900">
-                      {m.item_code}
-                      {m.modelo ? ` · ${m.modelo}` : ""}
-                    </p>
-                    <p className="line-clamp-2 text-sm text-slate-600">{m.descripcion?.split("\n")[0]}</p>
-                    <p className="mt-1 text-sm font-medium text-slate-800">
-                      {Number(m.cantidad_total)} {m.unidad}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    {PROCESOS.map((p) => (
-                      <div key={p} className="min-w-28 rounded-lg bg-slate-50 px-3 py-1.5 text-xs">
-                        <p className="font-semibold text-slate-700">{PROCESO_LABELS[p]}</p>
-                        <p className="text-slate-600">
-                          asignadas {resumen[p].asignado}/{Number(m.cantidad_total)}
-                        </p>
-                        <p className="text-slate-600">entregadas {resumen[p].entregado}</p>
-                      </div>
-                    ))}
-                    {puedeEditar && !pedidoCancelado && (
-                      <AsignarForm
-                        itemId={m.id}
-                        descripcion={descripcion}
-                        unidad={m.unidad}
-                        disponible={disponible}
-                        equipos={equipos ?? []}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {lista.length > 0 && (
-                  <ul className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3">
-                    {lista.map((a) => (
-                      <FilaAsignacion
-                        key={a.id}
-                        a={a}
-                        entregas={entregas.get(a.id) ?? []}
-                        puedeEditar={puedeEditar}
-                        puedeAnular={puedeAnular}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <FlujoMuebles
+          muebles={flujo}
+          asignar={
+            puedeEditar && !pedidoCancelado
+              ? {
+                  equipos: equipos ?? [],
+                  encargados: encargados ?? [],
+                  numeroPedido: pedido.numero_pedido,
+                }
+              : null
+          }
+          detalles={Object.fromEntries(
+            todas.map((a) => [
+              a.id,
+              <DetalleAsignacion
+                key={a.id}
+                asignacion={a}
+                entregas={entregas.get(a.id) ?? []}
+                puedeEditar={puedeEditar}
+                puedeAnular={puedeAnular}
+              />,
+            ])
+          )}
+        />
       )}
 
       {otras.length > 0 && (
@@ -277,30 +316,21 @@ export default async function AsignacionesPedidoPage({
   );
 }
 
-// Asignado y entregado por proceso, sin contar las asignaciones canceladas ni
-// los retrabajos (rehacen piezas rechazadas: no cuentan contra la cantidad).
-function resumenPorProceso(
-  asignaciones: AsignacionResumen[]
-): Record<Proceso, { asignado: number; entregado: number }> {
-  const activas = asignaciones.filter((a) => !a.cancelada_en && !a.informe_rechazo_id);
-  return Object.fromEntries(
-    PROCESOS.map((p) => {
-      const deP = activas.filter((a) => a.proceso === p);
-      const asignado = deP.reduce((s, a) => s + Number(a.cantidad), 0);
-      const entregado = deP.reduce((s, a) => s + Number(a.entregado), 0);
-      return [p, { asignado, entregado }];
-    })
-  ) as Record<Proceso, { asignado: number; entregado: number }>;
-}
-
-// Lo que falta por asignar de cada proceso.
-function disponibleDe(
-  cantidadTotal: number,
-  resumen: Record<Proceso, { asignado: number }>
-): Record<Proceso, number> {
-  return Object.fromEntries(
-    PROCESOS.map((p) => [p, Math.round((cantidadTotal - resumen[p].asignado) * 100) / 100])
-  ) as Record<Proceso, number>;
+// Por proceso, lo que falta por asignar en el primer paso de ese proceso que
+// aún tiene lugar (el mismo que elige crear_asignacion_produccion cuando no se
+// le dice el paso) y cuánto de eso ya entregó el paso anterior. Lo que la ruta
+// no lleva queda en 0.
+function disponibleDe(m: MuebleFlujo): Pick<MuebleParaLote, "disponible" | "listo"> {
+  const disponible = Object.fromEntries(PROCESOS.map((p) => [p, 0])) as Record<Proceso, number>;
+  const listo = { ...disponible };
+  for (const p of PROCESOS) {
+    const i = m.ruta.findIndex((x, j) => x.proceso === p && avancePaso(m, j).disponible > 0);
+    if (i < 0) continue;
+    const a = avancePaso(m, i);
+    disponible[p] = a.disponible;
+    listo[p] = a.listo;
+  }
+  return { disponible, listo };
 }
 
 function FilaAsignacion({
@@ -327,7 +357,8 @@ function FilaAsignacion({
             </span>
           )}
           <span className="font-medium text-slate-900">{a.equipo}</span>
-          <span className="text-slate-600">{PROCESO_LABELS[a.proceso]}</span>
+          <span className="text-slate-600">{etiquetaProceso(a)}</span>
+          {a.encargado && <span className="text-slate-600">Encargado: {a.encargado}</span>}
           {a.folio_rechazo && (
             <span className="text-xs font-medium text-rose-700">Retrabajo · {a.folio_rechazo}</span>
           )}

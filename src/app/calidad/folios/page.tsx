@@ -1,4 +1,5 @@
 import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import Paginacion, { TAMANO_PAGINA } from "@/components/paginacion";
 import EstadoVacio from "@/components/estado-vacio";
@@ -333,12 +334,12 @@ export default async function FoliosCalidadPage({
                   <tr key={inf.id} className="align-top transition-colors hover:bg-slate-50">
                     <td className="px-3 py-2 font-mono text-sm text-slate-900">
                       {enlazable ? (
-                        <Link
+                        <EnlaceFila
                           href={`/calidad/pedidos/${pedido.id}/informe/${inf.id}`}
                           className="hover:text-brand-700 hover:underline"
                         >
                           {inf.folio}
-                        </Link>
+                        </EnlaceFila>
                       ) : (
                         inf.folio
                       )}
@@ -371,12 +372,12 @@ export default async function FoliosCalidadPage({
                     </td>
                     <td className="px-3 py-2">
                       {enlazable ? (
-                        <Link
+                        <EnlaceFila
                           href={`/calidad/pedidos/${pedido.id}`}
                           className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
                         >
                           {pedido.numero_pedido}
-                        </Link>
+                        </EnlaceFila>
                       ) : (
                         <span className="font-medium text-slate-900">
                           {pedido?.numero_pedido ?? "—"}

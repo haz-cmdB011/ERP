@@ -14,6 +14,7 @@ import { resumirCancelacion, type ItemParaCancelar } from "@/lib/planeacion/resu
 import LineaTiempoPm from "./linea-tiempo-pm";
 import { armarLineaTiempo, type LineaTiempo } from "@/lib/planeacion/linea-tiempo";
 import { asignacionesDePedido, idsConInformeDeCalidad } from "@/lib/planeacion/linea-tiempo-db";
+import { cargarRutas, type RutaGuardada } from "@/lib/produccion/rutas-db";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 
 import { paginarTodo } from "@/lib/supabase/paginar";
@@ -163,11 +164,19 @@ export default async function PedidoDetailPage({
           !i.eliminacion_solicitada_en
       )
       .map((i) => i.id);
-    const [asignaciones, conInforme] = await Promise.all([
+    const mueblesIds = items.filter((i) => i.tipo_registro === "MO" && liberadosIds.includes(i.id)).map((i) => i.id);
+    const [asignaciones, conInforme, rutas] = await Promise.all([
       asignacionesDePedido(supabase, id),
       idsConInformeDeCalidad(supabase, liberadosIds),
+      // Es un resumen: sin rutas cuenta un paso por proceso en vez de tumbar la pantalla.
+      cargarRutas(supabase, mueblesIds).catch(() => new Map<string, RutaGuardada>()),
     ]);
-    tiempo = armarLineaTiempo(items, asignaciones, conInforme);
+    tiempo = armarLineaTiempo(
+      items,
+      asignaciones,
+      conInforme,
+      new Map([...rutas].map(([itemId, r]) => [itemId, r.pasos.filter((p) => p.id !== null) as { id: string; proceso: string }[]]))
+    );
   }
 
   const itemIds = (items ?? []).map((i) => i.id);

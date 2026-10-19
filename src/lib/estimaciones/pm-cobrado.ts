@@ -5,6 +5,13 @@
 // supabase/migrations/20261002154916_variantes_modelo_iluminacion.sql, con las
 // mismas reglas que el control al guardar). Aquí se clasifica cada celda y se resume el
 // avance por OT.
+//
+// Cuadre con Calidad (supabase/migrations/20261014195109_cuadre_calidad_recibos.sql):
+// además de los muebles padre, cada O.T. trae sus COMPONENTES (hijos) como filas
+// aparte, y por área lo que Calidad ya aprobó (aprobadoAcabados / aprobadoArmado).
+// "Listo para cobrar" = aprobado por Calidad y todavía sin recibo; un recibo que
+// cobra más de lo aprobado queda marcado. Los componentes no suman en las barras
+// de avance: el mueble padre ya cuenta su cantidad.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -24,12 +31,29 @@ export interface FilaPmCobrado {
   cantidadPm: number | null;
   // Parte del PM con iluminación (lo que se electrifica).
   cantidadPmIluminacion: number;
+  // Lo esperado en Acabados y en Armado: la cantidad del PM por las veces que la
+  // ruta de Producción del mueble lleva Barniz o Armado (mínimo 1; ver
+  // supabase/migrations/20261019155404_recibos_procesos_repetidos.sql). null si
+  // el modelo no está en el PM.
+  cantidadPmAcabados: number | null;
+  cantidadPmArmado: number | null;
   acabados: number;
   armado: number;
   electrificacion: number;
   // Reprocesos de Acabados/Armado: se pagan aparte, no gastan saldo del PM.
   reprocesos: number;
   discrepanciasPendientes: number;
+  // Un componente (hijo) de un mueble, no el mueble.
+  esComponente: boolean;
+  // Solo componentes: su número ("4.02"), su material y el código del mueble del
+  // que son parte (puede ser distinto al suyo: M-CONT de M-CONT-M).
+  itemCodigo: string | null;
+  material: string | null;
+  padreModelo: string | null;
+  // Lo que Calidad ya aprobó por área. null: no aplica o no hay con qué comparar
+  // (el mueble no pasó por Producción en el sistema, o el modelo no está en el PM).
+  aprobadoAcabados: number | null;
+  aprobadoArmado: number | null;
 }
 
 export type EstadoCobro =
@@ -44,10 +68,24 @@ export type EstadoCobro =
 
 // Contra qué cantidad se compara cada área. Electrificación, para todos, solo
 // contra los muebles con iluminación (misma regla que el control al guardar):
-// electrificar un mueble sin iluminación cuenta como cobrado de más.
+// electrificar un mueble sin iluminación cuenta como cobrado de más. Acabados y
+// Armado, contra la cantidad del PM tantas veces como la ruta repita el proceso.
 export function baseArea(fila: FilaPmCobrado, area: AreaCobro): number | null {
   if (fila.cantidadPm == null) return null;
-  return area === "electrificacion" ? fila.cantidadPmIluminacion : fila.cantidadPm;
+  if (area === "electrificacion") return fila.cantidadPmIluminacion;
+  return (area === "acabados" ? fila.cantidadPmAcabados : fila.cantidadPmArmado) ?? fila.cantidadPm;
+}
+
+// Áreas que esperan más que la cantidad del PM porque la ruta repite su proceso
+// (para explicarlo en pantalla): [área, lo esperado].
+export function areasRepetidas(fila: FilaPmCobrado): ["acabados" | "armado", number][] {
+  if (fila.cantidadPm == null) return [];
+  const salida: ["acabados" | "armado", number][] = [];
+  for (const area of ["armado", "acabados"] as const) {
+    const base = baseArea(fila, area);
+    if (base != null && base > fila.cantidadPm) salida.push([area, base]);
+  }
+  return salida;
 }
 
 export function estadoCobro(cobrado: number, base: number | null): EstadoCobro {
@@ -70,12 +108,48 @@ export function tieneDiferencias(fila: FilaPmCobrado): boolean {
   });
 }
 
-// Le falta cobrar algo en alguna área.
+// Le falta cobrar algo en alguna área (según el PM). Los componentes no entran:
+// su mueble padre ya cuenta la cantidad y esto los llenaría de falsos pendientes
+// cuando se cobra el mueble completo.
 export function tienePendienteDeCobro(fila: FilaPmCobrado): boolean {
+  if (fila.esComponente) return false;
   return AREAS_COBRO.some((a) => {
     const e = estadoCelda(fila, a);
     return e === "sin_cobro" || e === "parcial";
   });
+}
+
+// Lo que Calidad aprobó en un área; null si no hay dato (Electrificación no se
+// compara con Calidad: Producción no la asigna).
+export function aprobadoArea(fila: FilaPmCobrado, area: AreaCobro): number | null {
+  if (area === "acabados") return fila.aprobadoAcabados;
+  if (area === "armado") return fila.aprobadoArmado;
+  return null;
+}
+
+// Lo que Calidad ya aprobó y todavía no tiene recibo en esa área.
+export function listoParaCobrar(fila: FilaPmCobrado, area: AreaCobro): number {
+  const aprobado = aprobadoArea(fila, area);
+  return aprobado == null ? 0 : Math.max(0, aprobado - fila[area]);
+}
+
+export function tieneListoParaCobrar(fila: FilaPmCobrado): boolean {
+  return AREAS_COBRO.some((a) => listoParaCobrar(fila, a) > 0);
+}
+
+// Lo cobrado en un área por encima de lo que Calidad aprobó (0 si no hay dato).
+export function cobradoSobreCalidad(fila: FilaPmCobrado, area: AreaCobro): number {
+  const aprobado = aprobadoArea(fila, area);
+  return aprobado == null ? 0 : Math.max(0, fila[area] - aprobado);
+}
+
+export function tieneSobreCalidad(fila: FilaPmCobrado): boolean {
+  return AREAS_COBRO.some((a) => cobradoSobreCalidad(fila, a) > 0);
+}
+
+// Algo que revisar: diferencias con el PM o cobrado sin aprobación de Calidad.
+export function tieneDiferenciasOCalidad(fila: FilaPmCobrado): boolean {
+  return tieneDiferencias(fila) || tieneSobreCalidad(fila);
 }
 
 export interface AvanceArea {
@@ -96,6 +170,12 @@ export interface ResumenOt {
   excedidos: number;
   fueraDelPm: number;
   discrepanciasPendientes: number;
+  // Renglones (mueble o componente, por área) cobrados por encima de lo que Calidad aprobó.
+  sobreCalidad: number;
+  // Renglones de muebles que Calidad ya aprobó y todavía no tienen recibo (por área),
+  // y los de componentes aparte: o se cobra el mueble o sus partes, no se suman.
+  listoParaCobrar: number;
+  listoComponentes: number;
 }
 
 // Resumen por OT, en el orden en que llegan las filas.
@@ -119,21 +199,36 @@ export function resumirPorOt(filas: FilaPmCobrado[]): ResumenOt[] {
         excedidos: 0,
         fueraDelPm: 0,
         discrepanciasPendientes: 0,
+        sobreCalidad: 0,
+        listoParaCobrar: 0,
+        listoComponentes: 0,
       };
       porOt.set(f.ot, r);
     }
     r.discrepanciasPendientes += f.discrepanciasPendientes;
+    for (const a of AREAS_COBRO) {
+      if (cobradoSobreCalidad(f, a) > 0) r.sobreCalidad += 1;
+      if (listoParaCobrar(f, a) > 0) {
+        if (f.esComponente) r.listoComponentes += 1;
+        else r.listoParaCobrar += 1;
+      }
+    }
     if (f.cantidadPm == null) {
       r.fueraDelPm += 1;
       continue;
     }
-    r.modelos += 1;
-    r.piezasPm += f.cantidadPm;
+    // Los componentes no suman en las barras: su mueble padre ya cuenta la cantidad.
+    if (!f.esComponente) {
+      r.modelos += 1;
+      r.piezasPm += f.cantidadPm;
+    }
     let excedido = false;
     for (const a of AREAS_COBRO) {
       const base = baseArea(f, a) ?? 0;
-      r.avance[a].base += base;
-      r.avance[a].cobrado += Math.min(f[a], base);
+      if (!f.esComponente) {
+        r.avance[a].base += base;
+        r.avance[a].cobrado += Math.min(f[a], base);
+      }
       if (f[a] > base) excedido = true;
     }
     if (excedido) r.excedidos += 1;
@@ -159,6 +254,16 @@ interface FilaRpc {
   electrificacion: number;
   reprocesos: number;
   discrepancias_pendientes: number;
+  // Desde el cuadre con Calidad; faltan si la migración aún no está en la base.
+  es_componente?: boolean | null;
+  item_codigo?: string | null;
+  material?: string | null;
+  padre_modelo?: string | null;
+  aprobado_acabados?: number | null;
+  aprobado_armado?: number | null;
+  // Desde los procesos repetidos de la ruta; faltan si la migración aún no está en la base.
+  cantidad_pm_acabados?: number | null;
+  cantidad_pm_armado?: number | null;
 }
 
 const PAGINA = 1000;
@@ -185,11 +290,19 @@ export async function cargarOtContraCobrado(
         descripcion: r.descripcion || null,
         cantidadPm: r.cantidad_pm == null ? null : Number(r.cantidad_pm),
         cantidadPmIluminacion: Number(r.cantidad_pm_iluminacion),
+        cantidadPmAcabados: r.cantidad_pm_acabados == null ? null : Number(r.cantidad_pm_acabados),
+        cantidadPmArmado: r.cantidad_pm_armado == null ? null : Number(r.cantidad_pm_armado),
         acabados: Number(r.acabados),
         armado: Number(r.armado),
         electrificacion: Number(r.electrificacion),
         reprocesos: Number(r.reprocesos),
         discrepanciasPendientes: Number(r.discrepancias_pendientes),
+        esComponente: r.es_componente === true,
+        itemCodigo: r.item_codigo ?? null,
+        material: r.material ?? null,
+        padreModelo: r.padre_modelo ?? null,
+        aprobadoAcabados: r.aprobado_acabados == null ? null : Number(r.aprobado_acabados),
+        aprobadoArmado: r.aprobado_armado == null ? null : Number(r.aprobado_armado),
       });
     }
     if (pagina.length < PAGINA) return { filas, error: null };

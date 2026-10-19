@@ -81,11 +81,12 @@ claves en chats, issues ni commits.
 
 ## Si Calidad no puede evaluar un mueble
 
-Calidad solo evalúa piezas que Producción ya preaprobó. La preaprobación se hace al **registrar la
-entrega**: quien toma la foto de la hoja marca si las piezas *cumplen* (pasan a Calidad) o *no cumplen*
-(regresan al equipo con motivo). En la tabla de Calidad, junto a los botones deshabilitados, se ve qué
-falta: *Sin asignar*, *En taller* (con qué equipo y cuánto lleva entregado) o *Por preaprobar*
-(entregas viejas sin decidir: se revisan en Producción → Control de asignaciones).
+Calidad solo **ve y evalúa** muebles que Producción ya preaprobó (más lo que ya tiene informes, como
+historial). La preaprobación se hace al **registrar la entrega**: quien toma la foto de la hoja marca si
+las piezas *cumplen* (pasan a Calidad) o *no cumplen* (regresan al equipo con motivo). Lo que sigue en
+taller, sin asignar o con la entrega sin decidir **no aparece** en las pantallas de Calidad. Si Calidad
+pregunta por un mueble que no ve, revisar en Producción → Control de asignaciones si falta registrar la
+entrega o preaprobarla (las entregas viejas sin decisión se revisan ahí).
 
 Si hay que dejar que Calidad evalúe sin preaprobación (emergencia), se apaga desde el SQL Editor y queda
 registrado en la base:
@@ -99,6 +100,27 @@ Con `activo = true` vuelve el flujo normal. Mientras esté apagado, las entregas
 Calidad puede evaluar un mueble completo sin entrega. Al volver a encenderlo, anotar el periodo en
 `PERIODOS_SIN_VERIFICACION` de `tests-db/produccion-calidad.test.ts` (esos informes no siguen las reglas
 normales).
+
+## Revisión final del mueble (apagada)
+
+Calidad revisa cada proceso por lotes. La **revisión final** del mueble completo antes de mandarlo a obra
+existe pero se creó **apagada** (ajuste `revision_final`), a la espera de que Calidad confirme que así
+trabaja. Apagada no cambia nada. Encendida:
+
+- En Calidad (detalle del PM) aparece "Revisión final" con los muebles que ya pasaron todos los pasos de su
+  ruta (lo que Calidad aprobó en el último paso). Cada resultado lleva folio `FIN-`.
+- Lo rechazado regresa al paso de la ruta que elija Calidad y aparece en Producción → Rechazado por Calidad
+  para reasignarlo. Desde ese paso sigue el resto de la ruta (se reasigna paso por paso) y, cuando Calidad lo
+  aprueba en el último paso, vuelve a la revisión final.
+- En Producción el mueble dice "Revisión final x/y" y, cuando se aprueba completo, "Liberado a obra".
+- No cambia el cobro de los maquiladores (se cobra por proceso aprobado).
+
+Para encenderla (o apagarla con `false`) desde el SQL Editor:
+
+```sql
+update public.ajustes_flujo set activo = true, actualizado_en = now()
+  where clave = 'revision_final';
+```
 
 ## Cambios de base de datos
 

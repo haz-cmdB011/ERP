@@ -18,3 +18,17 @@ export async function verificacionProduccionActiva(supabase: SupabaseClient): Pr
   if (error || !data) return true;
   return data.activo;
 }
+
+// Ajuste `revision_final`: la revisión del mueble completo antes de mandarlo a
+// obra (migración revision_final_calidad). Se creó APAGADO hasta que Calidad
+// confirme que así trabaja. Si no se puede leer, se asume apagado: la base
+// tampoco deja registrarla.
+export async function revisionFinalActiva(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("ajustes_flujo")
+    .select("activo")
+    .eq("clave", "revision_final")
+    .maybeSingle<{ activo: boolean }>();
+  if (error || !data) return false;
+  return data.activo;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -546,7 +546,7 @@ export default function ItemsLiberacionTable({
         </td>
         <td className="px-3 py-3 lg:py-2" onClick={sinToggle}>
           <div className="flex flex-col items-center gap-2 lg:flex-row lg:flex-wrap">
-          <Link
+          <EnlaceFila
             href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
             title="Viajero"
             aria-label={`Viajero del ítem ${item.item_code}`}
@@ -566,9 +566,9 @@ export default function ItemsLiberacionTable({
               <path d="M22 2 11 13" />
               <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
             </svg>
-          </Link>
+          </EnlaceFila>
           {item.tipo_registro === "MO" && (
-            <Link
+            <EnlaceFila
               href={`/produccion/pedidos/${pedidoId}/despiece/${item.id}`}
               title="Despiece"
               aria-label={`Despiece del ítem ${item.item_code}`}
@@ -588,7 +588,7 @@ export default function ItemsLiberacionTable({
                 <path d="m12 3 9 5-9 5-9-5 9-5Z" />
                 <path d="m3 13 9 5 9-5" />
               </svg>
-            </Link>
+            </EnlaceFila>
           )}
           {puedeSolicitarEliminacion && (
             <button

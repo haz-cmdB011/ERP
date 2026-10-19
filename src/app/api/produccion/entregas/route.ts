@@ -113,10 +113,11 @@ export async function POST(request: Request) {
   }
 
   // Si un intento anterior de este envío ya subió la foto (y se cortó antes de registrar),
-  // se reutiliza: es la misma foto.
+  // se reutiliza: es la misma foto. Nunca se reemplaza, así que el navegador puede guardarla en
+  // caché un año (ver urls-firmadas.ts).
   const { error: errorSubida } = await supabase.storage
     .from(BUCKET_FOTOS_ENTREGA)
-    .upload(ruta, comprimida, { contentType: "image/webp" });
+    .upload(ruta, comprimida, { contentType: "image/webp", cacheControl: "31536000" });
   if (errorSubida && !esFotoYaSubida(errorSubida)) {
     return NextResponse.json(
       { error: `No se pudo subir la foto: ${errorSubida.message}` },

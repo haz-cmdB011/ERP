@@ -1,4 +1,5 @@
-import { PROCESO_LABELS, PROCESOS } from "@/lib/produccion/asignaciones";
+import { PROCESOS_LINEA_TIEMPO } from "@/lib/planeacion/linea-tiempo";
+import { PROCESO_LABELS } from "@/lib/produccion/asignaciones";
 import type { LineaTiempo } from "@/lib/planeacion/linea-tiempo";
 
 interface Linea {
@@ -52,7 +53,7 @@ export default function LineaTiempoPm({ tiempo: t }: { tiempo: LineaTiempo }) {
     {
       titulo: "Asignado a equipos",
       vacio: sinLiberar ? "Aún no hay muebles liberados." : undefined,
-      lineas: PROCESOS.map((p) => ({
+      lineas: PROCESOS_LINEA_TIEMPO.map((p) => ({
         etiqueta: `${PROCESO_LABELS[p]}: ${t.asignados[p]} de ${t.mueblesLiberados}`,
         hecho: t.asignados[p],
         total: t.mueblesLiberados,
@@ -61,7 +62,7 @@ export default function LineaTiempoPm({ tiempo: t }: { tiempo: LineaTiempo }) {
     {
       titulo: "Entregado",
       vacio: sinLiberar ? "Aún no hay muebles liberados." : undefined,
-      lineas: PROCESOS.map((p) => ({
+      lineas: PROCESOS_LINEA_TIEMPO.map((p) => ({
         etiqueta: `${PROCESO_LABELS[p]}: ${t.entregados[p]} de ${t.mueblesLiberados}`,
         hecho: t.entregados[p],
         total: t.mueblesLiberados,

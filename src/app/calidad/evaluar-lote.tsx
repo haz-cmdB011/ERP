@@ -4,15 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
-import { CATEGORIAS_DEFECTO, type CategoriaDefecto } from "@/lib/calidad/categorias";
-import { leerPiezas, validarEvaluacion, type LoteCalidad } from "@/lib/calidad/lotes";
-import { PROCESO_LABELS, formatoFecha } from "@/lib/produccion/asignaciones";
-import Modal, {
-  estiloBotonPrimario,
-  estiloBotonSecundario,
-  estiloCampo,
-  estiloEtiqueta,
-} from "@/app/produccion/asignaciones/modal";
+import AsistenteNoConformidad, { type ResultadoAsistente } from "@/app/calidad/asistente-no-conformidad";
+import { guardarNoConformidad } from "@/lib/calidad/guardar-no-conformidad";
+import { validarDetalle, type OrigenLote } from "@/lib/calidad/no-conformidad";
+import { validarEvaluacion, type LoteCalidad } from "@/lib/calidad/lotes";
+import { etiquetaProceso, formatoFecha } from "@/lib/produccion/asignaciones";
 
 type LoteParaEvaluar = Pick<
   LoteCalidad,
@@ -23,7 +19,10 @@ type LoteParaEvaluar = Pick<
   | "modelo"
   | "unidad"
   | "proceso"
+  | "vez_paso"
+  | "veces_proceso"
   | "equipo"
+  | "equipo_id"
   | "fecha_entrega"
   | "cantidad"
   | "pendiente"
@@ -39,56 +38,72 @@ interface InformeCreado {
 
 // Calidad evalúa un lote (una entrega verificada por Producción): cuántas
 // piezas aprueba y cuántas rechaza. Un folio por resultado; lo rechazado lleva
-// motivo y vuelve a Producción como retrabajo.
+// su no conformidad y vuelve a Producción como retrabajo. Se hace con el
+// asistente por pasos (pensado para celular y tableta): aprobar todo es un toque.
 export default function EvaluarLote({ lote, compacto = false }: { lote: LoteParaEvaluar; compacto?: boolean }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
-  const [aprobadas, setAprobadas] = useState(String(lote.pendiente));
-  const [rechazadas, setRechazadas] = useState("0");
-  const [motivo, setMotivo] = useState("");
-  const [categoria, setCategoria] = useState<CategoriaDefecto | "">("");
+  // Quién produjo el lote (para sugerir el área de origen y su responsable).
+  const [origenLote, setOrigenLote] = useState<OrigenLote | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const unidad = lote.unidad ?? "pz";
-  const nAprob = leerPiezas(aprobadas);
-  const nRech = leerPiezas(rechazadas);
   const titulo = `${lote.numero_pedido} · ${lote.modelo ?? `ítem ${lote.item_code}`}`;
 
   function abrir() {
-    setAprobadas(String(lote.pendiente));
-    setRechazadas("0");
-    setMotivo("");
-    setCategoria("");
     setError(null);
+    setOrigenLote(null);
     setAbierto(true);
+    void leerOrigen();
   }
 
-  async function enviar(e: React.FormEvent) {
-    e.preventDefault();
-    const problema = validarEvaluacion(nAprob, nRech, lote.pendiente, motivo);
-    if (problema) {
-      setError(problema);
+  // Si no se puede leer el equipo, simplemente no hay sugerencia de origen.
+  async function leerOrigen() {
+    const { data } = await createClient()
+      .from("equipos_produccion")
+      .select("encargado, es_planta")
+      .eq("id", lote.equipo_id)
+      .maybeSingle<{ encargado: string | null; es_planta: boolean }>();
+    if (!data) return;
+    setOrigenLote({
+      proceso: lote.proceso,
+      equipo: lote.equipo,
+      esPlanta: data.es_planta,
+      encargado: data.encargado,
+    });
+  }
+
+  async function enviar(r: ResultadoAsistente) {
+    const problema = validarEvaluacion(r.aprobadas, r.rechazadas, lote.pendiente, r.descripcion);
+    const problemaDetalle = r.rechazadas > 0 && !problema ? validarDetalle(r.detalle, false) : null;
+    if (problema || problemaDetalle) {
+      setError(problema ?? problemaDetalle);
       return;
     }
     setEnviando(true);
     setError(null);
     const { data, error } = await createClient().rpc("evaluar_entrega_calidad", {
       p_entrega_id: lote.entrega_id,
-      p_aprobadas: nAprob,
-      p_rechazadas: nRech,
-      p_motivo: nRech > 0 ? motivo.trim() : null,
-      p_categoria: nRech > 0 && categoria ? categoria : null,
+      p_aprobadas: r.aprobadas,
+      p_rechazadas: r.rechazadas,
+      p_motivo: r.rechazadas > 0 ? r.descripcion.trim() : null,
+      p_categoria: r.rechazadas > 0 && r.categoria ? r.categoria : null,
     });
-    setEnviando(false);
     if (error) {
+      setEnviando(false);
       setError(error.message);
       return;
     }
-    setAbierto(false);
     const creados = (data ?? []) as InformeCreado[];
+    // El detalle de la no conformidad va en el informe de lo rechazado.
+    const noAprobado = creados.find((c) => !c.aprobado);
+    const incompleto = noAprobado ? await guardarNoConformidad(noAprobado.informe_id, r.detalle, r.fotos) : null;
+    setEnviando(false);
+    setAbierto(false);
+    if (incompleto) avisar(incompleto, "error");
     const folios = creados.map((c) => c.folio).join(" y ");
-    const primero = creados[0];
+    const primero = noAprobado ?? creados[0];
     avisar(
       `${titulo}: ${folios || "evaluado"}.`,
       "exito",
@@ -115,117 +130,18 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
         {compacto ? ` · ${formatoFecha(lote.fecha_entrega)}` : ""}
       </button>
       {abierto && (
-        <Modal
-          titulo={`Evaluar lote · ${titulo}`}
-          subtitulo={`${lote.equipo} · ${PROCESO_LABELS[lote.proceso]} · entregado el ${formatoFecha(lote.fecha_entrega)}${
+        <AsistenteNoConformidad
+          titulo={titulo}
+          subtitulo={`${lote.equipo} · ${etiquetaProceso(lote)} · entregado el ${formatoFecha(lote.fecha_entrega)}${
             lote.folio_hoja ? ` · hoja ${lote.folio_hoja}` : ""
           }${lote.folio_rechazo ? ` · retrabajo de ${lote.folio_rechazo}` : ""}`}
-          onCerrar={() => !enviando && setAbierto(false)}
-        >
-          <form onSubmit={enviar} className="flex flex-col gap-3">
-            <p className="text-sm text-slate-600">
-              Por evaluar: <strong>{lote.pendiente}</strong> de {lote.cantidad} {unidad}. Cada resultado genera su
-              propio folio permanente.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <label className={estiloEtiqueta}>
-                Aprobadas
-                <input
-                  inputMode="decimal"
-                  value={aprobadas}
-                  onChange={(e) => setAprobadas(e.target.value)}
-                  className={estiloCampo}
-                />
-              </label>
-              <label className={estiloEtiqueta}>
-                Rechazadas
-                <input
-                  inputMode="decimal"
-                  value={rechazadas}
-                  onChange={(e) => setRechazadas(e.target.value)}
-                  className={estiloCampo}
-                />
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setAprobadas(String(lote.pendiente));
-                  setRechazadas("0");
-                }}
-                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-medium text-emerald-700 hover:bg-emerald-100"
-              >
-                Todo aprobado
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAprobadas("0");
-                  setRechazadas(String(lote.pendiente));
-                }}
-                className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 font-medium text-rose-700 hover:bg-rose-100"
-              >
-                Todo rechazado
-              </button>
-            </div>
-
-            {nRech > 0 && (
-              <>
-                <fieldset>
-                  <legend className="text-xs font-medium text-slate-600">Tipo de defecto (opcional)</legend>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {CATEGORIAS_DEFECTO.map((c) => (
-                      <button
-                        key={c.valor}
-                        type="button"
-                        aria-pressed={categoria === c.valor}
-                        onClick={() => setCategoria(categoria === c.valor ? "" : c.valor)}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                          categoria === c.valor
-                            ? "border-rose-500 bg-rose-50 text-rose-700"
-                            : "border-slate-300 text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        {c.nombre}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-                <label className={estiloEtiqueta}>
-                  Motivo del rechazo
-                  <textarea
-                    rows={3}
-                    maxLength={500}
-                    value={motivo}
-                    onChange={(e) => setMotivo(e.target.value)}
-                    placeholder="Qué está mal (obligatorio). Producción lo verá al reasignar el retrabajo."
-                    className={estiloCampo}
-                  />
-                </label>
-              </>
-            )}
-
-            {error && (
-              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">
-                {error}
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAbierto(false)}
-                disabled={enviando}
-                className={estiloBotonSecundario}
-              >
-                Cancelar
-              </button>
-              <button type="submit" disabled={enviando} className={estiloBotonPrimario}>
-                {enviando ? "Generando folios…" : "Generar informe"}
-              </button>
-            </div>
-          </form>
-        </Modal>
+          lote={{ pendiente: lote.pendiente, unidad: lote.unidad }}
+          origenLote={origenLote}
+          enviando={enviando}
+          error={error}
+          onCancelar={() => setAbierto(false)}
+          onEnviar={enviar}
+        />
       )}
     </>
   );

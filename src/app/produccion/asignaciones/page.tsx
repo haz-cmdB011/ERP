@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import {
   getPerfilActual,
@@ -11,6 +12,7 @@ import {
   ESTADO_ASIGNACION_LABELS,
   ESTADOS_ASIGNACION,
   PROCESO_LABELS,
+  etiquetaProceso,
   PROCESOS,
   diasEnProceso,
   formatoFecha,
@@ -241,12 +243,12 @@ export default async function AsignacionesPage({
                   <tr className={`align-top ${plazo?.tipo === "vencido" ? "bg-rose-50/60" : ""}`}>
                     <td className="px-3 py-2 font-medium text-slate-900">
                       {a.pedido_id ? (
-                        <Link
+                        <EnlaceFila
                           href={`/produccion/pedidos/${a.pedido_id}/asignaciones`}
                           className="hover:text-brand-700 hover:underline"
                         >
                           {a.numero_pedido}
-                        </Link>
+                        </EnlaceFila>
                       ) : (
                         a.numero_pedido
                       )}
@@ -269,8 +271,8 @@ export default async function AsignacionesPage({
                     <td className="px-3 py-2">
                       <span className="font-medium text-slate-900">{a.equipo}</span>
                       <span className="block text-xs text-slate-500">
-                        {PROCESO_LABELS[a.proceso]}
-                        {a.es_planta ? " · planta" : a.equipo_encargado ? ` · ${a.equipo_encargado}` : ""}
+                        {etiquetaProceso(a)}
+                        {a.es_planta ? " · planta" : (a.encargado ?? a.equipo_encargado) ? ` · ${a.encargado ?? a.equipo_encargado}` : ""}
                       </span>
                       {a.folio_rechazo && (
                         <span className="mt-0.5 block text-xs font-medium text-rose-700">

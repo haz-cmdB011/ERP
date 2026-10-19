@@ -3,12 +3,22 @@ import {
   diasEnProceso,
   diasEntre,
   estadoAsignacion,
+  etiquetaProceso,
   formatoFecha,
   hoyMexico,
   leerCantidad,
   leerFecha,
   revisionEntrega,
 } from "./asignaciones";
+
+describe("etiquetaProceso", () => {
+  it("numera la pasada solo si la ruta repite el proceso", () => {
+    expect(etiquetaProceso({ proceso: "armado", vez_paso: 2, veces_proceso: 2 })).toBe("Armado 2");
+    expect(etiquetaProceso({ proceso: "armado", vez_paso: 1, veces_proceso: 1 })).toBe("Armado");
+    expect(etiquetaProceso({ proceso: "barniz", vez_paso: null, veces_proceso: null })).toBe("Barniz");
+    expect(etiquetaProceso({ proceso: "barniz" })).toBe("Barniz");
+  });
+});
 
 describe("revisionEntrega", () => {
   const base = { anulada_en: null, rechazada_en: null, verificada_en: null };

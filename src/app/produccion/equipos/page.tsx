@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
-import type { EquipoProduccion } from "@/lib/produccion/asignaciones";
+import type { EncargadoEquipo, EquipoProduccion } from "@/lib/produccion/asignaciones";
+import { leer } from "@/lib/supabase/leer";
 import EquiposEditor from "./equipos-editor";
 
 export const metadata: Metadata = { title: "Equipos" };
@@ -18,6 +19,14 @@ export default async function EquiposPage() {
     .order("es_planta", { ascending: false })
     .order("nombre")
     .returns<EquipoProduccion[]>();
+  const encargados = await leer(
+    supabase
+      .from("encargados_equipo_produccion")
+      .select("equipo_id, nombre")
+      .order("nombre")
+      .returns<EncargadoEquipo[]>(),
+    "los encargados de los equipos"
+  );
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6">
@@ -37,7 +46,7 @@ export default async function EquiposPage() {
           No se pudieron cargar los equipos: {error.message}
         </p>
       ) : (
-        <EquiposEditor equipos={equipos ?? []} puedeEditar={puedeEditarProduccion(perfil)} />
+        <EquiposEditor equipos={equipos ?? []} encargados={encargados ?? []} puedeEditar={puedeEditarProduccion(perfil)} />
       )}
     </main>
   );

@@ -27,10 +27,20 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresca la sesión si el access token expiró.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refresca la sesión si el access token expiró y verifica su firma. Con las
+  // llaves asimétricas del proyecto (ES256) la verificación es local: no llama
+  // a Supabase Auth en cada petición, como hacía getUser(). Las rutas y
+  // pantallas siguen leyendo el perfil y la base exige la sesión por su cuenta.
+  let user: { sub: string } | null = null;
+  try {
+    const { data: sesion } = await supabase.auth.getClaims();
+    if (sesion?.claims?.sub) user = sesion.claims;
+  } catch {
+    // Falla inesperada al verificar (p. ej. no se pudieron leer las llaves):
+    // se pregunta a Auth como antes, para no mandar a nadie al login por eso.
+    const { data } = await supabase.auth.getUser();
+    if (data.user) user = { sub: data.user.id };
+  }
 
   // Verificación en dos pasos: quien la activó y todavía no puso su código (la
   // sesión está en aal1) no puede usar la app ni sus rutas /api: se le manda a

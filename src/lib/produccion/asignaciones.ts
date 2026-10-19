@@ -3,12 +3,14 @@
 // Calidad. Las reglas reales viven en las funciones SQL de la migración
 // asignaciones_produccion; aquí solo hay lo que comparte la interfaz.
 
-export const PROCESOS = ["armado", "barniz"] as const;
+export const PROCESOS = ["armado", "barniz", "electrificacion", "superficie_solida"] as const;
 export type Proceso = (typeof PROCESOS)[number];
 
 export const PROCESO_LABELS: Record<Proceso, string> = {
   armado: "Armado",
   barniz: "Barniz",
+  electrificacion: "Electrificación",
+  superficie_solida: "Superficie Sólida",
 };
 
 export const ESTADOS_ASIGNACION = ["en_proceso", "parcial", "entregada", "cancelada"] as const;
@@ -61,6 +63,8 @@ export interface AsignacionResumen {
   equipo_id: string;
   equipo: string;
   equipo_encargado: string | null;
+  // Encargado de esas piezas, escrito al asignar (cambia de una asignación a otra).
+  encargado: string | null;
   es_planta: boolean;
   proceso: Proceso;
   cantidad: number;
@@ -85,6 +89,37 @@ export interface AsignacionResumen {
   // Folios CAL- que Calidad generó al evaluar las entregas de la asignación.
   // (folios_calidad, en cambio, es el folio de la hoja de entrega en papel.)
   folios_cal: string | null;
+  // Paso de la ruta del mueble (ver ruta.ts); null solo si el mueble se borró.
+  paso_id: string | null;
+  // Se asignó antes de que el paso anterior entregara (y Producción verificara)
+  // esas piezas: no se bloquea, solo queda marcado.
+  adelantada: boolean;
+  // Retrabajo de lo que rechazó la revisión final de Calidad (folio FIN-).
+  revision_final_rechazo_id: string | null;
+  folio_revision_final: string | null;
+  // Piezas de sus lotes que Calidad rechazó y siguen sin reasignar.
+  rechazado_por_reasignar: number;
+  // Qué vez del proceso es en la ruta del mueble (Armado 2 de 2); null sin paso.
+  vez_paso: number | null;
+  veces_proceso: number | null;
+}
+
+// "Armado", o "Armado 2" cuando la ruta del mueble repite el proceso.
+export function etiquetaProceso(a: {
+  proceso: Proceso;
+  vez_paso?: number | null;
+  veces_proceso?: number | null;
+}): string {
+  const veces = Number(a.veces_proceso ?? 0);
+  return veces > 1 && a.vez_paso ? `${PROCESO_LABELS[a.proceso]} ${a.vez_paso}` : PROCESO_LABELS[a.proceso];
+}
+
+// Un retrabajo (de un lote o de la revisión final) no cuenta contra la cantidad
+// del mueble en su paso.
+export function esRetrabajo(
+  a: Pick<AsignacionResumen, "informe_rechazo_id" | "revision_final_rechazo_id">
+): boolean {
+  return !!a.informe_rechazo_id || !!a.revision_final_rechazo_id;
 }
 
 export interface EntregaProduccion {
@@ -131,6 +166,16 @@ export interface EquipoProduccion {
   es_planta: boolean;
   procesos: Proceso[];
   activo: boolean;
+}
+
+// Encargados ya escritos en cada equipo, para elegirlos al asignar.
+export interface EncargadoEquipo {
+  equipo_id: string;
+  nombre: string;
+}
+
+export function encargadosDeEquipo(encargados: EncargadoEquipo[], equipoId: string): string[] {
+  return encargados.filter((e) => e.equipo_id === equipoId).map((e) => e.nombre);
 }
 
 export const BUCKET_FOTOS_ENTREGA = "produccion-entregas";

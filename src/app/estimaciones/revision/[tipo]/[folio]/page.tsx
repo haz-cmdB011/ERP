@@ -8,7 +8,9 @@ import { esTipoCualquierRecibo } from "@/lib/estimaciones/revision-db";
 import { listarPendientesDeRevision } from "@/lib/estimaciones/por-revisar";
 import { siguienteRecibo } from "@/lib/estimaciones/aceptacion-masiva";
 import { listarDiscrepanciasRecibo, type AreaRecibo } from "@/lib/estimaciones/discrepancias-db";
+import { listarReciboContraCalidad } from "@/lib/estimaciones/recibo-contra-calidad";
 import DiscrepanciasRecibo from "../../../discrepancias-recibo";
+import CalidadRecibo from "../../../calidad-recibo";
 import RevisionRecibo from "./revision-recibo";
 
 // Revisión de un recibo: el personal de Estimaciones (desarrollador,
@@ -45,10 +47,31 @@ export default async function RevisionReciboPage({
   }
   const recibo = await buscarReciboPorFolio(supabase, folio, tipo);
   if (!recibo) return <NoEncontrado folio={folio} />;
-  const discrepancias = await avisoDiscrepancias(supabase, tipo, recibo.id, recibo.estado);
+  const [discrepancias, calidad] = await Promise.all([
+    avisoDiscrepancias(supabase, tipo, recibo.id, recibo.estado),
+    avisoCalidad(supabase, tipo, recibo.id),
+  ]);
   return (
-    <RevisionRecibo tipo={tipo} recibo={recibo} discrepancias={discrepancias} siguiente={siguiente} />
+    <RevisionRecibo
+      tipo={tipo}
+      recibo={recibo}
+      discrepancias={discrepancias}
+      calidad={calidad}
+      siguiente={siguiente}
+    />
   );
+}
+
+// Lo cobrado contra lo que Calidad ya aprobó. Es solo un aviso para quien revisa:
+// si la consulta falla (o la base aún no la tiene), la revisión sigue sin él.
+async function avisoCalidad(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tipo: "acabados" | "armado",
+  reciboId: string | undefined
+) {
+  if (!reciboId) return null;
+  const lineas = await listarReciboContraCalidad(supabase, tipo, reciboId);
+  return <CalidadRecibo lineas={lineas} />;
 }
 
 // Diferencias con el PM del recibo; mientras no esté pagado se avisa que

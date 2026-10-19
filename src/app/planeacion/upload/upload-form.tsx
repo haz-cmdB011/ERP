@@ -43,6 +43,9 @@ interface UploadError {
   error: string;
   detalles?: FilaError[];
   cargaId?: string;
+  // El servidor topó el límite de cargas (429): segundos para reintentar. El
+  // archivo no tiene nada malo; vuelve a quedar en espera.
+  esperarSegundos?: number;
 }
 
 type UploadResult = UploadOk | UploadError;
@@ -107,6 +110,35 @@ function formatoTamano(bytes: number): string {
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+// Tiempos límite de red: con el Wi-Fi caído una petición puede quedarse
+// esperando para siempre y la pantalla, en "Procesando...", sin dejar subir
+// nada más. El servidor tiene hasta 300 s para procesar (maxDuration de la
+// ruta); se le da un margen.
+const ESPERA_PROCESAR_MS = 330_000;
+const ESPERA_CORTA_MS = 20_000;
+// La subida del archivo no tiene un tiempo total (40 MB con mala señal tardan),
+// pero si deja de avanzar este tiempo se da por caída.
+const ESPERA_SIN_AVANCE_MS = 60_000;
+
+const MENSAJE_SIN_RED = "Se perdió la conexión al subir el archivo. Revisa la red e intenta de nuevo.";
+
+// Como `promesa`, pero si tarda más de `ms` se rinde con un error.
+function conTiempoLimite<T>(promesa: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolver, rechazar) => {
+    const t = setTimeout(() => rechazar(new Error("tiempo agotado")), ms);
+    promesa.then(
+      (v) => {
+        clearTimeout(t);
+        resolver(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        rechazar(e);
+      }
+    );
+  });
+}
+
 // Manda al servidor procesar un Excel que ya está en Storage, con lo que la
 // persona ya decidió (hojas ocultas, trabajo en marcha). Nunca lanza: los
 // errores vuelven como UploadError.
@@ -120,9 +152,16 @@ async function procesarEnServidor(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ storagePath, nombreArchivo, ...opciones }),
+      signal: AbortSignal.timeout(ESPERA_PROCESAR_MS),
     });
     const data: UploadResult | RequiereConfirmacion | null = await res.json().catch(() => null);
     if (res.status === 409 && data && pideConfirmacion(data)) return data;
+    if (res.status === 429) {
+      return {
+        error: data && "error" in data ? data.error : "Has cargado muchos archivos en poco tiempo.",
+        esperarSegundos: Number(res.headers.get("Retry-After")) || 60,
+      };
+    }
     return (
       data ?? {
         error:
@@ -131,8 +170,12 @@ async function procesarEnServidor(
             : `El servidor respondió con un error (${res.status}).`,
       }
     );
-  } catch {
-    return { error: "Error de red al subir el archivo." };
+  } catch (e) {
+    // Si se agotó la espera el servidor pudo terminar igual: al reintentar, un
+    // archivo ya cargado sale "sin cambios" en vez de duplicarse.
+    return e instanceof DOMException && e.name === "TimeoutError"
+      ? { error: "El servidor no respondió a tiempo. Intenta de nuevo: si ya se había cargado, saldrá sin cambios." }
+      : { error: MENSAJE_SIN_RED };
   }
 }
 
@@ -143,6 +186,7 @@ async function descartarEntrante(storagePath: string, nombreArchivo: string): Pr
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ storagePath, nombreArchivo, descartar: true }),
+      signal: AbortSignal.timeout(ESPERA_CORTA_MS),
     });
   } catch {
     // Si falla, a lo más queda un archivo suelto en "entrantes/".
@@ -163,11 +207,21 @@ function subirConAvance(url: string, file: File, onProgreso: AlProgresar): Promi
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
     xhr.setRequestHeader("x-upsert", "false");
+    // Si la subida deja de avanzar (se cayó el Wi-Fi), se corta en vez de
+    // quedarse esperando para siempre.
+    let sinAvance: ReturnType<typeof setTimeout> | undefined;
+    const vigilar = () => {
+      clearTimeout(sinAvance);
+      sinAvance = setTimeout(() => xhr.abort(), ESPERA_SIN_AVANCE_MS);
+    };
     xhr.upload.onprogress = (e) => {
+      vigilar();
       if (e.lengthComputable) {
         onProgreso(Math.round((e.loaded / e.total) * PORCENTAJE_SUBIDA), "subiendo");
       }
     };
+    xhr.onloadend = () => clearTimeout(sinAvance);
+    xhr.onabort = () => resolver("la conexión dejó de responder");
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) return resolver(null);
       let mensaje = `error ${xhr.status}`;
@@ -184,6 +238,7 @@ function subirConAvance(url: string, file: File, onProgreso: AlProgresar): Promi
     cuerpo.append("cacheControl", "3600");
     cuerpo.append("", file);
     onProgreso(0, "subiendo");
+    vigilar();
     xhr.send(cuerpo);
   });
 }
@@ -207,7 +262,7 @@ async function subirArchivo(
     const supabase = createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await conTiempoLimite(supabase.auth.getUser(), ESPERA_CORTA_MS);
     if (!user) {
       return { error: "Tu sesión expiró. Vuelve a iniciar sesión." };
     }
@@ -217,7 +272,10 @@ async function subirArchivo(
     const bucket = supabase.storage.from("cargas-excel");
     // fetch no reporta el avance de la subida; XMLHttpRequest sí. Se usa una URL
     // firmada de Storage (mismos permisos que upload) para poder medirlo.
-    const { data: firmada, error: firmaError } = await bucket.createSignedUploadUrl(storagePath);
+    const { data: firmada, error: firmaError } = await conTiempoLimite(
+      bucket.createSignedUploadUrl(storagePath),
+      ESPERA_CORTA_MS
+    );
     if (firmaError || !firmada) {
       return { error: `No se pudo subir el archivo: ${firmaError?.message ?? "sin respuesta"}` };
     }
@@ -230,7 +288,7 @@ async function subirArchivo(
     onProgreso(PORCENTAJE_SUBIDA, "procesando");
     return await procesarEnServidor(storagePath, file.name);
   } catch {
-    return { error: "Error de red al subir el archivo." };
+    return { error: MENSAJE_SIN_RED };
   }
 }
 
@@ -306,6 +364,9 @@ export default function UploadForm() {
     // versiones del mismo PM deben quedar en el orden en que se eligieron.
     let conError = 0;
     let omitidos = 0;
+    let procesados = 0;
+    // Si el servidor topó el límite de cargas, segundos para reintentar.
+    let esperar: number | null = null;
     for (const carga of pendientes) {
       actualizar(carga.id, { estado: "procesando", progreso: 0, fase: "subiendo" });
       // Mientras el servidor procesa no hay avance real: la barra sigue
@@ -358,6 +419,15 @@ export default function UploadForm() {
       } finally {
         clearInterval(avance);
       }
+      // Límite de cargas: el archivo no tiene nada malo. Vuelve a quedar en
+      // espera junto con los que faltan, y la cola se detiene (seguir solo
+      // subiría archivos que el servidor rechazaría igual).
+      if (esError(resultado) && resultado.esperarSegundos !== undefined) {
+        esperar = resultado.esperarSegundos;
+        actualizar(carga.id, { estado: "pendiente", progreso: 0, fase: undefined });
+        break;
+      }
+      procesados++;
       if (esOmitido(resultado)) omitidos++;
       else if (esError(resultado)) conError++;
       actualizar(carga.id, {
@@ -367,6 +437,17 @@ export default function UploadForm() {
       });
     }
     setEnviando(false);
+    if (esperar !== null) {
+      const minutos = Math.max(1, Math.ceil(esperar / 60));
+      const enEspera = pendientes.length - procesados;
+      avisar(
+        `Se llegó al límite de cargas por ahora. ${
+          enEspera === 1 ? "El archivo que falta sigue" : `Los ${enEspera} archivos que faltan siguen`
+        } en espera: vuelve a darle a Subir en ${minutos === 1 ? "1 minuto" : `${minutos} minutos`}.`,
+        "info"
+      );
+      return;
+    }
     // Resumen breve: el detalle (PM, versiones, avisos) queda en cada archivo.
     const cargados = pendientes.length - conError - omitidos;
     if (conError === 0) {

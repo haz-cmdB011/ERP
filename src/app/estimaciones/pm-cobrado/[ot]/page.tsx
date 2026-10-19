@@ -5,11 +5,16 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import {
   AREAS_COBRO,
+  aprobadoArea,
+  areasRepetidas,
   baseArea,
   cargarOtContraCobrado,
+  cobradoSobreCalidad,
   estadoCelda,
+  listoParaCobrar,
   resumirPorOt,
-  tieneDiferencias,
+  tieneDiferenciasOCalidad,
+  tieneListoParaCobrar,
   tienePendienteDeCobro,
   type AreaCobro,
   type EstadoCobro,
@@ -22,8 +27,9 @@ export const metadata: Metadata = { title: "PM contra cobrado" };
 
 const FILTROS: [string, string][] = [
   ["todos", "Todos"],
+  ["listo", "Listo para cobrar"],
   ["diferencias", "Con diferencias"],
-  ["por-cobrar", "Por cobrar"],
+  ["por-cobrar", "Falta por cobrar"],
 ];
 
 const ESTILO_CELDA: Record<EstadoCobro, string> = {
@@ -39,9 +45,12 @@ function Celda({ fila, area }: { fila: FilaPmCobrado; area: AreaCobro }) {
   const estado = estadoCelda(fila, area);
   const cobrado = fila[area];
   const base = baseArea(fila, area);
+  const aprobado = aprobadoArea(fila, area);
   if (estado === "no_aplica") {
     return <span className={ESTILO_CELDA[estado]}>—</span>;
   }
+  const listo = listoParaCobrar(fila, area);
+  const sobre = cobradoSobreCalidad(fila, area);
   return (
     <span className={`tabular-nums ${ESTILO_CELDA[estado]}`}>
       {base == null ? cobrado : `${cobrado} / ${base}`}
@@ -51,6 +60,18 @@ function Celda({ fila, area }: { fila: FilaPmCobrado; area: AreaCobro }) {
         </span>
       )}
       {estado === "completo" && <span className="ml-1" aria-label="completo">✓</span>}
+      {/* Lo que Calidad ya aprobó: solo donde hay algo que decir (aprobado o cobrado). */}
+      {aprobado != null && (aprobado > 0 || cobrado > 0) && (
+        <span
+          className={`block text-[11px] font-normal ${
+            sobre > 0 ? "font-medium text-rose-700" : listo > 0 ? "font-medium text-emerald-700" : "text-slate-500"
+          }`}
+        >
+          Calidad aprobó {aprobado}
+          {listo > 0 && ` · listo ${listo}`}
+          {sobre > 0 && ` · sin aprobar ${sobre}`}
+        </span>
+      )}
     </span>
   );
 }
@@ -81,10 +102,12 @@ export default async function PmCobradoDetallePage({
 
   const visibles = filas.filter((f) =>
     filtro === "diferencias"
-      ? tieneDiferencias(f) || f.discrepanciasPendientes > 0
+      ? tieneDiferenciasOCalidad(f) || f.discrepanciasPendientes > 0
       : filtro === "por-cobrar"
         ? tienePendienteDeCobro(f)
-        : true
+        : filtro === "listo"
+          ? tieneListoParaCobrar(f)
+          : true
   );
 
   return (
@@ -112,6 +135,23 @@ export default async function PmCobradoDetallePage({
           {AREAS_COBRO.map((a) => (
             <BarraAvance key={a} etiqueta={AREA_RECIBO_LABELS[a]} avance={resumen.avance[a]} />
           ))}
+          {(resumen.listoParaCobrar > 0 || resumen.listoComponentes > 0 || resumen.sobreCalidad > 0) && (
+            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:col-span-3">
+              {(resumen.listoParaCobrar > 0 || resumen.listoComponentes > 0) && (
+                <Link href={`${base}?ver=listo`} className="font-medium text-emerald-700 hover:underline">
+                  Listo para cobrar: {resumen.listoParaCobrar}{" "}
+                  {resumen.listoParaCobrar === 1 ? "renglón" : "renglones"}
+                  {resumen.listoComponentes > 0 &&
+                    ` y ${resumen.listoComponentes} de componentes`}
+                </Link>
+              )}
+              {resumen.sobreCalidad > 0 && (
+                <Link href={`${base}?ver=diferencias`} className="font-medium text-rose-700 hover:underline">
+                  {resumen.sobreCalidad} cobrado{resumen.sobreCalidad === 1 ? "" : "s"} sin la aprobación de Calidad
+                </Link>
+              )}
+            </p>
+          )}
           {resumen.discrepanciasPendientes > 0 && (
             <p className="text-xs text-amber-800 sm:col-span-3">
               {resumen.discrepanciasPendientes}{" "}
@@ -124,6 +164,11 @@ export default async function PmCobradoDetallePage({
           )}
         </section>
       )}
+
+      <p className="-mb-3 text-xs text-slate-500">
+        <strong className="font-medium text-slate-600">Listo para cobrar</strong> = Calidad ya lo aprobó y todavía no
+        tiene recibo. Cada componente (↳) se cobra suelto o con su mueble, no las dos cosas.
+      </p>
 
       <div className="flex flex-wrap gap-2 text-sm">
         {FILTROS.map(([valor, etiqueta]) => (
@@ -146,8 +191,10 @@ export default async function PmCobradoDetallePage({
       {visibles.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           {filtro === "diferencias"
-            ? "Ningún modelo tiene diferencias con lo cobrado."
-            : "No queda nada por cobrar en esta O.T."}
+            ? "Ningún modelo tiene diferencias con lo cobrado ni con lo que Calidad aprobó."
+            : filtro === "listo"
+              ? "Calidad no tiene nada aprobado pendiente de cobro en esta O.T."
+              : "No queda nada por cobrar en esta O.T."}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -168,18 +215,49 @@ export default async function PmCobradoDetallePage({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {visibles.map((f, i) => (
-                <tr key={`${f.modelo}|${f.descripcion ?? ""}|${i}`} className="align-top transition-colors hover:bg-slate-50">
+                <tr
+                  key={`${f.esComponente ? "c" : "m"}|${f.modelo}|${f.descripcion ?? ""}|${i}`}
+                  className={`align-top transition-colors hover:bg-slate-50 ${f.esComponente ? "bg-slate-50/60" : ""}`}
+                >
                   <td className="px-3 py-2">
-                    <span className="font-mono font-medium text-slate-900">{f.modelo}</span>
-                    {f.discrepanciasPendientes > 0 && (
-                      <span className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
-                        {f.discrepanciasPendientes} sin decidir
-                      </span>
-                    )}
-                    {f.descripcion && (
-                      <span className="block max-w-xs truncate text-xs text-slate-500">
-                        {f.descripcion}
-                      </span>
+                    {f.esComponente ? (
+                      <div className="pl-5">
+                        <span className="text-xs text-slate-500">
+                          <span className="mr-1 text-slate-400" aria-hidden>
+                            ↳
+                          </span>
+                          componente <span className="font-mono">{f.itemCodigo ?? f.modelo}</span>
+                          {f.material ? ` · ${f.material}` : ""}
+                          {f.padreModelo && (
+                            <>
+                              {" "}
+                              de <span className="font-mono">{f.padreModelo}</span>
+                            </>
+                          )}
+                        </span>
+                        {f.discrepanciasPendientes > 0 && (
+                          <span className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
+                            {f.discrepanciasPendientes} sin decidir
+                          </span>
+                        )}
+                        {f.descripcion && (
+                          <span className="block max-w-xs truncate text-xs text-slate-700">{f.descripcion}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <span className="font-mono font-medium text-slate-900">{f.modelo}</span>
+                        {f.discrepanciasPendientes > 0 && (
+                          <span className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
+                            {f.discrepanciasPendientes} sin decidir
+                          </span>
+                        )}
+                        {f.descripcion && (
+                          <span className="block max-w-xs truncate text-xs text-slate-500">
+                            {f.descripcion}
+                          </span>
+                        )}
+                      </>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-slate-700">
@@ -193,6 +271,15 @@ export default async function PmCobradoDetallePage({
                             {f.cantidadPmIluminacion} con iluminación
                           </span>
                         )}
+                        {areasRepetidas(f).map(([area, base]) => (
+                          <span
+                            key={area}
+                            className="block text-[11px] text-slate-500"
+                            title="La ruta de Producción repite este proceso: cada pasada se cobra"
+                          >
+                            {area === "armado" ? "Armado" : "Acabados"} espera {base} (ruta)
+                          </span>
+                        ))}
                       </>
                     )}
                   </td>

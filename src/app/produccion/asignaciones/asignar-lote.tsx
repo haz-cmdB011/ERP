@@ -8,7 +8,9 @@ import {
   PROCESO_LABELS,
   PROCESOS,
   hoyMexico,
+  encargadosDeEquipo,
   mensajeErrorRpc,
+  type EncargadoEquipo,
   type EquipoProduccion,
   type Proceso,
 } from "@/lib/produccion/asignaciones";
@@ -18,14 +20,19 @@ import Modal, {
   estiloCampo,
   estiloEtiqueta,
 } from "./modal";
+import CampoEncargado from "./campo-encargado";
 
 export interface MuebleParaLote {
   id: string;
   item_code: number;
   modelo: string | null;
   unidad: string | null;
-  // Lo que falta por asignar de cada proceso.
+  // Lo que falta por asignar de cada proceso (en el primer paso de la ruta con
+  // ese proceso que aún tiene lugar; 0 si la ruta no lo lleva).
   disponible: Record<Proceso, number>;
+  // De eso, lo que el paso anterior ya entregó. Asignar más se puede, pero la
+  // asignación queda marcada como adelantada.
+  listo: Record<Proceso, number>;
 }
 
 interface Fallo {
@@ -44,9 +51,11 @@ const MOTIVO_DESHACER = "Deshecha por quien la creó (asignación en lote).";
 export default function AsignarLote({
   muebles,
   equipos,
+  encargados,
 }: {
   muebles: MuebleParaLote[];
   equipos: EquipoProduccion[];
+  encargados: EncargadoEquipo[];
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
@@ -54,6 +63,7 @@ export default function AsignarLote({
   const [equipoId, setEquipoId] = useState("");
   const [fecha, setFecha] = useState("");
   const [notas, setNotas] = useState("");
+  const [encargado, setEncargado] = useState("");
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [enviando, setEnviando] = useState(false);
   const [progreso, setProgreso] = useState<{ hecho: number; total: number } | null>(null);
@@ -76,6 +86,7 @@ export default function AsignarLote({
     setEquipoId("");
     setFecha(hoyMexico());
     setNotas("");
+    setEncargado("");
     setSeleccion(new Set(muebles.filter((m) => m.disponible[inicial] > 0).map((m) => m.id)));
     setFallos([]);
     setProgreso(null);
@@ -99,6 +110,8 @@ export default function AsignarLote({
   }
 
   const todosMarcados = candidatos.length > 0 && candidatos.every((m) => seleccion.has(m.id));
+  const seAdelanta = (m: MuebleParaLote) => m.disponible[proceso] > m.listo[proceso];
+  const adelantados = candidatos.filter((m) => seleccion.has(m.id) && seAdelanta(m)).length;
 
   async function deshacer(ids: string[]) {
     const supabase = createClient();
@@ -133,6 +146,7 @@ export default function AsignarLote({
         p_cantidad: m.disponible[proceso],
         p_fecha_asignacion: fecha,
         p_notas: notas,
+        p_encargado: encargado,
       });
       if (error || typeof data !== "string") {
         falladas.push({ id: m.id, texto: error ? mensajeErrorRpc(error.message) : "Sin respuesta." });
@@ -178,7 +192,7 @@ export default function AsignarLote({
           onCerrar={() => !enviando && setAbierto(false)}
         >
           <form onSubmit={enviar} className="flex flex-col gap-3">
-            <fieldset className="flex gap-2">
+            <fieldset className="grid grid-cols-2 gap-2">
               <legend className="mb-1 text-sm font-medium text-slate-700">Proceso</legend>
               {PROCESOS.map((p) => {
                 const hay = muebles.filter((m) => m.disponible[p] > 0).length;
@@ -229,6 +243,13 @@ export default function AsignarLote({
               </select>
             </label>
 
+            <CampoEncargado
+              valor={encargado}
+              onCambio={setEncargado}
+              sugerencias={encargadosDeEquipo(encargados, equipoId)}
+              disabled={enviando}
+            />
+
             <label className={estiloEtiqueta}>
               Fecha de asignación
               <input
@@ -271,6 +292,14 @@ export default function AsignarLote({
                         {m.item_code}
                         {m.modelo ? ` · ${m.modelo}` : ""}
                       </span>
+                      {seAdelanta(m) && (
+                        <span
+                          className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                          title="El paso anterior todavía no entrega todas estas piezas"
+                        >
+                          {m.listo[proceso]} listas
+                        </span>
+                      )}
                       <span className="whitespace-nowrap text-xs text-slate-600">
                         {m.disponible[proceso]} {m.unidad ?? ""}
                       </span>
@@ -296,6 +325,13 @@ export default function AsignarLote({
                 className={estiloCampo}
               />
             </label>
+
+            {adelantados > 0 && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800">
+                En {adelantados} de los muebles marcados el paso anterior todavía no entrega todo: se
+                puede asignar, pero esas asignaciones quedan marcadas como adelantadas.
+              </p>
+            )}
 
             {progreso && (
               <div>

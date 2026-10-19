@@ -43,6 +43,32 @@ interface Rechazo {
   por_reasignar: number | string;
 }
 
+// Fila de la vista rechazos_revision_final (revisión final del mueble completo).
+interface RechazoFinal {
+  revision_id: string;
+  folio: string;
+  elaborado_en: string;
+  motivo: string | null;
+  categoria: string | null;
+  cantidad: number | string;
+  pedido_id: string | null;
+  numero_pedido: string;
+  item_code: number | null;
+  modelo: string | null;
+  unidad: string | null;
+  paso_orden: number;
+  proceso: Proceso;
+  paso_retirado: boolean;
+  reasignado: number | string;
+  por_reasignar: number | string;
+  // Paso al que toca reasignarlo ahora: lo rechazado sigue la ruta desde el paso
+  // que eligió Calidad hasta el último.
+  siguiente_paso_orden: number | null;
+  siguiente_proceso: Proceso | null;
+  // De eso, lo que ya entregó el paso anterior (asignar más queda adelantado).
+  listo_siguiente: number | string;
+}
+
 interface InformeComponente {
   planeacion_item_id: string;
   folio: string;
@@ -82,7 +108,7 @@ export default async function RechazosPage() {
   const [a, m, d] = hoy.split("-").map(Number);
   const hace30 = new Date(Date.UTC(a, m - 1, d - 30)).toISOString();
 
-  const [filasPorReasignar, filasReasignados, filasEquipos, filasComponentes] = await Promise.all([
+  const [filasPorReasignar, filasReasignados, filasEquipos, filasComponentes, filasFinal] = await Promise.all([
     leer(
       supabase
         .from("rechazos_calidad")
@@ -127,7 +153,19 @@ export default async function RechazosPage() {
         .returns<{ planeacion_item_id: string }[]>(),
       "los componentes no aprobados"
     ),
+    // Lo que rechazó la revisión final (solo hay filas si se encendió el ajuste revision_final).
+    leer(
+      supabase
+        .from("rechazos_revision_final")
+        .select("*")
+        .eq("vigente", true)
+        .gt("por_reasignar", 0)
+        .order("elaborado_en")
+        .returns<RechazoFinal[]>(),
+      "los rechazos de la revisión final"
+    ),
   ]);
+  const porReasignarFinal = filasFinal ?? [];
 
   const porReasignar = filasPorReasignar ?? [];
   const reasignados = filasReasignados ?? [];
@@ -197,7 +235,11 @@ export default async function RechazosPage() {
     .map((it) => ({ item: it, informe: ultimoPorItem.get(it.id)! }))
     .sort((x, y) => x.informe.elaborado_en.localeCompare(y.informe.elaborado_en));
 
-  const nada = porReasignar.length === 0 && reasignados.length === 0 && componentes.length === 0;
+  const nada =
+    porReasignar.length === 0 &&
+    reasignados.length === 0 &&
+    componentes.length === 0 &&
+    porReasignarFinal.length === 0;
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
@@ -271,6 +313,90 @@ export default async function RechazosPage() {
                         porReasignar={pendiente}
                         unidad={r.unidad}
                         equipos={equipos}
+                      />
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {porReasignarFinal.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-base font-semibold text-slate-900">
+            Rechazado en la revisión final{" "}
+            <span className="font-normal text-slate-500">({porReasignarFinal.length})</span>
+          </h2>
+          <p className="text-sm text-slate-500">
+            El mueble completo no pasó la revisión final. Regresa al paso de la ruta que eligió Calidad y desde
+            ahí sigue el resto de la ruta: se reasigna paso por paso y, cuando Calidad lo aprueba en el último
+            paso, vuelve a la revisión final.
+          </p>
+          <ul className="flex flex-col gap-3">
+            {porReasignarFinal.map((r) => {
+              const pendiente = Number(r.por_reasignar);
+              const proceso = r.siguiente_proceso ?? r.proceso;
+              const orden = r.siguiente_paso_orden ?? r.paso_orden;
+              const listo = Number(r.listo_siguiente);
+              const desc = `${r.numero_pedido} · ${r.modelo ?? `ítem ${r.item_code}`}`;
+              return (
+                <li key={r.revision_id} className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-900">
+                        {r.pedido_id ? (
+                          <Link
+                            href={`/produccion/pedidos/${r.pedido_id}/asignaciones`}
+                            className="hover:text-brand-700 hover:underline"
+                          >
+                            {desc}
+                          </Link>
+                        ) : (
+                          desc
+                        )}
+                        <span className="ml-2 font-mono text-xs font-medium text-rose-700">{r.folio}</span>
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        <strong className="text-rose-700">
+                          {pendiente} {r.unidad ?? "pz"}
+                        </strong>{" "}
+                        por reasignar en el paso {orden} ({PROCESO_LABELS[proceso]})
+                        {orden !== r.paso_orden ? ` · Calidad lo regresó al paso ${r.paso_orden}` : ""}
+                      </p>
+                      {!r.paso_retirado && listo < pendiente && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          El paso anterior solo ha entregado {listo} de estas piezas: se puede reasignar, pero queda
+                          adelantado.
+                        </p>
+                      )}
+                      <p className="mt-1 text-sm text-slate-700">
+                        {nombreCategoria(r.categoria) && (
+                          <span className="mr-1 rounded bg-rose-50 px-1.5 py-0.5 text-xs font-medium text-rose-700">
+                            {nombreCategoria(r.categoria)}
+                          </span>
+                        )}
+                        {r.motivo}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">Rechazado el {formatoFechaDMA(r.elaborado_en)}</p>
+                      {r.paso_retirado && (
+                        <p className="mt-1 text-xs font-medium text-amber-700">
+                          Ese paso ya no está en la ruta del mueble: vuelve a agregarlo para reasignar.
+                        </p>
+                      )}
+                    </div>
+                    {puedeEditar && !r.paso_retirado && (
+                      <ReasignarRetrabajo
+                        informeId={r.revision_id}
+                        folio={r.folio}
+                        descripcion={desc}
+                        proceso={proceso}
+                        equipoOriginalId=""
+                        porReasignar={pendiente}
+                        unidad={r.unidad}
+                        equipos={equipos}
+                        revisionFinal
                       />
                     )}
                   </div>

@@ -28,8 +28,26 @@ export async function eliminarPedidoDefinitivo(
   if (!conservadoPorFolio && imagenes && imagenes.length > 0) {
     // Solo después de que el RPC confirmó el borrado (y validó el permiso).
     // Un fallo aquí no revierte nada: a lo más quedan archivos sueltos.
-    const rutas = imagenes.flatMap((i) => [i.storage_path, rutaImagenGrande(i.storage_path)]);
-    await createAdminClient().storage.from(BUCKET_IMAGENES_ITEMS).remove(rutas);
+    // Una imagen se guarda una sola vez por su contenido (ver
+    // rutaImagenPorContenido): si otro pedido todavía la usa, se queda.
+    const admin = createAdminClient();
+    const propias = [...new Set(imagenes.map((i) => i.storage_path))];
+    const usadas = new Set<string>();
+    // Por tandas: la lista va en la URL de la consulta y un pedido trae cientos.
+    for (let i = 0; i < propias.length; i += 100) {
+      const { data: enUso, error: errorEnUso } = await admin
+        .from("planeacion_item_imagenes")
+        .select("storage_path")
+        .in("storage_path", propias.slice(i, i + 100))
+        .returns<{ storage_path: string }[]>();
+      // Sin saber quién más las usa, no se borra ninguna (a lo más quedan sueltas).
+      if (errorEnUso) return { error: null, conservadoPorFolio: false };
+      for (const fila of enUso ?? []) usadas.add(fila.storage_path);
+    }
+    const rutas = propias
+      .filter((r) => !usadas.has(r))
+      .flatMap((r) => [r, rutaImagenGrande(r)]);
+    if (rutas.length > 0) await admin.storage.from(BUCKET_IMAGENES_ITEMS).remove(rutas);
   }
   return { error: null, conservadoPorFolio: Boolean(conservadoPorFolio) };
 }
