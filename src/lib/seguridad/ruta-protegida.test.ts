@@ -16,7 +16,7 @@ describe("esRutaProtegida", () => {
     }
   });
   it("login, registro, auth, privacidad y la API no", () => {
-    for (const ruta of ["/", "/login", "/registro", "/auth/callback", "/privacidad", "/api/produccion/entregas"]) {
+    for (const ruta of ["/", "/login", "/registro", "/auth/callback", "/auth/restablecer", "/privacidad", "/api/produccion/entregas"]) {
       expect(esRutaProtegida(ruta)).toBe(false);
     }
   });

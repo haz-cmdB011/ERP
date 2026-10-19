@@ -52,7 +52,7 @@ y ayuda a que el proyecto no se pause por inactividad (no sustituye a un plan de
 
 | Caso | Qué hacer |
 |---|---|
-| Olvidó la contraseña | En el login, *¿Olvidaste tu contraseña?*. Si no le llega el correo, un **desarrollador** la restablece en *Administración → Usuarios*. |
+| Olvidó la contraseña | En el login, *¿Olvidaste tu contraseña?*: le llega un enlace que abre la pantalla de contraseña nueva (`/auth/restablecer`). La contraseña ya no se cambia desde Mi perfil. Si no le llega el correo, un **desarrollador** la restablece en *Administración → Usuarios*. |
 | Se registró y no ve nada | Es normal: el rol `usuario` no ve datos. Un administrador le asigna **rol y área** en *Administración → Usuarios*. |
 | Perdió el celular con la verificación en dos pasos | En el panel de Supabase → *Authentication → Users* → su usuario → eliminar sus factores de autenticación (MFA; el nombre exacto de la opción puede variar en el panel). Después entra con su contraseña y la vuelve a activar en *Mi perfil*. |
 | Dice "Demasiados intentos" | Es el límite de intentos. Esperar el tiempo indicado (el registro permite 5 por IP cada 15 minutos). Si es la oficina entera detrás de una misma IP, avisar a desarrollo. |

@@ -1,11 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { urlAvatar } from "@/lib/cuenta/avatar";
 import PerfilForm from "@/app/planeacion/cuenta/perfil-form";
-import CambiarPasswordForm from "@/app/planeacion/cuenta/cambiar-password-form";
 import MfaForm from "@/app/planeacion/cuenta/mfa-form";
 import PendientesCuenta from "./pendientes-cuenta";
 
-// Pantalla "Mi perfil": foto, nombre y contraseña. La comparten Planeación
+// Pantalla "Mi perfil": foto, nombre y verificación en dos pasos. La contraseña ya no se cambia
+// aquí: se restablece desde el login con "¿Olvidaste tu contraseña?" (/auth/restablecer). La comparten Planeación
 // (/planeacion/cuenta) y Estimaciones (/estimaciones/cuenta, para los
 // maquiladores, que solo tienen esa área).
 export default async function CuentaContenido() {
@@ -35,10 +35,6 @@ export default async function CuentaContenido() {
           avatarUrl={avatarUrl}
         />
       </div>
-      <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Contraseña</h2>
-        <CambiarPasswordForm />
-      </section>
       <section
         id="verificacion"
         className="flex scroll-mt-24 flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
