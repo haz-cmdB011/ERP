@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
@@ -30,18 +30,35 @@ export default function AsignarForm({
   descripcion,
   unidad,
   disponible,
+  aplica,
   equipos,
   encargados,
+  procesoInicial: procesoPedido,
+  children,
+  className,
+  titulo,
 }: {
   itemId: string;
   descripcion: string;
   unidad: string | null;
   disponible: Record<Proceso, number>;
+  // Procesos que el mueble lleva (Electrificación y Superficie Sólida dependen
+  // de su descripción o la de sus componentes). Sin el dato, todos aplican.
+  aplica?: Record<Proceso, boolean>;
   equipos: EquipoProduccion[];
   encargados: EncargadoEquipo[];
+  // Para abrir el formulario ya en un proceso (desde el flujo del PM).
+  procesoInicial?: Proceso;
+  // Contenido y estilo del botón que lo abre (por omisión, "Asignar").
+  children?: ReactNode;
+  className?: string;
+  titulo?: string;
 }) {
   const router = useRouter();
-  const procesoInicial = PROCESOS.find((p) => disponible[p] > 0) ?? "armado";
+  const procesoInicial =
+    procesoPedido && disponible[procesoPedido] > 0
+      ? procesoPedido
+      : (PROCESOS.find((p) => disponible[p] > 0) ?? "armado");
   const [abierto, setAbierto] = useState(false);
   const [proceso, setProceso] = useState<Proceso>(procesoInicial);
   const [equipoId, setEquipoId] = useState("");
@@ -104,10 +121,13 @@ export default function AsignarForm({
         type="button"
         onClick={abrir}
         disabled={sinDisponible}
-        title={sinDisponible ? "Ya está asignado todo el mueble" : undefined}
-        className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-40"
+        title={sinDisponible ? "Ya está asignado todo el mueble" : titulo}
+        className={
+          className ??
+          "rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-40"
+        }
       >
-        Asignar
+        {children ?? "Asignar"}
       </button>
       {abierto && (
         <Modal titulo="Asignar a un equipo" subtitulo={descripcion} onCerrar={() => !enviando && setAbierto(false)}>
@@ -133,7 +153,9 @@ export default function AsignarForm({
                     {PROCESO_LABELS[p]}
                   </span>
                   <span className="text-xs text-slate-500">
-                    {disponible[p]} {unidad ?? ""} por asignar
+                    {aplica && !aplica[p]
+                      ? "No aplica a este mueble"
+                      : `${disponible[p]} ${unidad ?? ""} por asignar`}
                   </span>
                 </label>
               ))}
