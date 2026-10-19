@@ -37,11 +37,3 @@ export function etiquetaPeriodo(p: Periodo): string {
 }
 
 export const NOMBRE_VISTA: Record<Vista, string> = { dia: "Día", semana: "Semana", mes: "Mes", anio: "Año" };
-
-// "frente a la semana anterior", para el recuadro de reportes.
-export const FRENTE_A: Record<Vista, string> = {
-  dia: "el día anterior",
-  semana: "la semana anterior",
-  mes: "el mes anterior",
-  anio: "el año anterior",
-};

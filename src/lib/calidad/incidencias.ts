@@ -47,6 +47,8 @@ export interface Incidencia {
   fecha: string | null;
   // Quién auditó (persona de Calidad que levantó el reporte); nulo si no consta.
   auditor: string | null;
+  // Cuándo se cerró (lo fija la base al cerrar); nulo si sigue abierta o si venía cerrada del Excel.
+  cerrado_en?: string | null;
 }
 
 export const SIN_AUDITOR = "Sin auditor";
@@ -590,4 +592,144 @@ export function leerVista(valor: string | undefined): Vista {
 
 export function leerRef(valor: string | undefined): string | null {
   return valor && diaValidoIso(valor) ? valor : null;
+}
+
+// --- Captura desde la pantalla ------------------------------------------------
+
+// Lo que Calidad escribe en el formulario, tal cual (todo texto).
+export interface EntradaIncidencia {
+  linea: string;
+  tipo: string;
+  fecha: string;
+  proyecto: string;
+  muebles: string;
+  areas: string[];
+  motivo: string;
+  areasReporta: string[];
+  auditor: string;
+  estado: string;
+}
+
+// Los campos que se guardan al crear o editar una incidencia.
+export type CamposIncidencia = Pick<
+  Incidencia,
+  | "linea"
+  | "tipo"
+  | "fecha"
+  | "proyecto"
+  | "muebles"
+  | "areas"
+  | "motivo"
+  | "categoria_motivo"
+  | "areas_reporta"
+  | "estado"
+  | "auditor"
+>;
+
+export const LIMITES = { motivo: 300, proyecto: 200, auditor: 100, muebles: 30, areas: 20, textoMueble: 100 } as const;
+
+export type ResultadoValidacion = { ok: true; campos: CamposIncidencia } | { ok: false; error: string };
+
+// Valida y normaliza lo escrito igual que la importación del Excel (mayúsculas,
+// sin acentos, listas sin repetir), para que lo capturado y lo importado se
+// cuenten juntos. `hoy` es "AAAA-MM-DD": no se aceptan fechas futuras.
+export function validarIncidencia(e: EntradaIncidencia, hoy: string): ResultadoValidacion {
+  const linea = LINEAS.find((l) => l === e.linea);
+  if (!linea) return { ok: false, error: "Elige la línea (madera o metal)." };
+  const tipo = normalizarTipo(e.tipo);
+  if (!tipo) return { ok: false, error: "Elige el tipo de reporte." };
+  if (!diaValidoIso(e.fecha)) return { ok: false, error: "Escribe la fecha del reporte." };
+  if (e.fecha > hoy) return { ok: false, error: "La fecha no puede ser futura." };
+  const proyecto = textoNormalizado(e.proyecto);
+  if (!proyecto) return { ok: false, error: "Escribe el proyecto." };
+  if (proyecto.length > LIMITES.proyecto) return { ok: false, error: `El proyecto es muy largo (máximo ${LIMITES.proyecto} letras).` };
+  const motivo = textoNormalizado(e.motivo);
+  if (!motivo) return { ok: false, error: "Escribe el motivo." };
+  if (motivo.length > LIMITES.motivo) return { ok: false, error: `El motivo es muy largo (máximo ${LIMITES.motivo} letras).` };
+  const areas = sinDuplicados(e.areas.flatMap(listaDeAreas));
+  if (areas.length === 0) return { ok: false, error: "Elige al menos un área involucrada." };
+  if (areas.length > LIMITES.areas) return { ok: false, error: `Demasiadas áreas (máximo ${LIMITES.areas}).` };
+  const areasReporta = sinDuplicados(e.areasReporta.flatMap(listaDeAreas));
+  if (areasReporta.length > LIMITES.areas) return { ok: false, error: `Demasiadas áreas que reportan (máximo ${LIMITES.areas}).` };
+  const muebles = listaDeMuebles(e.muebles);
+  if (muebles.length > LIMITES.muebles) return { ok: false, error: `Demasiados muebles (máximo ${LIMITES.muebles}).` };
+  if (muebles.some((m) => m.length > LIMITES.textoMueble)) {
+    return { ok: false, error: `Un mueble es muy largo (máximo ${LIMITES.textoMueble} letras); sepáralos con comas.` };
+  }
+  const auditor = nombreDePersona(e.auditor);
+  if (!auditor) return { ok: false, error: "Elige quién auditó." };
+  if (auditor.length > LIMITES.auditor) return { ok: false, error: "El nombre del auditor es muy largo." };
+  const estado = ESTADOS_INCIDENCIA.find((x) => x === e.estado);
+  if (!estado) return { ok: false, error: "Elige el estado." };
+
+  return {
+    ok: true,
+    campos: {
+      linea,
+      tipo,
+      fecha: e.fecha,
+      proyecto,
+      muebles,
+      areas,
+      motivo,
+      categoria_motivo: categoriaDeMotivo(motivo),
+      areas_reporta: areasReporta,
+      estado,
+      auditor,
+    },
+  };
+}
+
+// --- Pendientes viejos --------------------------------------------------------
+
+export interface RangoPendiente {
+  etiqueta: string;
+  desde: number;
+  total: number;
+}
+
+export interface PendientesViejos {
+  // Abiertas con más de `dias` días desde su fecha.
+  total: number;
+  // Abiertas sin fecha: no se sabe qué tan viejas son, no entran en la cuenta.
+  sinFecha: number;
+  rangos: RangoPendiente[];
+  porAuditor: ConteoAbiertos[];
+  // Las más viejas primero, con los días que llevan abiertas.
+  masViejas: Array<Incidencia & { dias: number }>;
+}
+
+export function diasEntre(desde: string, hasta: string): number {
+  return Math.floor((aMs(hasta) - aMs(desde)) / MS_DIA);
+}
+
+const RANGOS_PENDIENTES = [
+  { etiqueta: "Más de 30 a 60 días", desde: 31, hasta: 60 },
+  { etiqueta: "61 a 90 días", desde: 61, hasta: 90 },
+  { etiqueta: "91 a 180 días", desde: 91, hasta: 180 },
+  { etiqueta: "Más de 180 días", desde: 181, hasta: Infinity },
+] as const;
+
+// Lo abierto que lleva más de `dias` días (30 por defecto) sin cerrarse, al
+// día `hoy`: cuántos, de qué antigüedad, de quién y los más viejos.
+export function pendientesViejos(filas: Incidencia[], hoy: string, dias = 30, maximoLista = 15): PendientesViejos {
+  const abiertas = filas.filter((i) => i.estado === "abierto");
+  const viejas = abiertas
+    .filter((i): i is Incidencia & { fecha: string } => !!i.fecha)
+    .map((i) => ({ ...i, dias: diasEntre(i.fecha, hoy) }))
+    .filter((i) => i.dias > dias)
+    .sort((a, b) => b.dias - a.dias || a.id.localeCompare(b.id));
+  const rangos = RANGOS_PENDIENTES.map((r) => ({
+    etiqueta: r.etiqueta,
+    desde: r.desde,
+    total: viejas.filter((i) => i.dias >= r.desde && i.dias <= r.hasta).length,
+  }));
+  const porAuditor = contar(viejas, (i) => [i.auditor ?? SIN_AUDITOR]).map((c) => ({ ...c, abiertas: c.total }));
+  return {
+    total: viejas.length,
+    sinFecha: abiertas.filter((i) => !i.fecha).length,
+    rangos,
+    porAuditor,
+    masViejas: viejas.slice(0, maximoLista),
+  };
 }

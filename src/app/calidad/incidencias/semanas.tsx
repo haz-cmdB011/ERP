@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ConteoSemana } from "@/lib/calidad/incidencias";
 import { rangoCorto } from "./formato";
+import Tarjeta from "./tarjeta";
 
 const ALTO = 120;
 
@@ -10,20 +11,22 @@ const ALTO = 120;
 export default function Semanas({
   semanas,
   hrefDe,
+  desplegable = false,
 }: {
   semanas: ConteoSemana[];
   // Enlace a la semana que empieza en `inicio`.
   hrefDe: (inicio: string) => string;
+  desplegable?: boolean;
 }) {
   const tope = Math.max(1, ...semanas.map((s) => s.total));
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div>
-        <h2 className="text-sm font-semibold text-slate-900">Todas las semanas del año</h2>
-        <p className="text-xs text-slate-500">Toca una semana para abrirla. El número de abajo es la semana del año.</p>
-      </div>
+    <Tarjeta
+      titulo="Todas las semanas del año"
+      descripcion="Toca una semana para abrirla. El número de abajo es la semana del año."
+      desplegable={desplegable}
+    >
       {semanas.length === 0 ? (
-        <p className="text-sm text-slate-500">Sin incidencias con fecha con estos filtros.</p>
+        <p className="text-sm text-slate-500">Sin reportes con fecha con estos filtros.</p>
       ) : (
         <div className="overflow-x-auto pb-1">
           <ul className="flex items-end gap-1" style={{ height: ALTO + 40 }}>
@@ -63,6 +66,6 @@ export default function Semanas({
           Abiertos
         </span>
       </div>
-    </section>
+    </Tarjeta>
   );
 }

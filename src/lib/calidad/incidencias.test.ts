@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   categoriaDeMotivo,
   desglosarPeriodo,
+  diasEntre,
   fechaDesdeExcel,
   filasDelPeriodo,
   filtrarIncidencias,
@@ -15,6 +16,7 @@ import {
   normalizarEstado,
   nombreDePersona,
   normalizarTipo,
+  pendientesViejos,
   periodoDe,
   refPorDefecto,
   resumirIncidencias,
@@ -23,6 +25,8 @@ import {
   semanaDe,
   SIN_FILTROS,
   textoNormalizado,
+  validarIncidencia,
+  type EntradaIncidencia,
   type Incidencia,
 } from "./incidencias";
 
@@ -355,5 +359,140 @@ describe("periodos", () => {
     expect(leerRef("2026-02-30")).toBeNull();
     expect(leerRef("2026-02-10")).toBe("2026-02-10");
     expect(hrefIncidencias("/x", SIN_FILTROS, { vista: "mes", ref: "2026-02-01" })).toBe("/x?vista=mes&ref=2026-02-01");
+  });
+});
+
+describe("validarIncidencia (captura)", () => {
+  const hoy = "2026-10-19";
+  const entrada: EntradaIncidencia = {
+    linea: "madera",
+    tipo: "Producto No Conforme",
+    fecha: "2026-10-16",
+    proyecto: " remodelación  PH Monterrey ",
+    muebles: "FX-ME-02, fx-me-02,  PDI-1",
+    areas: ["Ingeniería", "proyectos, compras"],
+    motivo: "Elemento dañado, rayado o roto",
+    areasReporta: ["prod-armado-mad"],
+    auditor: "luis  CORONA",
+    estado: "abierto",
+  };
+
+  it("normaliza igual que la importación del Excel", () => {
+    const r = validarIncidencia(entrada, hoy);
+    expect(r).toEqual({
+      ok: true,
+      campos: {
+        linea: "madera",
+        tipo: "Producto No Conforme",
+        fecha: "2026-10-16",
+        proyecto: "REMODELACION PH MONTERREY",
+        muebles: ["FX-ME-02", "fx-me-02", "PDI-1"],
+        areas: ["INGENIERIA", "PROYECTOS", "COMPRAS"],
+        motivo: "ELEMENTO DANADO, RAYADO O ROTO",
+        categoria_motivo: "Daño",
+        areas_reporta: ["PROD-ARMADO-MAD"],
+        estado: "abierto",
+        auditor: "Luis Corona",
+      },
+    });
+  });
+
+  const error = (cambios: Partial<EntradaIncidencia>) => {
+    const r = validarIncidencia({ ...entrada, ...cambios }, hoy);
+    return r.ok ? null : r.error;
+  };
+
+  it("pide lo obligatorio con un mensaje claro", () => {
+    expect(error({ linea: "" })).toMatch(/línea/);
+    expect(error({ tipo: "Otro" })).toMatch(/tipo/);
+    expect(error({ fecha: "" })).toMatch(/fecha/);
+    expect(error({ fecha: "2026-10-20" })).toMatch(/futura/);
+    expect(error({ proyecto: "  " })).toMatch(/proyecto/);
+    expect(error({ motivo: "" })).toMatch(/motivo/);
+    expect(error({ areas: [] })).toMatch(/área/);
+    expect(error({ areas: ["-"] })).toMatch(/área/);
+    expect(error({ auditor: "" })).toMatch(/auditó/);
+    expect(error({ estado: "x" })).toMatch(/estado/);
+  });
+
+  it("deja opcionales los muebles y el área que reporta", () => {
+    expect(error({ muebles: "", areasReporta: [] })).toBeNull();
+  });
+
+  it("rechaza lo que pasa de los topes de la base", () => {
+    expect(error({ motivo: "A".repeat(301) })).toMatch(/motivo/);
+    expect(error({ proyecto: "A".repeat(201) })).toMatch(/proyecto/);
+    expect(error({ muebles: Array.from({ length: 31 }, (_, i) => "M" + i).join(",") })).toMatch(/muebles/);
+    expect(error({ muebles: "M".repeat(101) })).toMatch(/mueble/);
+    expect(error({ areas: Array.from({ length: 21 }, (_, i) => "A" + i) })).toMatch(/áreas/);
+    expect(error({ auditor: "A".repeat(101) })).toMatch(/auditor/);
+  });
+
+  it("acepta la fecha de hoy", () => {
+    expect(error({ fecha: hoy })).toBeNull();
+  });
+});
+
+describe("pendientes viejos", () => {
+  const inc = (id: string, fecha: string | null, estado: "abierto" | "cerrado", auditor: string | null): Incidencia => ({
+    id,
+    linea: "madera",
+    tipo: "Incidencia",
+    proyecto: null,
+    muebles: [],
+    areas: [],
+    motivo: null,
+    categoria_motivo: "Sin clasificar",
+    areas_reporta: [],
+    estado,
+    fecha,
+    auditor,
+  });
+  const hoy = "2026-10-19";
+  const filas = [
+    inc("a", "2026-10-10", "abierto", "Ana"), // 9 días: no es vieja
+    inc("b", "2026-09-19", "abierto", "Ana"), // 30 días: justo en el límite, no cuenta
+    inc("c", "2026-09-18", "abierto", "Ana"), // 31 días
+    inc("d", "2026-08-01", "abierto", "Luis"), // 79 días
+    inc("e", "2026-06-01", "abierto", null), // 140 días
+    inc("f", "2026-01-05", "abierto", "Luis"), // 287 días
+    inc("g", "2026-01-05", "cerrado", "Luis"), // cerrada: no cuenta
+    inc("h", null, "abierto", "Luis"), // sin fecha
+  ];
+
+  it("cuenta los días entre dos fechas", () => {
+    expect(diasEntre("2026-09-19", "2026-10-19")).toBe(30);
+    expect(diasEntre("2026-10-19", "2026-10-19")).toBe(0);
+  });
+
+  it("cuenta solo lo abierto con más de 30 días y reparte por antigüedad y auditor", () => {
+    const r = pendientesViejos(filas, hoy);
+    expect(r.total).toBe(4);
+    expect(r.sinFecha).toBe(1);
+    expect(r.rangos.map((x) => [x.etiqueta, x.total])).toEqual([
+      ["Más de 30 a 60 días", 1],
+      ["61 a 90 días", 1],
+      ["91 a 180 días", 1],
+      ["Más de 180 días", 1],
+    ]);
+    expect(r.porAuditor.map((a) => [a.nombre, a.total])).toEqual([
+      ["Luis", 2],
+      ["Ana", 1],
+      ["Sin auditor", 1],
+    ]);
+  });
+
+  it("lista primero las más viejas, con sus días, y respeta el tope", () => {
+    const r = pendientesViejos(filas, hoy, 30, 2);
+    expect(r.masViejas.map((i) => [i.id, i.dias])).toEqual([
+      ["f", 287],
+      ["e", 140],
+    ]);
+  });
+
+  it("sin pendientes devuelve ceros", () => {
+    const r = pendientesViejos([], hoy);
+    expect(r.total).toBe(0);
+    expect(r.masViejas).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-// Esqueleto con la forma de Incidencias: título, filtros, indicadores y gráficas.
+// Esqueleto con la forma de No conformidades: título, filtros, indicadores y gráficas.
 export default function Loading() {
   const bloque = "esqueleto rounded-md";
   return (

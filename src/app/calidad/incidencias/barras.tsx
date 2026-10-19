@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ConteoAbiertos } from "@/lib/calidad/incidencias";
+import Tarjeta from "./tarjeta";
 
 // Lista de barras horizontales: el largo es el total y la parte ámbar, lo que
 // sigue abierto. Si hay `hrefDe`, cada fila filtra el tablero por ese valor.
@@ -9,21 +10,21 @@ export default function Barras({
   filas,
   maximo = 8,
   hrefDe,
+  desplegable = false,
+  plana = false,
 }: {
   titulo: string;
   descripcion?: string;
   filas: ConteoAbiertos[];
   maximo?: number;
   hrefDe?: (nombre: string) => string;
+  desplegable?: boolean;
+  plana?: boolean;
 }) {
   const visibles = filas.slice(0, maximo);
   const tope = Math.max(1, ...visibles.map((f) => f.total));
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div>
-        <h2 className="text-sm font-semibold text-slate-900">{titulo}</h2>
-        {descripcion && <p className="text-xs text-slate-500">{descripcion}</p>}
-      </div>
+    <Tarjeta titulo={titulo} descripcion={descripcion} desplegable={desplegable} plana={plana}>
       {visibles.length === 0 ? (
         <p className="text-sm text-slate-500">Sin datos con estos filtros.</p>
       ) : (
@@ -64,6 +65,6 @@ export default function Barras({
       {filas.length > maximo && (
         <p className="text-xs text-slate-400">y {filas.length - maximo} más; usa los filtros para verlos.</p>
       )}
-    </section>
+    </Tarjeta>
   );
 }

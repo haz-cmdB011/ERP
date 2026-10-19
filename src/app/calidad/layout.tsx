@@ -77,7 +77,7 @@ export default async function CalidadLayout({
           Folios de calidad
         </SubnavLink>
         <SubnavLink href="/calidad/incidencias" icono="incidencias">
-          Incidencias
+          No conformidades
         </SubnavLink>
       </AreaNav>
       {perfil?.rol === "usuario" && <CuentaPendiente />}

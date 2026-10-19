@@ -7,12 +7,18 @@
  * .env.local (producción), así que primero hay que haber revisado la simulación
  * y tener aplicada la migración `incidencias_calidad`.
  *
+ * Por defecto SOLO AGREGA las filas que aún no están y deja intactas las que ya
+ * existen: desde que se captura y se cierra en la app, recargar el Excel no debe
+ * pisar esos cambios. Con --actualizar sí sobrescribe las existentes con lo que
+ * diga el Excel (para corregir una carga).
+ *
  * Repetirlo no duplica: cada fila se identifica por "<línea>:<fila de la hoja>"
  * (columna origen_importacion) y se actualiza en lugar de insertarse otra vez.
  *
  * Uso:
  *   npm run calidad:importar-incidencias -- "ruta/al/BD-CONTROL26.xlsx"            (simula)
- *   npm run calidad:importar-incidencias -- "ruta/al/BD-CONTROL26.xlsx" --aplicar  (escribe)
+ *   npm run calidad:importar-incidencias -- "ruta/al/BD-CONTROL26.xlsx" --aplicar  (agrega las que faltan)
+ *   … --aplicar --actualizar                                                       (también sobrescribe las existentes)
  */
 import ExcelJS from "exceljs";
 import { createClient } from "@supabase/supabase-js";
@@ -37,6 +43,7 @@ const LOTE = 200;
 
 const args = process.argv.slice(2);
 const aplicar = args.includes("--aplicar");
+const actualizar = args.includes("--actualizar");
 const ruta = args.find((a) => !a.startsWith("--"));
 if (!ruta) {
   console.error('Falta la ruta del Excel. Ejemplo: npm run calidad:importar-incidencias -- "C:/ruta/BD-CONTROL26.xlsx"');
@@ -100,7 +107,13 @@ const r = resumirIncidencias(filas);
 const lista = (c: Array<{ nombre: string; total: number }>, n = 8) =>
   c.slice(0, n).map((x) => `${x.nombre} (${x.total})`).join(", ");
 
-console.log(`\nModo: ${aplicar ? "APLICAR (escribe en la base)" : "SIMULACIÓN (no escribe nada)"}`);
+console.log(
+  `\nModo: ${
+    aplicar
+      ? `APLICAR (escribe en la base; ${actualizar ? "sobrescribe las existentes" : "solo agrega las que faltan"})`
+      : "SIMULACIÓN (no escribe nada)"
+  }`
+);
 console.log(`Filas leídas: ${nuevas.length + omitidas.length} · a importar: ${nuevas.length} · omitidas: ${omitidas.length}`);
 console.log(`Madera ${r.porLinea.madera} · Metal ${r.porLinea.metal} · abiertas ${r.abiertas} · cerradas ${r.cerradas}`);
 const porSemana = resumirPorSemana(filas);
@@ -135,7 +148,7 @@ const supabase = createClient(url, clave, { auth: { autoRefreshToken: false, per
 let escritas = 0;
 for (let i = 0; i < nuevas.length; i += LOTE) {
   const lote = nuevas.slice(i, i + LOTE);
-  const { error } = await supabase.from("incidencias_calidad").upsert(lote, { onConflict: "origen_importacion" });
+  const { error } = await supabase.from("incidencias_calidad").upsert(lote, { onConflict: "origen_importacion", ignoreDuplicates: !actualizar });
   if (error) {
     console.error(`\nFalló el lote que empieza en la fila ${i + 1}: ${error.message}`);
     console.error(`Se alcanzaron a escribir ${escritas}. Repetir el comando es seguro: no duplica.`);
@@ -143,4 +156,8 @@ for (let i = 0; i < nuevas.length; i += LOTE) {
   }
   escritas += lote.length;
 }
-console.log(`\nListo: ${escritas} incidencias escritas (las que ya existían se actualizaron).`);
+console.log(
+  `\nListo: ${escritas} filas enviadas (${
+    actualizar ? "las que ya existían se actualizaron" : "las que ya existían se dejaron como estaban"
+  }).`
+);
