@@ -16,13 +16,14 @@ import {
   type Proceso,
 } from "@/lib/produccion/asignaciones";
 import { entregasPorAsignacion, type EntregaConFoto } from "@/lib/produccion/consultar-asignaciones";
-import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
 import AsignarLote, { type MuebleParaLote } from "@/app/produccion/asignaciones/asignar-lote";
 import DetalleAsignacion, {
   EstadoAsignacionBadge,
 } from "@/app/produccion/asignaciones/detalle-asignacion";
 
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
+import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
+import FlujoMuebles from "./flujo-muebles";
 import { leer } from "@/lib/supabase/leer";
 interface MuebleRow {
   id: string;
@@ -165,6 +166,17 @@ export default async function AsignacionesPedidoPage({
 
   const pedidoCancelado = !!pedido.cancelado_en;
 
+  // Electrificación y Superficie Sólida solo si el mueble o sus componentes las llevan.
+  const aplicaA = (m: MuebleRow): Record<Proceso, boolean> => {
+    const hijos = descripcionesHijos.get(m.id);
+    return {
+      armado: true,
+      barniz: true,
+      electrificacion: admiteElectrificacion(m.descripcion, hijos),
+      superficie_solida: admiteSuperficieSolida(m.descripcion, hijos),
+    };
+  };
+
   // Para asignar varios muebles de una vez: lo que falta de cada uno.
   const paraLote: MuebleParaLote[] = liberados.map((m) => ({
     id: m.id,
@@ -174,7 +186,7 @@ export default async function AsignacionesPedidoPage({
     disponible: disponibleDe(
       Number(m.cantidad_total),
       resumenPorProceso(porItem.get(m.id) ?? []),
-      admiteElectrificacion(m.descripcion, descripcionesHijos.get(m.id))
+      aplicaA(m)
     ),
   }));
 
@@ -190,7 +202,7 @@ export default async function AsignacionesPedidoPage({
             {version ? ` · versión ${version.numero_version}` : ""}
           </p>
           <p className="mt-2 text-sm text-slate-500">
-            Un mueble puede repartirse entre varios equipos. Armado, barniz, electrificación y superficie sólida se asignan por separado; Electrificación solo aplica a muebles que la llevan (iluminación o electrificación en el mueble o sus componentes).
+            Un mueble puede repartirse entre varios equipos. Armado, barniz, electrificación y superficie sólida se asignan por separado; Electrificación y Superficie Sólida solo se habilitan en los muebles que las llevan (lo dice la descripción del mueble o de sus componentes).
           </p>
         </div>
         {puedeEditar && !pedidoCancelado && liberados.length > 1 && (
@@ -227,67 +239,39 @@ export default async function AsignacionesPedidoPage({
           </Link>
         </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {liberados.map((m) => {
-            const lista = porItem.get(m.id) ?? [];
-            const resumen = resumenPorProceso(lista);
-            const conIluminacion = admiteElectrificacion(m.descripcion, descripcionesHijos.get(m.id));
-            const disponible = disponibleDe(Number(m.cantidad_total), resumen, conIluminacion);
-            const descripcion = `${pedido.numero_pedido} · ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`;
-
-            return (
-              <li key={m.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-slate-900">
-                      {m.item_code}
-                      {m.modelo ? ` · ${m.modelo}` : ""}
-                    </p>
-                    <p className="line-clamp-2 text-sm text-slate-600">{m.descripcion?.split("\n")[0]}</p>
-                    <p className="mt-1 text-sm font-medium text-slate-800">
-                      {Number(m.cantidad_total)} {m.unidad}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    {PROCESOS.filter((p) => p !== "electrificacion" || conIluminacion).map((p) => (
-                      <div key={p} className="min-w-28 rounded-lg bg-slate-50 px-3 py-1.5 text-xs">
-                        <p className="font-semibold text-slate-700">{PROCESO_LABELS[p]}</p>
-                        <p className="text-slate-600">
-                          asignadas {resumen[p].asignado}/{Number(m.cantidad_total)}
-                        </p>
-                        <p className="text-slate-600">entregadas {resumen[p].entregado}</p>
-                      </div>
-                    ))}
-                    {puedeEditar && !pedidoCancelado && (
-                      <AsignarForm
-                        itemId={m.id}
-                        descripcion={descripcion}
-                        unidad={m.unidad}
-                        disponible={disponible}
-                        equipos={equipos ?? []}
-                        encargados={encargados ?? []}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {lista.length > 0 && (
-                  <ul className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3">
-                    {lista.map((a) => (
-                      <FilaAsignacion
-                        key={a.id}
-                        a={a}
-                        entregas={entregas.get(a.id) ?? []}
-                        puedeEditar={puedeEditar}
-                        puedeAnular={puedeAnular}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <FlujoMuebles
+          muebles={liberados.map((m) => ({
+            id: m.id,
+            item_code: m.item_code,
+            modelo: m.modelo,
+            unidad: m.unidad,
+            cantidad: Number(m.cantidad_total),
+            aplica: aplicaA(m),
+            asignaciones: porItem.get(m.id) ?? [],
+          }))}
+          asignar={
+            puedeEditar && !pedidoCancelado
+              ? {
+                  equipos: equipos ?? [],
+                  encargados: encargados ?? [],
+                  numeroPedido: pedido.numero_pedido,
+                  disponible: Object.fromEntries(paraLote.map((m) => [m.id, m.disponible])),
+                }
+              : null
+          }
+          detalles={Object.fromEntries(
+            todas.map((a) => [
+              a.id,
+              <DetalleAsignacion
+                key={a.id}
+                asignacion={a}
+                entregas={entregas.get(a.id) ?? []}
+                puedeEditar={puedeEditar}
+                puedeAnular={puedeAnular}
+              />,
+            ])
+          )}
+        />
       )}
 
       {otras.length > 0 && (
@@ -333,13 +317,13 @@ function resumenPorProceso(
 function disponibleDe(
   cantidadTotal: number,
   resumen: Record<Proceso, { asignado: number }>,
-  conIluminacion: boolean
+  aplica: Record<Proceso, boolean>
 ): Record<Proceso, number> {
   return Object.fromEntries(
     PROCESOS.map((p) => [
       p,
-      // Electrificación solo en muebles que la llevan (ver electrificacion.ts).
-      p === "electrificacion" && !conIluminacion
+      // Lo que el mueble no lleva no se asigna (ver electrificacion.ts y superficie-solida.ts).
+      !aplica[p]
         ? 0
         : Math.round((cantidadTotal - resumen[p].asignado) * 100) / 100,
     ])
