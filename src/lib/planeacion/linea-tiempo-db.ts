@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { paginarTodo } from "@/lib/supabase/paginar";
 import type { AsignacionTiempo } from "./linea-tiempo";
 
 // Ids por consulta .in(): más largos pasarían el límite de tamaño de la URL.
@@ -31,10 +32,17 @@ export async function asignacionesDePedido(
   supabase: SupabaseClient,
   pedidoId: string
 ): Promise<AsignacionTiempo[]> {
-  const { data } = await supabase
-    .from("asignaciones_produccion_resumen")
-    .select("planeacion_item_id, proceso, cantidad, entregado, cancelada_en")
-    .eq("pedido_id", pedidoId)
-    .returns<AsignacionTiempo[]>();
-  return data ?? [];
+  // Un PM grande puede pasar de 1000 asignaciones (ítems × procesos): se piden
+  // por páginas, con orden estable, porque Supabase corta en 1000 sin avisar.
+  return paginarTodo<AsignacionTiempo>(
+    (desde, hasta) =>
+      supabase
+        .from("asignaciones_produccion_resumen")
+        .select("planeacion_item_id, proceso, cantidad, entregado, cancelada_en")
+        .eq("pedido_id", pedidoId)
+        .order("id")
+        .range(desde, hasta)
+        .returns<AsignacionTiempo[]>(),
+    { contexto: "las asignaciones del pedido" }
+  );
 }

@@ -68,6 +68,10 @@ function textoLote(n: number, estado: EstadoRevision): string {
   return `${items} vuelto${n === 1 ? "" : "s"} a normal.`;
 }
 
+// Cuántos muebles se dibujan a la vez: con miles de filas la pantalla se pone
+// lenta. Los filtros siguen buscando en todos; el botón de abajo muestra más.
+const MUEBLES_POR_PAGINA = 100;
+
 const CHIP_BASE =
   "rounded border px-3 py-1 text-sm font-medium transition-colors pointer-coarse:py-2";
 const CHIP_ACTIVO = "border-brand-600 bg-brand-500 text-on-brand";
@@ -99,6 +103,7 @@ export default function ItemsTabla({
   const [filtro, setFiltro] = useState(filtroInicial);
   const [material, setMaterial] = useState<string | null>(null);
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("todos");
+  const [limite, setLimite] = useState(MUEBLES_POR_PAGINA);
   const filtros = useMemo<FiltrosItems>(
     () => ({ texto: filtro.trim().toLowerCase(), material, estado: estadoFiltro }),
     [filtro, material, estadoFiltro]
@@ -123,12 +128,15 @@ export default function ItemsTabla({
     setFiltro(texto);
     setMaterial(mat);
     setEstadoFiltro(est);
+    setLimite(MUEBLES_POR_PAGINA);
     setExpandidos(
       padresConHijosCoincidentes(muebles, { texto: texto.trim().toLowerCase(), material: mat, estado: est })
     );
   }
 
   const visibles = useMemo(() => filtrarMuebles(muebles, filtros), [muebles, filtros]);
+  // Los que se dibujan ahora (los primeros `limite`).
+  const enPantalla = useMemo(() => visibles.slice(0, limite), [visibles, limite]);
 
   // --- Cambio de estado en lote (solo quien puede editar) ---
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
@@ -144,10 +152,10 @@ export default function ItemsTabla({
     }
     return mapa;
   }, [muebles]);
-  // Todo lo que se ve con el filtro actual (mueble y sus componentes visibles).
+  // Todo lo que se ve en pantalla (mueble y sus componentes visibles).
   const idsVisibles = useMemo(
-    () => visibles.flatMap(({ mueble, hijos }) => [mueble.id, ...hijos.map((h) => h.id)]),
-    [visibles]
+    () => enPantalla.flatMap(({ mueble, hijos }) => [mueble.id, ...hijos.map((h) => h.id)]),
+    [enPantalla]
   );
   const todosMarcados = idsVisibles.length > 0 && idsVisibles.every((id) => seleccion.has(id));
 
@@ -396,7 +404,7 @@ export default function ItemsTabla({
                 {puedeEliminar && <th className="px-2 py-2 sm:px-3"></th>}
               </tr>
             </thead>
-            {visibles.map(({ mueble: m, hijos }) => {
+            {enPantalla.map(({ mueble: m, hijos }) => {
               const abierto = expandidos.has(m.id);
               return (
                 <GrupoDesplegable key={m.id} abierto={abierto} total={hijos.length}>
@@ -523,6 +531,26 @@ export default function ItemsTabla({
               );
             })}
           </table>
+        </div>
+      )}
+
+      {visibles.length > enPantalla.length && (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+          <p>
+            Mostrando {enPantalla.length} de {visibles.length} muebles
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setLimite((l) => l + MUEBLES_POR_PAGINA)}
+              className={`${CHIP_BASE} ${CHIP_INACTIVO}`}
+            >
+              Mostrar {Math.min(MUEBLES_POR_PAGINA, visibles.length - enPantalla.length)} más
+            </button>
+            <button type="button" onClick={() => setLimite(visibles.length)} className={`${CHIP_BASE} ${CHIP_INACTIVO}`}>
+              Mostrar todos
+            </button>
+          </div>
         </div>
       )}
 

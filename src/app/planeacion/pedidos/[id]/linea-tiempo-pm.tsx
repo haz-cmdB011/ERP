@@ -75,9 +75,15 @@ export default function LineaTiempoPm({ tiempo: t }: { tiempo: LineaTiempo }) {
   ];
 
   return (
-    <section aria-label="Seguimiento del PM" className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold text-slate-600">Seguimiento (versión activa)</h2>
-      <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    // Desplegable y cerrado: son muchos datos y no siempre se necesitan.
+    <details aria-label="Seguimiento del PM" className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-slate-600 [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true" className="inline-block text-slate-400 transition-transform group-open:rotate-90">
+          ▸
+        </span>
+        Seguimiento (versión activa)
+      </summary>
+      <ol className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {pasos.map((paso, i) => (
           <li key={paso.titulo} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <p className="flex items-center gap-2 text-xs font-semibold text-slate-700">
@@ -99,6 +105,6 @@ export default function LineaTiempoPm({ tiempo: t }: { tiempo: LineaTiempo }) {
           </li>
         ))}
       </ol>
-    </section>
+    </details>
   );
 }

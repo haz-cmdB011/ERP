@@ -1,4 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
+import { paginarTodo } from "@/lib/supabase/paginar";
+import { leerPorLotes } from "@/lib/supabase/por-lotes";
 import { elegirPlanos, normalizarModelo } from "./modelo";
 
 // Carpeta compartida de Ingeniería en la red de la empresa (en las PC suele
@@ -57,16 +59,30 @@ export async function getPlanosPorItem(
   if (conModelo.length === 0) return {};
 
   const claves = Array.from(new Set(conModelo.map((i) => normalizarModelo(i.modelo!))));
-  const [{ data: delPm, error: errorPm }, { data: exactos, error: errorExactos }] = await Promise.all([
-    supabase.from("planos").select(COLUMNAS).eq("pm", pm).returns<PlanoRow[]>(),
-    supabase.from("planos").select(COLUMNAS).in("modelo_normalizado", claves).returns<PlanoRow[]>(),
-  ]);
-  // Sin la tabla o sin permisos: la página se muestra igual, solo sin planos.
-  if (errorPm || errorExactos) return {};
+  // Los planos del PM por páginas (Supabase corta en 1000 sin avisar) y los de los
+  // modelos por lotes de claves (cientos de modelos no caben en la dirección de
+  // una consulta).
+  let delPm: PlanoRow[];
+  let exactos: PlanoRow[];
+  try {
+    [delPm, exactos] = await Promise.all([
+      paginarTodo<PlanoRow>(
+        (desde, hasta) =>
+          supabase.from("planos").select(COLUMNAS).eq("pm", pm).order("id").range(desde, hasta).returns<PlanoRow[]>(),
+        { contexto: "los planos" }
+      ),
+      leerPorLotes(
+        claves,
+        (lote) => supabase.from("planos").select(COLUMNAS).in("modelo_normalizado", lote).returns<PlanoRow[]>(),
+        { lote: 50, contexto: "los planos" }
+      ),
+    ]);
+  } catch {
+    // Sin la tabla o sin permisos: la página se muestra igual, solo sin planos.
+    return {};
+  }
 
-  const candidatos = Array.from(
-    new Map([...(delPm ?? []), ...(exactos ?? [])].map((p) => [p.id, p])).values()
-  );
+  const candidatos = Array.from(new Map([...delPm, ...exactos].map((p) => [p.id, p])).values());
 
   const resultado: Record<string, PlanoLink[]> = {};
   for (const item of conModelo) {
