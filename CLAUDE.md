@@ -146,6 +146,11 @@ si el mueble o sus componentes las llevan); se crea con la primera asignación o
 - Asignar más de lo que el paso anterior entregó y verificó **no se bloquea**: se avisa y la asignación
   queda `adelantada`.
 - Un paso con asignaciones vigentes no se quita; los quitados quedan con `retirado_en`.
+- Un paso no está terminado mientras Calidad tenga piezas rechazadas de sus lotes sin reasignar
+  (`rechazado_por_reasignar` del resumen). Con un proceso repetido, el resumen y los lotes de Calidad dicen
+  qué vez es (`vez_paso` de `veces_proceso`; en pantalla "Armado 2" con `etiquetaProceso`). La línea de
+  tiempo de Planeación cuenta un proceso hasta terminar todas sus pasadas (migración
+  `correcciones_ruta_produccion`).
 - Un proceso que la ruta repite **se cobra cada vez**: en Estimaciones lo esperado de un mueble padre en
   Armado/Acabados es cantidad del PM × pasos de armado/barniz de su ruta (mínimo 1; `veces_proceso_ruta`,
   migración `recibos_procesos_repetidos`). Componentes y Electrificación siguen 1×. Lo usan el control al
@@ -157,12 +162,17 @@ Además de los lotes por proceso, Calidad puede revisar el **mueble completo** a
 (migración `revision_final_calidad`). Está detrás del ajuste `revision_final` de `ajustes_flujo`, creado
 **apagado** hasta que Calidad confirme que así trabaja (cómo encenderlo: `docs/operacion.md`).
 
-- Listas = aprobado por Calidad en el **último paso** de la ruta + retrabajos de la propia revisión final
-  ya aprobados − lo revisado (`piezas_listas_revision_final`, vista `revision_final_muebles`).
+- Listas = todo lo que Calidad aprobó en el **último paso** de la ruta (incluidos los retrabajos de la
+  propia revisión final que ya llegaron ahí) − lo revisado (`piezas_listas_revision_final`, vista
+  `revision_final_muebles`).
 - `registrar_revision_final`: folio `FIN-` por resultado; lo rechazado lleva motivo y el paso de la ruta al
-  que regresa. Producción lo reasigna con `crear_retrabajo_revision_final` (vista `rechazos_revision_final`,
-  pantalla Rechazado por Calidad); ese retrabajo no cuenta contra el tope del paso.
-- Solo muebles padre. No cambia el cobro ni la revisión por lotes. Liberado a obra = la final aprobó la
+  que regresa, y desde ahí **sigue el resto de la ruta**: Producción lo reasigna paso por paso con
+  `crear_retrabajo_revision_final`, que toma el siguiente paso (`siguiente_paso_revision_final`; vista
+  `rechazos_revision_final`, pantalla Rechazado por Calidad). Ese retrabajo no cuenta contra el tope del
+  paso; el retrabajo de sus lotes hereda el vínculo (`trg_paso_de_retrabajo`). Un paso con piezas de la
+  revisión final pendientes no se quita de la ruta.
+- Solo muebles padre. No cambia el cobro ni la revisión por lotes: lo retrabajado por la revisión final no
+  suma a "Calidad aprobó" de Estimaciones (ya se aprobó una vez). Liberado a obra = la final aprobó la
   cantidad del mueble.
 
 ## Cuadre con Calidad (Estimaciones)

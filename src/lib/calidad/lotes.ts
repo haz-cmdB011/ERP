@@ -32,6 +32,9 @@ export interface LoteCalidad {
   vigente: boolean;
   // Folio de la hoja de entrega en papel: para ubicar la hoja física del lote.
   folio_hoja: string | null;
+  // Qué vez del proceso es en la ruta del mueble (Armado 2 de 2); null sin paso.
+  vez_paso: number | null;
+  veces_proceso: number | null;
 }
 
 // PostgREST devuelve numeric como texto: se normaliza a número.

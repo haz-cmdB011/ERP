@@ -12,6 +12,7 @@ import {
   ESTADO_ASIGNACION_LABELS,
   ESTADOS_ASIGNACION,
   PROCESO_LABELS,
+  etiquetaProceso,
   PROCESOS,
   diasEnProceso,
   formatoFecha,
@@ -270,7 +271,7 @@ export default async function AsignacionesPage({
                     <td className="px-3 py-2">
                       <span className="font-medium text-slate-900">{a.equipo}</span>
                       <span className="block text-xs text-slate-500">
-                        {PROCESO_LABELS[a.proceso]}
+                        {etiquetaProceso(a)}
                         {a.es_planta ? " · planta" : (a.encargado ?? a.equipo_encargado) ? ` · ${a.encargado ?? a.equipo_encargado}` : ""}
                       </span>
                       {a.folio_rechazo && (

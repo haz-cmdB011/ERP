@@ -61,6 +61,12 @@ interface RechazoFinal {
   paso_retirado: boolean;
   reasignado: number | string;
   por_reasignar: number | string;
+  // Paso al que toca reasignarlo ahora: lo rechazado sigue la ruta desde el paso
+  // que eligió Calidad hasta el último.
+  siguiente_paso_orden: number | null;
+  siguiente_proceso: Proceso | null;
+  // De eso, lo que ya entregó el paso anterior (asignar más queda adelantado).
+  listo_siguiente: number | string;
 }
 
 interface InformeComponente {
@@ -324,12 +330,16 @@ export default async function RechazosPage() {
             <span className="font-normal text-slate-500">({porReasignarFinal.length})</span>
           </h2>
           <p className="text-sm text-slate-500">
-            El mueble completo no pasó la revisión final. Regresa al paso de la ruta que eligió Calidad; al
-            entregarse y aprobarse su lote, vuelve a la revisión final.
+            El mueble completo no pasó la revisión final. Regresa al paso de la ruta que eligió Calidad y desde
+            ahí sigue el resto de la ruta: se reasigna paso por paso y, cuando Calidad lo aprueba en el último
+            paso, vuelve a la revisión final.
           </p>
           <ul className="flex flex-col gap-3">
             {porReasignarFinal.map((r) => {
               const pendiente = Number(r.por_reasignar);
+              const proceso = r.siguiente_proceso ?? r.proceso;
+              const orden = r.siguiente_paso_orden ?? r.paso_orden;
+              const listo = Number(r.listo_siguiente);
               const desc = `${r.numero_pedido} · ${r.modelo ?? `ítem ${r.item_code}`}`;
               return (
                 <li key={r.revision_id} className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm">
@@ -352,8 +362,15 @@ export default async function RechazosPage() {
                         <strong className="text-rose-700">
                           {pendiente} {r.unidad ?? "pz"}
                         </strong>{" "}
-                        por reasignar · regresa al paso {r.paso_orden} ({PROCESO_LABELS[r.proceso]})
+                        por reasignar en el paso {orden} ({PROCESO_LABELS[proceso]})
+                        {orden !== r.paso_orden ? ` · Calidad lo regresó al paso ${r.paso_orden}` : ""}
                       </p>
+                      {!r.paso_retirado && listo < pendiente && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          El paso anterior solo ha entregado {listo} de estas piezas: se puede reasignar, pero queda
+                          adelantado.
+                        </p>
+                      )}
                       <p className="mt-1 text-sm text-slate-700">
                         {nombreCategoria(r.categoria) && (
                           <span className="mr-1 rounded bg-rose-50 px-1.5 py-0.5 text-xs font-medium text-rose-700">
@@ -374,7 +391,7 @@ export default async function RechazosPage() {
                         informeId={r.revision_id}
                         folio={r.folio}
                         descripcion={desc}
-                        proceso={r.proceso}
+                        proceso={proceso}
                         equipoOriginalId=""
                         porReasignar={pendiente}
                         unidad={r.unidad}

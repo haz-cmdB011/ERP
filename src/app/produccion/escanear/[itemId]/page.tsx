@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import {
-  PROCESO_LABELS,
+  etiquetaProceso,
   diasEnProceso,
   formatoFecha,
   hoyMexico,
@@ -181,7 +181,7 @@ export default async function MuebleEscaneadoPage({
                   <div className="min-w-0">
                     <p className="text-base font-semibold text-slate-900">{a.equipo}</p>
                     <p className="text-sm text-slate-600">
-                      {PROCESO_LABELS[a.proceso]} · asignada {formatoFecha(a.fecha_asignacion)} ·{" "}
+                      {etiquetaProceso(a)} · asignada {formatoFecha(a.fecha_asignacion)} ·{" "}
                       {diasEnProceso(a, hoy) ?? 0} d
                     </p>
                   </div>
@@ -220,7 +220,7 @@ export default async function MuebleEscaneadoPage({
             {otras.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
                 <span className="font-medium text-slate-900">{a.equipo}</span>
-                <span className="text-slate-600">{PROCESO_LABELS[a.proceso]}</span>
+                <span className="text-slate-600">{etiquetaProceso(a)}</span>
                 <span className="text-slate-600">
                   {Number(a.entregado)}/{Number(a.cantidad)} {a.unidad ?? ""}
                 </span>

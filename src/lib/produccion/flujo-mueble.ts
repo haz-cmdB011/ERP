@@ -46,6 +46,9 @@ export interface AvancePaso {
   // ya entregó y Producción verificó, menos lo ya asignado aquí. En el primer
   // paso es todo lo disponible.
   listo: number;
+  // Piezas que Calidad rechazó en los lotes del paso y nadie ha reasignado:
+  // mientras haya, el paso no está terminado.
+  porReasignar: number;
 }
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
@@ -82,8 +85,9 @@ function normalesDelPaso(m: MuebleFlujo, indice: number): AsignacionResumen[] {
 }
 
 // Asignado, entregado y lo que queda del paso. El retrabajo no cuenta contra la
-// cantidad, pero mientras siga abierto el paso no está terminado. Mismo cálculo
-// que crear_asignacion_produccion (tope y `adelantada`).
+// cantidad, pero mientras siga abierto (o haya rechazos de Calidad sin
+// reasignar) el paso no está terminado. Mismo cálculo que
+// crear_asignacion_produccion (tope y `adelantada`).
 export function avancePaso(m: MuebleFlujo, indice: number): AvancePaso {
   const delPaso = asignacionesDelPaso(m, indice).filter((a) => !a.cancelada_en);
   const normales = delPaso.filter((a) => !esRetrabajo(a));
@@ -93,13 +97,14 @@ export function avancePaso(m: MuebleFlujo, indice: number): AvancePaso {
     indice === 0
       ? disponible
       : Math.min(disponible, Math.max(0, redondear(sumas(normalesDelPaso(m, indice - 1)).verificado - asignado)));
+  const porReasignar = redondear(delPaso.reduce((s, a) => s + Number(a.rechazado_por_reasignar ?? 0), 0));
   let estado: EstadoProceso;
   if (normales.length === 0) estado = "sin_asignar";
   else {
     const retrabajoAbierto = delPaso.some((a) => esRetrabajo(a) && a.estado !== "entregada");
-    estado = entregado >= m.cantidad && !retrabajoAbierto ? "terminado" : "en_proceso";
+    estado = entregado >= m.cantidad && !retrabajoAbierto && porReasignar <= 0 ? "terminado" : "en_proceso";
   }
-  return { estado, asignado, entregado, disponible, listo };
+  return { estado, asignado, entregado, disponible, listo, porReasignar };
 }
 
 // El estado del mueble completo, para filtrar.

@@ -105,6 +105,8 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
         { p_revision_id: UUID_NULO, p_equipo_id: UUID_NULO, p_cantidad: 1, p_fecha_asignacion: "2026-01-01", p_notas: "" },
       ],
       ["piezas_listas_revision_final", { p_item_id: UUID_NULO }],
+      // Correcciones (20261019183422_correcciones_ruta_produccion.sql).
+      ["siguiente_paso_revision_final", { p_revision_id: UUID_NULO }],
       ["pedido_id_por_ot", { p_ot: "X" }],
       ["auditar_recibos", {}],
     ];
@@ -331,6 +333,45 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
         p_notas: "",
       });
       expect(error?.message).toContain("Solo Producción");
+    });
+
+    // 20261019183422_correcciones_ruta_produccion.sql: lo rechazado sigue la ruta
+    // paso por paso; sin revisión no hay siguiente paso.
+    it("una revisión que no existe no tiene siguiente paso", async () => {
+      const { data, error } = await servicio.rpc("siguiente_paso_revision_final", { p_revision_id: UUID_NULO });
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
+    });
+
+    it("la vista de rechazos de la revisión final dice el siguiente paso", async () => {
+      const { error } = await servicio
+        .from("rechazos_revision_final")
+        .select("siguiente_paso_id, siguiente_paso_orden, siguiente_proceso, listo_siguiente")
+        .limit(1);
+      expect(error).toBeNull();
+    });
+  });
+
+  describe("resumen de asignaciones y lotes por paso de la ruta", () => {
+    // 20261019183422_correcciones_ruta_produccion.sql.
+    it("cada asignación dice qué vez del proceso es y lo rechazado sin reasignar", async () => {
+      const { data, error } = await servicio
+        .from("asignaciones_produccion_resumen")
+        .select("id, paso_id, vez_paso, veces_proceso, rechazado_por_reasignar")
+        .returns<{ id: string; paso_id: string | null; vez_paso: number | null; veces_proceso: number | null; rechazado_por_reasignar: number }[]>();
+      expect(error).toBeNull();
+      for (const a of data ?? []) {
+        expect(Number(a.rechazado_por_reasignar), a.id).toBeGreaterThanOrEqual(0);
+        if (a.vez_paso !== null) {
+          expect(a.vez_paso, a.id).toBeGreaterThanOrEqual(1);
+          expect(a.vez_paso, a.id).toBeLessThanOrEqual(a.veces_proceso ?? 0);
+        }
+      }
+    });
+
+    it("los lotes de Calidad también", async () => {
+      const { error } = await servicio.from("lotes_calidad").select("vez_paso, veces_proceso").limit(1);
+      expect(error).toBeNull();
     });
   });
 

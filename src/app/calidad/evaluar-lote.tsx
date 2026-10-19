@@ -8,7 +8,7 @@ import AsistenteNoConformidad, { type ResultadoAsistente } from "@/app/calidad/a
 import { guardarNoConformidad } from "@/lib/calidad/guardar-no-conformidad";
 import { validarDetalle, type OrigenLote } from "@/lib/calidad/no-conformidad";
 import { validarEvaluacion, type LoteCalidad } from "@/lib/calidad/lotes";
-import { PROCESO_LABELS, formatoFecha } from "@/lib/produccion/asignaciones";
+import { etiquetaProceso, formatoFecha } from "@/lib/produccion/asignaciones";
 
 type LoteParaEvaluar = Pick<
   LoteCalidad,
@@ -19,6 +19,8 @@ type LoteParaEvaluar = Pick<
   | "modelo"
   | "unidad"
   | "proceso"
+  | "vez_paso"
+  | "veces_proceso"
   | "equipo"
   | "equipo_id"
   | "fecha_entrega"
@@ -130,7 +132,7 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
       {abierto && (
         <AsistenteNoConformidad
           titulo={titulo}
-          subtitulo={`${lote.equipo} · ${PROCESO_LABELS[lote.proceso]} · entregado el ${formatoFecha(lote.fecha_entrega)}${
+          subtitulo={`${lote.equipo} · ${etiquetaProceso(lote)} · entregado el ${formatoFecha(lote.fecha_entrega)}${
             lote.folio_hoja ? ` · hoja ${lote.folio_hoja}` : ""
           }${lote.folio_rechazo ? ` · retrabajo de ${lote.folio_rechazo}` : ""}`}
           lote={{ pendiente: lote.pendiente, unidad: lote.unidad }}
