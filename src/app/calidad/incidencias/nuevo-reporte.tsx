@@ -3,9 +3,18 @@
 import { useState } from "react";
 import FormularioReporte, { type OpcionesFormulario } from "./formulario-reporte";
 
-// Botón "Nuevo reporte" del encabezado: abre el formulario de alta.
-export default function NuevoReporte({ opciones, hoy }: { opciones: OpcionesFormulario; hoy: string }) {
-  const [abierto, setAbierto] = useState(false);
+// Botón "Nuevo reporte" del encabezado: abre el formulario de alta. Con
+// `sugerido` (se llegó con "Reportar falla" desde un pedido) ya abre prellenado.
+export default function NuevoReporte({
+  opciones,
+  hoy,
+  sugerido = null,
+}: {
+  opciones: OpcionesFormulario;
+  hoy: string;
+  sugerido?: { proyecto: string; muebles: string[] } | null;
+}) {
+  const [abierto, setAbierto] = useState(sugerido !== null);
   return (
     <>
       <button
@@ -15,7 +24,9 @@ export default function NuevoReporte({ opciones, hoy }: { opciones: OpcionesForm
       >
         Nuevo reporte
       </button>
-      {abierto && <FormularioReporte opciones={opciones} hoy={hoy} onCerrar={() => setAbierto(false)} />}
+      {abierto && (
+        <FormularioReporte opciones={opciones} hoy={hoy} sugerido={sugerido} onCerrar={() => setAbierto(false)} />
+      )}
     </>
   );
 }

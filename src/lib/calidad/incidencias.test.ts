@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  leerReporteSugerido,
   categoriaDeMotivo,
   desglosarPeriodo,
   diasEntre,
@@ -494,5 +495,22 @@ describe("pendientes viejos", () => {
     const r = pendientesViejos([], hoy);
     expect(r.total).toBe(0);
     expect(r.masViejas).toEqual([]);
+  });
+});
+
+describe("leerReporteSugerido", () => {
+  it("sin reportar=1 no hay alta prellenada", () => {
+    expect(leerReporteSugerido({ reportar_proyecto: "Azotea" })).toBeNull();
+  });
+
+  it("prellena proyecto y mueble desde Reportar falla", () => {
+    expect(leerReporteSugerido({ reportar: "1", reportar_proyecto: " Azotea ", reportar_mueble: "M-RED" })).toEqual({
+      proyecto: "Azotea",
+      muebles: ["M-RED"],
+    });
+  });
+
+  it("sin mueble ni proyecto, el alta abre vacía", () => {
+    expect(leerReporteSugerido({ reportar: "1" })).toEqual({ proyecto: "", muebles: [] });
   });
 });

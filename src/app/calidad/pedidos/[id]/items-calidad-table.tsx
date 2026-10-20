@@ -61,6 +61,9 @@ export interface ItemCalidadRow {
   evaluable: boolean;
   // Si todavía no es evaluable: dónde está el mueble en Producción.
   situacion: { corto: string; detalle: string } | null;
+  // Su mueble sigue en taller (nada preaprobado ni con informes): se muestra
+  // abajo, aparte, y no cuenta como pendiente de Calidad.
+  enTaller: boolean;
   estadoRevision: string | null;
   motivoCancelacion: string | null;
   // Historial completo del ítem, ordenado desc — [0] es el más reciente.
@@ -87,13 +90,26 @@ function coincide(item: ItemCalidadRow, texto: string): boolean {
   );
 }
 
+// Reporte de no conformidad prellenado con el proyecto y el mueble, para una falla
+// que Calidad encuentra en algo que sigue en taller (no se puede aprobar ni
+// rechazar por informe: no hay piezas preaprobadas).
+function hrefReportarFalla(proyecto: string | null, item: ItemCalidadRow): string {
+  // No se usa `proyecto` a secas: en el tablero ese parámetro es un filtro.
+  const q = new URLSearchParams({ reportar: "1" });
+  if (proyecto) q.set("reportar_proyecto", proyecto);
+  if (item.modelo) q.set("reportar_mueble", item.modelo);
+  return `/calidad/incidencias?${q.toString()}`;
+}
+
 export default function ItemsCalidadTable({
   items,
   pedidoId,
+  proyecto = null,
   puedeEvaluar,
 }: {
   items: ItemCalidadRow[];
   pedidoId: string;
+  proyecto?: string | null;
   puedeEvaluar: boolean;
 }) {
   const router = useRouter();
@@ -114,41 +130,57 @@ export default function ItemsCalidadTable({
     informe: InformeResumen;
   } | null>(null);
 
+  // Los conteos y los filtros son del trabajo de Calidad: lo que sigue en taller
+  // no cuenta como "sin evaluar".
+  const listos = useMemo(() => items.filter((i) => !i.enTaller), [items]);
   const conteos = useMemo(
     () => ({
-      todos: items.length,
-      aprobado: items.filter((i) => estadoDe(i) === "aprobado").length,
-      no_aprobado: items.filter((i) => estadoDe(i) === "no_aprobado").length,
-      sin_evaluar: items.filter((i) => estadoDe(i) === "sin_evaluar").length,
-      cancelado: items.filter((i) => estadoDe(i) === "cancelado").length,
+      todos: listos.length,
+      aprobado: listos.filter((i) => estadoDe(i) === "aprobado").length,
+      no_aprobado: listos.filter((i) => estadoDe(i) === "no_aprobado").length,
+      sin_evaluar: listos.filter((i) => estadoDe(i) === "sin_evaluar").length,
+      cancelado: listos.filter((i) => estadoDe(i) === "cancelado").length,
     }),
-    [items]
+    [listos]
   );
 
   const itemsFiltrados = useMemo(
     () =>
-      items.filter(
+      listos.filter(
         (i) => (filtroCalidad === "todos" || estadoDe(i) === filtroCalidad) && coincide(i, busqueda.trim())
       ),
+    [listos, filtroCalidad, busqueda]
+  );
+  // En taller: solo con "Todos" (la búsqueda sí aplica).
+  const enTallerFiltrados = useMemo(
+    () => (filtroCalidad === "todos" ? items.filter((i) => i.enTaller && coincide(i, busqueda.trim())) : []),
     [items, filtroCalidad, busqueda]
   );
+  const [tallerAbierto, setTallerAbierto] = useState(false);
 
   // Agrupación visual MO -> FU, mismo patrón que Producción.
-  const mo = itemsFiltrados.filter((i) => i.tipo_registro === "MO");
-  const fuPorPadre = new Map<string, ItemCalidadRow[]>();
-  const idsEnGrupos = new Set<string>();
-  for (const item of itemsFiltrados) {
-    if (item.tipo_registro === "FU" && item.parent_item_id) {
-      const lista = fuPorPadre.get(item.parent_item_id) ?? [];
-      lista.push(item);
-      fuPorPadre.set(item.parent_item_id, lista);
+  function agrupar(lista: ItemCalidadRow[]) {
+    const mo = lista.filter((i) => i.tipo_registro === "MO");
+    const fuPorPadre = new Map<string, ItemCalidadRow[]>();
+    const idsEnGrupos = new Set<string>();
+    for (const item of lista) {
+      if (item.tipo_registro === "FU" && item.parent_item_id) {
+        const hijos = fuPorPadre.get(item.parent_item_id) ?? [];
+        hijos.push(item);
+        fuPorPadre.set(item.parent_item_id, hijos);
+      }
     }
+    for (const m of mo) {
+      idsEnGrupos.add(m.id);
+      for (const f of fuPorPadre.get(m.id) ?? []) idsEnGrupos.add(f.id);
+    }
+    const fuSueltos = lista.filter((i) => i.tipo_registro === "FU" && !idsEnGrupos.has(i.id));
+    return { mo, fuPorPadre, fuSueltos };
   }
-  for (const m of mo) {
-    idsEnGrupos.add(m.id);
-    for (const f of fuPorPadre.get(m.id) ?? []) idsEnGrupos.add(f.id);
-  }
-  const fuSueltos = itemsFiltrados.filter((i) => i.tipo_registro === "FU" && !idsEnGrupos.has(i.id));
+  const grupos = agrupar(itemsFiltrados);
+  const gruposTaller = agrupar(enTallerFiltrados);
+  // Plegado salvo que no haya nada más que ver o se esté buscando.
+  const tallerVisible = tallerAbierto || listos.length === 0 || busqueda.trim() !== "";
 
   function abrirDialogoRechazo(item: ItemCalidadRow) {
     setDialogo({ item });
@@ -451,7 +483,7 @@ export default function ItemsCalidadTable({
     const estado = estadoDe(item);
     const detalle = [
       r.aprobadas > 0 ? `${r.aprobadas} aprobadas` : null,
-      r.porEvaluar > 0 ? `${r.porEvaluar} por evaluar` : null,
+      r.porEvaluar > 0 ? `${r.porEvaluar} sin revisar` : null,
       r.enRetrabajo > 0 ? `${r.enRetrabajo} en retrabajo` : null,
     ].filter(Boolean);
     return (
@@ -561,12 +593,20 @@ export default function ItemsCalidadTable({
             </button>
           </div>
           <p className="max-w-[240px] text-[11px] leading-snug text-slate-500">{motivo}</p>
+          {item.enTaller && (
+            <Link
+              href={hrefReportarFalla(proyecto, item)}
+              className="text-[11px] font-medium text-rose-700 underline-offset-2 hover:underline max-md:py-2"
+            >
+              Reportar falla
+            </Link>
+          )}
         </div>
       );
     }
     if (item.lotes && porLotes(item)) {
       if (item.lotesPendientes.length === 0) {
-        return <span className="text-xs text-slate-500">Sin lotes por evaluar</span>;
+        return <span className="text-xs text-slate-500">Sin entregas por revisar</span>;
       }
       return (
         <div className="flex flex-col items-start gap-1">
@@ -712,6 +752,47 @@ export default function ItemsCalidadTable({
     </thead>
   );
 
+  // Cada mueble con sus componentes en su recuadro; los componentes sin mueble, juntos.
+  function Bloques({ mo, fuPorPadre, fuSueltos }: ReturnType<typeof agrupar>) {
+    return (
+      <>
+        {mo.map((m) => (
+          <div key={m.id} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-left text-xs">
+                {ENCABEZADO}
+                <tbody className="divide-y divide-slate-100">
+                  {Fila({ item: m, indentado: false })}
+                  {(fuPorPadre.get(m.id) ?? []).map((f) => Fila({ item: f, indentado: true }))}
+                </tbody>
+              </table>
+            </div>
+            <ul className="md:hidden">
+              {Tarjeta({ item: m, indentado: false })}
+              {(fuPorPadre.get(m.id) ?? []).map((f) => Tarjeta({ item: f, indentado: true }))}
+            </ul>
+          </div>
+        ))}
+
+        {fuSueltos.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-left text-xs">
+                {ENCABEZADO}
+                <tbody className="divide-y divide-slate-100">
+                  {fuSueltos.map((f) => Fila({ item: f, indentado: false }))}
+                </tbody>
+              </table>
+            </div>
+            <ul className="divide-y divide-slate-100 md:hidden">
+              {fuSueltos.map((f) => Tarjeta({ item: f, indentado: false }))}
+            </ul>
+          </div>
+        )}
+      </>
+    );
+  }
+
   // Solo lo que sirve para trabajar: todo, lo que falta evaluar y lo que hay que reinspeccionar
   // (este último solo si hay alguno). Sin nada por evaluar ni reinspeccionar no hay qué filtrar.
   const chips: [FiltroCalidad, string][] =
@@ -782,7 +863,7 @@ export default function ItemsCalidadTable({
       <ConfirmDialog
         open={confirmandoTodos}
         title={`Aprobar ${idsAprobables.length} ítem${idsAprobables.length === 1 ? "" : "s"}`}
-        message="Se genera un informe aprobado con folio propio para cada componente y para cada lote pendiente de los muebles (todas sus piezas por evaluar). Los folios son permanentes: no se pueden borrar después."
+        message="Se genera un informe aprobado con folio propio para cada componente y para cada entrega pendiente de los muebles (todas sus piezas por revisar). Los folios son permanentes: no se pueden borrar después."
         confirmLabel={aprobandoTodos ? "Aprobando…" : `Aprobar ${idsAprobables.length}`}
         busy={aprobandoTodos}
         onConfirm={() => void aprobarTodos()}
@@ -821,44 +902,39 @@ export default function ItemsCalidadTable({
             Ningún ítem de este pedido se ha enviado a producción todavía.
           </p>
         </div>
-      ) : itemsFiltrados.length === 0 ? (
+      ) : itemsFiltrados.length === 0 && enTallerFiltrados.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           Ningún ítem coincide con lo que elegiste.
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {mo.map((m) => (
-            <div key={m.id} className="rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left text-xs">
-                  {ENCABEZADO}
-                  <tbody className="divide-y divide-slate-100">
-                    {Fila({ item: m, indentado: false })}
-                    {(fuPorPadre.get(m.id) ?? []).map((f) => Fila({ item: f, indentado: true }))}
-                  </tbody>
-                </table>
-              </div>
-              <ul className="md:hidden">
-                {Tarjeta({ item: m, indentado: false })}
-                {(fuPorPadre.get(m.id) ?? []).map((f) => Tarjeta({ item: f, indentado: true }))}
-              </ul>
-            </div>
-          ))}
+          {listos.length === 0 && (
+            <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
+              Producción todavía no preaprueba muebles de este pedido: todo sigue en taller.
+            </p>
+          )}
+          {Bloques(grupos)}
 
-          {fuSueltos.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left text-xs">
-                  {ENCABEZADO}
-                  <tbody className="divide-y divide-slate-100">
-                    {fuSueltos.map((f) => Fila({ item: f, indentado: false }))}
-                  </tbody>
-                </table>
-              </div>
-              <ul className="divide-y divide-slate-100 md:hidden">
-                {fuSueltos.map((f) => Tarjeta({ item: f, indentado: false }))}
-              </ul>
-            </div>
+          {enTallerFiltrados.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => setTallerAbierto((v) => !v)}
+                aria-expanded={tallerVisible}
+                className="flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 max-md:min-h-11"
+              >
+                <span aria-hidden className={`transition-transform ${tallerVisible ? "rotate-90" : ""}`}>
+                  ›
+                </span>
+                En taller ({enTallerFiltrados.length})
+                <span className="text-xs font-normal text-slate-500">
+                  Producción todavía no los preaprueba: no se aprueban, pero puedes reportar una falla
+                </span>
+              </button>
+              <Colapsable abierto={tallerVisible}>
+                <div className="flex flex-col gap-4 opacity-90">{Bloques(gruposTaller)}</div>
+              </Colapsable>
+            </section>
           )}
         </div>
       )}

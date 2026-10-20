@@ -3,7 +3,8 @@ import {
   diasSinEvaluar,
   estadoDe,
   evaluablesPorCalidad,
-  visiblesParaCalidad,
+  enTallerParaCalidad,
+  listosParaCalidad,
   funcionNoExiste,
   grupoDelItem,
   idsPorAprobar,
@@ -92,7 +93,7 @@ describe("evaluablesPorCalidad", () => {
   });
 });
 
-describe("visiblesParaCalidad", () => {
+describe("listosParaCalidad", () => {
   const items = [
     { id: "m1", tipo_registro: "MO" as const, parent_item_id: null },
     { id: "f1", tipo_registro: "FU" as const, parent_item_id: "m1" },
@@ -100,19 +101,37 @@ describe("visiblesParaCalidad", () => {
     { id: "f2", tipo_registro: "FU" as const, parent_item_id: "m2" },
   ];
   it("con la verificación activa, solo el mueble preaprobado y sus componentes", () => {
-    expect([...visiblesParaCalidad(items, new Set(["m1"]), new Set(), true)].sort()).toEqual(["f1", "m1"]);
+    expect([...listosParaCalidad(items, new Set(["m1"]), new Set(), true)].sort()).toEqual(["f1", "m1"]);
   });
-  it("lo que no se ha preaprobado no aparece (taller, sin asignar)", () => {
-    expect([...visiblesParaCalidad(items, new Set(), new Set(), true)]).toEqual([]);
+  it("lo que no se ha preaprobado no está listo (taller, sin asignar)", () => {
+    expect([...listosParaCalidad(items, new Set(), new Set(), true)]).toEqual([]);
   });
   it("lo que ya tiene informes se conserva como historial", () => {
-    expect([...visiblesParaCalidad(items, new Set(["m1"]), new Set(["m2"]), true)].sort()).toEqual(["f1", "m1", "m2"]);
+    expect([...listosParaCalidad(items, new Set(["m1"]), new Set(["m2"]), true)].sort()).toEqual(["f1", "m1", "m2"]);
   });
   it("un informe de un ítem que no está en la lista no lo agrega", () => {
-    expect([...visiblesParaCalidad(items, new Set(), new Set(["otro"]), true)]).toEqual([]);
+    expect([...listosParaCalidad(items, new Set(), new Set(["otro"]), true)]).toEqual([]);
   });
   it("con la verificación apagada, todo lo liberado", () => {
-    expect([...visiblesParaCalidad(items, new Set(), new Set(), false)].sort()).toEqual(["f1", "f2", "m1", "m2"]);
+    expect([...listosParaCalidad(items, new Set(), new Set(), false)].sort()).toEqual(["f1", "f2", "m1", "m2"]);
+  });
+});
+
+describe("enTallerParaCalidad", () => {
+  const items = [
+    { id: "m1", tipo_registro: "MO" as const, parent_item_id: null },
+    { id: "f1", tipo_registro: "FU" as const, parent_item_id: "m1" },
+    { id: "m2", tipo_registro: "MO" as const, parent_item_id: null },
+    { id: "f2", tipo_registro: "FU" as const, parent_item_id: "m2" },
+  ];
+  it("lo que no está listo sigue visible, como en taller, con todo su grupo", () => {
+    expect([...enTallerParaCalidad(items, new Set(["m1", "f1"]))].sort()).toEqual(["f2", "m2"]);
+  });
+  it("si un componente ya está listo (tiene informe), su mueble va arriba con él", () => {
+    expect([...enTallerParaCalidad(items, new Set(["f2"]))].sort()).toEqual(["f1", "m1"]);
+  });
+  it("sin nada listo, todo está en taller", () => {
+    expect(enTallerParaCalidad(items, new Set()).size).toBe(4);
   });
 });
 

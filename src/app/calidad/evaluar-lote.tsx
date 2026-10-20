@@ -117,18 +117,28 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
     router.refresh();
   }
 
+  // En pantalla no se habla de "lotes": cada entrega se identifica por su fecha
+  // (y, junto a otras del mismo mueble, por proceso y equipo).
   return (
     <>
-      <button
-        type="button"
-        onClick={abrir}
-        className={`rounded-lg border border-brand-300 bg-brand-50 font-medium text-brand-800 transition-colors hover:bg-brand-100 max-md:min-h-11 ${
-          compacto ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm"
-        }`}
-      >
-        Evaluar {lote.pendiente} {unidad}
-        {compacto ? ` · ${formatoFecha(lote.fecha_entrega)}` : ""}
-      </button>
+      <div className="flex flex-col items-start gap-0.5">
+        <button
+          type="button"
+          onClick={abrir}
+          title={`${lote.equipo} · ${etiquetaProceso(lote)} · entregado el ${formatoFecha(lote.fecha_entrega)}`}
+          className={`rounded-lg border border-brand-300 bg-brand-50 font-medium text-brand-800 transition-colors hover:bg-brand-100 max-md:min-h-11 ${
+            compacto ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm"
+          }`}
+        >
+          Revisar {lote.pendiente} {unidad} del {formatoFecha(lote.fecha_entrega)}
+        </button>
+        {compacto && (
+          <span className="text-[11px] text-slate-500">
+            {etiquetaProceso(lote)} · {lote.equipo}
+            {lote.folio_rechazo ? ` · retrabajo de ${lote.folio_rechazo}` : ""}
+          </span>
+        )}
+      </div>
       {abierto && (
         <AsistenteNoConformidad
           titulo={titulo}

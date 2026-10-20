@@ -12,11 +12,27 @@
 // "Listo para cobrar" = aprobado por Calidad y todavía sin recibo; un recibo que
 // cobra más de lo aprobado queda marcado. Los componentes no suman en las barras
 // de avance: el mueble padre ya cuenta su cantidad.
+//
+// Cobro según Producción (supabase/migrations/20261020181303_cobro_segun_produccion.sql):
+// Calidad revisa el mueble completo, no cada proceso, así que la base para cobrar
+// pasó a ser lo que Producción verificó al registrar la entrega (ajuste
+// cobro_segun_produccion). Lo aprobado por Calidad se sigue mostrando, solo
+// informativo. Con el ajuste apagado todo vuelve a medirse contra Calidad.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cobroSegunProduccion } from "@/lib/calidad/ajustes-flujo";
 
 export type AreaCobro = "acabados" | "armado" | "electrificacion";
 export const AREAS_COBRO: AreaCobro[] = ["acabados", "armado", "electrificacion"];
+
+// Contra qué se mide lo listo para cobrar: lo que verificó Producción o lo que
+// aprobó Calidad (ajuste cobro_segun_produccion).
+export type BaseCobro = "produccion" | "calidad";
+
+export const ETIQUETA_LIBERADO: Record<BaseCobro, string> = {
+  produccion: "Producción liberó",
+  calidad: "Calidad aprobó",
+};
 
 export interface FilaPmCobrado {
   // Clave de la OT ("193-24").
@@ -54,6 +70,13 @@ export interface FilaPmCobrado {
   // (el mueble no pasó por Producción en el sistema, o el modelo no está en el PM).
   aprobadoAcabados: number | null;
   aprobadoArmado: number | null;
+  // Lo que Producción verificó por área (en un componente, la proporción de su
+  // mueble). null: no hay con qué comparar, igual que en Calidad.
+  verificadoAcabados: number | null;
+  verificadoArmado: number | null;
+  // Base con que se cobra: la misma en todas las filas, pero viaja en cada una
+  // para que las funciones de abajo no necesiten otro parámetro.
+  baseCobro: BaseCobro;
 }
 
 export type EstadoCobro =
@@ -127,29 +150,42 @@ export function aprobadoArea(fila: FilaPmCobrado, area: AreaCobro): number | nul
   return null;
 }
 
-// Lo que Calidad ya aprobó y todavía no tiene recibo en esa área.
+// Lo que Producción verificó en un área; null si no hay dato (Electrificación
+// tampoco: Producción no la asigna).
+export function verificadoArea(fila: FilaPmCobrado, area: AreaCobro): number | null {
+  if (area === "acabados") return fila.verificadoAcabados;
+  if (area === "armado") return fila.verificadoArmado;
+  return null;
+}
+
+// Lo liberado para cobrar en un área, según la base de cobro.
+export function liberadoArea(fila: FilaPmCobrado, area: AreaCobro): number | null {
+  return fila.baseCobro === "produccion" ? verificadoArea(fila, area) : aprobadoArea(fila, area);
+}
+
+// Lo liberado que todavía no tiene recibo en esa área.
 export function listoParaCobrar(fila: FilaPmCobrado, area: AreaCobro): number {
-  const aprobado = aprobadoArea(fila, area);
-  return aprobado == null ? 0 : Math.max(0, aprobado - fila[area]);
+  const liberado = liberadoArea(fila, area);
+  return liberado == null ? 0 : Math.max(0, liberado - fila[area]);
 }
 
 export function tieneListoParaCobrar(fila: FilaPmCobrado): boolean {
   return AREAS_COBRO.some((a) => listoParaCobrar(fila, a) > 0);
 }
 
-// Lo cobrado en un área por encima de lo que Calidad aprobó (0 si no hay dato).
-export function cobradoSobreCalidad(fila: FilaPmCobrado, area: AreaCobro): number {
-  const aprobado = aprobadoArea(fila, area);
-  return aprobado == null ? 0 : Math.max(0, fila[area] - aprobado);
+// Lo cobrado en un área por encima de lo liberado (0 si no hay dato).
+export function cobradoSinLiberar(fila: FilaPmCobrado, area: AreaCobro): number {
+  const liberado = liberadoArea(fila, area);
+  return liberado == null ? 0 : Math.max(0, fila[area] - liberado);
 }
 
-export function tieneSobreCalidad(fila: FilaPmCobrado): boolean {
-  return AREAS_COBRO.some((a) => cobradoSobreCalidad(fila, a) > 0);
+export function tieneSinLiberar(fila: FilaPmCobrado): boolean {
+  return AREAS_COBRO.some((a) => cobradoSinLiberar(fila, a) > 0);
 }
 
-// Algo que revisar: diferencias con el PM o cobrado sin aprobación de Calidad.
-export function tieneDiferenciasOCalidad(fila: FilaPmCobrado): boolean {
-  return tieneDiferencias(fila) || tieneSobreCalidad(fila);
+// Algo que revisar: diferencias con el PM o cobrado sin liberar.
+export function tieneDiferenciasOSinLiberar(fila: FilaPmCobrado): boolean {
+  return tieneDiferencias(fila) || tieneSinLiberar(fila);
 }
 
 export interface AvanceArea {
@@ -170,9 +206,9 @@ export interface ResumenOt {
   excedidos: number;
   fueraDelPm: number;
   discrepanciasPendientes: number;
-  // Renglones (mueble o componente, por área) cobrados por encima de lo que Calidad aprobó.
-  sobreCalidad: number;
-  // Renglones de muebles que Calidad ya aprobó y todavía no tienen recibo (por área),
+  // Renglones (mueble o componente, por área) cobrados por encima de lo liberado.
+  sinLiberar: number;
+  // Renglones de muebles ya liberados que todavía no tienen recibo (por área),
   // y los de componentes aparte: o se cobra el mueble o sus partes, no se suman.
   listoParaCobrar: number;
   listoComponentes: number;
@@ -199,7 +235,7 @@ export function resumirPorOt(filas: FilaPmCobrado[]): ResumenOt[] {
         excedidos: 0,
         fueraDelPm: 0,
         discrepanciasPendientes: 0,
-        sobreCalidad: 0,
+        sinLiberar: 0,
         listoParaCobrar: 0,
         listoComponentes: 0,
       };
@@ -207,7 +243,7 @@ export function resumirPorOt(filas: FilaPmCobrado[]): ResumenOt[] {
     }
     r.discrepanciasPendientes += f.discrepanciasPendientes;
     for (const a of AREAS_COBRO) {
-      if (cobradoSobreCalidad(f, a) > 0) r.sobreCalidad += 1;
+      if (cobradoSinLiberar(f, a) > 0) r.sinLiberar += 1;
       if (listoParaCobrar(f, a) > 0) {
         if (f.esComponente) r.listoComponentes += 1;
         else r.listoParaCobrar += 1;
@@ -264,6 +300,9 @@ interface FilaRpc {
   // Desde los procesos repetidos de la ruta; faltan si la migración aún no está en la base.
   cantidad_pm_acabados?: number | null;
   cantidad_pm_armado?: number | null;
+  // Desde el cobro según Producción; faltan si la migración aún no está en la base.
+  verificado_acabados?: number | null;
+  verificado_armado?: number | null;
 }
 
 const PAGINA = 1000;
@@ -272,13 +311,14 @@ const PAGINA = 1000;
 export async function cargarOtContraCobrado(
   supabase: SupabaseClient,
   ot?: string
-): Promise<{ filas: FilaPmCobrado[]; error: string | null }> {
+): Promise<{ filas: FilaPmCobrado[]; base: BaseCobro; error: string | null }> {
+  const base: BaseCobro = (await cobroSegunProduccion(supabase)) ? "produccion" : "calidad";
   const filas: FilaPmCobrado[] = [];
   for (let desde = 0; ; desde += PAGINA) {
     const { data, error } = await supabase
       .rpc("ot_contra_cobrado", { p_ot: ot ?? null })
       .range(desde, desde + PAGINA - 1);
-    if (error) return { filas, error: error.message };
+    if (error) return { filas, base, error: error.message };
     const pagina = (data ?? []) as FilaRpc[];
     for (const r of pagina) {
       filas.push({
@@ -303,8 +343,11 @@ export async function cargarOtContraCobrado(
         padreModelo: r.padre_modelo ?? null,
         aprobadoAcabados: r.aprobado_acabados == null ? null : Number(r.aprobado_acabados),
         aprobadoArmado: r.aprobado_armado == null ? null : Number(r.aprobado_armado),
+        verificadoAcabados: r.verificado_acabados == null ? null : Number(r.verificado_acabados),
+        verificadoArmado: r.verificado_armado == null ? null : Number(r.verificado_armado),
+        baseCobro: base,
       });
     }
-    if (pagina.length < PAGINA) return { filas, error: null };
+    if (pagina.length < PAGINA) return { filas, base, error: null };
   }
 }

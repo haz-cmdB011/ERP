@@ -8,13 +8,10 @@ import {
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
 import { ResumenEnMenu } from "@/components/resumen-menu";
-import { cargarResumenCalidad } from "@/lib/calidad/resumen-db";
-import { detallePorEvaluar, type ResumenCalidad } from "@/lib/calidad/resumen";
+import { cargarResumenCalidad, type ResumenCalidadConTaller } from "@/lib/calidad/resumen-db";
+import { detallePorEvaluar } from "@/lib/calidad/resumen";
 import type { AvancePedido } from "@/lib/resumen/avance-items";
-import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { paginarTodo } from "@/lib/supabase/paginar";
-import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
-import { DIAS_SIN_EVALUAR_LOTE, avisoDetenidos } from "@/lib/produccion/detenidos";
 import EstadoCalidad from "./estado-calidad";
 
 // Igual que en Planeación y Producción: órdenes de trabajo con sus PM. Al
@@ -36,7 +33,9 @@ export default async function CalidadListPage({
   // la pantalla ofrece "Reintentar" en vez de mostrar una lista corta. Resumen de
   // evaluación (por evaluar, antiguos, por reinspeccionar, tasa de aprobación): si no
   // se pudo calcular se avisa en vez de mostrar ceros que parezcan reales.
-  const [pedidos, resumen, detenidos] = await Promise.all([
+  // Ya no hay tarjeta ni alerta de "lotes por evaluar": revisar cada entrega es
+  // opcional (Calidad revisa el mueble completo en la revisión final).
+  const [pedidos, resumen] = await Promise.all([
     paginarTodo<PedidoConOt>(
       (desde, hasta) =>
         supabase
@@ -51,16 +50,17 @@ export default async function CalidadListPage({
           .returns<PedidoConOt[]>(),
       { contexto: "los pedidos" }
     ),
-    cargarResumenCalidad(supabase).catch((): ResumenCalidad | null => null),
-    // Lotes que esperan a Calidad: si falla, la pantalla sigue sin esa tarjeta.
-    cargarDetenidos(supabase, hoyMexico()).catch(() => null),
+    cargarResumenCalidad(supabase).catch((): ResumenCalidadConTaller | null => null),
   ]);
 
   const sinResumen = resumen === null;
-  // Calidad ve solo los pedidos con muebles que Producción ya preaprobó (o con
-  // historial de informes). Si el resumen no se pudo calcular se muestran todos
-  // y arriba se avisa.
-  const pedidosParaCalidad = sinResumen ? pedidos : pedidos.filter((p) => resumen.porPedido.has(p.id));
+  // Calidad ve todos los pedidos con muebles enviados a producción: los que ya
+  // tienen algo preaprobado (o historial de informes) y los que siguen en taller,
+  // donde también puede encontrar fallas. Si el resumen no se pudo calcular se
+  // muestran todos y arriba se avisa.
+  const pedidosParaCalidad = sinResumen
+    ? pedidos
+    : pedidos.filter((p) => resumen.porPedido.has(p.id) || resumen.enTallerPorPedido.has(p.id));
   const filtradas = filtrarOrdenesTrabajo(pedidosParaCalidad, {
     anio: anioFiltro,
     cliente: clienteFiltro,
@@ -84,6 +84,9 @@ export default async function CalidadListPage({
   };
   const reinspeccionDe = (fila: (typeof filtradas.filas)[number]) =>
     pedidoIdsDe(fila).reduce((n, id) => n + (resumen?.porPedido.get(id)?.porReinspeccionar ?? 0), 0);
+  // Ítems que Calidad ve pero siguen en taller (no cuentan como pendientes).
+  const enTallerDe = (fila: (typeof filtradas.filas)[number]) =>
+    pedidoIdsDe(fila).reduce((n, id) => n + (resumen?.enTallerPorPedido.get(id) ?? 0), 0);
   const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porEvaluar > 0).length;
   const otsConReinspeccion = filtradas.filas.filter((fila) => reinspeccionDe(fila) > 0).length;
   const filas = filtradas.filas.filter(
@@ -103,18 +106,6 @@ export default async function CalidadListPage({
       ) : (
         <ResumenEnMenu
           tarjetas={[
-            ...(detenidos
-              ? [
-                  {
-                    valor: detenidos.sinEvaluar.total,
-                    etiqueta: "Lotes por evaluar",
-                    detalle: "entregas que Producción ya verificó",
-                    href: "/calidad/entregas",
-                    tono: "atencion" as const,
-                    alerta: avisoDetenidos(detenidos.sinEvaluar, DIAS_SIN_EVALUAR_LOTE),
-                  },
-                ]
-              : []),
             {
               valor: resumen!.porEvaluar,
               etiqueta: "Ítems por evaluar",
@@ -214,7 +205,7 @@ export default async function CalidadListPage({
 
       {pedidos.length > 0 && pedidosParaCalidad.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Producción todavía no preaprueba muebles para Calidad. Cuando lo haga, aparecerán aquí.
+          Todavía no hay muebles enviados a producción. Cuando los haya, aparecerán aquí.
         </p>
       )}
 
@@ -233,11 +224,19 @@ export default async function CalidadListPage({
             titulo: "Evaluación",
             celda: (fila) => (
               <div className="flex flex-col items-start gap-1">
-                <EstadoCalidad cancelado={false} avance={sinResumen ? undefined : avanceDe(fila)} />
+                <EstadoCalidad
+                  cancelado={false}
+                  avance={sinResumen ? undefined : avanceDe(fila)}
+                  enTaller={sinResumen ? 0 : enTallerDe(fila)}
+                />
                 {!sinResumen && reinspeccionDe(fila) > 0 && (
                   <span className="text-[11px] font-medium text-rose-700">
                     {reinspeccionDe(fila)} por reinspeccionar
                   </span>
+                )}
+                {/* Con barra de avance; si todo está en taller, ya lo dice la etiqueta. */}
+                {!sinResumen && enTallerDe(fila) > 0 && avanceDe(fila).liberados > 0 && (
+                  <span className="text-[11px] text-slate-500">{enTallerDe(fila)} en taller</span>
                 )}
               </div>
             ),

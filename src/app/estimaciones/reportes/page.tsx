@@ -824,7 +824,11 @@ export default async function ReportePage({
                     descripcion="Lo declarado por Planeación en cada O.T. contra lo capturado en recibos vigentes."
                     resumen={pm?.error ? "No se pudo leer" : `${resumenesPm.length} O.T.`}
                   >
-                    <PanelPmCobrado resumenes={resumenesPm} error={pm?.error ?? null} />
+                    <PanelPmCobrado
+                      resumenes={resumenesPm}
+                      baseCobro={pm?.base ?? "calidad"}
+                      error={pm?.error ?? null}
+                    />
                   </SeccionDesplegable>
                 )}
               </>

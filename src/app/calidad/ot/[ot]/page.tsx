@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { traerTodo } from "@/lib/supabase/traer-todo";
 import { ErrorLectura } from "@/lib/supabase/paginar";
-import { visiblesParaCalidad } from "@/lib/calidad/estado-item";
+import { enTallerParaCalidad, listosParaCalidad } from "@/lib/calidad/estado-item";
 import { verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
 import { cargarMueblesPreaprobados } from "@/lib/calidad/preaprobados-db";
 
@@ -30,9 +30,12 @@ interface InformeResumen {
 }
 
 interface Avance {
+  // Listos para Calidad (preaprobados o con informes).
   enviados: number;
   aprobados: number;
   rechazados: number;
+  // Siguen en taller: se ven, pero no cuentan como pendientes de Calidad.
+  enTaller: number;
 }
 
 export async function generateMetadata({
@@ -115,17 +118,19 @@ export default async function OrdenTrabajoCalidadPage({
     throw new ErrorLectura(`No se pudo leer el avance de la O.T.: ${errorItems ?? errorInformes}`);
   }
 
-  // Calidad ve solo lo que Producción ya preaprobó (y el historial con informes).
+  // El avance cuenta lo listo para Calidad (lo que Producción ya preaprobó y el
+  // historial con informes); lo que sigue en taller se cuenta aparte.
   const [preaprobados, verificacionActiva] = await Promise.all([
     cargarMueblesPreaprobados(supabase, pms.map((p) => p.id)),
     verificacionProduccionActiva(supabase),
   ]);
-  const visibles = visiblesParaCalidad(
+  const listos = listosParaCalidad(
     items,
     preaprobados,
     new Set(informes.map((i) => i.planeacion_item_id)),
     verificacionActiva
   );
+  const enTaller = enTallerParaCalidad(items, listos);
 
   // Vienen del más reciente al más antiguo: el primero de cada ítem manda.
   const ultimoInforme = new Map<string, boolean>();
@@ -135,19 +140,29 @@ export default async function OrdenTrabajoCalidadPage({
 
   const avancePorVersion = new Map<string, Avance>();
   for (const item of items) {
-    if (!visibles.has(item.id)) continue;
-    const a = avancePorVersion.get(item.pedido_version_id) ?? { enviados: 0, aprobados: 0, rechazados: 0 };
+    const a = avancePorVersion.get(item.pedido_version_id) ?? {
+      enviados: 0,
+      aprobados: 0,
+      rechazados: 0,
+      enTaller: 0,
+    };
+    avancePorVersion.set(item.pedido_version_id, a);
+    if (enTaller.has(item.id)) {
+      a.enTaller += 1;
+      continue;
+    }
+    if (!listos.has(item.id)) continue;
     a.enviados += 1;
     const ultimo = ultimoInforme.get(item.id);
     if (ultimo === true) a.aprobados += 1;
     else if (ultimo === false) a.rechazados += 1;
-    avancePorVersion.set(item.pedido_version_id, a);
   }
 
-  // Los PM sin muebles preaprobados no aparecen.
+  // Aparecen los PM con algo enviado a producción, listo para Calidad o en taller.
   const pmsVisibles = pms.filter((p) => {
     const activa = versionActiva.get(p.id);
-    return (activa ? (avancePorVersion.get(activa.id)?.enviados ?? 0) : 0) > 0;
+    const a = activa ? avancePorVersion.get(activa.id) : undefined;
+    return (a?.enviados ?? 0) + (a?.enTaller ?? 0) > 0;
   });
 
   return (
@@ -165,14 +180,14 @@ export default async function OrdenTrabajoCalidadPage({
 
       {pmsVisibles.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Producción todavía no preaprueba muebles de esta O.T. Cuando lo haga, aparecerán aquí.
+          Ningún mueble de esta O.T. se ha enviado a producción. Cuando se envíe, aparecerá aquí.
         </p>
       )}
 
       {pmsVisibles.length > 0 && (
         <div className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-slate-600">
-            {pmsVisibles.length} PM con muebles liberados a Calidad
+            {pmsVisibles.length} PM con muebles en producción
           </h2>
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
@@ -186,6 +201,9 @@ export default async function OrdenTrabajoCalidadPage({
                   <th className="px-4 py-3 text-right">Aprobados</th>
                   <th className="px-4 py-3 text-right">Rechazados</th>
                   <th className="px-4 py-3 text-right">Sin evaluar</th>
+                  <th className="px-4 py-3 text-right" title="Producción todavía no los preaprueba">
+                    En taller
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -229,6 +247,7 @@ export default async function OrdenTrabajoCalidadPage({
                       <td className="px-4 py-3 text-right font-medium text-amber-700">
                         {sinEvaluar || "—"}
                       </td>
+                      <td className="px-4 py-3 text-right text-slate-500">{a?.enTaller || "—"}</td>
                     </tr>
                   );
                 })}

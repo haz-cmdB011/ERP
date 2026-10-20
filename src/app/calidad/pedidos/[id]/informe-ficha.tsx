@@ -130,8 +130,8 @@ export default function InformeFicha({
           <>
             <Campo label="Piezas" valor={`${informe.lote.cantidad} ${informe.lote.unidad ?? "pz"}`} />
             <Campo
-              label="Lote"
-              valor={`${informe.lote.equipo} · ${informe.lote.proceso} · entregado ${formatoFechaDMA(informe.lote.fechaEntrega)}`}
+              label="Entrega"
+              valor={`${formatoFechaDMA(informe.lote.fechaEntrega)} · ${informe.lote.proceso} · ${informe.lote.equipo}`}
             />
             {informe.lote.folioRechazo && <Campo label="Retrabajo de" valor={informe.lote.folioRechazo} />}
           </>

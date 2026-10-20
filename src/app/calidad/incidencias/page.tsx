@@ -16,6 +16,7 @@ import {
   pendientesViejos,
   periodoDe,
   refPorDefecto,
+  leerReporteSugerido,
   resumirIncidencias,
   resumirPorAuditor,
   resumirPorSemana,
@@ -151,7 +152,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">No conformidades</h1>
-        <NuevoReporte opciones={opciones} hoy={hoy} />
+        <NuevoReporte opciones={opciones} hoy={hoy} sugerido={leerReporteSugerido(parametros)} />
       </div>
 
       <SelectorPeriodo periodo={periodo} dia={dia} hoy={hoy} hrefDe={ir} />

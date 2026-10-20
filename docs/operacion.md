@@ -81,12 +81,13 @@ claves en chats, issues ni commits.
 
 ## Si Calidad no puede evaluar un mueble
 
-Calidad solo **ve y evalúa** muebles que Producción ya preaprobó (más lo que ya tiene informes, como
+Calidad solo **evalúa** muebles que Producción ya preaprobó (más lo que ya tiene informes, como
 historial). La preaprobación se hace al **registrar la entrega**: quien toma la foto de la hoja marca si
 las piezas *cumplen* (pasan a Calidad) o *no cumplen* (regresan al equipo con motivo). Lo que sigue en
-taller, sin asignar o con la entrega sin decidir **no aparece** en las pantallas de Calidad. Si Calidad
-pregunta por un mueble que no ve, revisar en Producción → Control de asignaciones si falta registrar la
-entrega o preaprobarla (las entregas viejas sin decisión se revisan ahí).
+taller, sin asignar o con la entrega sin decidir **sí se ve**, abajo en "En taller", con los botones de
+aprobar deshabilitados y el motivo (dónde está en Producción); ahí Calidad puede **reportar una falla**.
+Si Calidad pregunta por qué no puede aprobar un mueble, revisar en Producción → Control de asignaciones
+si falta registrar la entrega o preaprobarla (las entregas viejas sin decisión se revisan ahí).
 
 Si hay que dejar que Calidad evalúe sin preaprobación (emergencia), se apaga desde el SQL Editor y queda
 registrado en la base:
@@ -101,25 +102,41 @@ Calidad puede evaluar un mueble completo sin entrega. Al volver a encenderlo, an
 `PERIODOS_SIN_VERIFICACION` de `tests-db/produccion-calidad.test.ts` (esos informes no siguen las reglas
 normales).
 
-## Revisión final del mueble (apagada)
+## Revisión final del mueble
 
-Calidad revisa cada proceso por lotes. La **revisión final** del mueble completo antes de mandarlo a obra
-existe pero se creó **apagada** (ajuste `revision_final`), a la espera de que Calidad confirme que así
-trabaja. Apagada no cambia nada. Encendida:
+Calidad revisa el **mueble completo** antes de mandarlo a obra, no cada proceso (revisar un lote queda
+como opción si hay una falla en ese proceso). La revisión final está detrás del ajuste `revision_final`; se
+enciende **después de fusionar** la versión que pide dónde nació la falla (migración
+`revision_final_obligatoria`). Apagada no cambia nada. Encendida:
 
-- En Calidad (detalle del PM) aparece "Revisión final" con los muebles que ya pasaron todos los pasos de su
-  ruta (lo que Calidad aprobó en el último paso). Cada resultado lleva folio `FIN-`.
-- Lo rechazado regresa al paso de la ruta que elija Calidad y aparece en Producción → Rechazado por Calidad
-  para reasignarlo. Desde ese paso sigue el resto de la ruta (se reasigna paso por paso) y, cuando Calidad lo
-  aprueba en el último paso, vuelve a la revisión final.
+- En Calidad (detalle del PM) aparece "Revisión final" con los muebles que Producción ya verificó en el
+  último paso de su ruta (no hace falta que Calidad apruebe cada lote). Cada resultado lleva folio `FIN-`.
+- Lo rechazado lleva el motivo, **dónde nació la falla** (un paso de la ruta o un área: Ingeniería,
+  Planeación, Compras o proveedor, Diseño, otra) y el paso al que regresa. Aparece en Producción → Rechazado
+  por Calidad para reasignarlo. Desde ese paso sigue el resto de la ruta (se reasigna paso por paso) y,
+  cuando Producción lo vuelve a verificar en el último paso, regresa a la revisión final.
 - En Producción el mueble dice "Revisión final x/y" y, cuando se aprueba completo, "Liberado a obra".
-- No cambia el cobro de los maquiladores (se cobra por proceso aprobado).
+- No cambia el cobro de los maquiladores (ver la sección siguiente).
 
 Para encenderla (o apagarla con `false`) desde el SQL Editor:
 
 ```sql
 update public.ajustes_flujo set activo = true, actualizado_en = now()
   where clave = 'revision_final';
+```
+
+## Contra qué se cobra (Estimaciones)
+
+Calidad revisa el mueble completo y no cada proceso, así que en Estimaciones "Listo para cobrar" y el aviso
+de "cobrado de más" al revisar un recibo se miden contra lo que **Producción verificó** al registrar la
+entrega (ajuste `cobro_segun_produccion`, encendido desde el 20 oct 2026). Lo que aprobó Calidad se sigue
+mostrando en gris, solo como dato. Un componente se da por liberado en la misma proporción que su mueble.
+
+Si se decide que vuelva a mandar Calidad, apagarlo desde el SQL Editor (con `true` regresa a Producción):
+
+```sql
+update public.ajustes_flujo set activo = false, actualizado_en = now()
+  where clave = 'cobro_segun_produccion';
 ```
 
 ## Cambios de base de datos

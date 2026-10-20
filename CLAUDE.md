@@ -122,9 +122,12 @@ en el repo. Por eso:
 
 ## Preaprobación de Producción
 
-Calidad solo evalúa piezas que Producción preaprobó, y sus pantallas solo **muestran** esos muebles
-(más lo que ya tiene informes): lo que sigue en taller no aparece (`visiblesParaCalidad` en
-`src/lib/calidad/estado-item.ts`, lectura en `preaprobados-db.ts`). La preaprobación se hace al **registrar la
+Calidad solo **evalúa** piezas que Producción preaprobó, pero **ve** todo lo enviado a producción (desde el
+20 oct 2026; antes lo de taller no aparecía): arriba lo listo (preaprobado o con informes,
+`listosParaCalidad` en `src/lib/calidad/estado-item.ts`, lectura en `preaprobados-db.ts`) y abajo, plegado,
+"En taller" (`enTallerParaCalidad`, el mueble va junto con sus componentes). Lo de taller no se aprueba ni
+cuenta como pendiente en el panel ni en la O.T.; tiene "Reportar falla", que abre el alta de no conformidades
+prellenada (`?reportar=1&reportar_proyecto=…&reportar_mueble=…`). La preaprobación se hace al **registrar la
 entrega**: quien toma la foto marca si las piezas cumplen (nace verificada y pasa a Calidad) o no
 cumplen (nace rechazada, con motivo). Lo controla el ajuste `verificacion_produccion` de la tabla
 `ajustes_flujo`, hoy ENCENDIDO (migración `entrega_con_preaprobacion`). Apagado, Calidad evalúa todo
@@ -156,16 +159,22 @@ si el mueble o sus componentes las llevan); se crea con la primera asignación o
   migración `recibos_procesos_repetidos`). Componentes y Electrificación siguen 1×. Lo usan el control al
   guardar el renglón, el campo Modelo de la captura y "PM contra cobrado" (`cantidad_pm_acabados/armado`).
 
-## Revisión final de Calidad (apagada)
+## Revisión final de Calidad
 
-Además de los lotes por proceso, Calidad puede revisar el **mueble completo** antes de mandarlo a obra
-(migración `revision_final_calidad`). Está detrás del ajuste `revision_final` de `ajustes_flujo`, creado
-**apagado** hasta que Calidad confirme que así trabaja (cómo encenderlo: `docs/operacion.md`).
+Calidad revisa el **mueble completo** antes de mandarlo a obra, no cada proceso (migraciones
+`revision_final_calidad` y `revision_final_obligatoria`). Revisar un lote por proceso queda como opción,
+para cuando hay una falla ahí: en pantalla no se habla de "lotes" sino de **entregas identificadas por su
+fecha** ("Revisar 3 pz del 20/10", página Entregas de `/calidad/entregas`), y el panel ya no tiene tarjeta ni
+alerta de días sin evaluar (los datos siguen en la vista `lotes_calidad`). Está detrás del ajuste `revision_final` de `ajustes_flujo`, que se enciende
+**después de fusionar** la pantalla que pide el origen de la falla (cómo: `docs/operacion.md`); encendida es
+la puerta obligatoria hacia obra.
 
-- Listas = todo lo que Calidad aprobó en el **último paso** de la ruta (incluidos los retrabajos de la
-  propia revisión final que ya llegaron ahí) − lo revisado (`piezas_listas_revision_final`, vista
-  `revision_final_muebles`).
-- `registrar_revision_final`: folio `FIN-` por resultado; lo rechazado lleva motivo y el paso de la ruta al
+- Listas = lo que **Producción verificó** en el **último paso** de la ruta (entregas preaprobadas, incluidos
+  los retrabajos que ya llegaron ahí) − lo que Calidad rechazó en esos lotes si los revisó − lo revisado
+  (`piezas_listas_revision_final`, vista `revision_final_muebles`). Antes era lo que Calidad aprobó.
+- `registrar_revision_final`: folio `FIN-` por resultado; lo rechazado lleva motivo, **dónde nació la falla**
+  (`origen_paso_id`, un paso de la ruta, u `origen_area`: ingenieria, planeacion, compras, diseno, otra;
+  exactamente uno; `AREAS_ORIGEN` en `src/lib/calidad/revision-final.ts`) y el paso de la ruta al
   que regresa, y desde ahí **sigue el resto de la ruta**: Producción lo reasigna paso por paso con
   `crear_retrabajo_revision_final`, que toma el siguiente paso (`siguiente_paso_revision_final`; vista
   `rechazos_revision_final`, pantalla Rechazado por Calidad). Ese retrabajo no cuenta contra el tope del
@@ -190,9 +199,16 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   lotes de equipos que no son de planta (la planta no cobra recibo); en un componente, su último informe (todo
   o nada). Solo hay dato si Producción asignó el mueble en el sistema; si no, es null y no se marca nada.
   Electrificación no se compara con Calidad.
-- **Listo para cobrar** = aprobado por Calidad − cobrado (filtro de la O.T. y del reporte). Un recibo cobrado
-  de más se **marca al revisarlo** (`recibo_contra_calidad`, `src/app/estimaciones/calidad-recibo.tsx`): es un
-  aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece si Calidad aprueba.
+- **Se cobra según Producción** (migración `cobro_segun_produccion`, ajuste `cobro_segun_produccion` de
+  `ajustes_flujo`, ENCENDIDO): Calidad revisa el mueble completo, no cada proceso, así que lo liberado para
+  cobrar es lo que **Producción verificó** al registrar la entrega (`verificado_produccion_variante`, interna,
+  mismas reglas que la de Calidad y sin retrabajos; un componente, en la proporción de su mueble). "Calidad
+  aprobó" queda solo informativo. Apagado el ajuste, todo vuelve a medirse contra Calidad. La app lo lee con
+  `cobroSegunProduccion` (`src/lib/calidad/ajustes-flujo.ts`); si no puede, asume Calidad.
+- **Listo para cobrar** = liberado − cobrado (filtro de la O.T. y del reporte; `liberadoArea` en
+  `src/lib/estimaciones/pm-cobrado.ts`). Un recibo cobrado de más se **marca al revisarlo**
+  (`recibo_contra_calidad`, que trae lo aprobado y lo verificado; `src/app/estimaciones/calidad-recibo.tsx`): es
+  un aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece al liberarse.
 - No cubre el doble cobro (el mueble y también sus componentes por el mismo trabajo): salen juntos en pantalla.
 
 ## Capturas sin conexión

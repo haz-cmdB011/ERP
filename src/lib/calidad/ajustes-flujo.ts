@@ -32,3 +32,18 @@ export async function revisionFinalActiva(supabase: SupabaseClient): Promise<boo
   if (error || !data) return false;
   return data.activo;
 }
+
+// Ajuste `cobro_segun_produccion`: en Estimaciones, "Listo para cobrar" y el aviso
+// de cobrado de más se miden contra lo que Producción verificó, no contra lo que
+// aprobó Calidad (migración cobro_segun_produccion, ENCENDIDO). Si no se puede
+// leer (la migración aún no está en la base), se asume apagado: tampoco llega el
+// dato de Producción, así que se sigue cobrando según Calidad.
+export async function cobroSegunProduccion(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("ajustes_flujo")
+    .select("activo")
+    .eq("clave", "cobro_segun_produccion")
+    .maybeSingle<{ activo: boolean }>();
+  if (error || !data) return false;
+  return data.activo;
+}
