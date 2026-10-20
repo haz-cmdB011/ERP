@@ -599,8 +599,33 @@ export function resumirIncidencias(filas: Incidencia[]): ResumenIncidencias {
 // --- Parámetros de la URL ----------------------------------------------------
 
 export type ParametrosIncidencias = Partial<
-  Record<"linea" | "tipo" | "estado" | "area" | "proyecto" | "auditor" | "vista" | "ref", string>
+  Record<
+    | "linea"
+    | "tipo"
+    | "estado"
+    | "area"
+    | "proyecto"
+    | "auditor"
+    | "vista"
+    | "ref"
+    // "Reportar falla" desde el detalle de un pedido: abre el alta prellenada.
+    | "reportar"
+    | "reportar_proyecto"
+    | "reportar_mueble",
+    string
+  >
 >;
+
+// Lo que llega prellenado al abrir el alta desde "Reportar falla"; null si no se
+// pidió. Solo texto que el usuario revisa antes de guardar.
+export function leerReporteSugerido(p: ParametrosIncidencias): { proyecto: string; muebles: string[] } | null {
+  if (p.reportar !== "1") return null;
+  const mueble = p.reportar_mueble?.trim().slice(0, 120);
+  return {
+    proyecto: p.reportar_proyecto?.trim().slice(0, 200) ?? "",
+    muebles: mueble ? [mueble] : [],
+  };
+}
 
 export function leerFiltrosIncidencias(p: ParametrosIncidencias): FiltrosIncidencias {
   return {

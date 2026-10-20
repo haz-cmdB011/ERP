@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
-import { evaluablesPorCalidad, grupoDelItem, visiblesParaCalidad } from "@/lib/calidad/estado-item";
+import { enTallerParaCalidad, evaluablesPorCalidad, grupoDelItem, listosParaCalidad } from "@/lib/calidad/estado-item";
 import { revisionFinalActiva, verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
@@ -249,13 +249,16 @@ export default async function PedidoCalidadPage({
     informesPorItem.set(inf.planeacion_item_id, lista);
   }
 
-  // Calidad ve solo lo que Producción ya preaprobó (y lo que ya tiene informes):
-  // lo que sigue en taller o sin asignar no aparece.
-  const visibles = visiblesParaCalidad(items, mueblesPreaprobados, new Set(informesPorItem.keys()), verificacionActiva);
+  // Calidad ve todo lo enviado a producción: arriba lo que Producción ya
+  // preaprobó (y lo que ya tiene informes); abajo, "en taller", lo demás, donde
+  // no puede aprobar pero sí reportar una falla.
+  const listos = listosParaCalidad(items, mueblesPreaprobados, new Set(informesPorItem.keys()), verificacionActiva);
+  const enTaller = enTallerParaCalidad(items, listos);
 
-  const itemsConInforme: ItemCalidadRow[] = items.filter((item) => visibles.has(item.id)).map((item) => {
+  const itemsConInforme: ItemCalidadRow[] = items.map((item) => {
     const evaluable = verificados.has(item.id);
     return {
+      enTaller: enTaller.has(item.id),
       id: item.id,
       item_code: item.item_code,
       tipo_registro: item.tipo_registro,
@@ -312,8 +315,8 @@ export default async function PedidoCalidadPage({
     });
   const grupoEnfocado = itemEnfocado ? grupoDelItem(itemsConInforme, itemEnfocado) : [];
   const enfoque = itemEnfocado !== null && grupoEnfocado.length > 0;
-  // El QR es de un mueble liberado a producción que Producción aún no preaprueba.
-  const enfocadoSinPreaprobar = itemEnfocado !== null && !enfoque && items.some((i) => i.id === itemEnfocado);
+  // El QR es de un mueble que sigue en taller: se ve, pero no se puede aprobar.
+  const enfocadoEnTaller = enfoque && enTaller.has(itemEnfocado);
   const hrefTodoElPedido = `/calidad/pedidos/${id}${
     versionSeleccionada ? `?version=${versionSeleccionada.numero_version}` : ""
   }`;
@@ -368,10 +371,10 @@ export default async function PedidoCalidadPage({
 
       {itemEnfocado && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
-          {enfoque
-            ? "Mostrando el mueble que escaneaste."
-            : enfocadoSinPreaprobar
-              ? "Ese mueble todavía no está liberado para Calidad: Producción no ha preaprobado sus piezas."
+          {enfocadoEnTaller
+            ? "Mostrando el mueble que escaneaste. Sigue en taller: Producción no ha preaprobado sus piezas, así que todavía no se puede aprobar, pero sí puedes reportar una falla."
+            : enfoque
+              ? "Mostrando el mueble que escaneaste."
               : "Ese mueble todavía no se ha enviado a producción en esta versión, así que no se puede evaluar."}
           <Link href={hrefTodoElPedido} className="font-medium underline-offset-2 hover:underline">
             Ver todo el pedido
@@ -384,7 +387,7 @@ export default async function PedidoCalidadPage({
 
       {versionSeleccionada && itemsConInforme.length === 0 && !enfoque && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Producción todavía no preaprueba muebles de este pedido. Cuando lo haga, aparecerán aquí.
+          Ningún mueble de este pedido se ha enviado a producción. Cuando se envíe, aparecerá aquí.
         </p>
       )}
 
@@ -398,6 +401,7 @@ export default async function PedidoCalidadPage({
         <ItemsCalidadTable
           items={enfoque ? grupoEnfocado : itemsConInforme}
           pedidoId={id}
+          proyecto={pedido.proyectos?.nombre ?? null}
           puedeEvaluar={puedeEvaluar}
         />
       )}

@@ -9,11 +9,13 @@ import {
   areasRepetidas,
   baseArea,
   cargarOtContraCobrado,
-  cobradoSobreCalidad,
+  cobradoSinLiberar,
+  ETIQUETA_LIBERADO,
   estadoCelda,
+  liberadoArea,
   listoParaCobrar,
   resumirPorOt,
-  tieneDiferenciasOCalidad,
+  tieneDiferenciasOSinLiberar,
   tieneListoParaCobrar,
   tienePendienteDeCobro,
   type AreaCobro,
@@ -45,12 +47,14 @@ function Celda({ fila, area }: { fila: FilaPmCobrado; area: AreaCobro }) {
   const estado = estadoCelda(fila, area);
   const cobrado = fila[area];
   const base = baseArea(fila, area);
-  const aprobado = aprobadoArea(fila, area);
+  const liberado = liberadoArea(fila, area);
+  // Con el cobro según Producción, lo de Calidad queda como dato aparte.
+  const aprobado = fila.baseCobro === "produccion" ? aprobadoArea(fila, area) : null;
   if (estado === "no_aplica") {
     return <span className={ESTILO_CELDA[estado]}>—</span>;
   }
   const listo = listoParaCobrar(fila, area);
-  const sobre = cobradoSobreCalidad(fila, area);
+  const sobre = cobradoSinLiberar(fila, area);
   return (
     <span className={`tabular-nums ${ESTILO_CELDA[estado]}`}>
       {base == null ? cobrado : `${cobrado} / ${base}`}
@@ -60,17 +64,20 @@ function Celda({ fila, area }: { fila: FilaPmCobrado; area: AreaCobro }) {
         </span>
       )}
       {estado === "completo" && <span className="ml-1" aria-label="completo">✓</span>}
-      {/* Lo que Calidad ya aprobó: solo donde hay algo que decir (aprobado o cobrado). */}
-      {aprobado != null && (aprobado > 0 || cobrado > 0) && (
+      {/* Lo liberado para cobrar: solo donde hay algo que decir (liberado o cobrado). */}
+      {liberado != null && (liberado > 0 || cobrado > 0) && (
         <span
           className={`block text-[11px] font-normal ${
             sobre > 0 ? "font-medium text-rose-700" : listo > 0 ? "font-medium text-emerald-700" : "text-slate-500"
           }`}
         >
-          Calidad aprobó {aprobado}
+          {ETIQUETA_LIBERADO[fila.baseCobro]} {liberado}
           {listo > 0 && ` · listo ${listo}`}
-          {sobre > 0 && ` · sin aprobar ${sobre}`}
+          {sobre > 0 && ` · sin liberar ${sobre}`}
         </span>
+      )}
+      {aprobado != null && aprobado > 0 && (
+        <span className="block text-[11px] font-normal text-slate-400">Calidad aprobó {aprobado}</span>
       )}
     </span>
   );
@@ -95,14 +102,14 @@ export default async function PmCobradoDetallePage({
     redirect("/estimaciones");
   }
 
-  const { filas, error } = await cargarOtContraCobrado(supabase, ot);
+  const { filas, base: baseCobro, error } = await cargarOtContraCobrado(supabase, ot);
   if (!error && filas.length === 0) notFound();
   const [resumen] = resumirPorOt(filas);
   const base = `/estimaciones/pm-cobrado/${encodeURIComponent(resumen?.ot ?? ot)}`;
 
   const visibles = filas.filter((f) =>
     filtro === "diferencias"
-      ? tieneDiferenciasOCalidad(f) || f.discrepanciasPendientes > 0
+      ? tieneDiferenciasOSinLiberar(f) || f.discrepanciasPendientes > 0
       : filtro === "por-cobrar"
         ? tienePendienteDeCobro(f)
         : filtro === "listo"
@@ -135,7 +142,7 @@ export default async function PmCobradoDetallePage({
           {AREAS_COBRO.map((a) => (
             <BarraAvance key={a} etiqueta={AREA_RECIBO_LABELS[a]} avance={resumen.avance[a]} />
           ))}
-          {(resumen.listoParaCobrar > 0 || resumen.listoComponentes > 0 || resumen.sobreCalidad > 0) && (
+          {(resumen.listoParaCobrar > 0 || resumen.listoComponentes > 0 || resumen.sinLiberar > 0) && (
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:col-span-3">
               {(resumen.listoParaCobrar > 0 || resumen.listoComponentes > 0) && (
                 <Link href={`${base}?ver=listo`} className="font-medium text-emerald-700 hover:underline">
@@ -145,9 +152,10 @@ export default async function PmCobradoDetallePage({
                     ` y ${resumen.listoComponentes} de componentes`}
                 </Link>
               )}
-              {resumen.sobreCalidad > 0 && (
+              {resumen.sinLiberar > 0 && (
                 <Link href={`${base}?ver=diferencias`} className="font-medium text-rose-700 hover:underline">
-                  {resumen.sobreCalidad} cobrado{resumen.sobreCalidad === 1 ? "" : "s"} sin la aprobación de Calidad
+                  {resumen.sinLiberar} cobrado{resumen.sinLiberar === 1 ? "" : "s"}{" "}
+                  {baseCobro === "produccion" ? "sin liberar por Producción" : "sin la aprobación de Calidad"}
                 </Link>
               )}
             </p>
@@ -166,8 +174,11 @@ export default async function PmCobradoDetallePage({
       )}
 
       <p className="-mb-3 text-xs text-slate-500">
-        <strong className="font-medium text-slate-600">Listo para cobrar</strong> = Calidad ya lo aprobó y todavía no
-        tiene recibo. Cada componente (↳) se cobra suelto o con su mueble, no las dos cosas.
+        <strong className="font-medium text-slate-600">Listo para cobrar</strong> ={" "}
+        {baseCobro === "produccion"
+          ? "Producción ya lo verificó al registrar la entrega (lo de Calidad es solo informativo)"
+          : "Calidad ya lo aprobó"}{" "}
+        y todavía no tiene recibo. Cada componente (↳) se cobra suelto o con su mueble, no las dos cosas.
       </p>
 
       <div className="flex flex-wrap gap-2 text-sm">
@@ -191,9 +202,11 @@ export default async function PmCobradoDetallePage({
       {visibles.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           {filtro === "diferencias"
-            ? "Ningún modelo tiene diferencias con lo cobrado ni con lo que Calidad aprobó."
+            ? `Ningún modelo tiene diferencias con lo cobrado ni con lo que ${
+                baseCobro === "produccion" ? "Producción liberó" : "Calidad aprobó"
+              }.`
             : filtro === "listo"
-              ? "Calidad no tiene nada aprobado pendiente de cobro en esta O.T."
+              ? "No hay nada liberado pendiente de cobro en esta O.T."
               : "No queda nada por cobrar en esta O.T."}
         </p>
       ) : (

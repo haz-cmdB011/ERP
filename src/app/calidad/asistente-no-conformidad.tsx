@@ -285,7 +285,7 @@ export default function AsistenteNoConformidad({
     if (p === "resultado") {
       if (!Number.isFinite(nAprob) || !Number.isFinite(nRech)) return "Escribe cantidades válidas.";
       if (nAprob + nRech <= 0) return "Indica cuántas piezas apruebas o rechazas.";
-      if (lote && Math.round((nAprob + nRech) * 100) / 100 > lote.pendiente) return `El lote solo tiene ${lote.pendiente} por evaluar.`;
+      if (lote && Math.round((nAprob + nRech) * 100) / 100 > lote.pendiente) return `Esta entrega solo tiene ${lote.pendiente} por revisar.`;
     }
     if (p === "motivo" && !motivo) return "Elige un motivo de la lista.";
     if (p === "origen") {
@@ -428,7 +428,7 @@ export default function AsistenteNoConformidad({
           {paso === "resultado" && lote && (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-slate-600">
-                Por evaluar: <strong>{lote.pendiente}</strong> {unidad}. Cada resultado genera su propio folio permanente.
+                Sin revisar en esta entrega: <strong>{lote.pendiente}</strong> {unidad}. Cada resultado genera su propio folio permanente.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -458,7 +458,7 @@ export default function AsistenteNoConformidad({
               </div>
               {lote.pendiente > 1 && (
                 <div className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">O divide el lote</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">O divide la entrega</p>
                   <Contador
                     etiqueta="Rechazadas"
                     texto={rechazadasTxt}
@@ -628,7 +628,7 @@ export default function AsistenteNoConformidad({
                 onArea={(a) => elegirArea("Origen", a)}
                 onResponsable={(r) => cambiar({ responsableOrigen: r })}
               />
-              {origenLote && <p className="text-xs text-slate-500">El origen se propuso con el equipo que entregó el lote ({origenLote.equipo}).</p>}
+              {origenLote && <p className="text-xs text-slate-500">El origen se propuso con el equipo que hizo la entrega ({origenLote.equipo}).</p>}
             </div>
           )}
 

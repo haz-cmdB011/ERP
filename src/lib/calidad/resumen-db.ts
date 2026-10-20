@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import { resumirCalidad, type InformeBasico, type ItemLiberado, type ResumenCalidad } from "./resumen";
 import { lotesPorEvaluar, normalizarLote, type LoteCalidad } from "./lotes";
-import { visiblesParaCalidad } from "./estado-item";
+import { enTallerParaCalidad, listosParaCalidad } from "./estado-item";
 import { verificacionProduccionActiva } from "./ajustes-flujo";
 import { cargarMueblesPreaprobados } from "./preaprobados-db";
 
@@ -22,11 +22,21 @@ interface FilaItem {
   } | null;
 }
 
+export interface ResumenCalidadConTaller extends ResumenCalidad {
+  // Ítems de cada pedido que siguen en taller (Calidad los ve, pero abajo y sin
+  // contar como pendientes).
+  enTallerPorPedido: Map<string, number>;
+}
+
 // Resumen vigente: ítems enviados a producción de la versión activa de pedidos
-// no cancelados ni eliminados, y todos los informes. Solo cuenta lo que Calidad
-// ve: con la verificación de Producción activa, los muebles preaprobados (y sus
-// componentes) y lo que ya tiene informes.
-export async function cargarResumenCalidad(supabase: SupabaseClient, ahora = new Date()): Promise<ResumenCalidad> {
+// no cancelados ni eliminados, y todos los informes. Los números cuentan solo lo
+// que está listo para Calidad: con la verificación de Producción activa, los
+// muebles preaprobados (y sus componentes) y lo que ya tiene informes. Lo demás
+// va aparte, por pedido, como "en taller".
+export async function cargarResumenCalidad(
+  supabase: SupabaseClient,
+  ahora = new Date()
+): Promise<ResumenCalidadConTaller> {
   const filas = await paginarTodo<FilaItem>(
     (desde, hasta) =>
       supabase
@@ -70,21 +80,26 @@ export async function cargarResumenCalidad(supabase: SupabaseClient, ahora = new
     cargarMueblesPreaprobados(supabase),
     verificacionProduccionActiva(supabase),
   ]);
-  const visibles = visiblesParaCalidad(
+  const listos = listosParaCalidad(
     candidatos,
     preaprobados,
     new Set(informes.map((i) => i.planeacion_item_id)),
     verificacionActiva
   );
+  const enTaller = enTallerParaCalidad(candidatos, listos);
+  const enTallerPorPedido = new Map<string, number>();
+  for (const c of candidatos) {
+    if (enTaller.has(c.id)) enTallerPorPedido.set(c.pedidoId, (enTallerPorPedido.get(c.pedidoId) ?? 0) + 1);
+  }
   const items: ItemLiberado[] = candidatos
-    .filter((c) => visibles.has(c.id))
+    .filter((c) => listos.has(c.id))
     .map(({ id, pedidoId, liberadoEn }) => ({ id, pedidoId, liberadoEn }));
   const basicos: InformeBasico[] = informes.map((i) => ({
     itemId: i.planeacion_item_id,
     aprobado: i.aprobado,
     elaboradoEn: i.elaborado_en,
   }));
-  return resumirCalidad(items, basicos, ahora);
+  return { ...resumirCalidad(items, basicos, ahora), enTallerPorPedido };
 }
 
 // Lotes que Calidad tiene que evaluar (entregas verificadas por Producción con

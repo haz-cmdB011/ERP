@@ -37,11 +37,14 @@ const NOMBRE_LINEA = { madera: "Madera", metal: "Metal" } as const;
 // topes y el permiso de Calidad.
 export default function FormularioReporte({
   inicial,
+  sugerido,
   opciones,
   hoy,
   onCerrar,
 }: {
   inicial?: Incidencia;
+  // Alta prellenada ("Reportar falla" desde un pedido); no aplica al editar.
+  sugerido?: { proyecto: string; muebles: string[] } | null;
   opciones: OpcionesFormulario;
   hoy: string;
   onCerrar: () => void;
@@ -53,8 +56,8 @@ export default function FormularioReporte({
   const [linea, setLinea] = useState<string>(inicial?.linea ?? "");
   const [tipo, setTipo] = useState<string>(inicial?.tipo ?? "");
   const [fecha, setFecha] = useState(inicial?.fecha ?? hoy);
-  const [proyecto, setProyecto] = useState(inicial?.proyecto ?? "");
-  const [muebles, setMuebles] = useState((inicial?.muebles ?? []).join(", "));
+  const [proyecto, setProyecto] = useState(inicial?.proyecto ?? sugerido?.proyecto ?? "");
+  const [muebles, setMuebles] = useState((inicial?.muebles ?? sugerido?.muebles ?? []).join(", "));
   const [areas, setAreas] = useState<string[]>(inicial?.areas ?? []);
   const [motivo, setMotivo] = useState(inicial?.motivo ?? "");
   const [areasReporta, setAreasReporta] = useState<string[]>(inicial?.areas_reporta ?? []);

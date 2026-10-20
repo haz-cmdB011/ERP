@@ -104,20 +104,34 @@ export function evaluablesPorCalidad(
     : new Set(items.map((i) => i.id));
 }
 
-// Ítems que Calidad VE (no solo los que puede evaluar). Con la verificación de
-// Producción activa son los muebles que Producción ya preaprobó, sus componentes
-// y todo lo que ya tiene informes (el historial no se esconde); lo que sigue en
-// taller, sin asignar o por preaprobar no aparece. Apagada la verificación, todo
-// lo liberado a producción.
-export function visiblesParaCalidad(
+// Ítems que son trabajo de Calidad: van primero en pantalla y son los que cuentan
+// en el panel. Con la verificación de Producción activa son los muebles que
+// Producción ya preaprobó, sus componentes y todo lo que ya tiene informes (el
+// historial no se esconde). Apagada la verificación, todo lo liberado a producción.
+// Lo demás también se ve (Calidad busca fallas donde estén), pero abajo, "en
+// taller" (enTallerParaCalidad).
+export function listosParaCalidad(
   items: Pick<ItemEvaluable, "id" | "tipo_registro" | "parent_item_id">[],
   mueblesVerificados: ReadonlySet<string>,
   idsConInforme: ReadonlySet<string>,
   verificacionActiva: boolean
 ): Set<string> {
-  const visibles = evaluablesPorCalidad(items, mueblesVerificados, verificacionActiva);
-  for (const i of items) if (idsConInforme.has(i.id)) visibles.add(i.id);
-  return visibles;
+  const listos = evaluablesPorCalidad(items, mueblesVerificados, verificacionActiva);
+  for (const i of items) if (idsConInforme.has(i.id)) listos.add(i.id);
+  return listos;
+}
+
+// Ítems que siguen en taller: los de un mueble (con sus componentes) del que
+// nada está listo para Calidad. El grupo va junto: si el mueble o uno de sus
+// componentes está listo, todo el grupo se muestra arriba.
+export function enTallerParaCalidad(
+  items: Pick<ItemEvaluable, "id" | "tipo_registro" | "parent_item_id">[],
+  listos: ReadonlySet<string>
+): Set<string> {
+  const raizDe = (i: Pick<ItemEvaluable, "id" | "tipo_registro" | "parent_item_id">) =>
+    i.tipo_registro === "FU" && i.parent_item_id ? i.parent_item_id : i.id;
+  const raicesListas = new Set(items.filter((i) => listos.has(i.id)).map(raizDe));
+  return new Set(items.filter((i) => !raicesListas.has(raizDe(i))).map((i) => i.id));
 }
 
 // El mueble (MO) de un ítem escaneado junto con sus componentes (FU). Si el

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { AREAS_COBRO, type ResumenOt } from "@/lib/estimaciones/pm-cobrado";
+import { AREAS_COBRO, type BaseCobro, type ResumenOt } from "@/lib/estimaciones/pm-cobrado";
 import { ETIQUETA_AREA } from "@/lib/estimaciones/reporte-dashboard";
 import BarraAvance from "../pm-cobrado/barra-avance";
 
@@ -12,10 +12,10 @@ function coincide(r: ResumenOt, texto: string): boolean {
 }
 
 function conDiferencias(r: ResumenOt): boolean {
-  return r.excedidos > 0 || r.fueraDelPm > 0 || r.discrepanciasPendientes > 0 || r.sobreCalidad > 0;
+  return r.excedidos > 0 || r.fueraDelPm > 0 || r.discrepanciasPendientes > 0 || r.sinLiberar > 0;
 }
 
-// Calidad ya aprobó algo en esta O.T. que todavía no tiene recibo.
+// Hay algo liberado en esta O.T. que todavía no tiene recibo.
 function conListo(r: ResumenOt): boolean {
   return r.listoParaCobrar > 0 || r.listoComponentes > 0;
 }
@@ -28,9 +28,11 @@ type Filtro = "todos" | "diferencias" | "listo";
 // cada O.T. sigue en /estimaciones/pm-cobrado/<OT>.
 export default function PanelPmCobrado({
   resumenes,
+  baseCobro,
   error,
 }: {
   resumenes: ResumenOt[];
+  baseCobro: BaseCobro;
   error: string | null;
 }) {
   const [texto, setTexto] = useState("");
@@ -66,8 +68,9 @@ export default function PanelPmCobrado({
     <>
       <p className="text-sm text-slate-500">
         Cada área tiene su propio saldo; los reprocesos se pagan aparte y Electrificación se mide
-        contra los muebles con iluminación. <strong className="font-medium">Listo para cobrar</strong> es lo que
-        Calidad ya aprobó y todavía no tiene recibo. Entra a una O.T. para ver el detalle por modelo.
+        contra los muebles con iluminación. <strong className="font-medium">Listo para cobrar</strong> es lo que{" "}
+        {baseCobro === "produccion" ? "Producción ya verificó" : "Calidad ya aprobó"} y todavía no tiene recibo. Entra
+        a una O.T. para ver el detalle por modelo.
       </p>
 
       {error && (
@@ -149,7 +152,7 @@ export default function PanelPmCobrado({
               {filtro === "diferencias" && !texto.trim()
                 ? "Ninguna O.T. tiene diferencias con lo cobrado."
                 : filtro === "listo" && !texto.trim()
-                  ? "Calidad no tiene nada aprobado pendiente de cobro."
+                  ? "No hay nada liberado pendiente de cobro."
                   : "Ninguna O.T. coincide con la búsqueda."}
             </p>
           )}
@@ -184,9 +187,10 @@ export default function PanelPmCobrado({
                       {r.listoComponentes > 0 && ` · ${r.listoComponentes} de componentes`}
                     </span>
                   )}
-                  {r.sobreCalidad > 0 && (
+                  {r.sinLiberar > 0 && (
                     <span className="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 ring-1 ring-rose-200">
-                      {r.sobreCalidad} {r.sobreCalidad === 1 ? "cobrado" : "cobrados"} sin la aprobación de Calidad
+                      {r.sinLiberar} {r.sinLiberar === 1 ? "cobrado" : "cobrados"}{" "}
+                      {baseCobro === "produccion" ? "sin liberar por Producción" : "sin la aprobación de Calidad"}
                     </span>
                   )}
                   {r.excedidos > 0 && (

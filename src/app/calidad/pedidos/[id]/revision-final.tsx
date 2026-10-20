@@ -6,6 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
 import { CATEGORIAS_DEFECTO, nombreCategoria } from "@/lib/calidad/categorias";
 import {
+  AREAS_ORIGEN,
+  leerOrigen,
+  nombreAreaOrigen,
   validarRevisionFinal,
   type ResumenRevisionFinal,
   type RevisionFinal,
@@ -31,8 +34,8 @@ export interface MuebleRevisionFinal {
 }
 
 // Revisión final del mueble completo antes de mandarlo a obra (ajuste
-// revision_final). Solo aparecen muebles con piezas que Calidad ya aprobó en el
-// último paso de su ruta, o con revisiones finales anteriores.
+// revision_final). Solo aparecen muebles con piezas que Producción ya verificó en
+// el último paso de su ruta, o con revisiones finales anteriores.
 export default function RevisionFinalSeccion({
   muebles,
   numeroPedido,
@@ -47,8 +50,9 @@ export default function RevisionFinalSeccion({
     <section className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-base font-semibold text-slate-900">Revisión final</h2>
       <p className="text-sm text-slate-500">
-        El mueble completo, ya con todos sus procesos aprobados, antes de mandarlo a obra. Lo que no pase
-        regresa al paso de la ruta que elijas y sigue el resto de la ruta desde ahí.
+        El mueble completo, cuando Producción ya lo liberó del último paso de su ruta, antes de mandarlo a obra.
+        Lo que no pase regresa al paso que elijas y sigue el resto de la ruta desde ahí; anota también dónde
+        nació la falla.
       </p>
       <ul className="flex flex-col divide-y divide-slate-100">
         {muebles.map((m) => (
@@ -102,6 +106,12 @@ function FilaMueble({
                 <>
                   {" · regresa a "}
                   {m.pasos.find((p) => p.id === x.paso_retrabajo_id)?.etiqueta ?? "un paso que ya no está en la ruta"}
+                  {(x.origen_paso_id || x.origen_area) &&
+                    ` · nació en ${
+                      x.origen_area
+                        ? nombreAreaOrigen(x.origen_area)
+                        : (m.pasos.find((p) => p.id === x.origen_paso_id)?.etiqueta ?? "un paso que ya no está")
+                    }`}
                   {nombreCategoria(x.categoria) ? ` · ${nombreCategoria(x.categoria)}` : ""}
                   {x.motivo ? ` · ${x.motivo}` : ""}
                 </>
@@ -123,6 +133,8 @@ function Revisar({ mueble: m, titulo }: { mueble: MuebleRevisionFinal; titulo: s
   const [categoria, setCategoria] = useState("");
   const [motivo, setMotivo] = useState("");
   const [pasoId, setPasoId] = useState("");
+  // Dónde nació la falla: "paso:<id>" o "area:<clave>" (ver leerOrigen).
+  const [origen, setOrigen] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,17 +147,21 @@ function Revisar({ mueble: m, titulo }: { mueble: MuebleRevisionFinal; titulo: s
     setCategoria("");
     setMotivo("");
     setPasoId("");
+    setOrigen("");
     setError(null);
     setAbierto(true);
   }
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    const problema = validarRevisionFinal(nAprob, nRech, pendientes, motivo, pasoId || null);
+    const problema = validarRevisionFinal(nAprob, nRech, pendientes, motivo, pasoId || null, origen);
     if (problema) return setError(problema);
+    const o = nRech > 0 ? leerOrigen(origen) : null;
     setEnviando(true);
     setError(null);
     const { data, error } = await createClient().rpc("registrar_revision_final", {
+      p_origen_paso_id: o?.pasoId ?? null,
+      p_origen_area: o?.area ?? null,
       p_item_id: m.id,
       p_aprobadas: nAprob,
       p_rechazadas: nRech,
@@ -221,6 +237,31 @@ function Revisar({ mueble: m, titulo }: { mueble: MuebleRevisionFinal; titulo: s
                       </option>
                     ))}
                   </select>
+                </label>
+                <label className={estiloEtiqueta}>
+                  Dónde nació la falla
+                  <select required value={origen} onChange={(e) => setOrigen(e.target.value)} className={estiloCampo}>
+                    <option value="" disabled>
+                      Elige un paso de la ruta o un área
+                    </option>
+                    <optgroup label="Un paso de la ruta">
+                      {m.pasos.map((p) => (
+                        <option key={p.id} value={`paso:${p.id}`}>
+                          {p.etiqueta}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Otra área">
+                      {AREAS_ORIGEN.map((a) => (
+                        <option key={a.valor} value={`area:${a.valor}`}>
+                          {a.nombre}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  <span className="text-xs font-normal text-slate-500">
+                    Puede no ser a donde regresa: p. ej. lo arregla Armado, pero el plano venía mal de Ingeniería.
+                  </span>
                 </label>
                 <label className={estiloEtiqueta}>
                   Tipo de defecto (opcional)

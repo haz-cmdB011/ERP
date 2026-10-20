@@ -62,16 +62,17 @@ export default async function RevisionReciboPage({
   );
 }
 
-// Lo cobrado contra lo que Calidad ya aprobó. Es solo un aviso para quien revisa:
-// si la consulta falla (o la base aún no la tiene), la revisión sigue sin él.
+// Lo cobrado contra lo liberado (Producción o Calidad, según el ajuste). Es solo
+// un aviso para quien revisa: si la consulta falla (o la base aún no la tiene),
+// la revisión sigue sin él.
 async function avisoCalidad(
   supabase: Awaited<ReturnType<typeof createClient>>,
   tipo: "acabados" | "armado",
   reciboId: string | undefined
 ) {
   if (!reciboId) return null;
-  const lineas = await listarReciboContraCalidad(supabase, tipo, reciboId);
-  return <CalidadRecibo lineas={lineas} />;
+  const contra = await listarReciboContraCalidad(supabase, tipo, reciboId);
+  return <CalidadRecibo contra={contra} />;
 }
 
 // Diferencias con el PM del recibo; mientras no esté pagado se avisa que

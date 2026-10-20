@@ -4,49 +4,51 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
 import { cargarLotesPorEvaluar } from "@/lib/calidad/resumen-db";
 import type { LoteCalidad } from "@/lib/calidad/lotes";
-import { etiquetaProceso, formatoFecha, hoyMexico } from "@/lib/produccion/asignaciones";
-import { DIAS_SIN_EVALUAR_LOTE, diasEsperando } from "@/lib/produccion/detenidos";
+import { etiquetaProceso, formatoFecha } from "@/lib/produccion/asignaciones";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import ChipEstado from "@/components/chip-estado";
 import EstadoVacio from "@/components/estado-vacio";
 import EvaluarLote from "../evaluar-lote";
 
-export const metadata: Metadata = { title: "Lotes por evaluar" };
+export const metadata: Metadata = { title: "Entregas de Producción" };
 
 function Origen({ lote }: { lote: LoteCalidad }) {
   return lote.folio_rechazo ? (
     <ChipEstado tono="proceso">Retrabajo de {lote.folio_rechazo}</ChipEstado>
   ) : (
-    <ChipEstado tono="neutro">Lote nuevo</ChipEstado>
+    <ChipEstado tono="neutro">Primera entrega</ChipEstado>
   );
 }
 
-// Lotes que Producción entregó y verificó y que Calidad todavía no evalúa
-// (completos o en parte). Cada lote se evalúa aquí mismo: cuántas piezas se
-// aprueban y cuántas se rechazan. Los más antiguos van primero.
-export default async function LotesPorEvaluarPage() {
+// Entregas que Producción verificó y que Calidad todavía no revisa (completas o
+// en parte), identificadas por su fecha. Revisarlas es OPCIONAL: Calidad revisa
+// el mueble completo en la revisión final y entra a una entrega solo si ve una
+// falla en ese proceso. Por eso no hay alerta de días. Las más antiguas primero.
+export default async function EntregasProduccionPage() {
   const supabase = await createClient();
   const [perfil, lista] = await Promise.all([getPerfilActual(supabase), cargarLotesPorEvaluar(supabase)]);
   const puedeEvaluar = puedeEvaluarCalidad(perfil);
-  const hoy = hoyMexico();
-  const espera = (l: LoteCalidad) => diasEsperando(l.verificada_en, hoy);
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Lotes por evaluar</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Entregas de Producción</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Lo que Producción ya verificó, por fecha de entrega. Revisarlas aquí es opcional: úsalo si encuentras
+            una falla en un proceso. El mueble completo se revisa en la revisión final.
+          </p>
         </div>
         {lista.length > 0 && (
           <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {lista.length} lote{lista.length === 1 ? "" : "s"}
+            {lista.length} entrega{lista.length === 1 ? "" : "s"} sin revisar
           </span>
         )}
       </div>
 
       {lista.length === 0 ? (
         <EstadoVacio
-          titulo="No hay lotes por evaluar"
+          titulo="No hay entregas sin revisar"
           descripcion="Cuando Producción verifique una entrega aparecerá aquí."
           accion={{ href: "/calidad", etiqueta: "Ir a Pedidos" }}
         />
@@ -71,12 +73,15 @@ export default async function LotesPorEvaluarPage() {
                   )}
                   <Origen lote={l} />
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
-                  {l.equipo} · {etiquetaProceso(l)} · entregado el {formatoFecha(l.fecha_entrega)}
+                <p className="mt-1 text-sm font-medium text-slate-800">
+                  Entregada el {formatoFecha(l.fecha_entrega)}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {etiquetaProceso(l)} · {l.equipo}
                   {l.folio_hoja ? ` · hoja ${l.folio_hoja}` : ""}
                 </p>
                 <p className="text-sm text-slate-600">
-                  Por evaluar {l.pendiente} de {l.cantidad} {l.unidad ?? ""} · verificado el{" "}
+                  Sin revisar {l.pendiente} de {l.cantidad} {l.unidad ?? ""} · verificada el{" "}
                   {formatoFechaDMA(l.verificada_en)}
                 </p>
                 {puedeEvaluar && (
@@ -93,21 +98,24 @@ export default async function LotesPorEvaluarPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-3">Entregada</th>
                   <th className="px-4 py-3">PM</th>
                   <th className="px-4 py-3">Mueble</th>
-                  <th className="px-4 py-3">Equipo</th>
-                  <th className="px-4 py-3">Por evaluar</th>
-                  <th className="px-4 py-3">Verificado</th>
+                  <th className="px-4 py-3">Proceso y equipo</th>
+                  <th className="px-4 py-3">Sin revisar</th>
+                  <th className="px-4 py-3">Verificada</th>
                   <th className="px-4 py-3">Origen</th>
                   {puedeEvaluar && <th className="px-4 py-3" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {lista.map((l) => {
-                  const dias = espera(l);
                   return (
                     <tr key={l.entrega_id} className="align-top transition-colors hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900">{l.numero_pedido}</td>
+                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
+                        {formatoFecha(l.fecha_entrega)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-900">{l.numero_pedido}</td>
                       <td className="px-4 py-3 text-slate-700">
                         {l.planeacion_item_id ? (
                           <EnlaceFila
@@ -122,10 +130,8 @@ export default async function LotesPorEvaluarPage() {
                         <span className="text-xs text-slate-500">· ítem {l.item_code}</span>
                       </td>
                       <td className="px-4 py-3 text-slate-700">
-                        {l.equipo}
-                        <span className="block text-xs text-slate-500">
-                          {etiquetaProceso(l)} · entregó {formatoFecha(l.fecha_entrega)}
-                        </span>
+                        {etiquetaProceso(l)}
+                        <span className="block text-xs text-slate-500">{l.equipo}</span>
                         {l.folio_hoja && (
                           <span className="block text-xs text-slate-500">Hoja: {l.folio_hoja}</span>
                         )}
@@ -135,11 +141,6 @@ export default async function LotesPorEvaluarPage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                         {formatoFechaDMA(l.verificada_en)}
-                        {dias > 0 && (
-                          <span className={`block text-xs ${dias >= DIAS_SIN_EVALUAR_LOTE ? "font-medium text-amber-700" : "text-slate-500"}`}>
-                            hace {dias} día{dias === 1 ? "" : "s"}
-                          </span>
-                        )}
                       </td>
                       <td className="px-4 py-3">
                         <Origen lote={l} />

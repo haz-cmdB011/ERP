@@ -3,17 +3,18 @@ import {
   aprobadoArea,
   areasRepetidas,
   baseArea,
-  cobradoSobreCalidad,
+  cobradoSinLiberar,
   estadoCelda,
   estadoCobro,
+  liberadoArea,
   listoParaCobrar,
   porcentaje,
   resumirPorOt,
   tieneDiferencias,
-  tieneDiferenciasOCalidad,
+  tieneDiferenciasOSinLiberar,
   tieneListoParaCobrar,
   tienePendienteDeCobro,
-  tieneSobreCalidad,
+  tieneSinLiberar,
   type FilaPmCobrado,
 } from "./pm-cobrado";
 
@@ -40,6 +41,9 @@ function fila(parcial: Partial<FilaPmCobrado>): FilaPmCobrado {
     padreModelo: null,
     aprobadoAcabados: null,
     aprobadoArmado: null,
+    verificadoAcabados: null,
+    verificadoArmado: null,
+    baseCobro: "calidad",
     ...parcial,
   };
 }
@@ -101,6 +105,47 @@ describe("filtros", () => {
   });
 });
 
+describe("cobro según Producción", () => {
+  it("lo liberado sale de lo que verificó Producción; lo de Calidad no cuenta", () => {
+    const f = fila({
+      baseCobro: "produccion",
+      verificadoAcabados: 5,
+      verificadoArmado: 3,
+      aprobadoAcabados: 0,
+      aprobadoArmado: 0,
+      acabados: 2,
+    });
+    expect(liberadoArea(f, "acabados")).toBe(5);
+    expect(liberadoArea(f, "electrificacion")).toBeNull();
+    expect(listoParaCobrar(f, "acabados")).toBe(3);
+    expect(listoParaCobrar(f, "armado")).toBe(3);
+    // Calidad no aprobó nada, pero ya no se marca como cobrado sin aprobar.
+    expect(tieneSinLiberar(f)).toBe(false);
+  });
+
+  it("cobrado de más que lo verificado se marca; sin dato de Producción no se marca", () => {
+    const f = fila({ baseCobro: "produccion", verificadoArmado: 2, armado: 4, aprobadoArmado: 4 });
+    expect(cobradoSinLiberar(f, "armado")).toBe(2);
+    expect(tieneDiferenciasOSinLiberar(f)).toBe(true);
+    expect(tieneSinLiberar(fila({ baseCobro: "produccion", armado: 4, aprobadoArmado: 0 }))).toBe(false);
+  });
+
+  it("con el ajuste apagado se vuelve a medir contra Calidad", () => {
+    const f = fila({ baseCobro: "calidad", verificadoAcabados: 5, aprobadoAcabados: 1 });
+    expect(liberadoArea(f, "acabados")).toBe(1);
+    expect(listoParaCobrar(f, "acabados")).toBe(1);
+  });
+
+  it("el resumen de la O.T. cuenta según la base", () => {
+    const [r] = resumirPorOt([
+      fila({ baseCobro: "produccion", verificadoAcabados: 2, aprobadoAcabados: 0 }),
+      fila({ modelo: "P-COL", baseCobro: "produccion", verificadoArmado: 1, armado: 3 }),
+    ]);
+    expect(r.listoParaCobrar).toBe(1);
+    expect(r.sinLiberar).toBe(1);
+  });
+});
+
 describe("cuadre con Calidad", () => {
   it("lo aprobado por área; Electrificación no se compara con Calidad", () => {
     const f = fila({ aprobadoAcabados: 4, aprobadoArmado: 2 });
@@ -120,18 +165,18 @@ describe("cuadre con Calidad", () => {
 
   it("cobrado de más que lo aprobado se marca; sin dato de Calidad no se marca", () => {
     const f = fila({ aprobadoAcabados: 1, acabados: 50, aprobadoArmado: 0, armado: 0 });
-    expect(cobradoSobreCalidad(f, "acabados")).toBe(49);
-    expect(cobradoSobreCalidad(f, "armado")).toBe(0);
-    expect(tieneSobreCalidad(f)).toBe(true);
+    expect(cobradoSinLiberar(f, "acabados")).toBe(49);
+    expect(cobradoSinLiberar(f, "armado")).toBe(0);
+    expect(tieneSinLiberar(f)).toBe(true);
     // El mueble nunca pasó por Producción: aprobado null, nada que comparar.
-    expect(tieneSobreCalidad(fila({ acabados: 50 }))).toBe(false);
-    expect(cobradoSobreCalidad(fila({ acabados: 50 }), "acabados")).toBe(0);
+    expect(tieneSinLiberar(fila({ acabados: 50 }))).toBe(false);
+    expect(cobradoSinLiberar(fila({ acabados: 50 }), "acabados")).toBe(0);
   });
 
   it("un recibo que no concuerda con Calidad cuenta como diferencia para la pantalla, no para el Excel del PM", () => {
     const soloCalidad = fila({ acabados: 3, aprobadoAcabados: 1 });
     expect(tieneDiferencias(soloCalidad)).toBe(false);
-    expect(tieneDiferenciasOCalidad(soloCalidad)).toBe(true);
+    expect(tieneDiferenciasOSinLiberar(soloCalidad)).toBe(true);
   });
 
   it("un componente no cuenta como pendiente de cobro según el PM", () => {
@@ -159,7 +204,7 @@ describe("resumirPorOt con componentes y Calidad", () => {
     expect(r.avance.acabados).toEqual({ cobrado: 0, base: 2 });
     // El componente cobrado de más (9 de 8) sí es una diferencia.
     expect(r.excedidos).toBe(1);
-    expect(r.sobreCalidad).toBe(1);
+    expect(r.sinLiberar).toBe(1);
   });
 
   it("cuenta lo listo para cobrar: muebles por un lado, componentes por otro", () => {

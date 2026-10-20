@@ -250,7 +250,7 @@ export default async function RechazosPage() {
       {nada && (
         <EstadoVacio
           titulo="Calidad no tiene rechazos pendientes"
-          descripcion="Cuando Calidad rechace piezas de un lote aparecerán aquí para reasignarlas."
+          descripcion="Cuando Calidad rechace piezas de una entrega aparecerán aquí para reasignarlas."
           accion={{ href: "/produccion/asignaciones", etiqueta: "Ir a Asignaciones" }}
         />
       )}

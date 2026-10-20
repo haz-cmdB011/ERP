@@ -244,20 +244,43 @@ export default function RegistrarEntrega({
                 className={estiloCampo}
               />
             </label>
-            <label className={estiloEtiqueta}>
-              Foto de la hoja de entrega
-              <input
-                type="file"
-                required
-                accept="image/*"
-                capture="environment"
-                onChange={(e) => elegirFoto(e.target.files?.[0] ?? null)}
-                className="text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-4 file:py-3 file:text-base file:font-medium file:text-on-brand sm:file:bg-slate-100 sm:file:py-2 sm:file:text-sm sm:file:text-slate-700"
-              />
+            {/* Dos entradas: la cámara directa o una foto ya tomada (galería o archivo).
+                Con `capture` el celular abre solo la cámara, por eso van separadas. Que haya
+                foto lo revisa enviar(). */}
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-slate-700">Foto de la hoja de entrega</span>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-500 px-3 text-sm font-medium text-on-brand transition-colors hover:bg-brand-400 focus-within:ring-2 focus-within:ring-brand-300">
+                  <span aria-hidden>📷</span> Tomar foto
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) elegirFoto(e.target.files[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-within:ring-2 focus-within:ring-brand-300">
+                  <span aria-hidden>🖼️</span> Elegir foto
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) elegirFoto(e.target.files[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
               <span className="text-xs font-normal text-slate-500">
+                {foto ? `Foto lista: ${foto.name}. Puedes tomar o elegir otra para cambiarla.` : "Sin foto todavía."}{" "}
                 Se comprime automáticamente antes de guardarse.
               </span>
-            </label>
+            </div>
             {vistaPrevia && (
               // eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:)
               <img
