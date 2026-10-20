@@ -4,8 +4,9 @@ import { useState } from "react";
 import { generarPdfCarta } from "@/lib/pdf/generar-pdf-carta";
 
 // Descarga directa: no pasa por el diálogo de impresión del navegador.
-// Captura el elemento marcado con [data-informe] como imagen y arma el PDF
-// tamaño carta en el cliente (ver src/lib/pdf/generar-pdf-carta.ts).
+// Captura cada elemento marcado con [data-informe] como imagen (una hoja del
+// PDF por elemento, en orden) y arma el PDF tamaño carta en el cliente
+// (ver src/lib/pdf/generar-pdf-carta.ts).
 export default function DescargarPdfButton({
   nombreArchivo,
   selector = "[data-informe]",
@@ -20,13 +21,13 @@ export default function DescargarPdfButton({
     setGenerando(true);
     setError(null);
     try {
-      const elemento = document.querySelector<HTMLElement>(selector);
-      if (!elemento) {
+      const elementos = Array.from(document.querySelectorAll<HTMLElement>(selector));
+      if (elementos.length === 0) {
         setError("No se encontró contenido para generar el PDF.");
         return;
       }
 
-      await generarPdfCarta([elemento], nombreArchivo);
+      await generarPdfCarta(elementos, nombreArchivo);
     } catch {
       setError("No se pudo generar el PDF.");
     } finally {

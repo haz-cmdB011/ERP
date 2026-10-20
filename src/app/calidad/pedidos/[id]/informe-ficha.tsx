@@ -55,7 +55,7 @@ function Campo({ label, valor }: { label: string; valor: string }) {
 function LogoMobiliarium() {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- asset estático simple, no next/image
-    <img src="/branding/mobiliarium-logo.png" alt="Mobiliarium — creating lifestyle" className="h-10" />
+    <img src="/branding/mobiliarium-logo.png" alt="Mobiliarium — creating lifestyle" className="h-14" />
   );
 }
 
