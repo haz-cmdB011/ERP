@@ -49,6 +49,11 @@ export interface Incidencia {
   auditor: string | null;
   // Cuándo se cerró (lo fija la base al cerrar); nulo si sigue abierta o si venía cerrada del Excel.
   cerrado_en?: string | null;
+  // El texto del reporte (del Excel o escrito en la pantalla): qué se detectó, cómo se resolvió y su
+  // control y seguimiento. Texto libre con saltos de línea; nulos si no hay.
+  descripcion?: string | null;
+  solucion?: string | null;
+  seguimiento?: string | null;
 }
 
 export const SIN_AUDITOR = "Sin auditor";
@@ -72,6 +77,22 @@ export function textoNormalizado(valor: unknown): string {
 
 function textoSimple(valor: unknown): string {
   return String(valor ?? "").replace(/\s+/g, " ").trim();
+}
+
+// Tope de letras de cada texto del reporte (lo mismo que exige la base).
+export const MAX_TEXTO_REPORTE = 4000;
+
+// Texto libre del reporte: conserva los saltos de línea, pero sin espacios sobrantes, sin
+// líneas en blanco de más y con \n como único salto. Vacío es null.
+export function textoLargo(valor: unknown): string | null {
+  const texto = String(valor ?? "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return texto === "" ? null : texto;
 }
 
 function sinDuplicados(valores: string[]): string[] {
@@ -400,6 +421,9 @@ export interface FilaExcelIncidencia {
   estado: unknown;
   fecha: unknown;
   auditor: unknown;
+  descripcion?: unknown;
+  solucion?: unknown;
+  seguimiento?: unknown;
 }
 
 export interface ResultadoFila {
@@ -432,6 +456,22 @@ export function incidenciaDesdeFilaExcel(linea: Linea, numeroFila: number, fila:
   if (!fecha) avisos.push(`fecha vacía o no entendida ("${textoSimple(fila.fecha)}")`);
   const auditor = nombreDePersona(fila.auditor);
   if (!auditor) avisos.push("sin auditor");
+  // Los textos del reporte: lo que pase del tope se corta (no ocurre con el Excel actual) y se avisa.
+  const textos = (
+    [
+      ["descripción", fila.descripcion],
+      ["solución", fila.solucion],
+      ["seguimiento", fila.seguimiento],
+    ] as const
+  ).map(([nombre, valor]) => {
+    const texto = textoLargo(valor);
+    if (texto && texto.length > MAX_TEXTO_REPORTE) {
+      avisos.push(`${nombre} cortada a ${MAX_TEXTO_REPORTE} letras`);
+      return texto.slice(0, MAX_TEXTO_REPORTE);
+    }
+    return texto;
+  });
+  if (!textos[0]) avisos.push("sin descripción del reporte");
 
   return {
     incidencia: {
@@ -446,6 +486,9 @@ export function incidenciaDesdeFilaExcel(linea: Linea, numeroFila: number, fila:
       estado: normalizarEstado(fila.estado),
       fecha,
       auditor,
+      descripcion: textos[0],
+      solucion: textos[1],
+      seguimiento: textos[2],
       origen_importacion: `${linea}:${numeroFila}`,
     },
     avisos,
@@ -595,6 +638,22 @@ export function leerFiltrosIncidencias(p: ParametrosIncidencias): FiltrosInciden
   };
 }
 
+// Las columnas que se piden a la base para pintar el tablero y para armar su Excel.
+export const COLUMNAS_INCIDENCIAS =
+  "id, linea, tipo, proyecto, muebles, areas, motivo, categoria_motivo, areas_reporta, estado, fecha, auditor, descripcion, solucion, seguimiento, cerrado_en";
+
+// Los filtros puestos, en palabras: ["Auditor: Luis Corona", "Línea: Madera"]. Vacío si no hay.
+export function listaFiltros(f: FiltrosIncidencias): string[] {
+  const partes: string[] = [];
+  if (f.linea) partes.push(`Línea: ${f.linea === "madera" ? "Madera" : "Metal"}`);
+  if (f.tipo) partes.push(`Tipo: ${f.tipo}`);
+  if (f.estado) partes.push(`Estado: ${f.estado === "abierto" ? "Abierto" : "Cerrado"}`);
+  if (f.auditor) partes.push(`Auditó: ${f.auditor}`);
+  if (f.area) partes.push(`Área: ${f.area}`);
+  if (f.proyecto) partes.push(`Proyecto: ${f.proyecto}`);
+  return partes;
+}
+
 // Enlace al tablero con los filtros puestos y, si se da, el periodo que se mira.
 export function hrefIncidencias(
   base: string,
@@ -633,6 +692,10 @@ export interface EntradaIncidencia {
   areasReporta: string[];
   auditor: string;
   estado: string;
+  // El texto del reporte (opcionales).
+  descripcion?: string;
+  solucion?: string;
+  seguimiento?: string;
 }
 
 // Los campos que se guardan al crear o editar una incidencia.
@@ -649,7 +712,7 @@ export type CamposIncidencia = Pick<
   | "areas_reporta"
   | "estado"
   | "auditor"
->;
+> & { descripcion: string | null; solucion: string | null; seguimiento: string | null };
 
 export const LIMITES = { motivo: 300, proyecto: 200, auditor: 100, muebles: 30, areas: 20, textoMueble: 100 } as const;
 
@@ -686,6 +749,14 @@ export function validarIncidencia(e: EntradaIncidencia, hoy: string): ResultadoV
   if (auditor.length > LIMITES.auditor) return { ok: false, error: "El nombre del auditor es muy largo." };
   const estado = ESTADOS_INCIDENCIA.find((x) => x === e.estado);
   if (!estado) return { ok: false, error: "Elige el estado." };
+  const descripcion = textoLargo(e.descripcion);
+  const solucion = textoLargo(e.solucion);
+  const seguimiento = textoLargo(e.seguimiento);
+  for (const [nombre, texto] of [["La descripción", descripcion], ["La solución", solucion], ["El seguimiento", seguimiento]] as const) {
+    if (texto && texto.length > MAX_TEXTO_REPORTE) {
+      return { ok: false, error: `${nombre} es muy larga (máximo ${MAX_TEXTO_REPORTE} letras).` };
+    }
+  }
 
   return {
     ok: true,
@@ -701,6 +772,9 @@ export function validarIncidencia(e: EntradaIncidencia, hoy: string): ResultadoV
       areas_reporta: areasReporta,
       estado,
       auditor,
+      descripcion,
+      solucion,
+      seguimiento,
     },
   };
 }

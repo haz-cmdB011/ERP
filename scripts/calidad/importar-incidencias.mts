@@ -19,6 +19,8 @@
  *   npm run calidad:importar-incidencias -- "ruta/al/BD-CONTROL26.xlsx"            (simula)
  *   npm run calidad:importar-incidencias -- "ruta/al/BD-CONTROL26.xlsx" --aplicar  (agrega las que faltan)
  *   … --aplicar --actualizar                                                       (también sobrescribe las existentes)
+ *   … --aplicar --textos                                                           (solo completa descripción, solución y
+ *                                                                                    seguimiento de las que aún no los tienen)
  */
 import ExcelJS from "exceljs";
 import { createClient } from "@supabase/supabase-js";
@@ -38,12 +40,13 @@ const HOJAS: ReadonlyArray<readonly [string, Linea]> = [
 ];
 const PRIMERA_FILA_DATOS = 3;
 // Columnas de las hojas (la fila 2 trae los encabezados).
-const COL = { fecha: 1, folio: 2, tipo: 4, proyecto: 6, mueble: 7, area: 10, motivo: 14, origen: 19, reporta: 20, auditor: 18, estado: 23 };
+const COL = { fecha: 1, folio: 2, tipo: 4, proyecto: 6, mueble: 7, area: 10, motivo: 14, origen: 19, reporta: 20, auditor: 18, estado: 23, descripcion: 15, solucion: 16, seguimiento: 17 };
 const LOTE = 200;
 
 const args = process.argv.slice(2);
 const aplicar = args.includes("--aplicar");
 const actualizar = args.includes("--actualizar");
+const soloTextos = args.includes("--textos");
 const ruta = args.find((a) => !a.startsWith("--"));
 if (!ruta) {
   console.error('Falta la ruta del Excel. Ejemplo: npm run calidad:importar-incidencias -- "C:/ruta/BD-CONTROL26.xlsx"');
@@ -91,6 +94,9 @@ for (const [nombreHoja, linea] of HOJAS) {
       estado: g(COL.estado),
       fecha: g(COL.fecha),
       auditor: g(COL.auditor),
+      descripcion: g(COL.descripcion),
+      solucion: g(COL.solucion),
+      seguimiento: g(COL.seguimiento),
     });
     const clave = `${linea}:${n}`;
     if (!incidencia) {
@@ -110,7 +116,7 @@ const lista = (c: Array<{ nombre: string; total: number }>, n = 8) =>
 console.log(
   `\nModo: ${
     aplicar
-      ? `APLICAR (escribe en la base; ${actualizar ? "sobrescribe las existentes" : "solo agrega las que faltan"})`
+      ? `APLICAR (escribe en la base; ${soloTextos ? "solo completa los textos del reporte" : actualizar ? "sobrescribe las existentes" : "solo agrega las que faltan"})`
       : "SIMULACIÓN (no escribe nada)"
   }`
 );
@@ -119,6 +125,9 @@ console.log(`Madera ${r.porLinea.madera} · Metal ${r.porLinea.metal} · abierta
 const porSemana = resumirPorSemana(filas);
 console.log(`Semanas: ${porSemana.semanas.length} (de ${porSemana.semanas[0]?.clave} a ${porSemana.semanas.at(-1)?.clave}) · sin fecha: ${porSemana.sinFecha}`);
 console.log(`Auditores: ${resumirPorAuditor(filas).map((a) => `${a.nombre} (${a.total})`).join(", ")}`);
+console.log(
+  `Texto del reporte: descripción ${nuevas.filter((n) => n.descripcion).length}, solución ${nuevas.filter((n) => n.solucion).length}, seguimiento ${nuevas.filter((n) => n.seguimiento).length} de ${nuevas.length}`
+);
 console.log(`Tipos: ${lista(r.porTipo)}`);
 console.log(`Áreas (${r.porArea.length} distintas): ${lista(r.porArea)}`);
 console.log(`Área que reporta (${r.porAreaQueReporta.length} distintas): ${lista(r.porAreaQueReporta)}`);
@@ -144,6 +153,43 @@ if (!url || !clave) {
   process.exit(1);
 }
 const supabase = createClient(url, clave, { auth: { autoRefreshToken: false, persistSession: false } });
+
+// --textos: solo llena la descripción, la solución y el seguimiento de las filas que ya están en la
+// base y todavía no tienen ninguno de los tres. No toca nada más (ni lo cerrado desde la app ni lo
+// editado) y no pisa un texto ya escrito.
+if (soloTextos) {
+  const conTexto = nuevas.filter((n) => n.descripcion || n.solucion || n.seguimiento);
+  let completadas = 0;
+  let yaTenian = 0;
+  for (let i = 0; i < conTexto.length; i += 10) {
+    const tanda = conTexto.slice(i, i + 10);
+    const resultados = await Promise.all(
+      tanda.map((n) =>
+        supabase
+          .from("incidencias_calidad")
+          .update({ descripcion: n.descripcion, solucion: n.solucion, seguimiento: n.seguimiento })
+          .eq("origen_importacion", n.origen_importacion!)
+          .is("descripcion", null)
+          .is("solucion", null)
+          .is("seguimiento", null)
+          .select("id")
+      )
+    );
+    for (const r of resultados) {
+      if (r.error) {
+        console.error(`
+Falló al completar textos: ${r.error.message}`);
+        console.error(`Se completaron ${completadas}. Repetir el comando es seguro: no pisa lo ya escrito.`);
+        process.exit(1);
+      }
+      if (r.data && r.data.length > 0) completadas++;
+      else yaTenian++;
+    }
+  }
+  console.log(`
+Listo: ${completadas} reportes con su texto completado; ${yaTenian} ya tenían texto o no están en la base.`);
+  process.exit(0);
+}
 
 let escritas = 0;
 for (let i = 0; i < nuevas.length; i += LOTE) {

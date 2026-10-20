@@ -4,6 +4,7 @@ import { paginarTodo } from "@/lib/supabase/paginar";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
 import EstadoVacio from "@/components/estado-vacio";
 import {
+  COLUMNAS_INCIDENCIAS,
   SIN_FILTROS,
   TIPOS_INCIDENCIA,
   desglosarPeriodo,
@@ -44,8 +45,6 @@ export const metadata = { title: "No conformidades" };
 const BASE = "/calidad/incidencias";
 const FILAS_EN_LISTA = 100;
 
-const COLUMNAS =
-  "id, linea, tipo, proyecto, muebles, areas, motivo, categoria_motivo, areas_reporta, estado, fecha, auditor";
 
 // "el auditor Luis Corona, el tipo Incidencia": lo que está filtrado, en palabras.
 function descripcionFiltros(f: FiltrosIncidencias): string {
@@ -91,7 +90,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
   const perfil = await getPerfilActual(supabase);
   if (!puedeEvaluarCalidad(perfil)) {
     return (
-      <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
+      <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
         <EstadoVacio
           titulo="Las no conformidades son solo de Calidad"
           descripcion="Pide acceso al área de Calidad si necesitas verlas."
@@ -104,7 +103,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
     (desde, hasta) =>
       supabase
         .from("incidencias_calidad")
-        .select(COLUMNAS)
+        .select(COLUMNAS_INCIDENCIAS)
         .order("linea", { ascending: true })
         .order("id", { ascending: true })
         .range(desde, hasta)
@@ -149,13 +148,22 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
     hrefIncidencias(BASE, { ...filtros, ...cambios }, { vista, ref: dia });
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
+    <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">No conformidades</h1>
         <NuevoReporte opciones={opciones} hoy={hoy} sugerido={leerReporteSugerido(parametros)} />
       </div>
 
-      <SelectorPeriodo periodo={periodo} dia={dia} hoy={hoy} hrefDe={ir} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SelectorPeriodo periodo={periodo} dia={dia} hoy={hoy} hrefDe={ir} />
+        {/* El Excel lleva lo mismo que se ve: el periodo y los filtros puestos. */}
+        <a
+          href={hrefIncidencias("/api/calidad/incidencias/excel", filtros, { vista, ref: dia })}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 max-md:min-h-11"
+        >
+          Descargar Excel
+        </a>
+      </div>
 
       {hayFiltros && (
         <p className="flex flex-wrap items-center gap-2 text-sm text-slate-600">

@@ -10,6 +10,11 @@ export function diaCorto(ymd: string): string {
   return formatear(ymd, { day: "numeric", month: "short" }).replace(".", "");
 }
 
+// "5 de enero de 2026".
+export function diaLargo(ymd: string): string {
+  return formatear(ymd, { day: "numeric", month: "long", year: "numeric" });
+}
+
 export function diaConSemana(ymd: string): string {
   return formatear(ymd, { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
 }
