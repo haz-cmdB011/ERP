@@ -55,6 +55,11 @@ function altoEstimado(elemento: HTMLElement): number {
 export interface OpcionesPdf {
   /** Se llama con (0, total) al empezar y con (hechas, total) al terminar cada ficha. */
   alProgreso?: (hechas: number, total: number) => void;
+  /**
+   * "descargar" (por defecto) baja el archivo. "blob" no baja nada y devuelve el PDF para
+   * mostrarlo en pantalla (vista previa) antes de descargarlo.
+   */
+  salida?: "descargar" | "blob";
 }
 
 // Devuelve el control al navegador para que pinte y atienda toques. Con la pestaña
@@ -115,11 +120,12 @@ function agregarFicha(doc: Pdf, canvas: HTMLCanvasElement, nuevaPagina: () => vo
   }
 }
 
+// Devuelve el PDF solo con `salida: "blob"`; si no, lo descarga y devuelve null.
 export async function generarPdfCarta(
   elementos: HTMLElement[],
   nombreArchivo: string,
-  { alProgreso }: OpcionesPdf = {}
-): Promise<void> {
+  { alProgreso, salida = "descargar" }: OpcionesPdf = {}
+): Promise<Blob | null> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas-pro"),
     import("jspdf"),
@@ -160,5 +166,7 @@ export async function generarPdfCarta(
     await cederAlNavegador();
   }
 
+  if (salida === "blob") return doc.output("blob");
   doc.save(nombreArchivo);
+  return null;
 }
