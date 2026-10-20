@@ -8,6 +8,7 @@ import {
   filtrarIncidencias,
   hrefIncidencias,
   incidenciaDesdeFilaExcel,
+  MAX_TEXTO_REPORTE,
   leerFiltrosIncidencias,
   leerRef,
   leerVista,
@@ -24,6 +25,7 @@ import {
   resumirPorSemana,
   semanaDe,
   SIN_FILTROS,
+  textoLargo,
   textoNormalizado,
   validarIncidencia,
   type EntradaIncidencia,
@@ -93,6 +95,7 @@ describe("incidenciaDesdeFilaExcel", () => {
     estado: "CERRADO",
     fecha: new Date("2026-01-06T00:00:00.000Z"),
     auditor: "luis  CORONA",
+    descripcion: "Se detectó el defecto.",
   };
 
   it("funde área y origen, normaliza y arma la clave de importación", () => {
@@ -109,6 +112,7 @@ describe("incidenciaDesdeFilaExcel", () => {
       estado: "cerrado",
       fecha: "2026-01-06",
       auditor: "Luis Corona",
+      descripcion: "Se detectó el defecto.",
       origen_importacion: "madera:5",
     });
   });
@@ -393,6 +397,9 @@ describe("validarIncidencia (captura)", () => {
         areas_reporta: ["PROD-ARMADO-MAD"],
         estado: "abierto",
         auditor: "Luis Corona",
+        descripcion: null,
+        solucion: null,
+        seguimiento: null,
       },
     });
   });
@@ -494,5 +501,79 @@ describe("pendientes viejos", () => {
     const r = pendientesViejos([], hoy);
     expect(r.total).toBe(0);
     expect(r.masViejas).toEqual([]);
+  });
+});
+
+describe("texto del reporte", () => {
+  it("limpia el texto libre pero conserva los saltos de línea", () => {
+    expect(textoLargo("  Se detectó   el defecto. \r\n\r\n\r\n\r\nSe avisó a  Compras.  ")).toBe(
+      "Se detectó el defecto.\n\nSe avisó a Compras."
+    );
+    expect(textoLargo("línea 1\rlínea 2")).toBe("línea 1\nlínea 2");
+    expect(textoLargo("   \n  ")).toBeNull();
+    expect(textoLargo(null)).toBeNull();
+    expect(textoLargo(undefined)).toBeNull();
+  });
+
+  const fila = {
+    tipo: "Incidencia",
+    proyecto: "P",
+    mueble: "M",
+    area: "COMPRAS",
+    motivo: "CRISTAL ROTO",
+    origen: "COMPRAS",
+    reporta: "ALMACEN",
+    estado: "ABIERTO",
+    fecha: new Date("2026-01-06T00:00:00.000Z"),
+    auditor: "Ana",
+  };
+
+  it("lee descripción, solución y seguimiento del Excel", () => {
+    const { incidencia, avisos } = incidenciaDesdeFilaExcel("madera", 3, {
+      ...fila,
+      descripcion: "Llegó roto.\n\n\n\nVer foto.",
+      solucion: " Se repone. ",
+      seguimiento: "",
+    });
+    expect(incidencia).toMatchObject({ descripcion: "Llegó roto.\n\nVer foto.", solucion: "Se repone.", seguimiento: null });
+    expect(avisos).not.toContain("sin descripción del reporte");
+  });
+
+  it("avisa cuando no hay descripción y corta lo que pasa del tope", () => {
+    const sin = incidenciaDesdeFilaExcel("madera", 3, fila);
+    expect(sin.incidencia).toMatchObject({ descripcion: null, solucion: null, seguimiento: null });
+    expect(sin.avisos).toContain("sin descripción del reporte");
+
+    const larga = incidenciaDesdeFilaExcel("madera", 3, { ...fila, descripcion: "x".repeat(MAX_TEXTO_REPORTE + 50) });
+    expect(larga.incidencia?.descripcion).toHaveLength(MAX_TEXTO_REPORTE);
+    expect(larga.avisos).toContain("descripción cortada a " + MAX_TEXTO_REPORTE + " letras");
+  });
+
+  const entrada: EntradaIncidencia = {
+    linea: "metal",
+    tipo: "Incidencia",
+    fecha: "2026-10-16",
+    proyecto: "P",
+    muebles: "",
+    areas: ["COMPRAS"],
+    motivo: "CRISTAL ROTO",
+    areasReporta: [],
+    auditor: "Ana",
+    estado: "abierto",
+  };
+
+  it("la captura guarda los textos limpios y deja vacío como null", () => {
+    const r = validarIncidencia({ ...entrada, descripcion: "  Roto en el traslado. ", solucion: "", seguimiento: "Pendiente\n\n\n\nde reposición" }, "2026-10-19");
+    expect(r.ok && r.campos).toMatchObject({
+      descripcion: "Roto en el traslado.",
+      solucion: null,
+      seguimiento: "Pendiente\n\nde reposición",
+    });
+  });
+
+  it("la captura rechaza un texto que pasa del tope", () => {
+    const r = validarIncidencia({ ...entrada, solucion: "y".repeat(MAX_TEXTO_REPORTE + 1) }, "2026-10-19");
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toMatch(/solución/);
   });
 });

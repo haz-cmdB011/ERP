@@ -7,6 +7,7 @@ import { avisar } from "@/components/avisos";
 import {
   LIMITES,
   LINEAS,
+  MAX_TEXTO_REPORTE,
   TIPOS_INCIDENCIA,
   categoriaDeMotivo,
   textoNormalizado,
@@ -59,6 +60,9 @@ export default function FormularioReporte({
   const [areasReporta, setAreasReporta] = useState<string[]>(inicial?.areas_reporta ?? []);
   const [auditor, setAuditor] = useState(inicial?.auditor ?? "");
   const [estado, setEstado] = useState<string>(inicial?.estado ?? "abierto");
+  const [descripcion, setDescripcion] = useState(inicial?.descripcion ?? "");
+  const [solucion, setSolucion] = useState(inicial?.solucion ?? "");
+  const [seguimiento, setSeguimiento] = useState(inicial?.seguimiento ?? "");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +70,10 @@ export default function FormularioReporte({
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
-    const r = validarIncidencia({ linea, tipo, fecha, proyecto, muebles, areas, motivo, areasReporta, auditor, estado }, hoy);
+    const r = validarIncidencia(
+      { linea, tipo, fecha, proyecto, muebles, areas, motivo, areasReporta, auditor, estado, descripcion, solucion, seguimiento },
+      hoy
+    );
     if (!r.ok) {
       setError(r.error);
       return;
@@ -223,6 +230,39 @@ export default function FormularioReporte({
             </select>
           </label>
         </div>
+
+        <label className={estiloEtiqueta}>
+          Descripción del reporte
+          <textarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            maxLength={MAX_TEXTO_REPORTE}
+            rows={5}
+            placeholder="Qué se detectó, dónde y cuándo."
+            className={estiloCampo}
+          />
+        </label>
+        <label className={estiloEtiqueta}>
+          Solución
+          <textarea
+            value={solucion}
+            onChange={(e) => setSolucion(e.target.value)}
+            maxLength={MAX_TEXTO_REPORTE}
+            rows={3}
+            placeholder="Qué se hizo o se va a hacer para resolverlo."
+            className={estiloCampo}
+          />
+        </label>
+        <label className={estiloEtiqueta}>
+          Control y seguimiento
+          <textarea
+            value={seguimiento}
+            onChange={(e) => setSeguimiento(e.target.value)}
+            maxLength={MAX_TEXTO_REPORTE}
+            rows={3}
+            className={estiloCampo}
+          />
+        </label>
 
         {error && (
           <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-2 text-sm text-rose-700">

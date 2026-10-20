@@ -2,7 +2,7 @@
 export default function Loading() {
   const bloque = "esqueleto rounded-md";
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6" aria-busy="true" aria-live="polite">
+    <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6" aria-busy="true" aria-live="polite">
       <span className="sr-only">Cargando…</span>
       <div className="flex flex-col gap-2 border-b border-slate-200 pb-4">
         <div className={`${bloque} h-7 w-40`} />
