@@ -13,15 +13,14 @@ import {
   type ParametrosFolios,
 } from "@/lib/calidad/folios-filtros";
 import { aplicarFiltrosFolios } from "@/lib/calidad/folios-consulta";
-import { formatoFechaHora } from "@/lib/resumen/entrega";
+import { formatoFechaDMA, formatoFechaHora } from "@/lib/resumen/entrega";
+import { ESTATUS_LABELS, type EstatusNoConformidad } from "@/lib/calidad/no-conformidad";
+import { estatusDeInformes, type EstatusDeInforme } from "@/lib/calidad/estatus-db";
 
-import { leer } from "@/lib/supabase/leer";
 interface ItemVivo {
   id: string;
   item_code: number;
   modelo: string | null;
-  tipo_material: string | null;
-  descripcion: string | null;
   cantidad_total: number;
   unidad: string | null;
   estado_revision: string | null;
@@ -41,10 +40,16 @@ interface InformeRow {
   id: string;
   folio: string;
   aprobado: boolean;
-  descripcion: string | null;
   elaborado_por: string | null;
   elaborado_en: string;
   categoria: string | null;
+  // Datos del reporte de no conformidad (los informes aprobados los dejan vacíos).
+  motivo: { codigo: string; nombre: string } | null;
+  area_origen: string | null;
+  responsable_origen: string | null;
+  cantidad: number | string | null;
+  entrega_id: string | null;
+  cerrado_en: string | null;
   planeacion_items: ItemVivo | ItemVivo[] | null;
 }
 
@@ -55,6 +60,13 @@ const TONOS: Record<Tono, string> = {
   rose: "border-rose-200 bg-rose-50 text-rose-700",
   amber: "border-amber-200 bg-amber-50 text-amber-700",
   slate: "border-slate-300 bg-slate-100 text-slate-600",
+};
+
+// Color del estatus de una no conformidad (ver estatusNoConformidad).
+const TONO_ESTATUS: Record<EstatusNoConformidad, Tono> = {
+  abierto: "rose",
+  en_proceso: "amber",
+  cerrado: "emerald",
 };
 
 // Situación actual del ítem evaluado. El folio de Calidad nunca se pierde:
@@ -136,7 +148,7 @@ export default async function FoliosCalidadPage({
       const { data: detalle, error: errorDetalle } = await supabase
         .from("informes_calidad")
         .select(
-          "id, folio, aprobado, descripcion, categoria, elaborado_por, elaborado_en, planeacion_items ( id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, estado_revision, eliminacion_solicitada_en, pedido_versiones ( pedidos ( id, numero_pedido, eliminado_en, cancelado_en, proyectos ( nombre, cliente ) ) ) )"
+          "id, folio, aprobado, categoria, elaborado_por, elaborado_en, cantidad, entrega_id, cerrado_en, area_origen, responsable_origen, motivo:motivos_calidad ( codigo, nombre ), planeacion_items ( id, item_code, modelo, cantidad_total, unidad, estado_revision, eliminacion_solicitada_en, pedido_versiones ( pedidos ( id, numero_pedido, eliminado_en, cancelado_en, proyectos ( nombre, cliente ) ) ) )"
         )
         .in("id", ids)
         .returns<InformeRow[]>();
@@ -162,29 +174,24 @@ export default async function FoliosCalidadPage({
     (perfiles ?? []).map((p) => [p.id, p.nombre_completo || p.email || null])
   );
 
-  // Folio de producción (PRD-…) de cada ítem evaluado, para cruzar ambos folios.
-  const itemIds = Array.from(
-    new Set(
-      (data ?? [])
-        .map((i) => unico(i.planeacion_items)?.id)
-        .filter((id): id is string => !!id)
-    )
+  // Estatus de los reportes de no conformidad (los aprobados no lo tienen).
+  const noAprobados = (data ?? []).filter((inf) => !inf.aprobado);
+  const estatusNc = await estatusDeInformes(
+    supabase,
+    noAprobados.map((inf) => ({
+      id: inf.id,
+      entrega_id: inf.entrega_id,
+      cantidad: inf.cantidad != null ? Number(inf.cantidad) : null,
+      cerrado_en: inf.cerrado_en,
+    }))
   );
-  const foliosProd = itemIds.length
-    ? await leer(
-        supabase
-        .from("folios_produccion")
-        .select("planeacion_item_id, folio")
-        .in("planeacion_item_id", itemIds)
-        .returns<{ planeacion_item_id: string; folio: string }[]>(),
-        "folios_produccion"
-      )
-    : [] as { planeacion_item_id: string; folio: string }[];
-  const folioProdPorItem = new Map((foliosProd ?? []).map((f) => [f.planeacion_item_id, f.folio]));
+  const estatusPorInforme = new Map<string, EstatusDeInforme>(
+    noAprobados.map((inf, i) => [inf.id, estatusNc[i]])
+  );
 
   const filas = (data ?? []).map((inf) => {
     const item = unico(inf.planeacion_items);
-    return { inf, item, situacion: situacionDe(item) };
+    return { inf, item, situacion: situacionDe(item), estatus: estatusPorInforme.get(inf.id) ?? null };
   });
 
   const visibles = filas;
@@ -203,12 +210,12 @@ export default async function FoliosCalidadPage({
       <form method="get" action="/calidad/folios" className="flex flex-wrap items-end gap-3">
         {filtro !== "todos" && <input type="hidden" name="estado" value={filtro} />}
         <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Folio
+          Folio, PM u OT
           <input
             type="search"
             name="q"
             defaultValue={termino}
-            placeholder="CAL-000123 o solo 123"
+            placeholder="CAL-000123, PM157-26 u OT 134-26"
             autoComplete="off"
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 focus:border-slate-400 focus:outline-none"
           />
@@ -297,7 +304,7 @@ export default async function FoliosCalidadPage({
           titulo={hayFiltros || filtro !== "todos" ? "Ningún folio coincide" : "Todavía no hay folios"}
           descripcion={
             hayFiltros || filtro !== "todos"
-              ? "Prueba con otras fechas, otro folio o quita los filtros."
+              ? "Prueba con otras fechas, otro folio, PM u OT, o quita los filtros."
               : "Se generan al evaluar un ítem desde un pedido."
           }
           accion={
@@ -315,24 +322,24 @@ export default async function FoliosCalidadPage({
               <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Folio</th>
                 <th className="px-3 py-2.5">Resultado</th>
-                <th className="px-3 py-2.5">Folio producción</th>
+                <th className="px-3 py-2.5">Motivo</th>
+                <th className="px-3 py-2.5">Área de origen</th>
+                <th className="px-3 py-2.5">Estatus</th>
                 <th className="px-3 py-2.5">Pedido</th>
                 <th className="px-3 py-2.5">Ítem</th>
-                <th className="px-3 py-2.5">Material</th>
-                <th className="px-3 py-2.5">Observaciones</th>
                 <th className="px-3 py-2.5">Elaboró</th>
                 <th className="px-3 py-2.5">Fecha</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {visibles.map(({ inf, item, situacion }) => {
+              {visibles.map(({ inf, item, situacion, estatus }) => {
                 const pedido = item?.pedido_versiones?.pedidos ?? null;
                 // Las páginas de pedido/informe de Calidad devuelven 404 para
                 // pedidos eliminados, así que ahí no se enlaza.
                 const enlazable = pedido && !pedido.eliminado_en;
                 return (
                   <tr key={inf.id} className="align-top transition-colors hover:bg-slate-50">
-                    <td className="px-3 py-2 font-mono text-sm text-slate-900">
+                    <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-900">
                       {enlazable ? (
                         <EnlaceFila
                           href={`/calidad/pedidos/${pedido.id}/informe/${inf.id}`}
@@ -367,8 +374,30 @@ export default async function FoliosCalidadPage({
                         </p>
                       )}
                     </td>
-                    <td className="px-3 py-2 font-mono text-slate-700">
-                      {(item && folioProdPorItem.get(item.id)) || "—"}
+                    <td className="max-w-[220px] px-3 py-2 text-slate-700">
+                      {inf.motivo ? `${inf.motivo.codigo} · ${inf.motivo.nombre}` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-700">
+                      {inf.area_origen ?? "—"}
+                      {inf.responsable_origen && (
+                        <p className="text-[11px] text-slate-500">{inf.responsable_origen}</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {estatus ? (
+                        <>
+                          <span
+                            className={`inline-flex items-center rounded border px-2.5 py-1 font-medium ${TONOS[TONO_ESTATUS[estatus.estatus]]}`}
+                          >
+                            {ESTATUS_LABELS[estatus.estatus]}
+                          </span>
+                          {estatus.fecha && (
+                            <p className="mt-1 text-[11px] text-slate-500">{formatoFechaDMA(estatus.fecha)}</p>
+                          )}
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       {enlazable ? (
@@ -390,14 +419,7 @@ export default async function FoliosCalidadPage({
                     <td className="px-3 py-2 text-slate-700">
                       {item ? item.item_code : "—"}
                       {item?.modelo ? ` — ${item.modelo}` : ""}
-                      {item?.descripcion && (
-                        <p className="max-w-[220px] text-[11px] text-slate-500">
-                          {item.descripcion}
-                        </p>
-                      )}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">{item?.tipo_material ?? "—"}</td>
-                    <td className="px-3 py-2 text-slate-700">{inf.descripcion ?? "—"}</td>
                     <td className="px-3 py-2 text-slate-700">
                       {(inf.elaborado_por && autorPorId.get(inf.elaborado_por)) || "—"}
                     </td>

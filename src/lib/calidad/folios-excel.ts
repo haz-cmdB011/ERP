@@ -1,21 +1,26 @@
-// Excel de Folios de calidad con los mismos filtros de la pantalla.
+// Excel de Folios de calidad con los mismos filtros de la pantalla y sus mismas
+// columnas: el motivo, el área y el estatus de la no conformidad van después del
+// resultado, y el ítem sale sin descripción.
 
 import ExcelJS from "exceljs";
 import { nombreCategoria } from "./categorias";
 import type { FolioParaExcel } from "./folios-consulta";
+import { ESTATUS_LABELS } from "./no-conformidad";
 
 export const ENCABEZADOS_FOLIOS = [
   "FOLIO",
   "RESULTADO",
   "TIPO DE DEFECTO",
-  "FOLIO PRODUCCIÓN",
+  "MOTIVO",
+  "ÁREA DE ORIGEN",
+  "RESPONSABLE EN ÁREA DE ORIGEN",
+  "ESTATUS",
+  "FECHA DE CIERRE",
   "PM",
   "PROYECTO",
   "CLIENTE",
   "ÍTEM",
   "MODELO",
-  "MATERIAL",
-  "OBSERVACIONES",
   "ELABORÓ",
   "FECHA Y HORA",
   "SITUACIÓN",
@@ -42,22 +47,25 @@ export async function generarExcelFolios(filas: FolioParaExcel[]): Promise<Buffe
       f.folio,
       f.aprobado ? "Aprobado" : "No aprobado",
       f.aprobado ? null : nombreCategoria(f.categoria),
-      f.folioProduccion,
+      f.motivo,
+      f.areaOrigen,
+      f.responsableOrigen,
+      f.estatus ? ESTATUS_LABELS[f.estatus] : null,
+      f.fechaCierre ? fechaLocalExcel(f.fechaCierre) : null,
       f.pedido,
       f.proyecto,
       f.cliente,
       f.itemCode,
       f.modelo,
-      f.material,
-      f.descripcion,
       f.elaboro,
       fechaLocalExcel(f.elaboradoEn),
       f.situacion,
     ]);
   }
 
-  ws.getColumn(13).numFmt = "dd/mm/yyyy hh:mm";
-  const anchos = [14, 13, 16, 16, 16, 28, 22, 7, 16, 16, 44, 24, 17, 18];
+  ws.getColumn(8).numFmt = "dd/mm/yyyy";
+  ws.getColumn(15).numFmt = "dd/mm/yyyy hh:mm";
+  const anchos = [14, 13, 16, 40, 20, 24, 13, 15, 16, 28, 22, 7, 16, 24, 17, 18];
   anchos.forEach((w, i) => (ws.getColumn(i + 1).width = w));
   ws.views = [{ state: "frozen", ySplit: 1 }];
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: anchos.length } };
