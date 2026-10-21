@@ -11,8 +11,10 @@ import {
 import { inicioDeRol } from "@/lib/auth/acceso";
 import { destinoDeLogin } from "@/lib/seguridad/ruta-protegida";
 import SinAcceso from "@/components/sin-acceso";
-import ChipEstado, { type TonoChip } from "@/components/chip-estado";
 import ChipPlazo from "@/app/produccion/chip-plazo";
+import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
+import { Revisar } from "@/app/calidad/pedidos/[id]/revision-final";
+import PlanosItem from "@/app/planeacion/pedidos/[id]/planos-item";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import {
   hoyMexico,
@@ -25,38 +27,32 @@ import { enTaller } from "@/lib/produccion/atrasos";
 import { plazosDePedidos } from "@/lib/produccion/cargar-taller";
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
-import {
-  avancePaso,
-  estadoObra,
-  indiceSiguiente,
-  opcionesDePasos,
-  siguientePaso,
-  type EstadoProceso,
-  type MuebleFlujo,
-} from "@/lib/produccion/flujo-mueble";
+import { avancePaso, indiceSiguiente, opcionesDePasos, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { etiquetaPaso, rutaSugerida } from "@/lib/produccion/ruta";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import { lotesPorEvaluar, normalizarLote, type LoteCalidad } from "@/lib/calidad/lotes";
+import { getPlanosPorItem, pmDePlanos } from "@/lib/planos/planos-por-item";
 import { panelCalidadQr } from "@/lib/trazabilidad/calidad-qr";
 import {
   AREA_QR_LABELS,
-  accionesQr,
   areaQrElegida,
   areasQrDePerfil,
+  panelQr,
+  type AccionQr,
   type AreaQr,
 } from "@/lib/trazabilidad/areas-qr";
+import { resumenRuta } from "@/lib/trazabilidad/resumen-ruta";
 import { lineaTiempoMueble } from "@/lib/trazabilidad/linea-tiempo-mueble";
 import { cargarLineaTiempo } from "@/lib/trazabilidad/linea-tiempo-db";
-import LineaTiempoMueble from "./linea-tiempo";
-import AsignarQr, { type RechazoQr } from "./asignar-qr";
-import CalidadQr from "./calidad-qr";
-import PagoQr from "./pago-qr";
-import { cobrosDelMueble, resumenPago, type ResumenPago } from "@/lib/trazabilidad/pago-maquilador";
+import { cobrosDelMueble, resumenPago } from "@/lib/trazabilidad/pago-maquilador";
 import { cargarRecibosDeOt } from "@/lib/trazabilidad/pago-maquilador-db";
-import PlanosItem from "@/app/planeacion/pedidos/[id]/planos-item";
-import { getPlanosPorItem, pmDePlanos } from "@/lib/planos/planos-por-item";
+import LineaTiempoMueble from "./linea-tiempo";
+import RutaQr from "./ruta-qr";
+import RechazosQr, { type RechazoQr } from "./rechazos-qr";
+import EntregasCalidadQr from "./entregas-calidad-qr";
+import PagoQr from "./pago-qr";
 
 export const metadata: Metadata = { title: "Mueble" };
 
@@ -90,23 +86,20 @@ interface ItemEscaneado {
   } | null;
 }
 
-const ESTADO_PAGO: Record<ResumenPago["estado"], { tono: TonoChip; texto: string }> = {
-  sin_recibo: { tono: "neutro", texto: "Sin recibo" },
-  por_pagar: { tono: "alerta", texto: "Por pagar" },
-  pagado: { tono: "ok", texto: "Pagado" },
-};
-
-const ESTADO_PASO: Record<EstadoProceso, { tono: TonoChip; texto: string }> = {
-  terminado: { tono: "ok", texto: "Terminado" },
-  en_proceso: { tono: "proceso", texto: "En proceso" },
-  sin_asignar: { tono: "neutro", texto: "Sin asignar" },
-};
+// El botón de lo que sigue (uno solo por pestaña) y los de "Más opciones".
+const ESTILO_PRINCIPAL =
+  "flex min-h-12 w-full items-center justify-center rounded-xl bg-brand-500 px-4 py-3 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400";
+const ESTILO_OPCION =
+  "flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50";
 
 // Destino del QR de la Hoja de Viajero: /q/<ítem>. El QR lleva solo el id del mueble (la
 // dirección completa de la hoja lleva dos ids y daba un código tan denso que el celular lo
-// leía mal). Muestra la ficha del mueble con su historial y, en una pestaña por área, lo que
-// esa área hace con él; cada quien ve la de su área (el desarrollador, todas). Las hojas ya
-// impresas, que traen la dirección larga, siguen abriendo la hoja de viajero.
+// leía mal). Muestra la ficha del mueble, pensada para entenderse de un vistazo: dónde va
+// (una frase y una barra; la ruta completa al tocarla), lo que sigue para el área de quien
+// escanea (un botón, con una línea que dice por qué), las demás acciones como opciones y
+// los últimos movimientos del historial. Cada quien ve la pestaña de su área (el
+// desarrollador, todas). Las hojas ya impresas, que traen la dirección larga, siguen
+// abriendo la hoja de viajero.
 export default async function FichaMuebleQrPage({
   params,
   searchParams,
@@ -249,28 +242,36 @@ export default async function FichaMuebleQrPage({
   const sinTrabajo =
     !!pedido.cancelado_en || !!item.eliminacion_solicitada_en || item.estado_revision === "cancelado";
   const plazo = plazos.get(pedido.id);
-  const siguiente = indiceSiguiente(flujo);
-  const obra = estadoObra(flujo);
-  const enTallerAhora = todas.filter(enTaller);
-  const faltanEntregar =
-    Math.round(enTallerAhora.reduce((s, a) => s + Number(a.cantidad) - Number(a.entregado), 0) * 100) / 100;
-  // Lo que falta asignar en el paso donde va el mueble (sin contar retrabajos).
-  const porAsignar = siguiente === null ? 0 : avancePaso(flujo, siguiente).disponible;
   const unidad = item.unidad ?? "pz";
+  const siguiente = indiceSiguiente(flujo);
+  const faltanEntregar =
+    Math.round(todas.filter(enTaller).reduce((s, a) => s + Number(a.cantidad) - Number(a.entregado), 0) * 100) / 100;
+  // El paso que se ofrece al asignar: el que sigue en la ruta o, si ya está asignado completo,
+  // el primero que todavía tenga piezas por asignar.
+  const opciones = opcionesDePasos(flujo);
+  const sigue =
+    opciones.find((p) => p.indice === siguiente && p.disponible > 0) ?? opciones.find((p) => p.disponible > 0);
+
+  const ruta = resumenRuta({
+    liberado,
+    cantidad: flujo.cantidad,
+    unidad,
+    pasos: flujo.ruta.map((_, i) => {
+      const a = avancePaso(flujo, i);
+      return { etiqueta: etiquetaPaso(flujo.ruta, i), estado: a.estado, entregado: a.entregado };
+    }),
+    revisionFinal: resumenFinal
+      ? {
+          aprobadas: resumenFinal.aprobadas,
+          pendientes: resumenFinal.pendientes,
+          liberado: resumenFinal.liberado_a_obra,
+        }
+      : null,
+    pago: { estado: pago.estado, cobrado: pago.cobrado, pagado: pago.pagado },
+  });
 
   const areas = areasQrDePerfil(perfil);
   const area = areaQrElegida(areas, areaPedida);
-  const acciones = area
-    ? accionesQr(area, {
-        itemId: item.id,
-        pedidoId: pedido.id,
-        numeroPedido: pedido.numero_pedido,
-        proyecto: pedido.proyectos?.nombre ?? null,
-        modelo: item.modelo,
-        asignable: liberado && !sinTrabajo,
-        enTaller: enTallerAhora.length > 0,
-      })
-    : [];
 
   // Asignar y reasignar desde el QR: solo en la pestaña de Producción y para quien puede
   // editar ahí (la base lo vuelve a revisar en crear_asignacion_produccion).
@@ -340,8 +341,9 @@ export default async function FichaMuebleQrPage({
       ])
     : [[], [], [], []];
   // Calidad: las entregas de este mueble con piezas por revisar (solo en su pestaña).
+  const puedeEvaluar = puedeEvaluarCalidad(perfil);
   const lotesCalidad =
-    area === "calidad" && liberado
+    area === "calidad" && liberado && puedeEvaluar
       ? lotesPorEvaluar(
           (
             (await leer(
@@ -355,7 +357,7 @@ export default async function FichaMuebleQrPage({
           ).map(normalizarLote)
         )
       : [];
-  const puedeEvaluar = puedeEvaluarCalidad(perfil);
+  const calidad = panelCalidadQr(resumenFinal ?? null, puedeEvaluar);
   // Pasos guardados de la ruta: con la sugerida (sin guardar) no hay a dónde regresar lo rechazado.
   const pasosRegreso = flujo.ruta.flatMap((p, n) =>
     p.id ? [{ id: p.id, etiqueta: `${n + 1}. ${etiquetaPaso(flujo.ruta, n)}` }] : []
@@ -381,15 +383,89 @@ export default async function FichaMuebleQrPage({
       motivo: r.motivo,
     })),
   ];
+
+  const panel = area
+    ? panelQr(area, {
+        mueble: {
+          itemId: item.id,
+          pedidoId: pedido.id,
+          numeroPedido: pedido.numero_pedido,
+          proyecto: pedido.proyectos?.nombre ?? null,
+          modelo: item.modelo,
+          activo: liberado && !sinTrabajo,
+        },
+        unidad,
+        produccion: {
+          puedeAsignar: asignarAqui,
+          porEntregar: faltanEntregar,
+          porAsignar: sigue ? { paso: sigue.etiqueta, cantidad: sigue.disponible } : null,
+        },
+        calidad: {
+          revisionFinal: calidad.revisionFinal,
+          pendientes: resumenFinal?.pendientes ?? 0,
+          cantidad: flujo.cantidad,
+          entregasPorRevisar: lotesCalidad.length,
+        },
+        pago: { estado: pago.estado, cobrado: pago.cobrado, pagado: pago.pagado, recibos: cobros.length },
+      })
+    : null;
+
+  const descripcionMueble = `${pedido.numero_pedido} · ítem ${item.item_code}${item.modelo ? ` · ${item.modelo}` : ""}`;
+  const tituloMueble = `${pedido.numero_pedido} · ${item.modelo ?? `ítem ${item.item_code}`}`;
+  // Cada acción con el estilo que le toque: un enlace, o el formulario de asignar o el de la
+  // revisión final, que se abren ahí mismo.
+  const boton = (a: AccionQr, clase: string) => {
+    switch (a.tipo) {
+      case "enlace":
+        return (
+          <Link key={a.href} href={a.href} title={a.detalle} className={clase}>
+            {a.etiqueta}
+          </Link>
+        );
+      case "asignar":
+        return (
+          <AsignarForm
+            key="asignar"
+            itemId={item.id}
+            descripcion={descripcionMueble}
+            unidad={item.unidad}
+            pasos={opciones}
+            equipos={equipos ?? []}
+            encargados={encargados ?? []}
+            pasoInicial={sigue?.indice}
+            className={clase}
+          >
+            {a.etiqueta}
+          </AsignarForm>
+        );
+      case "revision_final":
+        return resumenFinal ? (
+          <Revisar
+            key="revision-final"
+            mueble={{ id: item.id, unidad: item.unidad, resumen: resumenFinal, pasos: pasosRegreso }}
+            titulo={tituloMueble}
+            className={clase}
+          >
+            {a.etiqueta}
+          </Revisar>
+        ) : null;
+    }
+  };
   const hrefArea = (a: AreaQr) => {
     const q = new URLSearchParams({ area: a });
     if (componente) q.set("componente", componente);
     return `/q/${item.id}?${q.toString()}`;
   };
+  // Las entregas por proceso de Calidad: abiertas si son la forma normal de evaluar
+  // (revisión final apagada); si no, plegadas entre las opciones.
+  const entregasCalidad =
+    area === "calidad" && liberado && !sinTrabajo ? (
+      <EntregasCalidadQr lotes={lotesCalidad} plegadas={calidad.entregasPlegadas} />
+    ) : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 p-4 sm:p-6">
-      <header className="flex flex-col gap-1 border-b border-slate-200 pb-4">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 sm:p-6">
+      <header className="flex flex-col gap-0.5">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {pedido.numero_pedido}
           {folio?.folio ? ` · ${folio.folio}` : ""}
@@ -397,124 +473,41 @@ export default async function FichaMuebleQrPage({
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           {item.modelo ?? `Ítem ${item.item_code}`}
         </h1>
-        <p className="text-sm text-slate-600">
+        {item.descripcion && (
+          <p className="line-clamp-1 text-sm text-slate-700">{item.descripcion.split("\n")[0]}</p>
+        )}
+        <p className="truncate text-xs text-slate-500">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
-        <p className="line-clamp-3 text-sm text-slate-500">{item.descripcion?.split("\n")[0]}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800">
-          Ítem {item.item_code} · {Number(item.cantidad_total)} {item.unidad}
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800">
+          <span>
+            Ítem {item.item_code} · {Number(item.cantidad_total)} {item.unidad}
+          </span>
           {plazo && <ChipPlazo plazo={plazo} fecha={plazo.fecha} />}
-        </p>
-        <PlanosItem planos={planos[item.id] ?? []} />
+          <PlanosItem planos={planos[item.id] ?? []} />
+        </div>
       </header>
 
       {componente && (
-        <p className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800">
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
           El QR era del componente {componente}; aquí está su mueble.
         </p>
       )}
       {item.pedido_versiones && !item.pedido_versiones.es_version_activa && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Este QR es de una versión anterior del PM (v{item.pedido_versiones.numero_version}). Puede
-          haber cambiado; revisa el pedido.
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Este QR es de una versión anterior del PM (v{item.pedido_versiones.numero_version}). Puede haber
+          cambiado; revisa el pedido.
         </p>
       )}
       {sinTrabajo && (
-        <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
           Este mueble o su PM está cancelado o eliminado: no debería seguir en taller.
         </p>
       )}
 
-      <section aria-labelledby="ruta-titulo" className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="ruta-titulo" className="text-sm font-semibold text-slate-700">
-            Ruta
-          </h2>
-          {liberado && (
-            <p className="text-sm font-medium text-slate-900">
-              {obra === "liberado"
-                ? "Liberado a obra"
-                : siguiente === null && obra === "en_revision_final"
-                  ? "En revisión final de Calidad"
-                  : siguientePaso(flujo)}
-            </p>
-          )}
-        </div>
-        {!liberado ? (
-          <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-            Este mueble todavía no está liberado a producción.
-          </p>
-        ) : (
-          <ol className="flex flex-col divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
-            {flujo.ruta.map((paso, i) => {
-              const avance = avancePaso(flujo, i);
-              const estado = ESTADO_PASO[avance.estado];
-              return (
-                <li
-                  key={paso.id ?? `${paso.proceso}-${i}`}
-                  aria-current={i === siguiente ? "step" : undefined}
-                  className={`flex items-center justify-between gap-3 px-3 py-2 text-sm ${i === siguiente ? "bg-brand-50/60" : ""}`}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] text-slate-600">
-                      {i + 1}
-                    </span>
-                    <span className="font-medium text-slate-900">{etiquetaPaso(flujo.ruta, i)}</span>
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2 text-xs text-slate-600">
-                    {avance.estado !== "sin_asignar" && (
-                      <span>
-                        {avance.entregado}/{flujo.cantidad}
-                      </span>
-                    )}
-                    <ChipEstado tono={estado.tono}>{estado.texto}</ChipEstado>
-                  </span>
-                </li>
-              );
-            })}
-            {resumenFinal && (
-              <li className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                <span className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] text-slate-600">
-                    {flujo.ruta.length + 1}
-                  </span>
-                  <span className="font-medium text-slate-900">Revisión final</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-2 text-xs text-slate-600">
-                  <span>
-                    {resumenFinal.aprobadas}/{flujo.cantidad}
-                  </span>
-                  <ChipEstado tono={resumenFinal.liberado_a_obra ? "ok" : resumenFinal.pendientes > 0 ? "alerta" : "neutro"}>
-                    {resumenFinal.liberado_a_obra
-                      ? "Liberado a obra"
-                      : resumenFinal.pendientes > 0
-                        ? `${resumenFinal.pendientes} por revisar`
-                        : "Esperando piezas"}
-                  </ChipEstado>
-                </span>
-              </li>
-            )}
-            <li className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-              <span className="flex items-center gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] text-slate-600">
-                  {flujo.ruta.length + (resumenFinal ? 2 : 1)}
-                </span>
-                <span className="font-medium text-slate-900">Pago al maquilador</span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2 text-xs text-slate-600">
-                {pago.estado !== "sin_recibo" && (
-                  <span title="Piezas pagadas de las cobradas en recibos">
-                    {pago.pagado}/{pago.cobrado}
-                  </span>
-                )}
-                <ChipEstado tono={ESTADO_PAGO[pago.estado].tono}>{ESTADO_PAGO[pago.estado].texto}</ChipEstado>
-              </span>
-            </li>
-          </ol>
-        )}
-      </section>
+      <RutaQr resumen={ruta} />
 
-      {area ? (
+      {area && panel ? (
         <section aria-labelledby="acciones-titulo" className="flex flex-col gap-3">
           <h2 id="acciones-titulo" className="sr-only">
             Qué hacer con este mueble
@@ -537,68 +530,40 @@ export default async function FichaMuebleQrPage({
               ))}
             </nav>
           )}
-          {area === "produccion" && liberado && !sinTrabajo && (
-            <p className="text-sm text-slate-600">
-              {enTallerAhora.length === 0
-                ? "No hay nada de este mueble en taller."
-                : `En taller: ${enTallerAhora.length} asignación(es), faltan ${faltanEntregar} ${unidad} por entregar.`}
-              {siguiente !== null &&
-                porAsignar > 0 &&
-                ` Faltan ${porAsignar} ${unidad} por asignar en ${etiquetaPaso(flujo.ruta, siguiente)}.`}
-            </p>
-          )}
-          {area === "estimaciones" && <PagoQr cobros={cobros} pago={pago} unidad={item.unidad} />}
-          {area === "calidad" && liberado && !sinTrabajo && (
-            <CalidadQr
-              panel={panelCalidadQr(resumenFinal ?? null, puedeEvaluar)}
-              itemId={item.id}
-              titulo={`${pedido.numero_pedido} · ${item.modelo ?? `ítem ${item.item_code}`}`}
-              unidad={item.unidad}
-              resumen={resumenFinal ?? null}
-              pasos={pasosRegreso}
-              lotes={lotesCalidad}
-              puedeEvaluar={puedeEvaluar}
-            />
-          )}
           {asignarAqui && (
-            <AsignarQr
-              itemId={item.id}
-              descripcion={`${pedido.numero_pedido} · ítem ${item.item_code}${item.modelo ? ` · ${item.modelo}` : ""}`}
-              unidad={item.unidad}
-              pasos={opcionesDePasos(flujo)}
-              pasoInicial={siguiente}
-              equipos={equipos ?? []}
-              encargados={encargados ?? []}
-              rechazos={rechazos}
-            />
+            <RechazosQr rechazos={rechazos} descripcion={descripcionMueble} unidad={item.unidad} equipos={equipos ?? []} />
           )}
-          <ul className="flex flex-col gap-2">
-            {acciones.map((a) => (
-              <li key={a.href}>
-                <Link
-                  href={a.href}
-                  className={`flex min-h-11 flex-col justify-center rounded-xl px-4 py-2.5 transition-colors ${
-                    a.principal
-                      ? "bg-brand-500 text-on-brand shadow-sm hover:bg-brand-400"
-                      : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="text-sm font-semibold">{a.etiqueta}</span>
-                  <span className={`text-xs ${a.principal ? "text-on-brand/80" : "text-slate-500"}`}>{a.detalle}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {(panel.principal || panel.ayuda) && (
+            <div className="flex flex-col gap-1.5">
+              {panel.principal && boton(panel.principal, ESTILO_PRINCIPAL)}
+              {panel.ayuda && (
+                <p className={`text-sm text-slate-600 ${panel.principal ? "text-center" : ""}`}>{panel.ayuda}</p>
+              )}
+            </div>
+          )}
+          {!calidad.entregasPlegadas && entregasCalidad}
+          {area === "estimaciones" && <PagoQr cobros={cobros} pago={pago} unidad={item.unidad} />}
+          {panel.otras.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {panel.principal ? "Más opciones" : "Opciones"}
+              </p>
+              <div className={`grid gap-2 ${panel.otras.length > 1 ? "grid-cols-2" : ""}`}>
+                {panel.otras.map((a) => boton(a, ESTILO_OPCION))}
+              </div>
+              {calidad.entregasPlegadas && entregasCalidad}
+            </div>
+          )}
         </section>
       ) : (
-        <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
           Tu área no tiene acciones con este mueble; aquí está su historial.
         </p>
       )}
 
       <section aria-labelledby="historial-titulo" className="flex flex-col gap-3 border-t border-slate-200 pt-4">
-        <h2 id="historial-titulo" className="text-sm font-semibold text-slate-700">
-          Historial
+        <h2 id="historial-titulo" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Últimos movimientos
         </h2>
         <LineaTiempoMueble eventos={eventos} />
       </section>

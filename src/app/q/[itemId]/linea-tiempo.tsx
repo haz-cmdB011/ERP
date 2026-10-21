@@ -7,16 +7,7 @@ const PUNTO: Record<TonoEvento, string> = {
   aviso: "bg-amber-500",
 };
 
-// Historial del mueble, lo más reciente arriba (ver lib/trazabilidad/linea-tiempo-mueble.ts).
-// El color del punto acompaña al texto, nunca va solo.
-export default function LineaTiempoMueble({ eventos }: { eventos: EventoMueble[] }) {
-  if (eventos.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
-        Todavía no hay nada registrado de este mueble.
-      </p>
-    );
-  }
+function Eventos({ eventos }: { eventos: EventoMueble[] }) {
   return (
     <ol className="flex flex-col">
       {eventos.map((e, i) => (
@@ -46,5 +37,38 @@ export default function LineaTiempoMueble({ eventos }: { eventos: EventoMueble[]
         </li>
       ))}
     </ol>
+  );
+}
+
+// Historial del mueble, lo más reciente arriba (ver lib/trazabilidad/linea-tiempo-mueble.ts).
+// A la vista solo los últimos movimientos; el resto se abre con "Ver todo". El color del
+// punto acompaña al texto, nunca va solo.
+export default function LineaTiempoMueble({ eventos, visibles = 3 }: { eventos: EventoMueble[]; visibles?: number }) {
+  if (eventos.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
+        Todavía no hay nada registrado de este mueble.
+      </p>
+    );
+  }
+  const resto = eventos.slice(visibles);
+  return (
+    <div className="flex flex-col gap-4">
+      <Eventos eventos={eventos.slice(0, visibles)} />
+      {resto.length > 0 && (
+        <details className="group flex flex-col gap-4">
+          <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-medium text-brand-700 [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">Ver todo el historial ({resto.length} más)</span>
+            <span className="hidden group-open:inline">Ocultar lo anterior</span>
+            <span aria-hidden="true" className="transition-transform group-open:rotate-180">
+              ▾
+            </span>
+          </summary>
+          <div className="mt-4">
+            <Eventos eventos={resto} />
+          </div>
+        </details>
+      )}
+    </div>
   );
 }
