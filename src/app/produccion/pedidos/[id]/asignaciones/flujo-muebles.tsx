@@ -208,6 +208,7 @@ function BotonAsignar({
       pasos={opcionesDePasos(m)}
       equipos={asignar.equipos}
       encargados={asignar.encargados}
+      partes={m.partes}
       pasoInicial={indice}
       className={className}
       titulo={titulo}

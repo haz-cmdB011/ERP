@@ -38,7 +38,7 @@ export async function asignacionesDePedido(
     (desde, hasta) =>
       supabase
         .from("asignaciones_produccion_resumen")
-        .select("planeacion_item_id, proceso, cantidad, entregado, cancelada_en, paso_id, informe_rechazo_id, revision_final_rechazo_id")
+        .select("*")
         .eq("pedido_id", pedidoId)
         .order("id")
         .range(desde, hasta)

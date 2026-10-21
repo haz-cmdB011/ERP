@@ -336,6 +336,33 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
       expect(error?.message).toContain("Solo Producción");
     });
 
+    // 20261021193520_despiece_por_partes.sql: un mueble sin partes cuenta solo lo del mueble
+    // completo, y asignar por partes exige ser de Producción.
+    it("sin partes, la cobertura es lo del mueble completo", async () => {
+      const { data, error } = await servicio.rpc("cobertura_por_partes", {
+        p_item_id: UUID_NULO,
+        p_mueble: 5,
+        p_por_parte: {},
+      });
+      expect(error).toBeNull();
+      expect(Number(data)).toBe(5);
+    });
+
+    it("solo Producción asigna por partes", async () => {
+      const { error } = await servicio.rpc("crear_asignaciones_por_partes", {
+        p_item_id: UUID_NULO,
+        p_equipo_id: UUID_NULO,
+        p_proceso: "armado",
+        p_cantidad: 1,
+        p_fecha_asignacion: "2026-01-01",
+        p_notas: "",
+        p_encargado: null,
+        p_paso_id: null,
+        p_partes: [UUID_NULO],
+      });
+      expect(error?.message).toContain("Solo Producción");
+    });
+
     // 20261019183422_correcciones_ruta_produccion.sql: lo rechazado sigue la ruta
     // paso por paso; sin revisión no hay siguiente paso.
     it("una revisión que no existe no tiene siguiente paso", async () => {
