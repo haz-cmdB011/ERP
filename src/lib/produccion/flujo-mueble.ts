@@ -107,6 +107,39 @@ export function avancePaso(m: MuebleFlujo, indice: number): AvancePaso {
   return { estado, asignado, entregado, disponible, listo, porReasignar };
 }
 
+// Un paso de la ruta del mueble, tal como se ofrece en el formulario de asignación.
+export interface OpcionPaso {
+  // Posición en la ruta (0 = primer paso).
+  indice: number;
+  // null mientras la ruta sea la sugerida y no se haya guardado: la base usa el
+  // paso de ese proceso.
+  id: string | null;
+  proceso: Proceso;
+  etiqueta: string;
+  // Lo que falta por asignar en el paso (tope: la cantidad del mueble).
+  disponible: number;
+  // Lo que ya entregó el paso anterior y aún no se asigna aquí.
+  listo: number;
+  // Etiqueta del paso anterior (null en el primero).
+  anterior: string | null;
+}
+
+// Los pasos de la ruta del mueble como opciones del formulario de asignación.
+export function opcionesDePasos(m: MuebleFlujo): OpcionPaso[] {
+  return m.ruta.map((p, i) => {
+    const a = avancePaso(m, i);
+    return {
+      indice: i,
+      id: p.id,
+      proceso: p.proceso,
+      etiqueta: etiquetaPaso(m.ruta, i),
+      disponible: a.disponible,
+      listo: a.listo,
+      anterior: i > 0 ? etiquetaPaso(m.ruta, i - 1) : null,
+    };
+  });
+}
+
 // El estado del mueble completo, para filtrar.
 export type EstadoMueble = "por_asignar" | "en_proceso" | "terminado";
 

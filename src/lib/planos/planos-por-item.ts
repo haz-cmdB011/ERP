@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import { leerPorLotes } from "@/lib/supabase/por-lotes";
+import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
 import { elegirPlanos, normalizarModelo } from "./modelo";
 
 // Carpeta compartida de Ingeniería en la red de la empresa (en las PC suele
@@ -38,6 +39,20 @@ interface PlanoRow extends Omit<PlanoLink, "de_otro_pm" | "ruta"> {
 
 const COLUMNAS =
   "id, pm, anio, modelo_carpeta, modelo_normalizado, cancelada, nombre_archivo, ruta_origen, paginas, especificacion, descripcion, dibujo, verifico, fecha_plano, escala, acabados, notas, error_lectura";
+
+/**
+ * Con qué se buscan los planos de un pedido. Se registran por OT ("PM134-26"), sin
+ * el número de PM dentro de la OT: 1PM134-26 y 2PM134-26 ven los mismos planos.
+ */
+export function pmDePlanos(pedido: {
+  numero_pedido: string;
+  orden_trabajo: string | null;
+  fecha_pedido: string | null;
+}): string {
+  return pedido.orden_trabajo
+    ? `PM${pedido.orden_trabajo}`
+    : normalizarNumeroPM(pedido.numero_pedido, { fechaPedido: pedido.fecha_pedido });
+}
 
 /**
  * Planos de Ingeniería de cada ítem (sincronizados por

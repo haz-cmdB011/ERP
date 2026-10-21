@@ -4,6 +4,7 @@ import {
   avancePaso,
   estadoMueble,
   estadoObra,
+  opcionesDePasos,
   pasoConAsignaciones,
   siguientePaso,
   totalesProceso,
@@ -125,6 +126,22 @@ describe("revisión final", () => {
     expect(estadoObra(listo)).toBeNull();
     expect(estadoObra({ ...listo, revisionFinal: { aprobadas: 6 } })).toBe("en_revision_final");
     expect(estadoObra({ ...listo, revisionFinal: { aprobadas: 10 } })).toBe("liberado");
+  });
+});
+
+describe("opcionesDePasos", () => {
+  it("cada paso con lo que falta asignar, lo listo y el paso anterior", () => {
+    const ruta: PasoRuta[] = [
+      { id: "p1", proceso: "armado" },
+      { id: "p2", proceso: "barniz" },
+      { id: "p3", proceso: "armado" },
+    ];
+    const m = mueble([asig("armado", 10, 6, { verificado: 4, paso_id: "p1" }), asig("barniz", 3, 0, { paso_id: "p2" })], ruta);
+    expect(opcionesDePasos(m)).toEqual([
+      { indice: 0, id: "p1", proceso: "armado", etiqueta: "Armado 1", disponible: 0, listo: 0, anterior: null },
+      { indice: 1, id: "p2", proceso: "barniz", etiqueta: "Barniz", disponible: 7, listo: 1, anterior: "Armado 1" },
+      { indice: 2, id: "p3", proceso: "armado", etiqueta: "Armado 2", disponible: 10, listo: 0, anterior: "Barniz" },
+    ]);
   });
 });
 
