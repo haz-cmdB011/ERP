@@ -35,6 +35,9 @@ export interface HijoDespiece {
 }
 
 export interface LineaDespiece {
+  // Id de la parte (partes_despiece) que es esta línea; null u omitido en una línea
+  // nueva (la base le da uno al guardar). Con él, la parte conserva sus asignaciones.
+  id?: string | null;
   descripcion: string;
   material: string | null;
   unidad: string | null;
@@ -263,6 +266,7 @@ export function sugerirDespiece(padre: PadreDespiece, hijos: HijoDespiece[]): Su
 // cantidades a dos decimales. Mismo criterio que guardar_despiece_produccion.
 export function limpiarLineas(lineas: LineaDespiece[]): LineaDespiece[] {
   return lineas.map((l) => ({
+    id: l.id ?? null,
     descripcion: l.descripcion.replace(/\s+/g, " ").trim(),
     // Lo que escribe la persona se respeta; solo los materiales conocidos se unifican.
     material: materialEscrito(l.material),
@@ -329,6 +333,7 @@ export function lineasDesdeJson(valor: unknown): LineaDespiece[] {
     if (!crudo || typeof crudo !== "object") continue;
     const l = crudo as Record<string, unknown>;
     lineas.push({
+      id: texto(l.id),
       descripcion: texto(l.descripcion) ?? "",
       material: texto(l.material),
       unidad: texto(l.unidad),

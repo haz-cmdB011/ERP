@@ -159,6 +159,29 @@ si el mueble o sus componentes las llevan); se crea con la primera asignación o
   migración `recibos_procesos_repetidos`). Componentes y Electrificación siguen 1×. Lo usan el control al
   guardar el renglón, el campo Modelo de la captura y "PM contra cobrado" (`cantidad_pm_acabados/armado`).
 
+## Despiece por partes (fase 1)
+
+Un mueble se puede asignar **por partes de su despiece** (migración `despiece_por_partes`): cada línea del
+despiece es una parte con id fijo (`partes_despiece`; la línea lleva `id` en `despieces_produccion.lineas`)
+y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mueble completo (null).
+
+- La cantidad sigue en **muebles**: "la base de metal para 7 muebles" = 7 × piezas por mueble. El tope por
+  paso ahora es por parte; lo del mueble completo cuenta para todas sus partes.
+- **Un paso avanza lo de la parte más atrasada**: lo del mueble completo + el mínimo entre partes vigentes
+  (`cobertura_por_partes` en la base; `avancePaso` en `flujo-mueble.ts`; la línea de tiempo de Planeación,
+  igual). Con eso cuentan la revisión final (`piezas_listas_revision_final`) y el cobro
+  (`verificado_produccion_variante`, `aprobado_calidad_variante`): un mueble cuenta cuando todas sus
+  partes. Si un mueble se reparte entre planta y maquilador, lo liberado para cobrar queda en 0 hasta la
+  fase 3 (cobro por partes).
+- Asignar: `AsignarForm` con "Por partes" (lo sugerido si hay varias) o "Mueble completo"; varias partes
+  al mismo equipo y paso van juntas (`crear_asignaciones_por_partes`, todo o nada). La parte sale en
+  `etiquetaProceso` ("Armado · Base de metal") y las piezas con `textoAvanceAsignacion`/`piezasDeParte`.
+- **Bloqueo** (`guardar_despiece_produccion`): una parte con asignaciones vigentes no se quita ni baja su
+  cantidad por mueble; agregar partes o subir cantidades sí. Al volver a la sugerencia, la parte se
+  reconoce por su componente del PM. El retrabajo hereda la parte (`trg_paso_de_retrabajo`).
+- Pendiente: fase 2, ruta propia por parte; fase 3, cobro por partes; la ficha del QR (`/q`) asigna aún
+  como mueble completo.
+
 ## Revisión final de Calidad
 
 Calidad revisa el **mueble completo** antes de mandarlo a obra, no cada proceso (migraciones

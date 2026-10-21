@@ -75,6 +75,39 @@ describe("armarLineaTiempo", () => {
     expect(t.asignados).toEqual({ armado: 1, barniz: 1 });
   });
 
+  it("por partes, un mueble está asignado cuando todas sus partes lo están", () => {
+    const partes = new Map([["m1", ["madera", "metal"]]]);
+    const soloMadera = armarLineaTiempo(
+      [item("m1", liberado)],
+      [asig("m1", "armado", 10, 10, { parte_id: "madera" })],
+      new Set(),
+      new Map(),
+      partes
+    );
+    expect(soloMadera.asignados.armado).toBe(0);
+    const ambas = armarLineaTiempo(
+      [item("m1", liberado)],
+      [asig("m1", "armado", 10, 10, { parte_id: "madera" }), asig("m1", "armado", 10, 4, { parte_id: "metal" })],
+      new Set(),
+      new Map(),
+      partes
+    );
+    expect(ambas.asignados.armado).toBe(1);
+    expect(ambas.entregados.armado).toBe(0);
+  });
+
+  it("lo del mueble completo cuenta para todas sus partes", () => {
+    const t = armarLineaTiempo(
+      [item("m1", liberado)],
+      [asig("m1", "armado", 6, 6), asig("m1", "armado", 4, 4, { parte_id: "madera" }), asig("m1", "armado", 4, 4, { parte_id: "metal" })],
+      new Set(),
+      new Map(),
+      new Map([["m1", ["madera", "metal"]]])
+    );
+    expect(t.asignados.armado).toBe(1);
+    expect(t.entregados.armado).toBe(1);
+  });
+
   it("lo entregado se cuenta aparte de lo asignado", () => {
     const t = armarLineaTiempo(
       [item("m1", liberado)],

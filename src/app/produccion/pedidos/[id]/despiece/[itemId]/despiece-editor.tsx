@@ -31,6 +31,8 @@ interface Fila {
   unidad: string;
   piezas: string;
   hijoId: string | null;
+  // La parte del despiece que es la línea (null si es nueva): con ella conserva sus asignaciones.
+  parteId: string | null;
   aviso: string | null;
 }
 
@@ -52,12 +54,14 @@ function filasDesde(lineas: LineaDespiece[], avisos: (string | null)[] = []): Fi
     // 0 = el Excel no traía la cantidad: se deja en blanco para que se escriba.
     piezas: l.piezas_por_mueble > 0 ? String(l.piezas_por_mueble) : "",
     hijoId: l.hijo_id,
+    parteId: l.id ?? null,
     aviso: avisos[i] ?? null,
   }));
 }
 
 function lineasDesde(filas: Fila[]): LineaDespiece[] {
   return filas.map((f) => ({
+    id: f.parteId ?? null,
     descripcion: f.descripcion,
     material: f.material || null,
     unidad: f.unidad || null,
@@ -143,6 +147,7 @@ export default function DespieceEditor({
   lineasCaidas,
   puedeEditar,
   motivoBloqueo,
+  partesAsignadas = [],
 }: {
   itemId: string;
   // Versión guardada del despiece (0 = todavía no hay).
@@ -160,6 +165,9 @@ export default function DespieceEditor({
   lineasCaidas: number[];
   puedeEditar: boolean;
   motivoBloqueo: string | null;
+  // Partes con asignaciones vigentes: no se pueden quitar (la base tampoco deja bajar
+  // su cantidad por mueble).
+  partesAsignadas?: string[];
 }) {
   const router = useRouter();
   const [filas, setFilas] = useState<Fila[]>(() =>
@@ -210,12 +218,13 @@ export default function DespieceEditor({
       guardarBorrador(itemId, {
         version,
         en: Date.now(),
-        filas: filas.map(({ descripcion, material, unidad, piezas, hijoId }) => ({
+        filas: filas.map(({ descripcion, material, unidad, piezas, hijoId, parteId }) => ({
           descripcion,
           material,
           unidad,
           piezas,
           hijoId,
+          parteId,
         })),
       });
     }
@@ -265,7 +274,7 @@ export default function DespieceEditor({
   function agregar() {
     setFilas((prev) => [
       ...prev,
-      { clave: ++ultimaClave, descripcion: "", material: "", unidad: "", piezas: "1", hijoId: null, aviso: null },
+      { clave: ++ultimaClave, descripcion: "", material: "", unidad: "", piezas: "1", hijoId: null, parteId: null, aviso: null },
     ]);
   }
 
@@ -291,7 +300,8 @@ export default function DespieceEditor({
 
   function recuperarBorrador() {
     if (!borrador) return;
-    setFilas(borrador.filas.map((f) => ({ ...f, clave: ++ultimaClave, aviso: null })));
+    // Los borradores de antes de las partes no traen parteId: la base reconoce la parte por su componente.
+    setFilas(borrador.filas.map((f) => ({ ...f, parteId: f.parteId ?? null, clave: ++ultimaClave, aviso: null })));
     setBorrador(null);
   }
 
@@ -499,12 +509,16 @@ export default function DespieceEditor({
         {filas.map((f, i) => {
           const piezas = leerCantidad(f.piezas);
           const caido = !!f.hijoId && idsCaidos.has(f.hijoId);
+          const asignada = !!f.parteId && partesAsignadas.includes(f.parteId);
           return (
             <div
               key={f.clave}
               className={`grid grid-cols-2 items-end gap-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0 ${GRID}`}
             >
-              <Campo etiqueta={`Línea ${i + 1} · Descripción`} className="col-span-full">
+              <Campo
+                etiqueta={`Línea ${i + 1} · Descripción${asignada ? " · asignada a un equipo" : ""}`}
+                className="col-span-full"
+              >
                 <input
                   value={f.descripcion}
                   onChange={(e) => cambiar(f.clave, "descripcion", e.target.value)}
@@ -553,9 +567,9 @@ export default function DespieceEditor({
                 <button
                   type="button"
                   onClick={() => quitar(f.clave)}
-                  disabled={filas.length <= 1}
+                  disabled={filas.length <= 1 || asignada}
                   aria-label={`Quitar la línea ${i + 1}`}
-                  title="Quitar la línea"
+                  title={asignada ? "Ya está asignada a un equipo: no se puede quitar" : "Quitar la línea"}
                   className="flex h-11 w-11 items-center justify-center justify-self-end rounded-lg border border-slate-300 text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 sm:h-10 sm:w-10"
                 >
                   <svg
