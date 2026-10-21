@@ -129,10 +129,13 @@ export function Revisar({
   mueble: m,
   titulo,
   className,
+  children,
 }: {
   mueble: Pick<MuebleRevisionFinal, "id" | "unidad" | "resumen" | "pasos">;
   titulo: string;
   className?: string;
+  // Texto del botón que lo abre (por omisión, "Revisión final (N)").
+  children?: React.ReactNode;
 }) {
   const router = useRouter();
   const pendientes = m.resumen.pendientes;
@@ -196,7 +199,7 @@ export function Revisar({
           "rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-100 max-md:min-h-11"
         }
       >
-        Revisión final ({pendientes})
+        {children ?? `Revisión final (${pendientes})`}
       </button>
       {abierto && (
         <Modal titulo="Revisión final" subtitulo={titulo} onCerrar={() => !enviando && setAbierto(false)}>

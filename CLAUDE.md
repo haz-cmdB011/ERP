@@ -214,14 +214,20 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
 ## QR del mueble
 
 El QR de la Hoja de Viajero lleva solo el id del mueble (`/q/<ítem>`). Al escanearlo con la cámara abre la
-**ficha del mueble** (`src/app/q/[itemId]/page.tsx`): ruta con el avance de cada paso, una pestaña por área
-con sus acciones (Producción: **asignar el paso que sigue y reasignar lo que Calidad rechazó ahí mismo**,
-con los mismos formularios de la pantalla del PM y de Rechazado por Calidad (`asignar-qr.tsx`), más
-registrar entrega, ruta del PM, hoja y despiece; Calidad: **revisión final del mueble completo** ahí
-mismo (aprobar o rechazar con motivo, origen y paso de regreso; el mismo `Revisar` de la pantalla del
-pedido), las entregas por proceso plegadas como opción (`EvaluarLote`; abiertas si la revisión final
-está apagada), componentes e informes en su pantalla y reportar falla (`calidad-qr.tsx`);
-Planeación: el PM; Estimaciones: PM contra cobrado) y el **historial** del mueble con quién hizo qué.
+**ficha del mueble** (`src/app/q/[itemId]/page.tsx`), pensada para entenderse de un vistazo:
+
+- **Tarjeta de estado** (`ruta-qr.tsx`, lógica en `src/lib/trazabilidad/resumen-ruta.ts`): una frase ("En
+  Armado · 5 de 7 entregadas") y una barra con un tramo por paso (ruta, revisión final, pago); al tocarla
+  se abre la ruta completa.
+- **Una acción principal por pestaña** (lo que sigue) con una línea de por qué, y las demás como
+  "Más opciones" (`panelQr` en `src/lib/trazabilidad/areas-qr.ts`). Producción: registrar entrega si hay
+  algo en taller, si no **asignar** ahí mismo (mismo `AsignarForm` del PM); opciones: ruta del PM, hoja,
+  despiece; arriba, en rojo, lo que Calidad rechazó con su "Reasignar" (`rechazos-qr.tsx`). Calidad:
+  **revisión final del mueble completo** ahí mismo (el mismo `Revisar` del pedido); opciones: componentes
+  e informes, reportar falla y, plegadas, las entregas por proceso (`entregas-calidad-qr.tsx`; abiertas
+  si la revisión final está apagada). Planeación: el PM. Estimaciones: sus recibos (`pago-qr.tsx`) y PM
+  contra cobrado.
+- **Historial**: los últimos 3 movimientos con quién hizo qué; el resto en "Ver todo".
 Cada quien ve la pestaña de su área; el desarrollador, todas (`?area=`). El QR de un componente lleva a
 su mueble. Arriba sale el botón del plano (datos del cuadro; el PDF sigue en el servidor de Ingeniería).
 No hay tabla de eventos: el historial junta lo que ya guarda cada área (lógica pura en
