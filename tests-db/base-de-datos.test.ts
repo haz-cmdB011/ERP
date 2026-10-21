@@ -303,16 +303,17 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
   });
 
   describe("revisión final de Calidad", () => {
-    // 20261019164854_revision_final_calidad.sql: se creó apagada hasta que Calidad
-    // confirme que así trabaja. Si se enciende a propósito, cambiar esta prueba.
-    it("el ajuste revision_final existe y está apagado", async () => {
+    // 20261019164854_revision_final_calidad.sql la creó apagada; se encendió a propósito al
+    // fusionar la pantalla que pide el origen de la falla (es la puerta obligatoria a obra).
+    // Si se vuelve a apagar a propósito, cambiar esta prueba.
+    it("el ajuste revision_final existe y está encendido", async () => {
       const { data, error } = await servicio
         .from("ajustes_flujo")
         .select("activo")
         .eq("clave", "revision_final")
         .maybeSingle<{ activo: boolean }>();
       expect(error).toBeNull();
-      expect(data?.activo).toBe(false);
+      expect(data?.activo).toBe(true);
     });
 
     it("solo Calidad registra la revisión final", async () => {

@@ -899,6 +899,22 @@ export default function ItemsLiberacionTable({
               >
                 Imprimir Selección (PDF)
               </a>
+              {/* Sin selección imprime las de todos los muebles liberados. */}
+              <a
+                href={`/produccion/pedidos/${pedidoId}/etiquetas${
+                  seleccionados.size > 0 ? `?ids=${Array.from(seleccionados).join(",")}` : ""
+                }`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={
+                  seleccionados.size > 0
+                    ? "Etiquetas para pegar en los ítems elegidos"
+                    : "Etiquetas para pegar en todos los muebles liberados"
+                }
+                className="rounded-lg border border-brand-600 px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-brand-500 hover:text-on-brand"
+              >
+                Etiquetas QR{seleccionados.size > 0 ? ` (${seleccionados.size})` : ""}
+              </a>
               <button
                 type="button"
                 onClick={revertirSeleccion}

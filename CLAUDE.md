@@ -211,6 +211,34 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   un aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece al liberarse.
 - No cubre el doble cobro (el mueble y también sus componentes por el mismo trabajo): salen juntos en pantalla.
 
+## QR del mueble
+
+El QR de la Hoja de Viajero lleva solo el id del mueble (`/q/<ítem>`). Al escanearlo con la cámara abre la
+**ficha del mueble** (`src/app/q/[itemId]/page.tsx`): ruta con el avance de cada paso, una pestaña por área
+con sus acciones (Producción: **asignar el paso que sigue y reasignar lo que Calidad rechazó ahí mismo**,
+con los mismos formularios de la pantalla del PM y de Rechazado por Calidad (`asignar-qr.tsx`), más
+registrar entrega, ruta del PM, hoja y despiece; Calidad: **revisión final del mueble completo** ahí
+mismo (aprobar o rechazar con motivo, origen y paso de regreso; el mismo `Revisar` de la pantalla del
+pedido), las entregas por proceso plegadas como opción (`EvaluarLote`; abiertas si la revisión final
+está apagada), componentes e informes en su pantalla y reportar falla (`calidad-qr.tsx`);
+Planeación: el PM; Estimaciones: PM contra cobrado) y el **historial** del mueble con quién hizo qué.
+Cada quien ve la pestaña de su área; el desarrollador, todas (`?area=`). El QR de un componente lleva a
+su mueble. Arriba sale el botón del plano (datos del cuadro; el PDF sigue en el servidor de Ingeniería).
+No hay tabla de eventos: el historial junta lo que ya guarda cada área (lógica pura en
+`src/lib/trazabilidad/linea-tiempo-mueble.ts`, lectura en `linea-tiempo-db.ts`). Los escáneres dentro
+de Producción y Calidad siguen yendo directo a su pantalla; las hojas viejas (dirección larga) abren la hoja.
+
+- **Etiquetas QR** para pegar en el mueble: `/produccion/pedidos/<id>/etiquetas` (botón "Etiquetas QR" en
+  la tabla del pedido; con selección, esos ítems; sin ella, todos los muebles liberados), 3 × 8 por hoja
+  carta, una por mueble o una por pieza (`?por=pieza`, tope `MAX_ETIQUETAS`).
+- **Salida a obra**: se probó y se quitó (no se usa); la migración `quitar_salidas_obra` borra lo que dejó
+  `salidas_obra` en la base. El flujo del mueble termina en el pago al maquilador.
+- **Pago al maquilador** (último paso de la ruta, pestaña Estimaciones e historial): los recibos vigentes
+  que cobraron el mueble y si están pagados. Solo consulta, sin migración: liga por O.T. + código +
+  descripción (Electrificación, por `planeacion_item_id`), la regla de "PM contra cobrado". Todo vive en
+  `src/lib/trazabilidad/pago-maquilador.ts` (+ `-db.ts`, `pago-qr.tsx`): el pago del maquilador va a
+  cambiar y debe tocarse solo ahí.
+
 ## Capturas sin conexión
 
 En el taller a veces se cae el Wi-Fi. La **entrega de Producción** (con su foto) se guarda en el

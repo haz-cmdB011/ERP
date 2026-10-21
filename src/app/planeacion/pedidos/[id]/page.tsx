@@ -8,8 +8,7 @@ import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
 import type { EstadoRevision } from "@/lib/planeacion/estado-revision";
 import CancelarPedido from "./cancelar-pedido";
 import ItemsTabla, { type MuebleTabla } from "./items-tabla";
-import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
-import { getPlanosPorItem } from "@/lib/planos/planos-por-item";
+import { getPlanosPorItem, pmDePlanos } from "@/lib/planos/planos-por-item";
 import { resumirCancelacion, type ItemParaCancelar } from "@/lib/planeacion/resumen-cancelacion";
 import LineaTiempoPm from "./linea-tiempo-pm";
 import { armarLineaTiempo, type LineaTiempo } from "@/lib/planeacion/linea-tiempo";
@@ -182,15 +181,7 @@ export default async function PedidoDetailPage({
   const itemIds = (items ?? []).map((i) => i.id);
   const [imagenesPorItem, planosPorItem] = await Promise.all([
     getImagenesPorItem(supabase, itemIds),
-    getPlanosPorItem(
-      supabase,
-      // Los planos se registran por OT ("PM134-26"), sin el número de PM
-      // dentro de la OT: 1PM134-26 y 2PM134-26 ven los mismos planos.
-      pedido.orden_trabajo
-        ? `PM${pedido.orden_trabajo}`
-        : normalizarNumeroPM(pedido.numero_pedido, { fechaPedido: pedido.fecha_pedido }),
-      items ?? []
-    ),
+    getPlanosPorItem(supabase, pmDePlanos(pedido), items ?? []),
   ]);
 
   // Los ítems cancelados o enviados a la papelera de Producción salen de la

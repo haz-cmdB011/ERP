@@ -10,7 +10,6 @@ import {
   mensajeErrorRpc,
   type EncargadoEquipo,
   type EquipoProduccion,
-  type Proceso,
 } from "@/lib/produccion/asignaciones";
 import Modal, {
   estiloBotonPrimario,
@@ -20,22 +19,9 @@ import Modal, {
 } from "./modal";
 import CampoEncargado from "./campo-encargado";
 
-// Un paso de la ruta del mueble, tal como se ofrece en el formulario.
-export interface OpcionPaso {
-  // Posición en la ruta (0 = primer paso).
-  indice: number;
-  // null mientras la ruta sea la sugerida y no se haya guardado: la base usa el
-  // paso de ese proceso.
-  id: string | null;
-  proceso: Proceso;
-  etiqueta: string;
-  // Lo que falta por asignar en el paso (tope: la cantidad del mueble).
-  disponible: number;
-  // Lo que ya entregó el paso anterior y aún no se asigna aquí.
-  listo: number;
-  // Etiqueta del paso anterior (null en el primero).
-  anterior: string | null;
-}
+import type { OpcionPaso } from "@/lib/produccion/flujo-mueble";
+
+export type { OpcionPaso };
 
 const fmt = (n: number) => String(Math.round(n * 100) / 100);
 
