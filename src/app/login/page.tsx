@@ -307,7 +307,6 @@ export default function LoginPage() {
   return (
     <AuthShell
       titulo="Iniciar sesión"
-      descripcion="Entra con tu cuenta para continuar."
       pie={
         <>
           <button
@@ -370,19 +369,14 @@ export default function LoginPage() {
             </button>
           </div>
         </div>
-        <label className="flex cursor-pointer items-start gap-2.5 text-sm text-slate-700">
+        <label className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={recordar}
             onChange={(e) => setRecordar(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
+            className="h-4 w-4 shrink-0 accent-brand-600"
           />
-          <span>
-            Recordar mis datos
-            <span className="block text-xs text-slate-500">
-              Guarda tu correo en este equipo; la contraseña la guarda tu navegador.
-            </span>
-          </span>
+          <span>Recordar mis datos</span>
         </label>
         <button type="submit" disabled={enviando} className={BOTON_AUTH}>
           {enviando && <Girando />}
