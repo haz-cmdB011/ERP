@@ -36,7 +36,7 @@ export default function ListaOrdenes({
               aria-label={`Abrir ${titulo}`}
               className="absolute inset-0 rounded-xl focus-visible:outline-brand-500"
             />
-            <div className="min-w-0">
+            <div className="min-w-0 sm:flex-1">
               <p className="font-mono text-base font-semibold text-slate-900">{titulo}</p>
               <p className="truncate text-sm text-slate-700">{primero.proyectos?.nombre ?? "—"}</p>
               {(primero.proyectos?.cliente || fila.pedidos.length > 1) && (
