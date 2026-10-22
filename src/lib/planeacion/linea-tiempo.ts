@@ -35,7 +35,13 @@ export interface AsignacionTiempo {
   paso_id?: string | null;
   informe_rechazo_id?: string | null;
   revision_final_rechazo_id?: string | null;
+  // Parte del despiece (migración despiece_por_partes); null si es el mueble completo.
+  parte_id?: string | null;
 }
+
+// Partes vigentes del despiece de cada mueble (sus ids). Un mueble que no aparece
+// cuenta las partes que ya tienen asignaciones.
+export type PartesPorMueble = ReadonlyMap<string, readonly string[]>;
 
 // Pasos vigentes de la ruta guardada de cada mueble, en orden. Un mueble sin
 // ruta guardada cuenta un paso por proceso.
@@ -60,7 +66,8 @@ export function armarLineaTiempo(
   items: ItemTiempo[],
   asignaciones: AsignacionTiempo[],
   idsConInforme: ReadonlySet<string>,
-  pasos: PasosPorMueble = new Map()
+  pasos: PasosPorMueble = new Map(),
+  partes: PartesPorMueble = new Map()
 ): LineaTiempo {
   const vigentes = items.filter((i) => i.estado_revision !== "cancelado" && !i.eliminacion_solicitada_en);
   const liberados = vigentes.filter((i) => i.estado_liberacion === "enviado_a_produccion");
@@ -76,16 +83,35 @@ export function armarLineaTiempo(
 
   // Asignado y entregado por mueble y paso (sin lo cancelado ni los retrabajos).
   // Una asignación cuyo paso no está en la ruta va al primer paso de su proceso.
-  const asignadoPor = new Map<string, number>();
-  const entregadoPor = new Map<string, number>();
-  for (const a of asignaciones) {
-    if (a.cancelada_en || !a.planeacion_item_id || a.informe_rechazo_id || a.revision_final_rechazo_id) continue;
-    const delProceso = pasosDe(a.planeacion_item_id, a.proceso);
+  // Por partes, cuenta lo del mueble completo más la parte más atrasada (como
+  // cobertura_por_partes en la base): un mueble está asignado cuando todas sus partes.
+  const vigentesAsig = asignaciones.filter(
+    (a) => !a.cancelada_en && a.planeacion_item_id && !a.informe_rechazo_id && !a.revision_final_rechazo_id
+  );
+  const partesDe = (itemId: string): readonly string[] =>
+    partes.get(itemId) ??
+    [...new Set(vigentesAsig.flatMap((a) => (a.planeacion_item_id === itemId && a.parte_id ? [a.parte_id] : [])))];
+  const sumaPor = new Map<string, { mueble: { a: number; e: number }; partes: Map<string, { a: number; e: number }> }>();
+  for (const a of vigentesAsig) {
+    const itemId = a.planeacion_item_id as string;
+    const delProceso = pasosDe(itemId, a.proceso);
     const paso = a.paso_id && delProceso.includes(a.paso_id) ? a.paso_id : delProceso[0];
     if (!paso) continue;
-    const clave = `${a.planeacion_item_id}|${paso}`;
-    asignadoPor.set(clave, (asignadoPor.get(clave) ?? 0) + Number(a.cantidad));
-    entregadoPor.set(clave, (entregadoPor.get(clave) ?? 0) + Number(a.entregado));
+    const clave = `${itemId}|${paso}`;
+    const s = sumaPor.get(clave) ?? { mueble: { a: 0, e: 0 }, partes: new Map() };
+    const destino = a.parte_id ? (s.partes.get(a.parte_id) ?? { a: 0, e: 0 }) : s.mueble;
+    destino.a += Number(a.cantidad);
+    destino.e += Number(a.entregado);
+    if (a.parte_id) s.partes.set(a.parte_id, destino);
+    sumaPor.set(clave, s);
+  }
+  const asignadoPor = new Map<string, number>();
+  const entregadoPor = new Map<string, number>();
+  for (const [clave, s] of sumaPor) {
+    const ids = partesDe(clave.split("|")[0]);
+    const minimo = (campo: "a" | "e") => (ids.length ? Math.min(...ids.map((id) => s.partes.get(id)?.[campo] ?? 0)) : 0);
+    asignadoPor.set(clave, s.mueble.a + minimo("a"));
+    entregadoPor.set(clave, s.mueble.e + minimo("e"));
   }
 
   const contar = (porClave: Map<string, number>, proceso: Proceso): number =>

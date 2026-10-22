@@ -955,6 +955,14 @@ export default function ItemsLiberacionTable({
                     href: `/produccion/pedidos/${pedidoId}/viajero-lote?ids=${Array.from(seleccionados).join(",")}`,
                     target: "_blank",
                   },
+                  // Sin selección imprime las de todos los muebles liberados.
+                  {
+                    etiqueta: seleccionados.size > 0 ? `Etiquetas QR (${seleccionados.size})` : "Etiquetas QR de los liberados",
+                    href: `/produccion/pedidos/${pedidoId}/etiquetas${
+                      seleccionados.size > 0 ? `?ids=${Array.from(seleccionados).join(",")}` : ""
+                    }`,
+                    target: "_blank",
+                  },
                   {
                     etiqueta: revirtiendo ? "Regresando a pendiente…" : "Regresar a pendiente",
                     deshabilitada: seleccionados.size === 0 || revirtiendo,

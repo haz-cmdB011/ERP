@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import {
   etiquetaProceso,
+  piezasDeParte,
+  textoAvanceAsignacion,
   diasEnProceso,
   formatoFecha,
   hoyMexico,
@@ -200,14 +202,19 @@ export default async function MuebleEscaneadoPage({
                   <span className="font-semibold text-slate-900">
                     {Number(a.entregado)} de {Number(a.cantidad)}
                   </span>{" "}
-                  {a.unidad ?? ""} · faltan <span className="font-semibold text-slate-900">{pendiente}</span>
+                  {a.parte_id ? "muebles" : (a.unidad ?? "")} · faltan{" "}
+                  <span className="font-semibold text-slate-900">{pendiente}</span>
+                  {/* Una parte se entrega por muebles: estas son sus piezas. */}
+                  {piezasDeParte(pendiente, a) && ` (${piezasDeParte(pendiente, a)})`}
                 </p>
                 {puedeEditar ? (
                   <RegistrarEntrega
                     asignacionId={a.id}
-                    descripcion={`${a.numero_pedido} · ${a.modelo ?? `ítem ${a.item_code}`} · ${a.equipo}`}
+                    descripcion={`${a.numero_pedido} · ${a.modelo ?? `ítem ${a.item_code}`}${
+                      a.parte_descripcion ? ` · ${a.parte_descripcion}` : ""
+                    } · ${a.equipo}`}
                     pendiente={pendiente}
-                    unidad={a.unidad}
+                    unidad={a.parte_id ? "muebles" : a.unidad}
                     fechaAsignacion={a.fecha_asignacion}
                   />
                 ) : (
@@ -229,9 +236,7 @@ export default async function MuebleEscaneadoPage({
               <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
                 <span className="font-medium text-slate-900">{a.equipo}</span>
                 <span className="text-slate-600">{etiquetaProceso(a)}</span>
-                <span className="text-slate-600">
-                  {Number(a.entregado)}/{Number(a.cantidad)} {a.unidad ?? ""}
-                </span>
+                <span className="text-slate-600">{textoAvanceAsignacion(a)}</span>
                 <EstadoAsignacionBadge estado={a.estado} />
               </li>
             ))}

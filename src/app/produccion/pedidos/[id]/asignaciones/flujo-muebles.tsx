@@ -17,6 +17,7 @@ import {
   estadoMueble,
   estadoObra,
   indiceSiguiente,
+  opcionesDePasos,
   pasoConAsignaciones,
   porcentaje,
   siguientePaso,
@@ -26,7 +27,7 @@ import {
   type MuebleFlujo,
 } from "@/lib/produccion/flujo-mueble";
 import { ORDEN_SUGERIDO, etiquetaPaso, textoRuta } from "@/lib/produccion/ruta";
-import AsignarForm, { type OpcionPaso } from "@/app/produccion/asignaciones/asignar-form";
+import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
 import EditarRuta from "./editar-ruta";
 
 // Color de cada estado (variables de la paleta: el tema oscuro las invierte).
@@ -49,22 +50,6 @@ export interface AsignarDesdeFlujo {
   encargados: EncargadoEquipo[];
   // Prefijo del subtítulo del formulario ("PM135-26").
   numeroPedido: string;
-}
-
-// Los pasos de la ruta del mueble como opciones del formulario de asignación.
-function opcionesDePasos(m: MuebleFlujo): OpcionPaso[] {
-  return m.ruta.map((p, i) => {
-    const a = avancePaso(m, i);
-    return {
-      indice: i,
-      id: p.id,
-      proceso: p.proceso,
-      etiqueta: etiquetaPaso(m.ruta, i),
-      disponible: a.disponible,
-      listo: a.listo,
-      anterior: i > 0 ? etiquetaPaso(m.ruta, i - 1) : null,
-    };
-  });
 }
 
 const subtitulo = (m: MuebleFlujo, asignar: AsignarDesdeFlujo) =>
@@ -223,6 +208,7 @@ function BotonAsignar({
       pasos={opcionesDePasos(m)}
       equipos={asignar.equipos}
       encargados={asignar.encargados}
+      partes={m.partes}
       pasoInicial={indice}
       className={className}
       titulo={titulo}

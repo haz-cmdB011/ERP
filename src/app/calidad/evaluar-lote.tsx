@@ -28,6 +28,7 @@ type LoteParaEvaluar = Pick<
   | "pendiente"
   | "folio_rechazo"
   | "folio_hoja"
+  | "parte_descripcion"
 >;
 
 interface InformeCreado {
@@ -48,7 +49,8 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const unidad = lote.unidad ?? "pz";
+  // Una parte del despiece se entrega por muebles (la base de metal de 7 muebles).
+  const unidad = lote.parte_descripcion ? "muebles" : (lote.unidad ?? "pz");
   const titulo = `${lote.numero_pedido} · ${lote.modelo ?? `ítem ${lote.item_code}`}`;
 
   function abrir() {

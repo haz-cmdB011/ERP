@@ -8,13 +8,14 @@ import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
 import type { EstadoRevision } from "@/lib/planeacion/estado-revision";
 import CancelarPedido from "./cancelar-pedido";
 import ItemsTabla, { type MuebleTabla } from "./items-tabla";
-import { normalizarNumeroPM } from "@/lib/planeacion/numero-pm";
-import { getPlanosPorItem } from "@/lib/planos/planos-por-item";
+import { getPlanosPorItem, pmDePlanos } from "@/lib/planos/planos-por-item";
 import { resumirCancelacion, type ItemParaCancelar } from "@/lib/planeacion/resumen-cancelacion";
 import LineaTiempoPm from "./linea-tiempo-pm";
 import { armarLineaTiempo, type LineaTiempo } from "@/lib/planeacion/linea-tiempo";
 import { asignacionesDePedido, idsConInformeDeCalidad } from "@/lib/planeacion/linea-tiempo-db";
 import { cargarRutas, type RutaGuardada } from "@/lib/produccion/rutas-db";
+import { cargarPartes } from "@/lib/produccion/partes-db";
+import type { ParteMueble } from "@/lib/produccion/flujo-mueble";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 
 import { paginarTodo } from "@/lib/supabase/paginar";
@@ -165,32 +166,27 @@ export default async function PedidoDetailPage({
       )
       .map((i) => i.id);
     const mueblesIds = items.filter((i) => i.tipo_registro === "MO" && liberadosIds.includes(i.id)).map((i) => i.id);
-    const [asignaciones, conInforme, rutas] = await Promise.all([
+    const [asignaciones, conInforme, rutas, partes] = await Promise.all([
       asignacionesDePedido(supabase, id),
       idsConInformeDeCalidad(supabase, liberadosIds),
       // Es un resumen: sin rutas cuenta un paso por proceso en vez de tumbar la pantalla.
       cargarRutas(supabase, mueblesIds).catch(() => new Map<string, RutaGuardada>()),
+      // Igual sin partes: cuenta las que ya tienen asignaciones.
+      cargarPartes(supabase, mueblesIds).catch(() => new Map<string, ParteMueble[]>()),
     ]);
     tiempo = armarLineaTiempo(
       items,
       asignaciones,
       conInforme,
-      new Map([...rutas].map(([itemId, r]) => [itemId, r.pasos.filter((p) => p.id !== null) as { id: string; proceso: string }[]]))
+      new Map([...rutas].map(([itemId, r]) => [itemId, r.pasos.filter((p) => p.id !== null) as { id: string; proceso: string }[]])),
+      new Map([...partes].map(([itemId, ps]) => [itemId, ps.map((p) => p.id)]))
     );
   }
 
   const itemIds = (items ?? []).map((i) => i.id);
   const [imagenesPorItem, planosPorItem] = await Promise.all([
     getImagenesPorItem(supabase, itemIds),
-    getPlanosPorItem(
-      supabase,
-      // Los planos se registran por OT ("PM134-26"), sin el número de PM
-      // dentro de la OT: 1PM134-26 y 2PM134-26 ven los mismos planos.
-      pedido.orden_trabajo
-        ? `PM${pedido.orden_trabajo}`
-        : normalizarNumeroPM(pedido.numero_pedido, { fechaPedido: pedido.fecha_pedido }),
-      items ?? []
-    ),
+    getPlanosPorItem(supabase, pmDePlanos(pedido), items ?? []),
   ]);
 
   // Los ítems cancelados o enviados a la papelera de Producción salen de la

@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import { leer } from "@/lib/supabase/leer";
+import { ErrorLectura } from "@/lib/supabase/paginar";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import {
   basePmDesdeJson,
@@ -122,6 +123,20 @@ export default async function DespiecePage({
   const sugerencia = sugerirDespiece(item, hijos ?? []);
   const lineasGuardadas = guardado ? lineasDesdeJson(guardado.lineas) : [];
 
+  // Partes ya asignadas a un equipo: no se pueden quitar del despiece. Si la migración
+  // despiece_por_partes todavía no está en la base (no existe la columna), no hay ninguna.
+  const { data: asignadas, error: errorAsignadas } = await supabase
+    .from("asignaciones_produccion")
+    .select("parte_id")
+    .eq("planeacion_item_id", item.id)
+    .not("parte_id", "is", null)
+    .is("cancelada_en", null)
+    .returns<{ parte_id: string }[]>();
+  if (errorAsignadas && errorAsignadas.code !== "42703") {
+    throw new ErrorLectura(`No se pudo leer las partes asignadas: ${errorAsignadas.message}`);
+  }
+  const partesAsignadas = [...new Set((asignadas ?? []).map((a) => a.parte_id))];
+
   // Historial del despiece (las últimas versiones guardadas).
   let historial: VersionHistorial[] = [];
   if (guardado) {
@@ -234,6 +249,7 @@ export default async function DespiecePage({
         }
         puedeEditar={puedeEditarProduccion(perfil) && !motivoBloqueo}
         motivoBloqueo={motivoBloqueo}
+        partesAsignadas={partesAsignadas}
       />
     </main>
   );

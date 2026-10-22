@@ -102,16 +102,51 @@ export interface AsignacionResumen {
   // Qué vez del proceso es en la ruta del mueble (Armado 2 de 2); null sin paso.
   vez_paso: number | null;
   veces_proceso: number | null;
+  // Parte del despiece que se asignó (migración despiece_por_partes); null si es el
+  // mueble completo. La cantidad sigue siendo en muebles: las piezas son cantidad ×
+  // piezas por mueble de la parte.
+  parte_id?: string | null;
+  parte_descripcion?: string | null;
+  parte_piezas_por_mueble?: number | null;
+  parte_unidad?: string | null;
 }
 
-// "Armado", o "Armado 2" cuando la ruta del mueble repite el proceso.
+// "Armado", o "Armado 2" cuando la ruta del mueble repite el proceso; con la parte
+// del despiece si se asignó una ("Armado · Base de metal").
 export function etiquetaProceso(a: {
   proceso: Proceso;
   vez_paso?: number | null;
   veces_proceso?: number | null;
+  parte_descripcion?: string | null;
 }): string {
   const veces = Number(a.veces_proceso ?? 0);
-  return veces > 1 && a.vez_paso ? `${PROCESO_LABELS[a.proceso]} ${a.vez_paso}` : PROCESO_LABELS[a.proceso];
+  const proceso = veces > 1 && a.vez_paso ? `${PROCESO_LABELS[a.proceso]} ${a.vez_paso}` : PROCESO_LABELS[a.proceso];
+  return a.parte_descripcion ? `${proceso} · ${a.parte_descripcion}` : proceso;
+}
+
+// "5/7 PZA" de un mueble completo; de una parte, en muebles y con sus piezas:
+// "5/7 muebles · 42 PZA".
+export function textoAvanceAsignacion(
+  a: Pick<AsignacionResumen, "cantidad" | "entregado" | "unidad"> & {
+    parte_id?: string | null;
+    parte_piezas_por_mueble?: number | null;
+    parte_unidad?: string | null;
+  }
+): string {
+  const avance = `${Number(a.entregado)}/${Number(a.cantidad)}`;
+  const piezas = piezasDeParte(Number(a.cantidad), a);
+  return piezas ? `${avance} muebles · ${piezas}` : `${avance} ${a.unidad ?? ""}`.trim();
+}
+
+// Piezas de una parte para cierta cantidad de muebles ("42 PZA" = 7 muebles × 6); null
+// si la asignación es del mueble completo.
+export function piezasDeParte(
+  muebles: number,
+  a: { parte_id?: string | null; parte_piezas_por_mueble?: number | null; parte_unidad?: string | null }
+): string | null {
+  if (!a.parte_id || a.parte_piezas_por_mueble == null) return null;
+  const piezas = Math.round(Number(muebles) * Number(a.parte_piezas_por_mueble) * 100) / 100;
+  return `${piezas} ${a.parte_unidad ?? "PZA"}`;
 }
 
 // Un retrabajo (de un lote o de la revisión final) no cuenta contra la cantidad

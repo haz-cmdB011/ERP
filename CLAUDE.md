@@ -159,6 +159,29 @@ si el mueble o sus componentes las llevan); se crea con la primera asignación o
   migración `recibos_procesos_repetidos`). Componentes y Electrificación siguen 1×. Lo usan el control al
   guardar el renglón, el campo Modelo de la captura y "PM contra cobrado" (`cantidad_pm_acabados/armado`).
 
+## Despiece por partes (fase 1)
+
+Un mueble se puede asignar **por partes de su despiece** (migración `despiece_por_partes`): cada línea del
+despiece es una parte con id fijo (`partes_despiece`; la línea lleva `id` en `despieces_produccion.lineas`)
+y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mueble completo (null).
+
+- La cantidad sigue en **muebles**: "la base de metal para 7 muebles" = 7 × piezas por mueble. El tope por
+  paso ahora es por parte; lo del mueble completo cuenta para todas sus partes.
+- **Un paso avanza lo de la parte más atrasada**: lo del mueble completo + el mínimo entre partes vigentes
+  (`cobertura_por_partes` en la base; `avancePaso` en `flujo-mueble.ts`; la línea de tiempo de Planeación,
+  igual). Con eso cuentan la revisión final (`piezas_listas_revision_final`) y el cobro
+  (`verificado_produccion_variante`, `aprobado_calidad_variante`): un mueble cuenta cuando todas sus
+  partes. Si un mueble se reparte entre planta y maquilador, lo liberado para cobrar queda en 0 hasta la
+  fase 3 (cobro por partes).
+- Asignar: `AsignarForm` con "Por partes" (lo sugerido si hay varias) o "Mueble completo"; varias partes
+  al mismo equipo y paso van juntas (`crear_asignaciones_por_partes`, todo o nada). La parte sale en
+  `etiquetaProceso` ("Armado · Base de metal") y las piezas con `textoAvanceAsignacion`/`piezasDeParte`.
+- **Bloqueo** (`guardar_despiece_produccion`): una parte con asignaciones vigentes no se quita ni baja su
+  cantidad por mueble; agregar partes o subir cantidades sí. Al volver a la sugerencia, la parte se
+  reconoce por su componente del PM. El retrabajo hereda la parte (`trg_paso_de_retrabajo`).
+- Pendiente: fase 2, ruta propia por parte; fase 3, cobro por partes; la ficha del QR (`/q`) asigna aún
+  como mueble completo.
+
 ## Revisión final de Calidad
 
 Calidad revisa el **mueble completo** antes de mandarlo a obra, no cada proceso (migraciones
@@ -210,6 +233,40 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   (`recibo_contra_calidad`, que trae lo aprobado y lo verificado; `src/app/estimaciones/calidad-recibo.tsx`): es
   un aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece al liberarse.
 - No cubre el doble cobro (el mueble y también sus componentes por el mismo trabajo): salen juntos en pantalla.
+
+## QR del mueble
+
+El QR de la Hoja de Viajero lleva solo el id del mueble (`/q/<ítem>`). Al escanearlo con la cámara abre la
+**ficha del mueble** (`src/app/q/[itemId]/page.tsx`), pensada para entenderse de un vistazo:
+
+- **Tarjeta de estado** (`ruta-qr.tsx`, lógica en `src/lib/trazabilidad/resumen-ruta.ts`): una frase ("En
+  Armado · 5 de 7 entregadas") y una barra con un tramo por paso (ruta, revisión final, pago); al tocarla
+  se abre la ruta completa.
+- **Una acción principal por pestaña** (lo que sigue) con una línea de por qué, y las demás como
+  "Más opciones" (`panelQr` en `src/lib/trazabilidad/areas-qr.ts`). Producción: registrar entrega si hay
+  algo en taller, si no **asignar** ahí mismo (mismo `AsignarForm` del PM); opciones: ruta del PM, hoja,
+  despiece; arriba, en rojo, lo que Calidad rechazó con su "Reasignar" (`rechazos-qr.tsx`). Calidad:
+  **revisión final del mueble completo** ahí mismo (el mismo `Revisar` del pedido); opciones: componentes
+  e informes, reportar falla y, plegadas, las entregas por proceso (`entregas-calidad-qr.tsx`; abiertas
+  si la revisión final está apagada). Planeación: el PM. Estimaciones: sus recibos (`pago-qr.tsx`) y PM
+  contra cobrado.
+- **Historial**: los últimos 3 movimientos con quién hizo qué; el resto en "Ver todo".
+Cada quien ve la pestaña de su área; el desarrollador, todas (`?area=`). El QR de un componente lleva a
+su mueble. Arriba sale el botón del plano (datos del cuadro; el PDF sigue en el servidor de Ingeniería).
+No hay tabla de eventos: el historial junta lo que ya guarda cada área (lógica pura en
+`src/lib/trazabilidad/linea-tiempo-mueble.ts`, lectura en `linea-tiempo-db.ts`). Los escáneres dentro
+de Producción y Calidad siguen yendo directo a su pantalla; las hojas viejas (dirección larga) abren la hoja.
+
+- **Etiquetas QR** para pegar en el mueble: `/produccion/pedidos/<id>/etiquetas` (botón "Etiquetas QR" en
+  la tabla del pedido; con selección, esos ítems; sin ella, todos los muebles liberados), 3 × 8 por hoja
+  carta, una por mueble o una por pieza (`?por=pieza`, tope `MAX_ETIQUETAS`).
+- **Salida a obra**: se probó y se quitó (no se usa); la migración `quitar_salidas_obra` borra lo que dejó
+  `salidas_obra` en la base. El flujo del mueble termina en el pago al maquilador.
+- **Pago al maquilador** (último paso de la ruta, pestaña Estimaciones e historial): los recibos vigentes
+  que cobraron el mueble y si están pagados. Solo consulta, sin migración: liga por O.T. + código +
+  descripción (Electrificación, por `planeacion_item_id`), la regla de "PM contra cobrado". Todo vive en
+  `src/lib/trazabilidad/pago-maquilador.ts` (+ `-db.ts`, `pago-qr.tsx`): el pago del maquilador va a
+  cambiar y debe tocarse solo ahí.
 
 ## Capturas sin conexión
 

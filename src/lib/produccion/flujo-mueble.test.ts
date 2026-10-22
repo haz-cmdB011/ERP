@@ -4,6 +4,7 @@ import {
   avancePaso,
   estadoMueble,
   estadoObra,
+  opcionesDePasos,
   pasoConAsignaciones,
   siguientePaso,
   totalesProceso,
@@ -125,6 +126,94 @@ describe("revisión final", () => {
     expect(estadoObra(listo)).toBeNull();
     expect(estadoObra({ ...listo, revisionFinal: { aprobadas: 6 } })).toBe("en_revision_final");
     expect(estadoObra({ ...listo, revisionFinal: { aprobadas: 10 } })).toBe("liberado");
+  });
+});
+
+describe("opcionesDePasos", () => {
+  it("cada paso con lo que falta asignar, lo listo y el paso anterior", () => {
+    const ruta: PasoRuta[] = [
+      { id: "p1", proceso: "armado" },
+      { id: "p2", proceso: "barniz" },
+      { id: "p3", proceso: "armado" },
+    ];
+    const m = mueble([asig("armado", 10, 6, { verificado: 4, paso_id: "p1" }), asig("barniz", 3, 0, { paso_id: "p2" })], ruta);
+    expect(opcionesDePasos(m)).toEqual([
+      { indice: 0, id: "p1", proceso: "armado", etiqueta: "Armado 1", disponible: 0, listo: 0, anterior: null, partes: [] },
+      { indice: 1, id: "p2", proceso: "barniz", etiqueta: "Barniz", disponible: 7, listo: 1, anterior: "Armado 1", partes: [] },
+      { indice: 2, id: "p3", proceso: "armado", etiqueta: "Armado 2", disponible: 10, listo: 0, anterior: "Barniz", partes: [] },
+    ]);
+  });
+});
+
+describe("por partes del despiece", () => {
+  const partes = [
+    { id: "madera", descripcion: "Estructura de madera", piezasPorMueble: 1, unidad: "PZA" },
+    { id: "metal", descripcion: "Base de metal", piezasPorMueble: 6, unidad: "PZA" },
+  ];
+  const conPartes = (asignaciones: AsignacionResumen[]): MuebleFlujo => ({ ...mueble(asignaciones), partes });
+
+  it("el paso va en lo de la parte más atrasada", () => {
+    const m = conPartes([
+      asig("armado", 10, 10, { parte_id: "madera" }),
+      asig("armado", 10, 5, { parte_id: "metal" }),
+    ]);
+    const a = avancePaso(m, 0);
+    expect(a).toMatchObject({ estado: "en_proceso", asignado: 10, entregado: 5, disponible: 0 });
+    expect(a.partes).toEqual({
+      madera: { asignado: 10, entregado: 10, disponible: 0, listo: 0 },
+      metal: { asignado: 10, entregado: 5, disponible: 0, listo: 0 },
+    });
+  });
+
+  it("una parte sin asignar deja el paso a medias y es lo que queda por asignar", () => {
+    const m = conPartes([asig("armado", 10, 10, { parte_id: "madera" })]);
+    const a = avancePaso(m, 0);
+    expect(a).toMatchObject({ estado: "en_proceso", asignado: 0, entregado: 0 });
+    expect(a.partes.metal).toMatchObject({ disponible: 10 });
+    expect(a.partes.madera).toMatchObject({ disponible: 0 });
+    // El mueble completo ya no cabe: la madera está asignada completa.
+    expect(a.disponible).toBe(0);
+  });
+
+  it("lo del mueble completo cuenta para todas sus partes", () => {
+    const m = conPartes([asig("armado", 4, 4), asig("armado", 6, 6, { parte_id: "madera" })]);
+    const a = avancePaso(m, 0);
+    expect(a).toMatchObject({ asignado: 4, entregado: 4, disponible: 0 });
+    expect(a.partes.madera).toMatchObject({ asignado: 10, disponible: 0 });
+    expect(a.partes.metal).toMatchObject({ asignado: 4, disponible: 6 });
+  });
+
+  it("todas las partes completas terminan el paso", () => {
+    const m = conPartes([
+      asig("armado", 10, 10, { parte_id: "madera" }),
+      asig("armado", 10, 10, { parte_id: "metal" }),
+    ]);
+    expect(avancePaso(m, 0).estado).toBe("terminado");
+    expect(siguientePaso(m)).toBe("Asignar a Barniz");
+  });
+
+  it("lo listo del paso siguiente es por parte: lo que esa parte ya verificó", () => {
+    const m = conPartes([
+      asig("armado", 10, 10, { parte_id: "madera", verificado: 8 }),
+      asig("armado", 10, 3, { parte_id: "metal", verificado: 3 }),
+    ]);
+    const b = avancePaso(m, 1);
+    expect(b.partes.madera).toMatchObject({ disponible: 10, listo: 8 });
+    expect(b.partes.metal).toMatchObject({ disponible: 10, listo: 3 });
+    // El mueble completo, lo de la más atrasada.
+    expect(b).toMatchObject({ disponible: 10, listo: 3 });
+    expect(opcionesDePasos(m)[1].partes).toEqual([
+      { id: "madera", disponible: 10, listo: 8 },
+      { id: "metal", disponible: 10, listo: 3 },
+    ]);
+  });
+
+  it("sin leer las partes, cuentan las que ya tienen asignaciones", () => {
+    const m = mueble([
+      asig("armado", 10, 10, { parte_id: "madera" }),
+      asig("armado", 10, 5, { parte_id: "metal" }),
+    ]);
+    expect(avancePaso(m, 0)).toMatchObject({ entregado: 5 });
   });
 });
 

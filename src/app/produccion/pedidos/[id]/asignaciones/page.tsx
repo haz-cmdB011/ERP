@@ -11,6 +11,7 @@ import {
   etiquetaProceso,
   PROCESOS,
   formatoFecha,
+  textoAvanceAsignacion,
   type AsignacionResumen,
   type EncargadoEquipo,
   type EquipoProduccion,
@@ -27,6 +28,7 @@ import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
 import { avancePaso, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { rutaSugerida } from "@/lib/produccion/ruta";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
+import { cargarPartes } from "@/lib/produccion/partes-db";
 import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import FlujoMuebles from "./flujo-muebles";
@@ -157,13 +159,15 @@ export default async function AsignacionesPedidoPage({
   const idsLiberados = new Set(liberados.map((m) => m.id));
 
   const todas = asignaciones ?? [];
-  const [entregas, rutas, finalActiva] = await Promise.all([
+  const [entregas, rutas, finalActiva, partes] = await Promise.all([
     entregasPorAsignacion(
       supabase,
       todas.map((a) => a.id)
     ),
     cargarRutas(supabase, liberados.map((m) => m.id)),
     revisionFinalActiva(supabase),
+    // Partes del despiece de cada mueble: se asignan por separado.
+    cargarPartes(supabase, liberados.map((m) => m.id)),
   ]);
   // Revisión final de Calidad (ajuste revision_final, hoy apagado).
   const revisionFinal = finalActiva
@@ -208,6 +212,7 @@ export default async function AsignacionesPedidoPage({
       versionRuta: guardada?.version ?? 0,
       asignaciones: porItem.get(m.id) ?? [],
       revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
+      partes: partes.get(m.id) ?? [],
     };
   });
 
@@ -378,9 +383,7 @@ function FilaAsignacion({
           {a.folio_rechazo && (
             <span className="text-xs font-medium text-rose-700">Retrabajo · {a.folio_rechazo}</span>
           )}
-          <span className="text-slate-600">
-            {Number(a.entregado)}/{Number(a.cantidad)} {a.unidad ?? ""}
-          </span>
+          <span className="text-slate-600">{textoAvanceAsignacion(a)}</span>
           <span className="text-slate-500">asignada {formatoFecha(a.fecha_asignacion)}</span>
           {a.ultima_entrega && (
             <span className="text-slate-500">última entrega {formatoFecha(a.ultima_entrega)}</span>

@@ -35,6 +35,11 @@ export interface LoteCalidad {
   // Qué vez del proceso es en la ruta del mueble (Armado 2 de 2); null sin paso.
   vez_paso: number | null;
   veces_proceso: number | null;
+  // Parte del despiece de la entrega (migración despiece_por_partes); null si es del
+  // mueble completo. Entonces la cantidad es en muebles de esa parte.
+  parte_id?: string | null;
+  parte_descripcion?: string | null;
+  parte_piezas_por_mueble?: number | null;
 }
 
 // PostgREST devuelve numeric como texto: se normaliza a número.

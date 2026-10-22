@@ -303,16 +303,17 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
   });
 
   describe("revisión final de Calidad", () => {
-    // 20261019164854_revision_final_calidad.sql: se creó apagada hasta que Calidad
-    // confirme que así trabaja. Si se enciende a propósito, cambiar esta prueba.
-    it("el ajuste revision_final existe y está apagado", async () => {
+    // 20261019164854_revision_final_calidad.sql la creó apagada; se encendió a propósito al
+    // fusionar la pantalla que pide el origen de la falla (es la puerta obligatoria a obra).
+    // Si se vuelve a apagar a propósito, cambiar esta prueba.
+    it("el ajuste revision_final existe y está encendido", async () => {
       const { data, error } = await servicio
         .from("ajustes_flujo")
         .select("activo")
         .eq("clave", "revision_final")
         .maybeSingle<{ activo: boolean }>();
       expect(error).toBeNull();
-      expect(data?.activo).toBe(false);
+      expect(data?.activo).toBe(true);
     });
 
     it("solo Calidad registra la revisión final", async () => {
@@ -331,6 +332,33 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
         p_cantidad: 1,
         p_fecha_asignacion: "2026-01-01",
         p_notas: "",
+      });
+      expect(error?.message).toContain("Solo Producción");
+    });
+
+    // 20261021193520_despiece_por_partes.sql: un mueble sin partes cuenta solo lo del mueble
+    // completo, y asignar por partes exige ser de Producción.
+    it("sin partes, la cobertura es lo del mueble completo", async () => {
+      const { data, error } = await servicio.rpc("cobertura_por_partes", {
+        p_item_id: UUID_NULO,
+        p_mueble: 5,
+        p_por_parte: {},
+      });
+      expect(error).toBeNull();
+      expect(Number(data)).toBe(5);
+    });
+
+    it("solo Producción asigna por partes", async () => {
+      const { error } = await servicio.rpc("crear_asignaciones_por_partes", {
+        p_item_id: UUID_NULO,
+        p_equipo_id: UUID_NULO,
+        p_proceso: "armado",
+        p_cantidad: 1,
+        p_fecha_asignacion: "2026-01-01",
+        p_notas: "",
+        p_encargado: null,
+        p_paso_id: null,
+        p_partes: [UUID_NULO],
       });
       expect(error?.message).toContain("Solo Producción");
     });

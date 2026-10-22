@@ -124,7 +124,19 @@ function FilaMueble({
   );
 }
 
-function Revisar({ mueble: m, titulo }: { mueble: MuebleRevisionFinal; titulo: string }) {
+// También lo usa la ficha del QR del mueble (/q/<ítem>), con su propio estilo de botón.
+export function Revisar({
+  mueble: m,
+  titulo,
+  className,
+  children,
+}: {
+  mueble: Pick<MuebleRevisionFinal, "id" | "unidad" | "resumen" | "pasos">;
+  titulo: string;
+  className?: string;
+  // Texto del botón que lo abre (por omisión, "Revisión final (N)").
+  children?: React.ReactNode;
+}) {
   const router = useRouter();
   const pendientes = m.resumen.pendientes;
   const [abierto, setAbierto] = useState(false);
@@ -182,9 +194,12 @@ function Revisar({ mueble: m, titulo }: { mueble: MuebleRevisionFinal; titulo: s
       <button
         type="button"
         onClick={abrir}
-        className="rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-100 max-md:min-h-11"
+        className={
+          className ??
+          "rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-100 max-md:min-h-11"
+        }
       >
-        Revisión final ({pendientes})
+        {children ?? `Revisión final (${pendientes})`}
       </button>
       {abierto && (
         <Modal titulo="Revisión final" subtitulo={titulo} onCerrar={() => !enviando && setAbierto(false)}>

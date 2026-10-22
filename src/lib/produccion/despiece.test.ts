@@ -230,7 +230,13 @@ describe("limpiarLineas y mismasLineas", () => {
   it("limpia espacios y redondea a dos decimales", () => {
     expect(
       limpiarLineas([{ descripcion: "  TABLERO   MDF ", material: " ", unidad: "", piezas_por_mueble: 1.005, hijo_id: null }])
-    ).toEqual([{ descripcion: "TABLERO MDF", material: null, unidad: null, piezas_por_mueble: 1.01, hijo_id: null }]);
+    ).toEqual([
+      { id: null, descripcion: "TABLERO MDF", material: null, unidad: null, piezas_por_mueble: 1.01, hijo_id: null },
+    ]);
+  });
+
+  it("conserva el id de la parte para que no pierda sus asignaciones", () => {
+    expect(limpiarLineas([{ ...lineaBase, id: "parte-1" }])[0].id).toBe("parte-1");
   });
 
   it("unifica la unidad y los materiales conocidos pero respeta lo que escribe la persona", () => {
@@ -263,14 +269,14 @@ describe("lineasDesdeJson", () => {
   it("lee las líneas guardadas y descarta lo que no es una línea", () => {
     expect(
       lineasDesdeJson([
-        { descripcion: "TABLERO", material: "Madera", unidad: null, piezas_por_mueble: 3, hijo_id: "a" },
+        { id: "p1", descripcion: "TABLERO", material: "Madera", unidad: null, piezas_por_mueble: 3, hijo_id: "a" },
         "basura",
         null,
         { piezas_por_mueble: "2" },
       ])
     ).toEqual([
-      { descripcion: "TABLERO", material: "Madera", unidad: null, piezas_por_mueble: 3, hijo_id: "a" },
-      { descripcion: "", material: null, unidad: null, piezas_por_mueble: 2, hijo_id: null },
+      { id: "p1", descripcion: "TABLERO", material: "Madera", unidad: null, piezas_por_mueble: 3, hijo_id: "a" },
+      { id: null, descripcion: "", material: null, unidad: null, piezas_por_mueble: 2, hijo_id: null },
     ]);
     expect(lineasDesdeJson(null)).toEqual([]);
     expect(lineasDesdeJson({})).toEqual([]);
