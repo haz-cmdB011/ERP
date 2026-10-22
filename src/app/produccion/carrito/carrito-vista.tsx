@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { avisar } from "@/components/avisos";
 import ConfirmDialog from "@/components/confirm-dialog";
@@ -22,9 +23,11 @@ type Datos = DatosCarrito & {
 };
 
 export default function CarritoVista() {
+  const router = useRouter();
   const items = useCarrito();
   const [datos, setDatos] = useState<Datos | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // "todo" o el id del PM que se está liberando.
   const [liberando, setLiberando] = useState<string | null>(null);
   const [confirmarVaciar, setConfirmarVaciar] = useState(false);
 
@@ -66,9 +69,11 @@ export default function CarritoVista() {
     [datos]
   );
 
-  async function liberar(pedidoId: string, ids: string[]) {
+  // Libera los ítems y, si salió bien, los saca del carrito y lleva al panel de
+  // asignación con los muebles recién liberados.
+  async function liberar(clave: string, ids: string[]) {
     if (ids.length === 0) return;
-    setLiberando(pedidoId);
+    setLiberando(clave);
     try {
       const res = await fetch("/api/produccion/items/liberar", {
         method: "POST",
@@ -80,13 +85,23 @@ export default function CarritoVista() {
         avisar(cuerpo.error ?? "No se pudo liberar.", "error");
         return;
       }
+      const muebles = items.filter((i) => ids.includes(i.id) && i.tipo === "MO").map((i) => i.id);
+      quitarItems(ids);
       avisar(`${cuerpo.liberados} ítem(s) liberado(s) a producción.`, "exito");
-      await cargar();
+      // Un componente liberado solo no se asigna: sin muebles no hay a dónde ir.
+      if (muebles.length > 0) router.push(`/produccion/asignar?ids=${muebles.join(",")}`);
     } catch {
       avisar("Error de red al liberar.", "error");
     } finally {
       setLiberando(null);
     }
+  }
+
+  // Lo asignado sale del carrito, con sus componentes.
+  function sacarAsignados(idsMuebles: string[]) {
+    if (idsMuebles.length === 0) return;
+    const fuera = new Set(idsMuebles);
+    quitarItems([...fuera, ...items.filter((i) => i.padreId && fuera.has(i.padreId)).map((i) => i.id)]);
   }
 
   if (items.length === 0) {
@@ -108,7 +123,7 @@ export default function CarritoVista() {
   const puedeEditar = datos?.puedeEditar ?? false;
   const equipos = datos?.equipos ?? [];
   const encargados = datos?.encargados ?? [];
-  const pendientesTotal = items.filter((i) => estadoDe(i.id)?.vigente && !estadoDe(i.id)?.liberado).length;
+  const pendientes = items.filter((i) => estadoDe(i.id)?.vigente && !estadoDe(i.id)?.liberado);
 
   return (
     <div className="flex flex-col gap-5">
@@ -116,17 +131,32 @@ export default function CarritoVista() {
         <span className="font-medium text-slate-900">
           {items.length} ítem{items.length === 1 ? "" : "s"} · {grupos.length} O.T.
         </span>
-        {pendientesTotal > 0 && (
-          <span className="text-amber-700">{pendientesTotal} por liberar</span>
+        {pendientes.length > 0 && (
+          <span className="text-amber-700">{pendientes.length} por liberar</span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
+          {puedeEditar && pendientes.length > 0 && (
+            <button
+              type="button"
+              disabled={liberando !== null}
+              onClick={() =>
+                liberar(
+                  "todo",
+                  pendientes.map((i) => i.id)
+                )
+              }
+              className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+            >
+              {liberando === "todo" ? "Liberando..." : `Liberar todo a producción (${pendientes.length})`}
+            </button>
+          )}
           {puedeEditar && asignables.length > 0 && (
             <AsignarLote
               muebles={asignables}
               equipos={equipos}
               encargados={encargados}
               etiqueta={`Asignar todo el carrito (${asignables.length})`}
-              alTerminar={cargar}
+              alTerminar={sacarAsignados}
             />
           )}
           <button
@@ -199,7 +229,7 @@ export default function CarritoVista() {
                     {puedeEditar && porLiberar.length > 0 && (
                       <button
                         type="button"
-                        disabled={liberando === pm.pedidoId}
+                        disabled={liberando !== null}
                         onClick={() =>
                           liberar(
                             pm.pedidoId,
@@ -219,7 +249,7 @@ export default function CarritoVista() {
                         equipos={equipos}
                         encargados={encargados}
                         etiqueta={`Asignar ${mueblesPm.length} a un equipo`}
-                        alTerminar={cargar}
+                        alTerminar={sacarAsignados}
                       />
                     )}
                     {puedeEditar && mueblesPm.length > 0 && (

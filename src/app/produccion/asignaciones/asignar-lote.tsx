@@ -60,8 +60,9 @@ export default function AsignarLote({
   encargados: EncargadoEquipo[];
   // Texto del botón que abre el modal.
   etiqueta?: string;
-  // Se llama después de guardar asignaciones (para quien muestra el estado por su cuenta).
-  alTerminar?: () => void;
+  // Se llama después de guardar asignaciones, con los muebles que sí se asignaron
+  // (para quien muestra el estado por su cuenta).
+  alTerminar?: (idsAsignados: string[]) => void;
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
@@ -142,6 +143,7 @@ export default function AsignarLote({
     setFallos([]);
     const supabase = createClient();
     const creadas: string[] = [];
+    const mueblesAsignados: string[] = [];
     const falladas: Fallo[] = [];
     for (const [i, m] of elegidos.entries()) {
       setProgreso({ hecho: i, total: elegidos.length });
@@ -158,6 +160,7 @@ export default function AsignarLote({
         falladas.push({ id: m.id, texto: error ? mensajeErrorRpc(error.message) : "Sin respuesta." });
       } else {
         creadas.push(data);
+        mueblesAsignados.push(m.id);
       }
     }
     setProgreso(null);
@@ -170,7 +173,7 @@ export default function AsignarLote({
         { etiqueta: "Deshacer", alHacer: () => deshacer(creadas) }
       );
       router.refresh();
-      alTerminar?.();
+      alTerminar?.(mueblesAsignados);
     }
     if (falladas.length === 0) {
       setAbierto(false);
