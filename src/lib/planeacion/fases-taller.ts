@@ -1,6 +1,6 @@
-// Fases de taller que puede recorrer un ítem del PM. Fuente única para el
-// parser (qué columnas leer del Excel) y para la Hoja de Viajero (qué
-// checklist mostrar) — evita que las dos listas se desincronicen.
+// Catálogo de las fases de taller que puede recorrer un ítem del PM. Por ahora
+// no se leen del Excel (ver parser.ts): no tienen un papel importante en el
+// sistema todavía.
 export const FASES_TALLER_COLUMNS = [
   "HAB MAD",
   "HAB MET",

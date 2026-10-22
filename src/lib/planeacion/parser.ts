@@ -1,5 +1,12 @@
 import ExcelJS from "exceljs";
-import { FASES_TALLER_COLUMNS, type FaseTaller } from "./fases-taller";
+import type { FaseTaller } from "./fases-taller";
+import {
+  COLUMNAS_REQUERIDAS,
+  diagnosticarEncabezados,
+  letraColumna,
+  nombreCanonico,
+  normalize,
+} from "./formato";
 import type {
   CategoriaComponente,
   FilaError,
@@ -29,17 +36,6 @@ import type {
  * - Se leen todas las hojas con ese formato, también las ocultas.
  */
 
-const REQUIRED_HEADERS = [
-  "ITEM",
-  "COMPONENTE",
-  "TIPO",
-  "MODELO",
-  "DESCRIPCION",
-  "CANTIDAD X MUEBLE",
-  "UNIDAD",
-  "CANTIDAD TOTAL",
-] as const;
-
 const METADATA_LABELS: Record<string, keyof PlaneacionMetadata> = {
   "NO. PEDIDO": "numero_pedido",
   PROYECTO: "proyecto_nombre",
@@ -50,24 +46,10 @@ const METADATA_LABELS: Record<string, keyof PlaneacionMetadata> = {
 
 const MAX_HEADER_SCAN_ROWS = 15;
 
-// Encabezados con otro nombre en archivos reales -> nombre que espera el
-// parser (ya normalizados: sin acentos, espacios simples, mayúsculas).
-const ALIAS_ENCABEZADOS: Record<string, string> = {
-  "ACABADOS ACTUALIZADOS": "ACABADOS",
-  // "CANT" y "TOTAL" en dos renglones de la misma celda (PM 051-24-3).
-  "CANT TOTAL": "CANTIDAD TOTAL",
-  // PM 033-25-2: CANTIDAD X MUEBLE × muebles = este total.
-  "CANTIDAD DE MUEBLES EN PLANTA": "CANTIDAD TOTAL",
-};
-
-function normalize(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // quita acentos
-    .replace(/\s+/g, " ")
-    .trim()
-    .toUpperCase();
-}
+// Cuántas columnas obligatorias debe traer una hoja para contarse como PM. Por
+// debajo, es una hoja de notas o cálculo y se ignora. Por encima pero sin todas,
+// es un PM con encabezados mal escritos: se rechaza con el detalle.
+const UMBRAL_HOJA_PM = 4;
 
 type CellValue = ExcelJS.CellValue;
 
@@ -209,38 +191,45 @@ function extraerImagenesPorFila(
   return porFila;
 }
 
-// Fila de encabezados de columna: la primera (en las primeras filas) que
-// tiene "ITEM" y "CANTIDAD TOTAL". Es también lo que distingue una hoja con
-// formato de PM de una hoja de notas o cálculos dentro del mismo archivo.
-function buscarEncabezados(
-  worksheet: ExcelJS.Worksheet
-): { headerRowNumber: number; columnMap: Record<string, number> } | null {
+/** Fila de encabezados de una hoja y cuántas columnas obligatorias trae. */
+export interface EncabezadosHoja {
+  headerRowNumber: number;
+  columnMap: Record<string, number>;
+  coincidencias: number;
+}
+
+// Fila de encabezados de columna: en las primeras filas, la que tiene "ITEM" y
+// más columnas obligatorias. Los nombres se comparan exactos (normalizados).
+export function buscarEncabezados(worksheet: ExcelJS.Worksheet): EncabezadosHoja | null {
+  let mejor: EncabezadosHoja | null = null;
   for (let r = 1; r <= Math.min(worksheet.rowCount, MAX_HEADER_SCAN_ROWS); r++) {
     const row = worksheet.getRow(r);
     const map: Record<string, number> = {};
-    const columnasTipo: number[] = [];
     for (let c = 1; c <= row.cellCount; c++) {
       const text = cellText(resolvedValue(row.getCell(c)));
       if (!text) continue;
-      const nombre = normalize(text);
-      map[nombre] = c;
-      if (nombre === "TIPO") columnasTipo.push(c);
-      // Variantes de encabezado vistas en archivos reales.
-      const alias = ALIAS_ENCABEZADOS[nombre];
-      if (alias && !map[alias]) map[alias] = c;
+      const nombre = nombreCanonico(text);
+      if (!(nombre in map)) map[nombre] = c;
     }
-    // Sin columna COMPONENTE, algunos PM traen dos "TIPO": la primera es el
-    // componente (MO/FUN) y la segunda el material (MADERA/METAL/HIBRIDO).
-    if (!map["COMPONENTE"] && columnasTipo.length === 2) {
-      map["COMPONENTE"] = columnasTipo[0];
-      map["TIPO"] = columnasTipo[1];
-    }
-    if (map["ITEM"] && map["CANTIDAD TOTAL"]) {
-      return { headerRowNumber: r, columnMap: map };
+    if (!map["ITEM"]) continue;
+    const coincidencias = COLUMNAS_REQUERIDAS.filter((h) => map[h]).length;
+    if (!mejor || coincidencias > mejor.coincidencias) {
+      mejor = { headerRowNumber: r, columnMap: map, coincidencias };
     }
   }
-  return null;
+  return mejor;
 }
+
+// Una hoja es un PM si su encabezado trae suficientes columnas obligatorias.
+function esHojaPM(encabezados: EncabezadosHoja | null): boolean {
+  return encabezados !== null && encabezados.coincidencias >= UMBRAL_HOJA_PM;
+}
+
+/** Texto de una celda, tal como lo ve el parser (para la vista previa). */
+export function textoDeCelda(cell: ExcelJS.Cell): string {
+  return cellText(resolvedValue(cell)) ?? "";
+}
+
 
 /** Una hoja del archivo con formato de PM y el resultado de leerla. */
 export interface HojaPM {
@@ -279,7 +268,7 @@ export async function parsePlaneacionLibro(
     // Las hojas ocultas también se leen si tienen formato de PM (ej. "PEDIDO
     // (2)" en el PM 102-24-2, "incidencias"), marcadas: quien carga decide si
     // se suben.
-    if (!buscarEncabezados(worksheet)) {
+    if (!esHojaPM(buscarEncabezados(worksheet))) {
       hojasIgnoradas.push(worksheet.name);
       return;
     }
@@ -426,17 +415,28 @@ function parsearHoja(
     errores.push({
       fila: 0,
       mensaje:
-        'No se encontró la fila de encabezados: se esperaba una columna "ITEM" y una columna "CANTIDAD TOTAL".',
+        'No se encontró la fila de encabezados: se esperaba una columna "ITEM" con los nombres de columna del formato.',
     });
     return { ok: false, errores, filasTotales: 0 };
   }
   const { headerRowNumber, columnMap } = encabezados;
 
-  const missingHeaders = REQUIRED_HEADERS.filter((h) => !columnMap[h]);
-  if (missingHeaders.length > 0) {
+  // Cada columna obligatoria que no está con su nombre exacto es un error.
+  // Si hay una columna parecida, se dice en qué letra está para corregirla.
+  const filaEncabezado = worksheet.getRow(headerRowNumber);
+  const columnasEncabezado: { columna: number; texto: string }[] = [];
+  for (let c = 1; c <= filaEncabezado.cellCount; c++) {
+    const texto = textoDeCelda(filaEncabezado.getCell(c));
+    if (texto) columnasEncabezado.push({ columna: c, texto });
+  }
+  const diagnostico = diagnosticarEncabezados(columnasEncabezado);
+  for (const falta of diagnostico.faltantes) {
+    const pista = falta.sugerida
+      ? ` En la columna ${letraColumna(falta.sugerida.columna)} dice "${falta.sugerida.texto}".`
+      : "";
     errores.push({
       fila: headerRowNumber,
-      mensaje: `Faltan columnas requeridas en el archivo: ${missingHeaders.join(", ")}.`,
+      mensaje: `Falta la columna "${falta.nombre}".${pista} Debe llamarse exactamente "${falta.nombre}".`,
     });
   }
 
@@ -449,7 +449,7 @@ function parsearHoja(
   const avisos: FilaError[] = [];
   let filasTotales = 0;
 
-  const col = (name: (typeof REQUIRED_HEADERS)[number] | string) => columnMap[name];
+  const col = (name: (typeof COLUMNAS_REQUERIDAS)[number] | string) => columnMap[name];
   const imagenesPorFila = extraerImagenesPorFila(worksheet, workbook, columnMap["IMAGEN"]);
 
   for (let r = headerRowNumber + 1; r <= worksheet.rowCount; r++) {
@@ -519,12 +519,8 @@ function parsearHoja(
     // (ej. "1.03") tenga varias filas FU con distinto material (madera,
     // metal, tapiz...). La identidad única de la fila es fila_excel_origen.
 
+    // Las fases de taller no se leen por ahora (ver FASES_TALLER_COLUMNS).
     const fasesTaller: Partial<Record<FaseTaller, boolean>> = {};
-    for (const fase of FASES_TALLER_COLUMNS) {
-      if (col(fase)) {
-        fasesTaller[fase] = cellFlag(resolvedValue(row.getCell(col(fase))));
-      }
-    }
 
     items.push({
       item_code: itemCode,
@@ -534,7 +530,9 @@ function parsearHoja(
       etapa: col("ETAPA") ? cellText(resolvedValue(row.getCell(col("ETAPA")))) : null,
       nivel: col("NIVEL") ? cellText(resolvedValue(row.getCell(col("NIVEL")))) : null,
       departamento: col("DEPARTAMENTO") ? cellText(resolvedValue(row.getCell(col("DEPARTAMENTO")))) : null,
-      elevacion: col("ELEVACION") ? cellText(resolvedValue(row.getCell(col("ELEVACION")))) : null,
+      elevacion: col("ELEVACION/UBICACION")
+        ? cellText(resolvedValue(row.getCell(col("ELEVACION/UBICACION"))))
+        : null,
       modelo,
       descripcion,
       cantidad_x_mueble: cantidadXMueble,
