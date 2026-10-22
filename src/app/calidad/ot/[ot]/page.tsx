@@ -212,11 +212,12 @@ export default async function OrdenTrabajoCalidadPage({
                   const a = activa ? avancePorVersion.get(activa.id) : undefined;
                   const sinEvaluar = a ? a.enviados - a.aprobados - a.rechazados : 0;
                   return (
-                    <tr key={p.id} className="align-top transition-colors hover:bg-slate-50">
+                    <tr key={p.id} className="relative align-top transition-colors focus-within:bg-slate-50 hover:bg-slate-50">
                       <td className="px-4 py-3">
+                        {/* El enlace se extiende sobre toda la fila: tocar cualquier parte abre el pedido. */}
                         <Link
                           href={`/calidad/pedidos/${p.id}`}
-                          className="whitespace-nowrap font-medium text-slate-900 hover:text-brand-700 hover:underline"
+                          className="whitespace-nowrap font-medium text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
                         >
                           {p.numero_pedido}
                         </Link>
