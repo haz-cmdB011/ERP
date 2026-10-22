@@ -123,8 +123,14 @@ export default async function PedidoProduccionPage({
       )
     : null;
 
+  // Producción trabaja solo con lo que Planeación ya liberó de este PM: lo pendiente no se muestra. La
+  // papelera de Producción conserva los ítems que se enviaron ahí, aunque ya no estén liberados.
+  const itemsLiberados = (itemsBase ?? []).filter(
+    (i) => i.estado_liberacion === "enviado_a_produccion" || i.eliminacion_solicitada_en
+  );
+
   // Folio único de producción de cada ítem (se asigna al liberarlo y no cambia).
-  const idsItems = (itemsBase ?? []).map((i) => i.id);
+  const idsItems = itemsLiberados.map((i) => i.id);
   // Miniatura de cada ítem: la primera imagen guardada (URL firmada del bucket
   // privado, mismo helper que usan Planeación y Calidad). Se piden a la vez que los folios.
   const [folios, imagenesPorItem] = await Promise.all([
@@ -165,7 +171,7 @@ export default async function PedidoProduccionPage({
   }
 
   const items: ItemLiberacionRow[] | null = itemsBase
-    ? itemsBase.map((i) => ({
+    ? itemsLiberados.map((i) => ({
         ...i,
         folio: folioPorItem.get(i.id) ?? null,
         imagenUrl: imagenesPorItem.get(i.id)?.[0]?.url ?? null,
@@ -249,6 +255,12 @@ export default async function PedidoProduccionPage({
 
       {!versionSeleccionada && (
         <p className="text-sm text-slate-600">Este pedido no tiene versiones.</p>
+      )}
+
+      {versionSeleccionada && items && items.length === 0 && (
+        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          Planeación todavía no ha liberado muebles de este PM. Aparecerán aquí en cuanto los libere.
+        </p>
       )}
 
       {items && items.length > 0 && (

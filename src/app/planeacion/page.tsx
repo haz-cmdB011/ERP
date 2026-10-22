@@ -112,7 +112,7 @@ export default async function PlaneacionListPage({
     },
     {
       valor: sumaTodas.vigentes - sumaTodas.liberados,
-      accion: "Ver lo que falta liberar",
+      accion: "Liberar a Producción",
       detalle: `ítems aún sin liberar a Producción, en ${otsSinLiberar} O.T.`,
       href: "/planeacion?f=por-liberar",
     },

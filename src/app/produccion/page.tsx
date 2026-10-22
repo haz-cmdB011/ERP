@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
 import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
@@ -9,7 +8,7 @@ import {
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 import Bienvenida from "@/components/bienvenida";
-import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
+import { avancePorPedido, sumarAvanceDe } from "@/lib/resumen/avance-items";
 import QueSigue, { type PasoQueSigue } from "@/components/que-sigue";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { resumirTaller } from "@/lib/produccion/atrasos";
@@ -18,26 +17,15 @@ import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
 import ListaOrdenes from "./lista-ordenes";
 import BuscadorOt from "./buscador-ot";
 
-function hrefLista(o: { q?: string; anio?: number | null; cliente?: string; porLiberar?: boolean }): string {
-  const params = new URLSearchParams();
-  if (o.q) params.set("q", o.q);
-  if (o.anio) params.set("anio", String(o.anio));
-  if (o.cliente) params.set("cliente", o.cliente);
-  if (o.porLiberar) params.set("f", "por-liberar");
-  const texto = params.toString();
-  return texto ? `/produccion?${texto}` : "/produccion";
-}
-
 // Igual que en Planeación: órdenes de trabajo con sus PM. Al entrar a una O.T.
 // se ven sus PM; el buscador además encuentra muebles y modelos en todos los
 // pedidos.
 export default async function ProduccionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; f?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
 }) {
-  const { q, anio, cliente, f } = await searchParams;
-  const soloPorLiberar = f === "por-liberar";
+  const { q, anio, cliente } = await searchParams;
   const consulta = (q ?? "").trim();
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
@@ -72,22 +60,13 @@ export default async function ProduccionListPage({
 
   const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
-  const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porLiberar > 0).length;
-  const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
+  const filas = filtradas.filas;
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
-  // Lo que sigue en el flujo, en el orden en que ocurre: liberar → (asignar y entregar en el taller)
-  // → verificar lo entregado → reasignar lo que Calidad rechazó. Cada paso lleva a donde se hace.
-  const totalAvance = sumarAvance(avance);
-  const otsPorLiberar = [...avance.values()].filter((a) => a.porLiberar > 0).length;
+  // Lo que sigue en el flujo, en el orden en que ocurre: (asignar y entregar en el taller) →
+  // verificar lo entregado → reasignar lo que Calidad rechazó. Liberar muebles lo hace Planeación. Cada paso lleva a donde se hace.
   const atrasadas = taller ? resumirTaller(taller.asignaciones, taller.plazos, hoy).atrasadas.length : 0;
   const pasos: PasoQueSigue[] = [
-    {
-      valor: totalAvance.porLiberar,
-      accion: "Liberar muebles",
-      detalle: `ítems por liberar en ${otsPorLiberar} PM`,
-      href: "/produccion?f=por-liberar",
-    },
     {
       valor: atrasadas,
       accion: "Revisar lo atrasado",
@@ -116,7 +95,7 @@ export default async function ProduccionListPage({
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Pedidos</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Cada O.T. es la orden de trabajo de un proyecto. Ábrela para liberar sus muebles a Producción y
+          Cada O.T. es la orden de trabajo de un proyecto. Ábrela para ver los muebles que Planeación ya liberó y
           asignarlos a equipos.
         </p>
       </div>
@@ -137,24 +116,6 @@ export default async function ProduccionListPage({
       />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-          <Link
-            href={hrefLista({ q: consulta, anio: anioFiltro, cliente: clienteFiltro })}
-            className={`rounded-md px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
-              !soloPorLiberar ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Todas
-          </Link>
-          <Link
-            href={hrefLista({ q: consulta, anio: anioFiltro, cliente: clienteFiltro, porLiberar: true })}
-            className={`rounded-md px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
-              soloPorLiberar ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Con muebles por liberar ({otsConPendientes})
-          </Link>
-        </div>
         {aniosDisponibles.length > 0 && (
           <details open={!!(anioFiltro || clienteFiltro)} className="group">
             <summary className="cursor-pointer select-none font-medium text-slate-600 hover:text-slate-900">
@@ -197,19 +158,9 @@ export default async function ProduccionListPage({
           )}
           {filas.length === 0 ? (
             <EstadoVacio
-              titulo={
-                soloPorLiberar
-                  ? "No hay muebles por liberar"
-                  : hayFiltros
-                    ? "Ninguna O.T. coincide"
-                    : "No hay pedidos"
-              }
-              descripcion={soloPorLiberar ? "Todo está al día." : hayFiltros ? "Prueba con otra búsqueda o quita los filtros." : undefined}
-              accion={
-                soloPorLiberar || hayFiltros
-                  ? { href: "/produccion", etiqueta: soloPorLiberar ? "Ver todas las O.T." : "Quitar filtros" }
-                  : undefined
-              }
+              titulo={hayFiltros ? "Ninguna O.T. coincide" : "No hay pedidos"}
+              descripcion={hayFiltros ? "Prueba con otra búsqueda o quita los filtros." : undefined}
+              accion={hayFiltros ? { href: "/produccion", etiqueta: "Quitar filtros" } : undefined}
             />
           ) : (
             <ListaOrdenes filas={filas} avanceDe={avanceDe} />

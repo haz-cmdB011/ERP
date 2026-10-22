@@ -39,7 +39,11 @@ export interface ItemTabla {
   cantidad_total: number;
   estado_revision: EstadoRevision;
   motivo_cancelacion: string | null;
+  // "enviado_a_produccion" cuando Planeación ya lo liberó a Producción.
+  estado_liberacion: string;
 }
+
+const LIBERADO = "enviado_a_produccion";
 
 export interface MuebleTabla extends ItemTabla {
   hijos: ItemTabla[];
@@ -149,6 +153,7 @@ export default function ItemsTabla({
   const [aplicando, setAplicando] = useState(false);
   const [cancelandoLote, setCancelandoLote] = useState(false);
   const [errorLote, setErrorLote] = useState<string | null>(null);
+  const [liberando, setLiberando] = useState(false);
 
   const porId = useMemo(() => {
     const mapa = new Map<string, ItemTabla>();
@@ -218,6 +223,64 @@ export default function ItemsTabla({
     router.refresh();
   }
 
+  // Mandar a Producción: libera los elegidos que siguen pendientes (los ya liberados se saltan).
+  // Producción solo ve lo liberado de cada PM.
+  const idsPendientes = useMemo(
+    () => muebles.flatMap((m) => [m, ...m.hijos]).filter((i) => i.estado_liberacion !== LIBERADO).map((i) => i.id),
+    [muebles]
+  );
+
+  async function deshacerLiberacion(itemIds: string[]) {
+    try {
+      const res = await fetch("/api/produccion/items/revertir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        avisar(data.error ?? "No se pudo deshacer.", "error");
+        return;
+      }
+      avisar("Liberación deshecha.", "info");
+      router.refresh();
+    } catch {
+      avisar("Error de red al deshacer.", "error");
+    }
+  }
+
+  async function liberarSeleccion() {
+    const aLiberar = [...seleccion].filter((id) => porId.get(id)?.estado_liberacion !== LIBERADO);
+    if (aLiberar.length === 0) {
+      avisar("Los ítems elegidos ya están liberados a Producción.", "info");
+      return;
+    }
+    setLiberando(true);
+    setErrorLote(null);
+    try {
+      const res = await fetch("/api/produccion/items/liberar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIds: aLiberar }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorLote(data.error ?? "No se pudo liberar la selección.");
+        return;
+      }
+      setSeleccion(new Set());
+      avisar(`${data.liberados ?? aLiberar.length} ítem(s) liberado(s) a Producción.`, "exito", {
+        etiqueta: "Deshacer",
+        alHacer: () => deshacerLiberacion(aLiberar),
+      });
+      router.refresh();
+    } catch {
+      setErrorLote("Error de red. Intenta de nuevo.");
+    } finally {
+      setLiberando(false);
+    }
+  }
+
   function alternar(id: string) {
     setExpandidos((prev) => {
       const siguiente = new Set(prev);
@@ -249,6 +312,16 @@ export default function ItemsTabla({
             }`}
           >
             Filtrar{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
+          </button>
+        )}
+        {puedeEditar && idsPendientes.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSeleccion(new Set(idsPendientes))}
+            title="Marca todo lo que aún no se ha liberado a Producción"
+            className="rounded-lg border border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-800 shadow-sm hover:bg-brand-100 sm:py-2"
+          >
+            Liberar a Producción ({idsPendientes.length})
           </button>
         )}
         {hayComponentes && (
@@ -327,6 +400,14 @@ export default function ItemsTabla({
             {todosMarcados ? "Quitar los visibles" : `Marcar los ${idsVisibles.length} visibles`}
           </button>
           <div className="ml-auto flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void liberarSeleccion()}
+              disabled={aplicando || liberando}
+              className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+            >
+              {liberando ? "Liberando…" : "Liberar a Producción"}
+            </button>
             <button
               type="button"
               onClick={() => void aplicarLote("en_revision")}
@@ -622,18 +703,35 @@ export default function ItemsTabla({
 }
 
 function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: boolean }) {
+  const liberado = item.estado_liberacion === LIBERADO;
+  const chip = liberado ? (
+    <span className="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-emerald-700">
+      <span aria-hidden="true">✓</span> En Producción
+    </span>
+  ) : null;
   if (puedeEditar) {
     return (
-      <EstadoRevisionSelect
-        itemId={item.id}
-        estadoActual={item.estado_revision}
-        motivoActual={item.motivo_cancelacion}
-        etiqueta={`N.º ${item.item_code}`}
-      />
+      <div className="flex flex-col items-start">
+        <EstadoRevisionSelect
+          itemId={item.id}
+          estadoActual={item.estado_revision}
+          motivoActual={item.motivo_cancelacion}
+          etiqueta={`N.º ${item.item_code}`}
+        />
+        {chip}
+      </div>
     );
   }
-  if (!item.estado_revision) return <span className="text-slate-500">—</span>;
-  return <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>;
+  return (
+    <div className="flex flex-col items-start">
+      {item.estado_revision ? (
+        <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>
+      ) : (
+        <span className="text-slate-500">—</span>
+      )}
+      {chip}
+    </div>
+  );
 }
 
 // Tarjeta de un mueble o componente en pantallas angostas. Lleva lo mismo que una fila de la tabla.

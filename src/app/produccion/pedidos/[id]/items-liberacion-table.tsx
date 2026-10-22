@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/confirm-dialog";
@@ -49,18 +48,9 @@ interface GrupoMueble {
   abrirPorBusqueda: boolean;
 }
 
-type FiltroEstado = "todos" | "listos" | "incompletos";
 type Confirmacion = { tipo: "solicitar" | "definitivo"; item: ItemLiberacionRow };
 
 const MATERIALES = ["MADERA", "METAL", "TAPIZ", "HIBRIDO"] as const;
-
-function esListo(item: ItemLiberacionRow): boolean {
-  return (
-    item.ingenieria === true &&
-    item.suministro_mats === true &&
-    !!item.lista_insumos?.trim()
-  );
-}
 
 // Búsqueda sin distinguir mayúsculas ni acentos ("pergola" encuentra "PÉRGOLA").
 function normalizar(texto: string): string {
@@ -88,7 +78,6 @@ export default function ItemsLiberacionTable({
   const router = useRouter();
   const [vistaPapelera, setVistaPapelera] = useState(false);
   const tablaRef = useFlip<HTMLTableElement>();
-  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
   const [filtroMaterial, setFiltroMaterial] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
@@ -96,13 +85,10 @@ export default function ItemsLiberacionTable({
   // salvo que la búsqueda haya coincidido únicamente con un hijo.
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({});
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
-  const [liberando, setLiberando] = useState(false);
   const [revirtiendo, setRevirtiendo] = useState(false);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [confirmacion, setConfirmacion] = useState<Confirmacion | null>(null);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
-  // Cuántos muebles se acaban de liberar: el siguiente paso natural es asignarlos a un equipo.
-  const [recienLiberados, setRecienLiberados] = useState<number | null>(null);
 
   // Un ítem con eliminación solicitada sale de la lista normal y vive solo
   // en la Papelera hasta que se restaure o se elimine definitivamente. Un
@@ -114,35 +100,14 @@ export default function ItemsLiberacionTable({
   );
   const itemsPapelera = useMemo(() => items.filter((i) => i.eliminacion_solicitada_en), [items]);
 
-  const conteos = useMemo(
-    () => ({
-      todos: itemsActivos.length,
-      listos: itemsActivos.filter(esListo).length,
-      incompletos: itemsActivos.filter((i) => !esListo(i)).length,
-    }),
-    [itemsActivos]
-  );
-
-  // Atajo para liberar de un golpe: todo lo que ya está listo (ingeniería,
-  // suministro y lista de insumos) y sigue pendiente, sin importar el filtro.
-  const idsListosPorLiberar = useMemo(
-    () =>
-      itemsActivos
-        .filter((i) => esListo(i) && i.estado_liberacion === "pendiente")
-        .map((i) => i.id),
-    [itemsActivos]
-  );
-
-  const filtrosActivos = (filtroEstado !== "todos" ? 1 : 0) + (filtroMaterial ? 1 : 0);
+  const filtrosActivos = filtroMaterial ? 1 : 0;
 
   const itemsFiltrados = useMemo(() => {
     return itemsActivos.filter((item) => {
-      if (filtroEstado === "listos" && !esListo(item)) return false;
-      if (filtroEstado === "incompletos" && esListo(item)) return false;
       if (filtroMaterial && item.tipo_material?.toUpperCase() !== filtroMaterial) return false;
       return true;
     });
-  }, [itemsActivos, filtroEstado, filtroMaterial]);
+  }, [itemsActivos, filtroMaterial]);
 
   // Agrupación visual mueble (MO, "ítem padre") -> componentes (FU, "hijos"),
   // ya con la búsqueda aplicada. Un mueble entra si él o alguno de sus hijos
@@ -272,40 +237,9 @@ export default function ItemsLiberacionTable({
         return;
       }
       avisar(mensajeOk, "info");
-      if (ruta === "revertir") setRecienLiberados(null);
       router.refresh();
     } catch {
       avisar("Error de red al deshacer.", "error");
-    }
-  }
-
-  async function liberarSeleccion() {
-    if (seleccionados.size === 0) return;
-    setLiberando(true);
-    setMensaje(null);
-    const itemIds = Array.from(seleccionados);
-    try {
-      const res = await fetch("/api/produccion/items/liberar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIds }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMensaje({ tipo: "error", texto: data.error ?? "No se pudo liberar la selección." });
-        return;
-      }
-      avisar(`${data.liberados} ítem(s) liberado(s) a producción.`, "exito", {
-        etiqueta: "Deshacer",
-        alHacer: () => deshacerLiberacion("revertir", itemIds, "Liberación deshecha."),
-      });
-      setRecienLiberados(data.liberados);
-      setSeleccionados(new Set());
-      router.refresh();
-    } catch {
-      setMensaje({ tipo: "error", texto: "Error de red al liberar la selección." });
-    } finally {
-      setLiberando(false);
     }
   }
 
@@ -329,7 +263,6 @@ export default function ItemsLiberacionTable({
         etiqueta: "Deshacer",
         alHacer: () => deshacerLiberacion("liberar", itemIds, "Ítems liberados de nuevo."),
       });
-      setRecienLiberados(null);
       setSeleccionados(new Set());
       router.refresh();
     } catch {
@@ -743,34 +676,6 @@ export default function ItemsLiberacionTable({
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-full text-xs font-semibold uppercase tracking-wide text-slate-500 sm:w-auto">
-              Mostrar
-            </span>
-            {(
-              [
-                ["todos", `Todos (${conteos.todos})`],
-                ["listos", `Listos para liberar (${conteos.listos})`],
-                ["incompletos", `Con pendientes (${conteos.incompletos})`],
-              ] as [FiltroEstado, string][]
-            ).map(([valor, etiqueta]) => (
-              <button
-                key={valor}
-                type="button"
-                onClick={() => setFiltroEstado(valor)}
-                className={`rounded-lg border px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
-                  filtroEstado === valor
-                    ? "border-brand-600 bg-brand-500 text-on-brand"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {etiqueta}
-              </button>
-            ))}
-          </div>
-          <p className="-mt-1 text-xs text-slate-500">
-            Un mueble está listo para liberar cuando tiene ingeniería, materiales y lista de insumos.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-full text-xs font-semibold uppercase tracking-wide text-slate-500 sm:w-auto">
               Material
             </span>
             {([null, ...MATERIALES] as (string | null)[]).map((mat) => (
@@ -821,31 +726,6 @@ export default function ItemsLiberacionTable({
           }`}
         >
           {mensaje.texto}
-        </div>
-      )}
-
-      {recienLiberados !== null && recienLiberados > 0 && !vistaPapelera && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"
-        >
-          <span className="min-w-0 flex-1 font-medium">
-            {recienLiberados === 1 ? "1 ítem liberado" : `${recienLiberados} ítems liberados`} a producción. Falta
-            asignarlos a un equipo.
-          </span>
-          <Link
-            href={`/produccion/pedidos/${pedidoId}/asignaciones`}
-            className="inline-flex min-h-10 items-center rounded-lg bg-brand-500 px-4 font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
-          >
-            Asignar a equipos →
-          </Link>
-          <button
-            type="button"
-            onClick={() => setRecienLiberados(null)}
-            className="inline-flex min-h-10 items-center rounded-lg px-3 font-medium text-emerald-800 hover:bg-emerald-100"
-          >
-            Después
-          </button>
         </div>
       )}
 
@@ -946,7 +826,7 @@ export default function ItemsLiberacionTable({
 
           {/* Barra de acción masiva: sticky para no tener que subir hasta
               arriba en pedidos con muchos ítems después de seleccionar. La acción
-              principal es liberar; lo demás va en "Más". */}
+              principal es imprimir; lo demás va en "Más". */}
           <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
             <label className="flex min-h-9 items-center gap-2">
               <input
@@ -958,7 +838,7 @@ export default function ItemsLiberacionTable({
               Seleccionar todos ({idsFiltrados.length})
             </label>
             <span className="text-slate-500">
-              {seleccionados.size === 0 ? "Marca lo que quieras liberar" : `${seleccionados.size} seleccionado(s)`}
+              {seleccionados.size === 0 ? "Marca los muebles para imprimir hojas o etiquetas" : `${seleccionados.size} seleccionado(s)`}
             </span>
             {seleccionados.size > 0 && (
               <button
@@ -972,11 +852,6 @@ export default function ItemsLiberacionTable({
             <div className="ml-auto flex items-center gap-2">
               <MenuMas
                 opciones={[
-                  {
-                    etiqueta: `Marcar los listos (${idsListosPorLiberar.length})`,
-                    deshabilitada: idsListosPorLiberar.length === 0,
-                    alHacer: () => setSeleccionados(new Set(idsListosPorLiberar)),
-                  },
                   {
                     etiqueta: "Imprimir hojas de viajero (PDF)",
                     deshabilitada: seleccionados.size === 0,
@@ -998,14 +873,6 @@ export default function ItemsLiberacionTable({
                   },
                 ]}
               />
-              <button
-                type="button"
-                onClick={liberarSeleccion}
-                disabled={seleccionados.size === 0 || liberando}
-                className="min-h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
-              >
-                {liberando ? "Liberando…" : "Liberar a Producción"}
-              </button>
             </div>
           </div>
 
