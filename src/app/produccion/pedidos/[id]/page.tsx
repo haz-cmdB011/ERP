@@ -39,21 +39,8 @@ export default async function PedidoProduccionPage({
   const { version } = await searchParams;
   const supabase = await createClient();
 
-  // Perfil, pedido y versiones no dependen entre sí: se piden a la vez (un solo
-  // viaje a la base en vez de tres seguidos).
-  const perfilPromesa = (async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return null;
-    const { data } = await supabase
-      .from("perfiles")
-      .select("rol, area")
-      .eq("id", user.id)
-      .maybeSingle<{ rol: string; area: string | null }>();
-    return data;
-  })();
-
+  // Pedido y versiones no dependen entre sí: se piden a la vez (un solo viaje a
+  // la base en vez de dos seguidos).
   const pedidoPromesa = supabase
     .from("pedidos")
     .select(
@@ -80,21 +67,10 @@ export default async function PedidoProduccionPage({
     .order("numero_version", { ascending: false })
     .returns<VersionRow[]>();
 
-  const [perfil, { data: pedido }, { data: versiones }] = await Promise.all([
-    perfilPromesa,
+  const [{ data: pedido }, { data: versiones }] = await Promise.all([
     pedidoPromesa,
     versionesPromesa,
   ]);
-
-  // Refleja is_produccion()/is_admin_area('produccion') del lado del
-  // servidor (ver migración planeacion_items_borrado_produccion): solo
-  // controla qué botones se muestran — el permiso real lo sigue exigiendo
-  // el RPC en la base.
-  const esDesarrollador = perfil?.rol === "desarrollador";
-  const puedeSolicitarEliminacion =
-    esDesarrollador || (perfil?.area === "produccion" && (perfil.rol === "administrador" || perfil.rol === "trabajador"));
-  const puedeEliminarDefinitivo =
-    esDesarrollador || (perfil?.area === "produccion" && perfil.rol === "administrador");
 
   // Un pedido eliminado (papelera de Planeación) deja de existir para
   // Producción — en cuanto se restaure desde Planeación, vuelve a
@@ -123,14 +99,8 @@ export default async function PedidoProduccionPage({
       )
     : null;
 
-  // Producción trabaja solo con lo que Planeación ya liberó de este PM: lo pendiente no se muestra. La
-  // papelera de Producción conserva los ítems que se enviaron ahí, aunque ya no estén liberados.
-  const itemsLiberados = (itemsBase ?? []).filter(
-    (i) => i.estado_liberacion === "enviado_a_produccion" || i.eliminacion_solicitada_en
-  );
-
   // Folio único de producción de cada ítem (se asigna al liberarlo y no cambia).
-  const idsItems = itemsLiberados.map((i) => i.id);
+  const idsItems = (itemsBase ?? []).map((i) => i.id);
   // Miniatura de cada ítem: la primera imagen guardada (URL firmada del bucket
   // privado, mismo helper que usan Planeación y Calidad). Se piden a la vez que los folios.
   const [folios, imagenesPorItem] = await Promise.all([
@@ -148,30 +118,8 @@ export default async function PedidoProduccionPage({
   ]);
   const folioPorItem = new Map((folios ?? []).map((f) => [f.planeacion_item_id, f.folio]));
 
-  // Qué sigue con cada mueble liberado: sin asignar, en taller o entregado. Sale de las asignaciones
-  // vigentes del PM; es solo para sugerir el siguiente paso, no cambia nada.
-  const situacionPorItem: Record<string, "sin-asignar" | "en-taller" | "entregado"> = {};
-  const asignaciones = await leer(
-    supabase
-      .from("asignaciones_produccion_resumen")
-      .select("planeacion_item_id, estado")
-      .eq("pedido_id", id)
-      .in("estado", ["en_proceso", "parcial", "entregada"])
-      .returns<{ planeacion_item_id: string | null; estado: string }[]>(),
-    "asignaciones_produccion_resumen"
-  );
-  for (const a of asignaciones ?? []) {
-    if (!a.planeacion_item_id) continue;
-    const actual = situacionPorItem[a.planeacion_item_id];
-    if (a.estado === "entregada") {
-      if (!actual) situacionPorItem[a.planeacion_item_id] = "entregado";
-    } else {
-      situacionPorItem[a.planeacion_item_id] = "en-taller";
-    }
-  }
-
   const items: ItemLiberacionRow[] | null = itemsBase
-    ? itemsLiberados.map((i) => ({
+    ? itemsBase.map((i) => ({
         ...i,
         folio: folioPorItem.get(i.id) ?? null,
         imagenUrl: imagenesPorItem.get(i.id)?.[0]?.url ?? null,
@@ -257,19 +205,12 @@ export default async function PedidoProduccionPage({
         <p className="text-sm text-slate-600">Este pedido no tiene versiones.</p>
       )}
 
-      {versionSeleccionada && items && items.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Planeación todavía no ha liberado muebles de este PM. Aparecerán aquí en cuanto los libere.
-        </p>
-      )}
-
       {items && items.length > 0 && (
         <ItemsLiberacionTable
           items={items}
           pedidoId={id}
-          puedeSolicitarEliminacion={puedeSolicitarEliminacion}
-          puedeEliminarDefinitivo={puedeEliminarDefinitivo}
-          situacionPorItem={situacionPorItem}
+          numeroPm={pedido.numero_pedido}
+          ot={pedido.orden_trabajo}
         />
       )}
     </main>
