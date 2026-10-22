@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Migas from "@/components/migas";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -109,6 +110,7 @@ export default async function OrdenTrabajoProduccionPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <Migas items={[{ etiqueta: "Pedidos", href: "/produccion" }, { etiqueta: `O.T. ${ot}` }]} />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           O.T. <span className="font-mono">{ot}</span>
@@ -118,84 +120,82 @@ export default async function OrdenTrabajoProduccionPage({
             {primero.proyectos?.nombre} — {primero.proyectos?.cliente}
           </p>
         )}
+        <p className="mt-1 text-sm text-slate-500">
+          Una O.T. es la orden de trabajo del proyecto. Cada pedido (PM) se libera y se asigna por separado:
+          ábrelo para liberar muebles.
+        </p>
       </div>
 
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          No se pudieron cargar los PM: {error.message}
+          No se pudieron cargar los pedidos: {error.message}
         </p>
       )}
 
       {pms.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-slate-600">
-            {pms.length} PM en esta O.T.
-          </h2>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">Pedido</th>
-                  <th className="px-4 py-3">Proyecto</th>
-                  <th className="px-4 py-3">Entrega</th>
-                  <th className="px-4 py-3">Versión activa</th>
-                  <th className="px-4 py-3">Muebles liberados</th>
-                  <th className="px-4 py-3">En taller</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {pms.map((p) => {
-                  const activa = versionActiva.get(p.id);
-                  const conteo = activa ? conteoMuebles.get(activa.id) : undefined;
-                  const taller = enTallerPorPedido.get(p.id) ?? 0;
-                  return (
-                    <tr key={p.id} className="align-top transition-colors hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/produccion/pedidos/${p.id}`}
-                          className="whitespace-nowrap font-medium text-slate-900 hover:text-brand-700 hover:underline"
-                        >
-                          {p.numero_pedido}
-                        </Link>
-                        {p.cancelado_en && (
-                          <span className="ml-2 rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
-                            Cancelado
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        {activa ? (
-                          <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                            #{activa.numero_version}
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {conteo ? `${conteo.liberados} / ${conteo.total}` : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {taller > 0 ? `${taller} asignaci${taller === 1 ? "ón" : "ones"}` : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/produccion/pedidos/${p.id}/asignaciones`}
-                          className="whitespace-nowrap text-sm font-medium text-brand-700 hover:underline"
-                        >
-                          Asignar a equipos
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ul className="flex flex-col gap-3">
+          {pms.map((p) => {
+            const activa = versionActiva.get(p.id);
+            const conteo = activa ? conteoMuebles.get(activa.id) : undefined;
+            const taller = enTallerPorPedido.get(p.id) ?? 0;
+            const pct = conteo && conteo.total > 0 ? Math.round((conteo.liberados / conteo.total) * 100) : 0;
+            return (
+              <li
+                key={p.id}
+                className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
+              >
+                {/* Toda la tarjeta abre el pedido; el botón de asignar va encima. */}
+                <Link
+                  href={`/produccion/pedidos/${p.id}`}
+                  aria-label={`Abrir el pedido ${p.numero_pedido}`}
+                  className="absolute inset-0 rounded-xl focus-visible:outline-brand-500"
+                />
+                <div className="flex min-w-0 flex-col gap-1">
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span className="text-base font-semibold text-slate-900">{p.numero_pedido}</span>
+                    {p.cancelado_en && (
+                      <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                        Cancelado
+                      </span>
+                    )}
+                    {activa && activa.numero_version > 1 && (
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                        Versión {activa.numero_version}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-sm text-slate-700">{p.proyectos?.nombre ?? "—"}</p>
+                  <p className="text-xs text-slate-500">Entrega: {p.fecha_entrega ?? "—"}</p>
+                </div>
+                <div className="flex flex-col gap-1 text-sm text-slate-700 sm:w-56">
+                  {conteo ? (
+                    <>
+                      <p>
+                        <span className="font-semibold">{conteo.liberados}</span> de {conteo.total} muebles liberados
+                      </p>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+                        <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-slate-500">Sin muebles todavía</p>
+                  )}
+                  {taller > 0 && (
+                    <p className="text-xs text-slate-500">
+                      {taller} asignaci{taller === 1 ? "ón" : "ones"} en taller
+                    </p>
+                  )}
+                </div>
+                <Link
+                  href={`/produccion/pedidos/${p.id}/asignaciones`}
+                  className="relative z-10 inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
+                >
+                  Asignar a equipos
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </main>
   );

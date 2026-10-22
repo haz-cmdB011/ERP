@@ -14,6 +14,7 @@ import {
 import Paginacion, { TAMANO_PAGINA } from "@/components/paginacion";
 
 import { leer } from "@/lib/supabase/leer";
+import PestanasSeccion from "@/app/produccion/pestanas-seccion";
 interface ItemVivo {
   id: string;
   item_code: number;
@@ -251,10 +252,14 @@ export default async function BuscarFolioPage({
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
+      <PestanasSeccion seccion="archivo" />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Folios de producción
         </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Cada ítem liberado (mueble o componente) recibe un folio único (PRD-…). Búscalo aquí para ver su estado y su revisión de Calidad.
+        </p>
       </div>
 
       <form method="get" action="/produccion/folios" className="flex flex-wrap items-center gap-2">

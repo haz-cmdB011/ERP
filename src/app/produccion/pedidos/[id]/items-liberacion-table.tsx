@@ -1,7 +1,7 @@
 "use client";
 
-import EnlaceFila from "@/components/enlace-fila";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/confirm-dialog";
@@ -10,6 +10,7 @@ import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 import { avisar } from "@/components/avisos";
 import GrupoDesplegable from "@/components/grupo-desplegable";
+import MenuMas from "@/components/menu-mas";
 import BotonDesplegar from "@/components/boton-desplegar";
 import { useFlip } from "@/lib/ui/use-flip";
 
@@ -85,6 +86,7 @@ export default function ItemsLiberacionTable({
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
   const [filtroMaterial, setFiltroMaterial] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   // Muebles desplegados a mano (true/false); sin entrada, se decide solo: cerrado,
   // salvo que la búsqueda haya coincidido únicamente con un hijo.
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({});
@@ -94,6 +96,8 @@ export default function ItemsLiberacionTable({
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [confirmacion, setConfirmacion] = useState<Confirmacion | null>(null);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
+  // Cuántos muebles se acaban de liberar: el siguiente paso natural es asignarlos a un equipo.
+  const [recienLiberados, setRecienLiberados] = useState<number | null>(null);
 
   // Un ítem con eliminación solicitada sale de la lista normal y vive solo
   // en la Papelera hasta que se restaure o se elimine definitivamente. Un
@@ -123,6 +127,8 @@ export default function ItemsLiberacionTable({
         .map((i) => i.id),
     [itemsActivos]
   );
+
+  const filtrosActivos = (filtroEstado !== "todos" ? 1 : 0) + (filtroMaterial ? 1 : 0);
 
   const itemsFiltrados = useMemo(() => {
     return itemsActivos.filter((item) => {
@@ -261,6 +267,7 @@ export default function ItemsLiberacionTable({
         return;
       }
       avisar(mensajeOk, "info");
+      if (ruta === "revertir") setRecienLiberados(null);
       router.refresh();
     } catch {
       avisar("Error de red al deshacer.", "error");
@@ -287,6 +294,7 @@ export default function ItemsLiberacionTable({
         etiqueta: "Deshacer",
         alHacer: () => deshacerLiberacion("revertir", itemIds, "Liberación deshecha."),
       });
+      setRecienLiberados(data.liberados);
       setSeleccionados(new Set());
       router.refresh();
     } catch {
@@ -316,6 +324,7 @@ export default function ItemsLiberacionTable({
         etiqueta: "Deshacer",
         alHacer: () => deshacerLiberacion("liberar", itemIds, "Ítems liberados de nuevo."),
       });
+      setRecienLiberados(null);
       setSeleccionados(new Set());
       router.refresh();
     } catch {
@@ -445,7 +454,7 @@ export default function ItemsLiberacionTable({
           desplegable ? "cursor-pointer" : ""
         }`}
       >
-        <td className={`px-3 py-3 lg:py-2 ${indentado ? "guia-hija" : ""}`} onClick={sinToggle}>
+        <td className={`px-2 py-3 sm:px-3 lg:py-2 ${indentado ? "guia-hija" : ""}`} onClick={sinToggle}>
           <input
             type="checkbox"
             checked={seleccionados.has(item.id)}
@@ -463,14 +472,15 @@ export default function ItemsLiberacionTable({
             />
           ) : (
             <span
-              className={`block rounded border border-dashed border-slate-200 ${
+              className={`flex items-center justify-center rounded bg-slate-100 text-center text-[9px] font-medium leading-tight text-slate-400 ${
                 indentado ? "h-12 w-12 lg:h-9 lg:w-9" : "h-16 w-16 lg:h-11 lg:w-11"
               }`}
-              title="Sin imagen"
-            />
+            >
+              Sin imagen
+            </span>
           )}
         </td>
-        <td className="px-3 py-3 lg:py-2">
+        <td className="px-2 py-3 sm:px-3 lg:py-2">
           <span className="inline-flex items-center gap-1.5">
             {desplegable && grupo && (
               <BotonDesplegar
@@ -544,79 +554,27 @@ export default function ItemsLiberacionTable({
             </span>
           )}
         </td>
-        <td className="px-3 py-3 lg:py-2" onClick={sinToggle}>
-          <div className="flex flex-col items-center gap-2 lg:flex-row lg:flex-wrap">
-          <EnlaceFila
-            href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
-            title="Viajero"
-            aria-label={`Viajero del ítem ${item.item_code}`}
-            className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
-          >
-            {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-              aria-hidden="true"
-            >
-              <path d="M22 2 11 13" />
-              <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
-            </svg>
-          </EnlaceFila>
-          {item.tipo_registro === "MO" && (
-            <EnlaceFila
-              href={`/produccion/pedidos/${pedidoId}/despiece/${item.id}`}
-              title="Despiece"
-              aria-label={`Despiece del ítem ${item.item_code}`}
-              className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
-            >
-              {/* Capas: el mueble desglosado en sus piezas. */}
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-                aria-hidden="true"
-              >
-                <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-                <path d="m3 13 9 5 9-5" />
-              </svg>
-            </EnlaceFila>
-          )}
-          {puedeSolicitarEliminacion && (
-            <button
-              type="button"
-              onClick={() => setConfirmacion({ tipo: "solicitar", item })}
-              disabled={procesando}
-              title="Enviar a la papelera"
-              aria-label={`Enviar el ítem ${item.item_code} a la papelera`}
-              className="flex h-11 w-11 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 lg:h-8 lg:w-8"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-3.5 w-3.5"
-                aria-hidden="true"
-              >
-                <path d="M3 6h18" />
-                <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
-                <path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                <path d="M10 11v6M14 11v6" />
-              </svg>
-            </button>
-          )}
-          </div>
+        <td className="pl-1 pr-2 py-3 sm:px-3 lg:py-2" onClick={sinToggle}>
+          <MenuMas
+            compacto
+            etiquetaAccesible={`Más acciones del ítem ${item.item_code}`}
+            opciones={[
+              { etiqueta: "Hoja de viajero", href: `/produccion/pedidos/${pedidoId}/viajero/${item.id}` },
+              ...(item.tipo_registro === "MO"
+                ? [{ etiqueta: "Despiece", href: `/produccion/pedidos/${pedidoId}/despiece/${item.id}` }]
+                : []),
+              ...(puedeSolicitarEliminacion
+                ? [
+                    {
+                      etiqueta: "Enviar a la papelera",
+                      peligro: true,
+                      deshabilitada: procesando,
+                      alHacer: () => setConfirmacion({ tipo: "solicitar" as const, item }),
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </td>
       </tr>
     );
@@ -629,45 +587,131 @@ export default function ItemsLiberacionTable({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filtros rápidos de liberación */}
+      {/* Lo de siempre a la vista (buscar y la papelera); estado y material, que se usan
+          poco, quedan en "Filtros", plegado. */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        {(
-          [
-            ["todos", `Todos los Ítems (${conteos.todos})`],
-            ["listos", `Listos para Enviar (${conteos.listos})`],
-            ["incompletos", `Incompletos / Requieren Atención (${conteos.incompletos})`],
-          ] as [FiltroEstado, string][]
-        ).map(([valor, etiqueta]) => (
-          <button
-            key={valor}
-            type="button"
-            onClick={() => {
-              setVistaPapelera(false);
-              setFiltroEstado(valor);
-            }}
-            className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
-              !vistaPapelera && filtroEstado === valor
-                ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {etiqueta}
-          </button>
-        ))}
+        {!vistaPapelera && (
+          <>
+            <div className="relative w-full min-w-0 sm:w-auto sm:max-w-md sm:flex-1">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar mueble, modelo o folio"
+                autoComplete="off"
+                className="min-h-10 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setFiltrosAbiertos((v) => !v)}
+              aria-expanded={filtrosAbiertos}
+              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Filtros{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
+            </button>
+          </>
+        )}
         {(puedeSolicitarEliminacion || puedeEliminarDefinitivo) && (
           <button
             type="button"
             onClick={() => setVistaPapelera((v) => !v)}
-            className={`ml-auto rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
+            className={`ml-auto min-h-10 rounded-lg border px-3 font-medium transition-colors ${
               vistaPapelera
-                ? "border-rose-600 bg-rose-600 text-white"
+                ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
             }`}
           >
-            Papelera ({itemsPapelera.length})
+            {vistaPapelera ? "← Volver a los muebles" : `Papelera (${itemsPapelera.length})`}
           </button>
         )}
       </div>
+
+      {!vistaPapelera && filtrosAbiertos && (
+        <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-full text-xs font-semibold uppercase tracking-wide text-slate-500 sm:w-auto">
+              Mostrar
+            </span>
+            {(
+              [
+                ["todos", `Todos (${conteos.todos})`],
+                ["listos", `Listos para liberar (${conteos.listos})`],
+                ["incompletos", `Con pendientes (${conteos.incompletos})`],
+              ] as [FiltroEstado, string][]
+            ).map(([valor, etiqueta]) => (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => setFiltroEstado(valor)}
+                className={`rounded-lg border px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
+                  filtroEstado === valor
+                    ? "border-brand-600 bg-brand-500 text-on-brand"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+          <p className="-mt-1 text-xs text-slate-500">
+            Un mueble está listo para liberar cuando tiene ingeniería, materiales y lista de insumos.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-full text-xs font-semibold uppercase tracking-wide text-slate-500 sm:w-auto">
+              Material
+            </span>
+            {([null, ...MATERIALES] as (string | null)[]).map((mat) => (
+              <button
+                key={mat ?? "todos"}
+                type="button"
+                onClick={() => setFiltroMaterial(mat)}
+                className={`rounded-lg border px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
+                  filtroMaterial === mat
+                    ? "border-brand-600 bg-brand-500 text-on-brand"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {mat ?? "Todos"}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-full text-xs font-semibold uppercase tracking-wide text-slate-500 sm:w-auto">
+              Componentes
+            </span>
+            <button
+              type="button"
+              onClick={() => desplegarTodos(true)}
+              disabled={grupos.every((g) => g.totalHijos === 0)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 pointer-coarse:py-2.5"
+            >
+              Mostrar componentes
+            </button>
+            <button
+              type="button"
+              onClick={() => desplegarTodos(false)}
+              disabled={grupos.every((g) => g.totalHijos === 0)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 pointer-coarse:py-2.5"
+            >
+              Ocultar componentes
+            </button>
+          </div>
+        </div>
+      )}
 
       {mensaje && (
         <div
@@ -678,6 +722,31 @@ export default function ItemsLiberacionTable({
           }`}
         >
           {mensaje.texto}
+        </div>
+      )}
+
+      {recienLiberados !== null && recienLiberados > 0 && !vistaPapelera && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"
+        >
+          <span className="min-w-0 flex-1 font-medium">
+            {recienLiberados === 1 ? "1 ítem liberado" : `${recienLiberados} ítems liberados`} a producción. Falta
+            asignarlos a un equipo.
+          </span>
+          <Link
+            href={`/produccion/pedidos/${pedidoId}/asignaciones`}
+            className="inline-flex min-h-10 items-center rounded-lg bg-brand-500 px-4 font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
+          >
+            Asignar a equipos →
+          </Link>
+          <button
+            type="button"
+            onClick={() => setRecienLiberados(null)}
+            className="inline-flex min-h-10 items-center rounded-lg px-3 font-medium text-emerald-800 hover:bg-emerald-100"
+          >
+            Después
+          </button>
         </div>
       )}
 
@@ -772,108 +841,26 @@ export default function ItemsLiberacionTable({
         </div>
       ) : (
         <>
-          {/* Buscador de muebles/modelos: filtra la lista al escribir y
-              despliega solo los muebles cuyo componente coincidió. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative w-full max-w-md">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5" />
-              </svg>
-              <input
-                type="search"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar mueble, modelo, descripción o folio"
-                autoComplete="off"
-                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => desplegarTodos(true)}
-              disabled={grupos.every((g) => g.totalHijos === 0)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
-            >
-              Desplegar todos
-            </button>
-            <button
-              type="button"
-              onClick={() => desplegarTodos(false)}
-              disabled={grupos.every((g) => g.totalHijos === 0)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
-            >
-              Contraer todos
-            </button>
-            {busqueda.trim() && (
-              <span className="text-sm text-slate-500">
-                {grupos.length + sueltos.length} resultado(s)
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Material
-            </span>
-            <button
-              type="button"
-              onClick={() => setFiltroMaterial(null)}
-              className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
-                filtroMaterial === null
-                  ? "border-brand-600 bg-brand-500 text-on-brand"
-                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Todos
-            </button>
-            {MATERIALES.map((mat) => (
-              <button
-                key={mat}
-                type="button"
-                onClick={() => setFiltroMaterial(mat)}
-                className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
-                  filtroMaterial === mat
-                    ? "border-brand-600 bg-brand-500 text-on-brand"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {mat}
-              </button>
-            ))}
-          </div>
+          {busqueda.trim() && (
+            <p className="text-sm text-slate-500">{grupos.length + sueltos.length} resultado(s)</p>
+          )}
 
           {/* Barra de acción masiva: sticky para no tener que subir hasta
-              arriba en pedidos con muchos ítems después de seleccionar. */}
-          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
-            <label className="flex items-center gap-2">
+              arriba en pedidos con muchos ítems después de seleccionar. La acción
+              principal es liberar; lo demás va en "Más". */}
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
+            <label className="flex min-h-9 items-center gap-2">
               <input
                 type="checkbox"
                 checked={todosFiltradosSeleccionados}
                 onChange={alternarSeleccionTodos}
                 disabled={idsFiltrados.length === 0}
               />
-              Seleccionar todos los filtrados ({idsFiltrados.length})
+              Seleccionar todos ({idsFiltrados.length})
             </label>
-            <span className="text-slate-500">{seleccionados.size} seleccionado(s)</span>
-            <button
-              type="button"
-              onClick={() => setSeleccionados(new Set(idsListosPorLiberar))}
-              disabled={idsListosPorLiberar.length === 0}
-              title="Marca todos los ítems listos que siguen pendientes, aunque haya un filtro puesto"
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
-            >
-              Marcar listos por liberar ({idsListosPorLiberar.length})
-            </button>
+            <span className="text-slate-500">
+              {seleccionados.size === 0 ? "Marca lo que quieras liberar" : `${seleccionados.size} seleccionado(s)`}
+            </span>
             {seleccionados.size > 0 && (
               <button
                 type="button"
@@ -883,37 +870,34 @@ export default function ItemsLiberacionTable({
                 Quitar selección
               </button>
             )}
-            <div className="ml-auto flex flex-wrap gap-2">
-              <a
-                href={`/produccion/pedidos/${pedidoId}/viajero-lote?ids=${Array.from(seleccionados).join(",")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  if (seleccionados.size === 0) e.preventDefault();
-                }}
-                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                  seleccionados.size === 0
-                    ? "pointer-events-none border-slate-200 text-slate-500"
-                    : "border-brand-600 text-slate-900 hover:bg-brand-500 hover:text-on-brand"
-                }`}
-              >
-                Imprimir Selección (PDF)
-              </a>
-              <button
-                type="button"
-                onClick={revertirSeleccion}
-                disabled={seleccionados.size === 0 || revirtiendo}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-              >
-                {revirtiendo ? "Revirtiendo..." : "Revertir Selección a Pendiente"}
-              </button>
+            <div className="ml-auto flex items-center gap-2">
+              <MenuMas
+                opciones={[
+                  {
+                    etiqueta: `Marcar los listos (${idsListosPorLiberar.length})`,
+                    deshabilitada: idsListosPorLiberar.length === 0,
+                    alHacer: () => setSeleccionados(new Set(idsListosPorLiberar)),
+                  },
+                  {
+                    etiqueta: "Imprimir hojas de viajero (PDF)",
+                    deshabilitada: seleccionados.size === 0,
+                    href: `/produccion/pedidos/${pedidoId}/viajero-lote?ids=${Array.from(seleccionados).join(",")}`,
+                    target: "_blank",
+                  },
+                  {
+                    etiqueta: revirtiendo ? "Regresando a pendiente…" : "Regresar a pendiente",
+                    deshabilitada: seleccionados.size === 0 || revirtiendo,
+                    alHacer: revertirSeleccion,
+                  },
+                ]}
+              />
               <button
                 type="button"
                 onClick={liberarSeleccion}
                 disabled={seleccionados.size === 0 || liberando}
-                className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+                className="min-h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
               >
-                {liberando ? "Liberando..." : "Liberar Selección a Producción"}
+                {liberando ? "Liberando…" : "Liberar a Producción"}
               </button>
             </div>
           </div>

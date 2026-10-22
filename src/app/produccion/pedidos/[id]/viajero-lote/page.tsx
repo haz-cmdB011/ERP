@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import MigasPedido from "../migas-pedido";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/site-url";
 import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
@@ -112,7 +113,8 @@ export default async function ViajeroLotePage({
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6 print:max-w-none print:p-0">
-      <div className="flex items-center justify-end print:hidden">
+      <div className="flex items-center justify-between gap-3 print:hidden">
+        <MigasPedido pedidoId={id} cola={[{ etiqueta: "Hoja de viajero" }]} className="min-w-0" />
         <div className="flex gap-2">
           <DescargarPdfButton nombreArchivo={nombreArchivo} />
           <ImprimirButton sufijo={` (${items.length} ítems)`} />

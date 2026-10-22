@@ -17,8 +17,9 @@ import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import { DIAS_SIN_REASIGNAR, diasEsperando } from "@/lib/produccion/detenidos";
 import EstadoVacio from "@/components/estado-vacio";
 import ReasignarRetrabajo from "./reasignar-retrabajo";
+import PestanasSeccion from "@/app/produccion/pestanas-seccion";
 
-export const metadata: Metadata = { title: "Rechazado por Calidad" };
+export const metadata: Metadata = { title: "Rechazos de Calidad" };
 
 // Fila de la vista rechazos_calidad.
 interface Rechazo {
@@ -243,15 +244,19 @@ export default async function RechazosPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <PestanasSeccion seccion="taller" />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Rechazado por Calidad</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Rechazos de Calidad</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Piezas que Calidad no aprobó. Reasígnalas a un equipo para que las corrija.
+        </p>
       </div>
 
       {nada && (
         <EstadoVacio
           titulo="Calidad no tiene rechazos pendientes"
           descripcion="Cuando Calidad rechace piezas de una entrega aparecerán aquí para reasignarlas."
-          accion={{ href: "/produccion/asignaciones", etiqueta: "Ir a Asignaciones" }}
+          accion={{ href: "/produccion/taller?vista=lista", etiqueta: "Ir al taller" }}
         />
       )}
 
@@ -419,8 +424,20 @@ export default async function RechazosPage() {
             {componentes.map(({ item, informe }) => (
               <li key={item.id} className="p-3 text-sm">
                 <p className="font-medium text-slate-900">
-                  {item.pedido_versiones?.pedidos?.numero_pedido} · ítem {item.item_code}
-                  {item.modelo ? ` · ${item.modelo}` : ""}
+                  {item.pedido_versiones?.pedido_id ? (
+                    <Link
+                      href={`/produccion/pedidos/${item.pedido_versiones.pedido_id}`}
+                      className="hover:text-brand-700 hover:underline"
+                    >
+                      {item.pedido_versiones.pedidos?.numero_pedido} · componente {item.item_code}
+                      {item.modelo ? ` · ${item.modelo}` : ""}
+                    </Link>
+                  ) : (
+                    <>
+                      {item.pedido_versiones?.pedidos?.numero_pedido} · componente {item.item_code}
+                      {item.modelo ? ` · ${item.modelo}` : ""}
+                    </>
+                  )}
                   <span className="ml-2 font-mono text-xs font-medium text-rose-700">{informe.folio}</span>
                 </p>
                 <p className="text-slate-700">

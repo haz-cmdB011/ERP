@@ -13,6 +13,7 @@ import {
 } from "@/components/revertir-cancelacion";
 
 import { leer } from "@/lib/supabase/leer";
+import PestanasSeccion from "@/app/produccion/pestanas-seccion";
 interface PedidoRow {
   eliminado_definitivo_en: string | null;
   id: string;
@@ -253,14 +254,23 @@ export default async function CanceladosProduccionPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6">
-      <h1 className="border-b border-slate-200 pb-4 text-2xl font-semibold tracking-tight text-slate-900">Cancelados y eliminados</h1>
+      <PestanasSeccion seccion="archivo" />
+      <div className="border-b border-slate-200 pb-4">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Cancelados y eliminados</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Lo que salió de Producción. Aquí puedes reactivarlo o restaurarlo si fue un error.
+        </p>
+      </div>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium text-slate-600">
-          PM cancelados totalmente ({totalmenteCancelados.length})
-        </h2>
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Pedidos cancelados <span className="font-normal text-slate-500">({totalmenteCancelados.length})</span>
+          </h2>
+          <p className="text-sm text-slate-500">Se canceló el pedido completo. Puedes reactivarlo.</p>
+        </div>
         {totalmenteCancelados.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay pedidos cancelados totalmente.</p>
+          <p className="text-sm text-slate-500">No hay pedidos cancelados.</p>
         ) : (
           totalmenteCancelados.map((p) => (
             <PedidoCancelado
@@ -285,11 +295,15 @@ export default async function CanceladosProduccionPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium text-slate-600">
-          PM con ítems cancelados — parcial ({parcialmenteCancelados.length})
-        </h2>
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Pedidos con muebles cancelados{" "}
+            <span className="font-normal text-slate-500">({parcialmenteCancelados.length})</span>
+          </h2>
+          <p className="text-sm text-slate-500">Solo se canceló una parte; el resto del pedido sigue su curso.</p>
+        </div>
         {parcialmenteCancelados.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay pedidos con cancelación parcial.</p>
+          <p className="text-sm text-slate-500">No hay pedidos con muebles cancelados.</p>
         ) : (
           parcialmenteCancelados.map((p) => (
             <PedidoCancelado
@@ -306,11 +320,14 @@ export default async function CanceladosProduccionPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium text-slate-600">
-          Ítems eliminados — papelera ({(itemsPapelera ?? []).length})
-        </h2>
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Papelera de muebles <span className="font-normal text-slate-500">({(itemsPapelera ?? []).length})</span>
+          </h2>
+          <p className="text-sm text-slate-500">Se enviaron a la papelera desde un pedido. Restáuralos si fue un error.</p>
+        </div>
         {pedidosConPapelera.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay ítems eliminados.</p>
+          <p className="text-sm text-slate-500">La papelera está vacía.</p>
         ) : (
           pedidosConPapelera.map((p) => (
             <div key={p.id} className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -325,7 +342,7 @@ export default async function CanceladosProduccionPage() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2">Item</th>
+                    <th className="px-3 py-2">N.º</th>
                     <th className="px-3 py-2">Modelo</th>
                     <th className="px-3 py-2">Material</th>
                     <th className="px-3 py-2">Descripción</th>
@@ -362,9 +379,12 @@ export default async function CanceladosProduccionPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium text-slate-600">
-          PM eliminados ({(pedidosEliminados ?? []).length})
-        </h2>
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Pedidos eliminados <span className="font-normal text-slate-500">({(pedidosEliminados ?? []).length})</span>
+          </h2>
+          <p className="text-sm text-slate-500">Planeación los eliminó. Si se restauran, vuelven a aparecer en Pedidos.</p>
+        </div>
         {(pedidosEliminados ?? []).length === 0 ? (
           <p className="text-sm text-slate-500">No hay pedidos eliminados.</p>
         ) : (
@@ -436,7 +456,7 @@ function PedidoCancelado({
       <table className="w-full text-left text-xs">
         <thead>
           <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            <th className="px-3 py-2">Item</th>
+            <th className="px-3 py-2">N.º</th>
             <th className="px-3 py-2">Modelo</th>
             <th className="px-3 py-2">Material</th>
             <th className="px-3 py-2">Descripción</th>

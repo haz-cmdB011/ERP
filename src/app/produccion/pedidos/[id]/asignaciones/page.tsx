@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MigasPedido from "../migas-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -29,6 +30,7 @@ import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import FlujoMuebles from "./flujo-muebles";
+import PestanasPedido from "../pestanas-pedido";
 import { leer } from "@/lib/supabase/leer";
 interface MuebleRow {
   id: string;
@@ -220,6 +222,7 @@ export default async function AsignacionesPedidoPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
+      <MigasPedido pedidoId={id} />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -230,13 +233,26 @@ export default async function AsignacionesPedidoPage({
             {version ? ` · versión ${version.numero_version}` : ""}
           </p>
           <p className="mt-2 text-sm text-slate-500">
-            Cada mueble sigue su ruta (la sugerida es Armado → Superficie Sólida → Barniz → Electrificación) y cada paso se asigna por separado, aunque se repita. Electrificación y Superficie Sólida solo entran en los muebles que las llevan (lo dice la descripción del mueble o de sus componentes). Asignar antes de que el paso anterior entregue se puede, pero queda marcado como adelantado.
+            Cada mueble sigue una ruta de pasos. Toca un paso para asignarlo a un equipo.
           </p>
+          <details className="mt-1 text-sm text-slate-500">
+            <summary className="w-fit cursor-pointer select-none font-medium text-slate-600 hover:text-slate-900">
+              Cómo funciona la ruta
+            </summary>
+            <p className="mt-1 max-w-3xl">
+              La ruta sugerida es Armado → Superficie Sólida → Barniz → Electrificación, y cada paso se asigna por
+              separado, aunque se repita. Electrificación y Superficie Sólida solo entran en los muebles que las
+              llevan (lo dice la descripción del mueble o de sus componentes). Asignar antes de que el paso
+              anterior entregue se puede, pero queda marcado como adelantado.
+            </p>
+          </details>
         </div>
         {puedeEditar && !pedidoCancelado && liberados.length > 1 && (
           <AsignarLote muebles={paraLote} equipos={equipos ?? []} encargados={encargados ?? []} />
         )}
       </div>
+
+      <PestanasPedido pedidoId={id} activa="asignar" />
 
       {pedidoCancelado && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">

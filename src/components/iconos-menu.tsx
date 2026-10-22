@@ -21,6 +21,13 @@ const TRAZOS = {
       <path d="m15 9-6 6M9 9l6 6" />
     </>
   ),
+  archivo: (
+    <>
+      <rect x="3" y="4" width="18" height="5" rx="1" />
+      <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9" />
+      <path d="M10 13h4" />
+    </>
+  ),
   asignaciones: (
     <>
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
