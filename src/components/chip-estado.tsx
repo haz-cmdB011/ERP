@@ -1,3 +1,5 @@
+import IconoMenu, { type NombreIcono } from "@/components/iconos-menu";
+
 // Etiqueta de estado con punto de color y texto (el color nunca va solo: quien
 // no distingue colores lee el texto).
 export type TonoChip = "ok" | "proceso" | "alerta" | "peligro" | "neutro";
@@ -14,10 +16,13 @@ export default function ChipEstado({
   tono,
   children,
   titulo,
+  icono,
 }: {
   tono: TonoChip;
   children: React.ReactNode;
   titulo?: string;
+  // Un icono en lugar del punto: dice de un vistazo de qué tipo de aviso se trata.
+  icono?: NombreIcono;
 }) {
   const e = ESTILO[tono];
   return (
@@ -25,7 +30,11 @@ export default function ChipEstado({
       title={titulo}
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${e.caja}`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${e.punto}`} aria-hidden="true" />
+      {icono ? (
+        <IconoMenu nombre={icono} className="h-3.5 w-3.5 shrink-0" />
+      ) : (
+        <span className={`h-1.5 w-1.5 rounded-full ${e.punto}`} aria-hidden="true" />
+      )}
       {children}
     </span>
   );

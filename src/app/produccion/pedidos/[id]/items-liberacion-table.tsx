@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import IconoMenu from "@/components/iconos-menu";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/confirm-dialog";
@@ -356,9 +357,10 @@ export default function ItemsLiberacionTable({
           {siguiente === "sin-asignar" && (
             <EnlaceFila
               href={href}
-              className="whitespace-nowrap rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
             >
-              Asignar a equipos →
+              <IconoMenu nombre="equipos" className="h-3.5 w-3.5" />
+              Asignar a equipos
             </EnlaceFila>
           )}
           {siguiente === "en-taller" && (

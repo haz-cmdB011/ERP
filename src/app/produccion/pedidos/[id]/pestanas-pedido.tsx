@@ -26,11 +26,11 @@ export default async function PestanasPedido({
   }
   const base = `/produccion/pedidos/${pedidoId}`;
   const items: ItemPestana[] = [
-    { id: "muebles", etiqueta: "Muebles", href: base },
-    { id: "asignar", etiqueta: "Asignar a equipos", href: `${base}/asignaciones` },
+    { id: "muebles", etiqueta: "Muebles", icono: "muebles", href: base },
+    { id: "asignar", etiqueta: "Asignar a equipos", icono: "equipos", href: `${base}/asignaciones` },
   ];
   if (total > 1 || activa === "cambios") {
-    items.push({ id: "cambios", etiqueta: "Cambios", href: `${base}/cambios` });
+    items.push({ id: "cambios", etiqueta: "Cambios", icono: "cambios", href: `${base}/cambios` });
   }
   return <BarraPestanas items={items} activa={activa} etiqueta="Partes del pedido" />;
 }

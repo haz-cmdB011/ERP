@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import IconoMenu from "@/components/iconos-menu";
 import { useRouter } from "next/navigation";
 import { avisar } from "@/components/avisos";
 import DialogoMotivo from "@/components/dialogo-motivo";
@@ -316,8 +317,9 @@ export default function ItemsTabla({
             type="button"
             onClick={() => setSeleccion(new Set(idsPendientes))}
             title="Marca todo lo que aún no se ha liberado a Producción"
-            className="rounded-lg border border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-800 shadow-sm hover:bg-brand-100 sm:py-2"
+            className="inline-flex items-center gap-2 rounded-lg border border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-800 shadow-sm hover:bg-brand-100 sm:py-2"
           >
+            <IconoMenu nombre="enviar" className="h-4 w-4" />
             Liberar a Producción ({idsPendientes.length})
           </button>
         )}
@@ -401,8 +403,9 @@ export default function ItemsTabla({
               type="button"
               onClick={() => void liberarSeleccion()}
               disabled={aplicando || liberando}
-              className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
             >
+              <IconoMenu nombre="enviar" className="h-4 w-4" />
               {liberando ? "Liberando…" : "Liberar a Producción"}
             </button>
             <button

@@ -116,6 +116,70 @@ const TRAZOS = {
       <path d="M12 8v4l2.5 1.5" />
     </>
   ),
+  muebles: (
+    <>
+      <path d="m21 8-9-5-9 5 9 5 9-5Z" />
+      <path d="M3 8v8l9 5 9-5V8" />
+      <path d="M12 13v8" />
+    </>
+  ),
+  versiones: (
+    <>
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 13 9 5 9-5" />
+      <path d="m3 17.5 9 5 9-5" />
+    </>
+  ),
+  cambios: (
+    <>
+      <path d="M7 4v13M7 4 4 7M7 4l3 3" />
+      <path d="M17 20V7M17 20l-3-3M17 20l3-3" />
+    </>
+  ),
+  enviar: (
+    <>
+      <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+      <path d="M22 2 11 13" />
+    </>
+  ),
+  entregas: (
+    <>
+      <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7" />
+      <circle cx="7" cy="18" r="1.6" />
+      <circle cx="17" cy="18" r="1.6" />
+    </>
+  ),
+  verificar: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12 3 3 5-6" />
+    </>
+  ),
+  buscar: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </>
+  ),
+  descargar: (
+    <>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m7 10 5 5 5-5M12 15V3" />
+    </>
+  ),
+  reloj: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  alerta: (
+    <>
+      <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+      <path d="M12 9v4M12 17h.01" />
+    </>
+  ),
+  check: <path d="m5 12 5 5L20 7" />,
   retrabajo: (
     <>
       <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />

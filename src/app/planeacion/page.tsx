@@ -1,10 +1,10 @@
 import Link from "next/link";
+import AccesosRapidos from "@/components/accesos-rapidos";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
 import ListaPedidos from "./lista-pedidos";
-import IconoMenu from "@/components/iconos-menu";
 import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
   agruparPorOrdenTrabajo,
@@ -107,16 +107,16 @@ export default async function PlaneacionListPage({
             Toca una O.T. para abrir su pedido.
           </p>
         </div>
-        {puedeCargar && (
-          <Link
-            href="/planeacion/upload"
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-brand-400"
-          >
-            <IconoMenu nombre="subir" className="h-4 w-4" />
-            Cargar Excel
-          </Link>
-        )}
       </div>
+
+      <AccesosRapidos
+        accesos={[
+          ...(puedeCargar
+            ? [{ href: "/planeacion/upload", icono: "subir" as const, titulo: "Cargar Excel", detalle: "Subir un pedido", principal: true }]
+            : []),
+          { href: "/planeacion/archivo", icono: "archivo" as const, titulo: "Archivo", detalle: "Cancelados y papelera" },
+        ]}
+      />
 
       <form action="/planeacion" className="flex gap-2">
         {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}

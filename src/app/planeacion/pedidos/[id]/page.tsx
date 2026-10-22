@@ -290,8 +290,8 @@ export default async function PedidoDetailPage({
             etiqueta="Secciones del pedido"
             activa={pestanaActiva}
             items={[
-              { id: "muebles", etiqueta: "Muebles", href: hrefPestana("muebles") },
-              { id: "versiones", etiqueta: "Versiones", href: hrefPestana("versiones") },
+              { id: "muebles", etiqueta: "Muebles", icono: "muebles", href: hrefPestana("muebles") },
+              { id: "versiones", etiqueta: "Versiones", icono: "versiones", href: hrefPestana("versiones") },
             ]}
           />
           <div

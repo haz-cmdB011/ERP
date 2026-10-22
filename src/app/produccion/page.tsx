@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import AccesosRapidos from "@/components/accesos-rapidos";
 import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
 import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import EstadoVacio from "@/components/estado-vacio";
@@ -98,6 +99,15 @@ export default async function ProduccionListPage({
           Abre una O.T. para ver sus muebles liberados y asignarlos a equipos.
         </p>
       </div>
+
+      <AccesosRapidos
+        accesos={[
+          { href: "/produccion/taller", icono: "panel", titulo: "Taller", detalle: "Qué tiene cada equipo", principal: true },
+          { href: "/produccion/escanear", icono: "escanear", titulo: "Escanear QR", detalle: "Abrir un mueble" },
+          { href: "/produccion/equipos", icono: "equipos", titulo: "Equipos", detalle: "Altas y encargados" },
+          { href: "/produccion/cancelados", icono: "archivo", titulo: "Archivo", detalle: "Cancelados y folios" },
+        ]}
+      />
 
       <QueSigue pasos={pasos} />
 
