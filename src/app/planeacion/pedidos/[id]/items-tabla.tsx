@@ -19,7 +19,6 @@ import {
   type FiltrosItems,
 } from "@/lib/planeacion/filtrar-items";
 import EstadoRevisionSelect from "./estado-revision-select";
-import EliminarItemBoton from "./eliminar-item-boton";
 import type { PlanoLink } from "@/lib/planos/planos-por-item";
 import PlanosItem from "./planos-item";
 import GrupoDesplegable from "@/components/grupo-desplegable";
@@ -92,14 +91,12 @@ export default function ItemsTabla({
   imagenesPorItem,
   planosPorItem,
   puedeEditar,
-  puedeEliminar,
   filtroInicial,
 }: {
   muebles: MuebleTabla[];
   imagenesPorItem: Record<string, ImagenItemUrls[]>;
   planosPorItem: Record<string, PlanoLink[]>;
   puedeEditar: boolean;
-  puedeEliminar: boolean;
   filtroInicial: string;
 }) {
   const tablaRef = useFlip<HTMLTableElement>();
@@ -492,7 +489,6 @@ export default function ItemsTabla({
                 <th className="px-3 py-2">Descripción</th>
                 <th className="px-3 py-2">Cantidad</th>
                 <th className="px-3 py-2">Estado</th>
-                {puedeEliminar && <th className="px-3 py-2"></th>}
               </tr>
             </thead>
             {enPantalla.map(({ mueble: m, hijos }) => {
@@ -547,11 +543,6 @@ export default function ItemsTabla({
                         <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                           <EstadoCelda item={m} puedeEditar={puedeEditar} />
                         </td>
-                        {puedeEliminar && (
-                          <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                            <EliminarItemBoton itemId={m.id} />
-                          </td>
-                        )}
                       </tr>
                       {mostrar &&
                         hijos.map((f, i) => (
@@ -590,11 +581,6 @@ export default function ItemsTabla({
                             <td className="px-3 py-2">
                               <EstadoCelda item={f} puedeEditar={puedeEditar} />
                             </td>
-                            {puedeEliminar && (
-                              <td className="px-3 py-2">
-                                <EliminarItemBoton itemId={f.id} />
-                              </td>
-                            )}
                           </tr>
                         ))}
                     </>
@@ -629,7 +615,6 @@ export default function ItemsTabla({
                     seleccionado={seleccion.has(m.id)}
                     onMarcar={() => marcar([m.id, ...hijos.map((h) => h.id)], !seleccion.has(m.id))}
                     puedeEditar={puedeEditar}
-                    puedeEliminar={puedeEliminar}
                     componentes={hijos.length}
                     abierto={abierto}
                     onAlternar={() => alternar(m.id)}
@@ -645,7 +630,6 @@ export default function ItemsTabla({
                             seleccionado={seleccion.has(f.id)}
                             onMarcar={() => marcar([f.id], !seleccion.has(f.id))}
                             puedeEditar={puedeEditar}
-                            puedeEliminar={puedeEliminar}
                             componentes={0}
                             abierto={false}
                             onAlternar={() => {}}
@@ -726,7 +710,6 @@ function TarjetaItem({
   seleccionado,
   onMarcar,
   puedeEditar,
-  puedeEliminar,
   componentes,
   abierto,
   onAlternar,
@@ -738,7 +721,6 @@ function TarjetaItem({
   seleccionado: boolean;
   onMarcar: () => void;
   puedeEditar: boolean;
-  puedeEliminar: boolean;
   // Cuántos componentes tiene (0 en un componente o un mueble sin ellos).
   componentes: number;
   abierto: boolean;
@@ -779,7 +761,6 @@ function TarjetaItem({
         <div className="min-w-40 flex-1 [&_select]:w-full">
           <EstadoCelda item={item} puedeEditar={puedeEditar} />
         </div>
-        {puedeEliminar && <EliminarItemBoton itemId={item.id} />}
       </div>
       {componentes > 0 && (
         <button

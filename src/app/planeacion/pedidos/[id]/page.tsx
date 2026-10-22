@@ -103,9 +103,6 @@ export default async function PedidoDetailPage({
     versionesPromesa,
   ]);
   const puedeEditar = puedeEditarPlaneacion(perfil);
-  // Enviar un ítem a la papelera lo puede hacer quien edita en Planeación (la
-  // eliminación definitiva sigue siendo de los administradores de Producción).
-  const puedeEliminar = puedeEditar;
 
   if (!pedido) {
     notFound();
@@ -320,7 +317,6 @@ export default async function PedidoDetailPage({
                     imagenesPorItem={Object.fromEntries(imagenesPorItem)}
                     planosPorItem={planosPorItem}
                     puedeEditar={puedeEditar}
-                    puedeEliminar={puedeEliminar}
                     filtroInicial={modelo ?? ""}
                   />
                 )}
