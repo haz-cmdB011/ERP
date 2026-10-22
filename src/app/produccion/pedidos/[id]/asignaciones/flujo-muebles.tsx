@@ -143,7 +143,7 @@ export default function FlujoMuebles({
   );
 }
 
-function ResumenProceso({
+export function ResumenProceso({
   proceso,
   muebles,
 }: {
@@ -226,7 +226,7 @@ function porAsignar(
   return !!asignar && avancePaso(m, indice).disponible > 0;
 }
 
-function FilaMueble({
+export function FilaMueble({
   mueble: m,
   asignar,
   detalles,

@@ -141,7 +141,6 @@ export default async function OrdenTrabajoProduccionPage({
                   <th className="px-4 py-3">Versión activa</th>
                   <th className="px-4 py-3">Muebles liberados</th>
                   <th className="px-4 py-3">En taller</th>
-                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -180,14 +179,6 @@ export default async function OrdenTrabajoProduccionPage({
                       </td>
                       <td className="px-4 py-3 text-slate-700">
                         {taller > 0 ? `${taller} asignaci${taller === 1 ? "ón" : "ones"}` : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/produccion/pedidos/${p.id}/asignaciones`}
-                          className="whitespace-nowrap text-sm font-medium text-brand-700 hover:underline"
-                        >
-                          Asignar a equipos
-                        </Link>
                       </td>
                     </tr>
                   );

@@ -14,7 +14,15 @@ import {
   type EncargadoEquipo,
   type EquipoProduccion,
 } from "@/lib/produccion/asignaciones";
+import { MAX_IDS_PANEL } from "@/lib/produccion/panel";
 import AsignarLote from "../asignaciones/asignar-lote";
+
+// Panel de asignación de esos muebles (todos los liberados si son demasiados para la dirección).
+function urlPanel(ids: string[]): string {
+  return ids.length > 0 && ids.length <= MAX_IDS_PANEL
+    ? `/produccion/panel?ids=${ids.join(",")}`
+    : "/produccion/panel";
+}
 
 type Datos = DatosCarrito & {
   puedeEditar: boolean;
@@ -88,8 +96,9 @@ export default function CarritoVista() {
       const muebles = items.filter((i) => ids.includes(i.id) && i.tipo === "MO").map((i) => i.id);
       quitarItems(ids);
       avisar(`${cuerpo.liberados} ítem(s) liberado(s) a producción.`, "exito");
-      // Un componente liberado solo no se asigna: sin muebles no hay a dónde ir.
-      if (muebles.length > 0) router.push(`/produccion/asignar?ids=${muebles.join(",")}`);
+      // Un componente liberado solo no se asigna: sin muebles no hay a dónde ir. Con demasiados
+      // muebles la lista no cabe en la dirección: se abre el panel con todo lo liberado.
+      if (muebles.length > 0) router.push(urlPanel(muebles));
     } catch {
       avisar("Error de red al liberar.", "error");
     } finally {
@@ -254,11 +263,11 @@ export default function CarritoVista() {
                     )}
                     {puedeEditar && mueblesPm.length > 0 && (
                       <Link
-                        href={`/produccion/pedidos/${pm.pedidoId}/asignaciones`}
-                        title="Asignar por partes del despiece, ver la ruta y el avance"
+                        href={urlPanel(mueblesPm.map((m) => m.id))}
+                        title="Ver la ruta de cada mueble y asignar por partes en el panel de asignación"
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                       >
-                        Ruta y partes
+                        Ver en el panel
                       </Link>
                     )}
                     <button

@@ -159,6 +159,28 @@ si el mueble o sus componentes las llevan); se crea con la primera asignación o
   migración `recibos_procesos_repetidos`). Componentes y Electrificación siguen 1×. Lo usan el control al
   guardar el renglón, el campo Modelo de la captura y "PM contra cobrado" (`cantidad_pm_acabados/armado`).
 
+## Carrito y panel de asignación
+
+Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T. ya no traen botones de
+"Asignar a equipos" ni de liberar:
+
+- **Carrito**: en el pedido se marcan muebles o componentes (o se usa el botón de carrito de cada fila) y se
+  mandan al carrito. Vive en el aparato (`localStorage`, `src/lib/produccion/carrito-navegador.ts`; lógica pura
+  con pruebas en `carrito.ts`) y junta ítems de cualquier PM u O.T. `/produccion/carrito` los agrupa por
+  O.T. → PM con su estado real (`/api/produccion/carrito`, `carrito-db.ts`).
+- **Liberar** se hace desde el carrito (por PM o todo). Lo liberado sale del carrito y se abre el panel de
+  asignación con esos muebles (`/produccion/panel?ids=…`, máximo `MAX_IDS_PANEL`). Lo asignado desde el
+  carrito (muebles que ya estaban liberados) también sale.
+- **Panel de asignación** (menú de Producción, `/produccion/panel`): todos los muebles liberados, por O.T. → PM,
+  en el formato visual del flujo del PM (`FilaMueble` y `ResumenProceso` de
+  `pedidos/[id]/asignaciones/flujo-muebles.tsx`): un "+" en un paso lo asigna, y al abrir un mueble se ven sus
+  asignaciones y entregas. Filtros por la dirección: `estado` (por omisión "Activos" = por asignar + en
+  proceso; los terminados solo si se piden, para no cargar el historial), `ot` y `q`. Lógica pura en
+  `src/lib/produccion/panel.ts`, lectura en `panel-db.ts`; `flujo-db.ts` (`cargarFlujoMuebles`) arma el flujo
+  y lo comparten el panel y el carrito.
+- La pantalla de asignaciones de un PM (`/produccion/pedidos/<id>/asignaciones`) sigue existiendo (la usan el
+  QR y el tablero), pero ya no se llega a ella desde el pedido ni la O.T.
+
 ## Despiece por partes (fase 1)
 
 Un mueble se puede asignar **por partes de su despiece** (migración `despiece_por_partes`): cada línea del
