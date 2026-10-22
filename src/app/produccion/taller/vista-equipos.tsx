@@ -92,7 +92,7 @@ export default async function VistaEquipos() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {resumen.atrasadas.slice(0, MAX_ATRASADAS).map((f) => (
-                  <tr key={f.id} className="align-top">
+                  <tr key={f.id} className="relative align-top transition-colors focus-within:bg-slate-50 hover:bg-slate-50">
                     <td className="px-3 py-2 font-medium text-slate-900">
                       <PmEnlace fila={f} />
                     </td>
@@ -164,11 +164,13 @@ export default async function VistaEquipos() {
   );
 }
 
+// El PM de cada fila es un enlace extendido sobre toda la fila (after:inset-0), como en Planeación:
+// tocar cualquier parte de la fila abre el pedido.
 function PmEnlace({ fila }: { fila: FilaTaller }) {
   return fila.pedido_id ? (
     <EnlaceFila
       href={`/produccion/pedidos/${fila.pedido_id}/asignaciones`}
-      className="hover:text-brand-700 hover:underline"
+      className="outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
     >
       {fila.numero_pedido}
     </EnlaceFila>
@@ -227,7 +229,10 @@ function TarjetaEquipo({
 
       <ul className="flex flex-col divide-y divide-slate-100 border-t border-slate-100">
         {visibles.map((f) => (
-          <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+          <li
+            key={f.id}
+            className="relative flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm transition-colors focus-within:bg-slate-50 hover:bg-slate-50"
+          >
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium text-slate-900">
                 {f.modelo ?? `Ítem ${f.item_code}`}
