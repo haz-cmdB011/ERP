@@ -483,7 +483,7 @@ describe("parsePlaneacionExcel", () => {
     ]);
   });
 
-  it("lee LISTA DE INSUMOS como texto crudo, y fases_taller solo con las columnas presentes en el archivo", async () => {
+  it("lee LISTA DE INSUMOS como texto crudo y no lee las fases de taller", async () => {
     const headersConFases = [...HEADERS, "LISTA DE INSUMOS", "HAB MAD", "TAPIZ"];
     const buf = await construirWorkbook(
       [
@@ -503,9 +503,8 @@ describe("parsePlaneacionExcel", () => {
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
     expect(resultado.items[0].lista_insumos).toBe("LI-004");
-    expect(resultado.items[0].fases_taller).toEqual({ "HAB MAD": true, TAPIZ: false });
-    // ENS MAD no está en el archivo: no debe aparecer en el objeto.
-    expect("ENS MAD" in resultado.items[0].fases_taller).toBe(false);
+    // Las fases de taller no se leen por ahora, aunque la columna esté en el archivo.
+    expect(resultado.items[0].fases_taller).toEqual({});
   });
 
   it("deja fecha_pedido/fecha_entrega en null (no undefined) cuando no se encuentran en el archivo", async () => {
@@ -664,25 +663,61 @@ describe("variantes de encabezado de archivos reales", () => {
     return Buffer.from(await wb.xlsx.writeBuffer());
   }
 
+  // El formato exige los nombres exactos: los alias de archivos viejos ya no pasan.
   it.each(["CANT\nTOTAL", "CANTIDAD DE MUEBLES EN PLANTA "])(
-    "acepta %j como CANTIDAD TOTAL y la primera TIPO como COMPONENTE",
+    "rechaza %j como CANTIDAD TOTAL y dice en qué columna está",
     async (encabezado) => {
       const resultado = await parsePlaneacionExcel(await libroConEncabezados(encabezado));
-      expect(resultado.ok).toBe(true);
-      if (!resultado.ok) return;
-      expect(
-        resultado.items.map((i) => [i.item_code, i.tipo_registro, i.categoria_componente, i.tipo_material, i.cantidad_total])
-      ).toEqual([
-        [1, "MO", "MOBILIARIO", "HIBRIDO", 2],
-        [1.01, "FU", "FUNCION", "MADERA", 6],
-      ]);
+      expect(resultado.ok).toBe(false);
+      if (resultado.ok) return;
+      const falta = resultado.errores.find((e) => e.mensaje.includes('"CANTIDAD TOTAL"'));
+      expect(falta?.mensaje).toMatch(/Falta la columna "CANTIDAD TOTAL"\. En la columna L dice/);
     }
   );
+
+  it("rechaza dos columnas TIPO en lugar de COMPONENTE y lo indica", async () => {
+    const resultado = await parsePlaneacionExcel(await libroConEncabezados("CANTIDAD TOTAL"));
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.errores.map((e) => e.mensaje)).toEqual([
+      expect.stringMatching(/Falta la columna "COMPONENTE"\. Debe llamarse exactamente "COMPONENTE"\./),
+    ]);
+  });
 
   it("no toma por CANTIDAD TOTAL la cantidad de herrajes de la hoja de resumen", async () => {
     const resultado = await parsePlaneacionExcel(
       await libroConEncabezados("CANTIDAD DE  HERRAJE X EL TOTAL DE MUEBLES")
     );
     expect(resultado.ok).toBe(false);
+  });
+
+  it("acepta los nombres exactos con acentos o mayúsculas distintas (normalización)", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("PEDIDO");
+    ws.getCell("L3").value = "No. PEDIDO";
+    ws.getCell("N3").value = "051-24-2";
+    ws.getCell("L5").value = "PROYECTO:";
+    ws.getCell("M5").value = "PROYECTO";
+    ws.getCell("L6").value = "CLIENTE:";
+    ws.getCell("M6").value = "CLIENTE";
+    ws.getRow(10).values = [
+      "item", "Componente", "Tipo", "Modelo", "Descripción", "cantidad x mueble", "Unidad", "Cantidad  Total",
+    ];
+    ws.getRow(11).values = [1, "MO", "HIBRIDO", "SAL.DESC", "SOFA", 1, "PZA", 2];
+    const resultado = await parsePlaneacionExcel(Buffer.from(await wb.xlsx.writeBuffer()));
+    expect(resultado.ok).toBe(true);
+  });
+});
+
+describe("hojas con encabezados mal escritos", () => {
+  it("una hoja con varias columnas bien escritas se rechaza y no se ignora como hoja de notas", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("PEDIDO");
+    ws.getRow(5).values = ["ITEM", "COMPONENTE", "TIPO", "MODELO", "DESCRIPCION", "CANTIDAD X MUEBLE", "UNIDAD", "CANT TOTAL"];
+    ws.getRow(6).values = [1, "MO", "HIBRIDO", "SAL", "SOFA", 1, "PZA", 2];
+    const libro = await parsePlaneacionLibro(Buffer.from(await wb.xlsx.writeBuffer()));
+    expect(libro.hojasIgnoradas).toEqual([]);
+    expect(libro.hojas).toHaveLength(1);
+    expect(libro.hojas[0].resultado.ok).toBe(false);
   });
 });
