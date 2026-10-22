@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PestanasSeccion from "@/app/calidad/pestanas-seccion";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import { RevertirItemBoton, RevertirPedidoBoton } from "@/components/revertir-cancelacion";
@@ -200,6 +201,7 @@ export default async function CanceladosCalidadPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6">
+      <PestanasSeccion seccion="archivo" />
       <h1 className="border-b border-slate-200 pb-4 text-2xl font-semibold tracking-tight text-slate-900">Cancelados</h1>
 
       <section className="flex flex-col gap-4">

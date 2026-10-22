@@ -19,13 +19,20 @@ export interface FilaLista {
 // Lista de Pedidos de Planeación. Toda la fila es un solo enlace (el del número, extendido sobre la
 // fila con after:inset-0): tocar cualquier parte abre el pedido, sin enlaces anidados. La acción de la
 // fila va aparte, por encima (z-10), para que siga funcionando por su cuenta.
-export default function ListaPedidos({ filas }: { filas: FilaLista[] }) {
+export default function ListaPedidos({
+  filas,
+  tituloAvance = "Liberado a Producción",
+}: {
+  filas: FilaLista[];
+  // Encabezado de la columna de avance (Calidad la llama "Evaluación").
+  tituloAvance?: string;
+}) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="hidden items-center gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:flex">
         <span className="w-24 shrink-0">O.T.</span>
         <span className="flex-1">Proyecto</span>
-        <span className="w-44 shrink-0">Liberado a Producción</span>
+        <span className="w-44 shrink-0">{tituloAvance}</span>
         <span className="w-4 shrink-0" />
       </div>
       <ul className="divide-y divide-slate-100">

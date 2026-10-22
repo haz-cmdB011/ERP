@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import MigasPedido from "../../migas-pedido";
 import type { LoteCalidad } from "@/lib/calidad/lotes";
 import { etiquetaProceso } from "@/lib/produccion/asignaciones";
 import { createClient } from "@/lib/supabase/server";
@@ -245,6 +246,7 @@ export default async function InformeCalidadPage({
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6 print:max-w-none print:p-0">
+      <MigasPedido pedidoId={id} cola={[{ etiqueta: `Informe ${informe.folio}` }]} className="print:hidden" />
       <div className="flex items-center justify-end print:hidden">
         <div className="flex flex-wrap justify-end gap-2">
           {puedeEditar && (
