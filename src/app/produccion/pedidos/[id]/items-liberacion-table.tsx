@@ -10,7 +10,9 @@ import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
 import { avisar } from "@/components/avisos";
 import GrupoDesplegable from "@/components/grupo-desplegable";
+import EnlaceFila from "@/components/enlace-fila";
 import MenuMas from "@/components/menu-mas";
+import { AccionesEnMenu } from "@/components/resumen-menu";
 import BotonDesplegar from "@/components/boton-desplegar";
 import { useFlip } from "@/lib/ui/use-flip";
 
@@ -554,27 +556,79 @@ export default function ItemsLiberacionTable({
             </span>
           )}
         </td>
-        <td className="pl-1 pr-2 py-3 sm:px-3 lg:py-2" onClick={sinToggle}>
-          <MenuMas
-            compacto
-            etiquetaAccesible={`Más acciones del ítem ${item.item_code}`}
-            opciones={[
-              { etiqueta: "Hoja de viajero", href: `/produccion/pedidos/${pedidoId}/viajero/${item.id}` },
-              ...(item.tipo_registro === "MO"
-                ? [{ etiqueta: "Despiece", href: `/produccion/pedidos/${pedidoId}/despiece/${item.id}` }]
-                : []),
-              ...(puedeSolicitarEliminacion
-                ? [
-                    {
-                      etiqueta: "Enviar a la papelera",
-                      peligro: true,
-                      deshabilitada: procesando,
-                      alHacer: () => setConfirmacion({ tipo: "solicitar" as const, item }),
-                    },
-                  ]
-                : []),
-            ]}
-          />
+        <td className="px-3 py-3 lg:py-2" onClick={sinToggle}>
+          <div className="flex flex-col items-center gap-2 lg:flex-row lg:flex-wrap">
+            <EnlaceFila
+              href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
+              title="Viajero"
+              aria-label={`Viajero del ítem ${item.item_code}`}
+              className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
+            >
+              {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path d="M22 2 11 13" />
+                <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+              </svg>
+            </EnlaceFila>
+            {item.tipo_registro === "MO" && (
+              <EnlaceFila
+                href={`/produccion/pedidos/${pedidoId}/despiece/${item.id}`}
+                title="Despiece"
+                aria-label={`Despiece del ítem ${item.item_code}`}
+                className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
+              >
+                {/* Capas: el mueble desglosado en sus piezas. */}
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+                  <path d="m3 13 9 5 9-5" />
+                </svg>
+              </EnlaceFila>
+            )}
+            {puedeSolicitarEliminacion && (
+              <button
+                type="button"
+                onClick={() => setConfirmacion({ tipo: "solicitar", item })}
+                disabled={procesando}
+                title="Enviar a la papelera"
+                aria-label={`Enviar el ítem ${item.item_code} a la papelera`}
+                className="flex h-11 w-11 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 lg:h-8 lg:w-8"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-3.5 w-3.5"
+                  aria-hidden="true"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                  <path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  <path d="M10 11v6M14 11v6" />
+                </svg>
+              </button>
+            )}
+          </div>
         </td>
       </tr>
     );
@@ -625,17 +679,34 @@ export default function ItemsLiberacionTable({
             </button>
           </>
         )}
+        {/* La papelera vive en el menú de tres rayas (AccionesEnMenu); aquí solo queda el regreso. */}
         {(puedeSolicitarEliminacion || puedeEliminarDefinitivo) && (
+          <AccionesEnMenu
+            acciones={[
+              vistaPapelera
+                ? { etiqueta: "Volver a los muebles", alHacer: () => setVistaPapelera(false), icono: ["m15 18-6-6 6-6"] }
+                : {
+                    etiqueta: "Papelera",
+                    conteo: itemsPapelera.length,
+                    peligro: true,
+                    alHacer: () => setVistaPapelera(true),
+                    icono: [
+                      "M3 6h18",
+                      "M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2",
+                      "m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+                      "M10 11v6M14 11v6",
+                    ],
+                  },
+            ]}
+          />
+        )}
+        {vistaPapelera && (
           <button
             type="button"
-            onClick={() => setVistaPapelera((v) => !v)}
-            className={`ml-auto min-h-10 rounded-lg border px-3 font-medium transition-colors ${
-              vistaPapelera
-                ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-            }`}
+            onClick={() => setVistaPapelera(false)}
+            className="ml-auto min-h-10 rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 transition-colors hover:bg-slate-50"
           >
-            {vistaPapelera ? "← Volver a los muebles" : `Papelera (${itemsPapelera.length})`}
+            ← Volver a los muebles
           </button>
         )}
       </div>
