@@ -30,7 +30,7 @@ export default async function ArchivoPage({
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Migas items={[{ etiqueta: "Pedidos", href: "/planeacion" }, { etiqueta: "Archivo" }]} />
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Archivo</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Archivo</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-600">
           Lo que ya no está en la lista de Pedidos: {veLaPapelera ? "lo cancelado y lo enviado a la papelera" : "lo cancelado"}.
         </p>

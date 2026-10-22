@@ -93,10 +93,9 @@ export default async function ProduccionListPage({
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Pedidos</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Pedidos</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Cada O.T. es la orden de trabajo de un proyecto. Ábrela para ver los muebles que Planeación ya liberó y
-          asignarlos a equipos.
+          Abre una O.T. para ver sus muebles liberados y asignarlos a equipos.
         </p>
       </div>
 

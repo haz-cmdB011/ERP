@@ -112,7 +112,7 @@ export default async function OrdenTrabajoProduccionPage({
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Migas items={[{ etiqueta: "Pedidos", href: "/produccion" }, { etiqueta: `O.T. ${ot}` }]} />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
           O.T. <span className="font-mono">{ot}</span>
         </h1>
         {primero && (
@@ -121,8 +121,7 @@ export default async function OrdenTrabajoProduccionPage({
           </p>
         )}
         <p className="mt-1 text-sm text-slate-500">
-          Una O.T. es la orden de trabajo del proyecto. Cada pedido (PM) se libera y se asigna por separado:
-          ábrelo para liberar muebles.
+          Abre un pedido (PM) para ver sus muebles liberados y asignarlos.
         </p>
       </div>
 

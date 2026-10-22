@@ -412,8 +412,8 @@ export default function ItemsLiberacionTable({
         className={`align-top transition-colors ${indentado ? "fila-hija" : ""} ${abierto && desplegable ? "fila-padre-abierta" : ""} ${
           seleccionado
             ? "bg-brand-50"
-            : colorFilaEstadoRevision(item.estado_revision) || "odd:bg-slate-50/60 hover:bg-slate-100/70"
-        } ${indentado ? "text-slate-700" : "text-sm font-medium text-slate-900"} ${
+            : colorFilaEstadoRevision(item.estado_revision) || "hover:bg-slate-50"
+        } ${indentado ? "text-slate-700" : "text-sm text-slate-900"} ${
           desplegable ? "cursor-pointer" : ""
         }`}
       >
@@ -487,11 +487,15 @@ export default function ItemsLiberacionTable({
             </div>
           </div>
         </td>
-        <td className="hidden px-3 py-2 lg:table-cell">{item.modelo}</td>
-        <td className="hidden px-3 py-2 lg:table-cell">{item.tipo_material}</td>
         <td className="hidden px-3 py-2 lg:table-cell">
-          {indentado ? item.descripcion?.split("\n")[0] : item.descripcion}
+          <span className={indentado ? "" : "font-medium"}>{item.modelo}</span>
+          {item.descripcion && (
+            <span className="mt-0.5 line-clamp-2 block text-xs font-normal text-slate-500">
+              {item.descripcion.split("\n")[0]}
+            </span>
+          )}
         </td>
+        <td className="hidden px-3 py-2 lg:table-cell">{item.tipo_material}</td>
         <td className="hidden px-3 py-2 lg:table-cell">
           {item.cantidad_total} {item.unidad}
         </td>
@@ -885,16 +889,15 @@ export default function ItemsLiberacionTable({
           )}
 
           {(grupos.length > 0 || sueltos.length > 0) && (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table ref={tablaRef} className="w-full text-left text-xs">
                 <thead>
-                  <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-slate-100 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                     <th className="px-3 py-2"></th>
                     <th className="py-2 pr-1 lg:px-3">Imagen</th>
                     <th className="px-3 py-2">Item</th>
                     <th className="hidden px-3 py-2 lg:table-cell">Modelo</th>
                     <th className="hidden px-3 py-2 lg:table-cell">Material</th>
-                    <th className="hidden px-3 py-2 lg:table-cell">Descripción</th>
                     <th className="hidden px-3 py-2 lg:table-cell">Cant.</th>
                     <th className="hidden px-3 py-2 lg:table-cell">Estado</th>
                     <th className="hidden px-3 py-2 lg:table-cell">Folio</th>
