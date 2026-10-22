@@ -83,8 +83,8 @@ export default function EliminarItemBoton({ itemId }: { itemId: string }) {
     <button
       type="button"
       onClick={() => setConfirmando(true)}
-      title="Eliminar"
-      aria-label="Eliminar ítem"
+      title="Enviar a la papelera"
+      aria-label="Enviar ítem a la papelera"
       className="flex h-7 w-7 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 pointer-coarse:h-11 pointer-coarse:w-11"
     >
       <IconoPapelera />

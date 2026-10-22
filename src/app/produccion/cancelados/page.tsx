@@ -89,7 +89,7 @@ interface PedidoConConteo {
   items: ItemCancelado[];
 }
 
-// Duplicado a propósito de Planeación (src/app/planeacion/cancelados/page.tsx)
+// Duplicado a propósito de Planeación (src/app/planeacion/archivo/cancelados.tsx)
 // en vez de compartir un módulo entre áreas — mismo criterio ya usado para
 // Calidad, para no acoplar Planeación/Producción entre sí. Aquí Producción ve
 // lo cancelado Y lo eliminado (ítems en papelera y PM eliminados) y lo puede

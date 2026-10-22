@@ -53,6 +53,10 @@ describe("atajosCoincidentes", () => {
     ]);
   });
 
+  it("la papelera y lo cancelado de Planeación llevan a Archivo", () => {
+    expect(atajosCoincidentes("papelera planeacion", interno).map((r) => r.href)).toEqual(["/planeacion/archivo"]);
+  });
+
   it("busca también en las palabras clave", () => {
     expect(atajosCoincidentes("subir", interno).map((r) => r.href)).toEqual(["/planeacion/upload"]);
   });

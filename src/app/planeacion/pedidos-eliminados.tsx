@@ -75,7 +75,7 @@ export default function PedidosEliminados({ pedidos }: { pedidos: PedidoEliminad
     const partes = [
       borrados > 0 ? `${borrados} eliminado${borrados === 1 ? "" : "s"} definitivamente` : "",
       conservados > 0
-        ? `${conservados} conservado${conservados === 1 ? "" : "s"} en Cancelados por sus folios de Calidad`
+        ? `${conservados} conservado${conservados === 1 ? "" : "s"} en Archivo (Cancelados) por sus folios de Calidad`
         : "",
     ].filter(Boolean);
     if (fallidos.length === 0) {
@@ -162,7 +162,7 @@ export default function PedidosEliminados({ pedidos }: { pedidos: PedidoEliminad
       <ConfirmDialog
         open={confirmando}
         title={`Eliminar ${seleccion.length} pedido${seleccion.length === 1 ? "" : "s"} definitivamente`}
-        message="Se borran con todo su historial e imágenes. No se puede deshacer. Los que tengan folios de Calidad se conservan en Cancelados."
+        message="Se borran con todo su historial e imágenes. No se puede deshacer. Los que tengan folios de Calidad se conservan en Archivo (Cancelados)."
         confirmLabel="Eliminar definitivamente"
         pedirContrasena
         error={error}
