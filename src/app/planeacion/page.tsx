@@ -14,7 +14,6 @@ import {
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
 import { ResumenEnMenu } from "@/components/resumen-menu";
-import QueSigue, { type PasoQueSigue } from "@/components/que-sigue";
 import EstadoVacio from "@/components/estado-vacio";
 import FiltroRecordado from "@/components/filtro-recordado";
 import {
@@ -42,10 +41,9 @@ const COLUMNAS =
 export default async function PlaneacionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; f?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; cliente?: string }>;
 }) {
-  const { q, anio, cliente, f } = await searchParams;
-  const filtroEstado = f === "revision" || f === "por-liberar" ? f : null;
+  const { q, anio, cliente } = await searchParams;
   const busqueda = q?.trim() ?? "";
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
   const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
@@ -86,37 +84,7 @@ export default async function PlaneacionListPage({
     busqueda,
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
-  const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
-    sumarAvancePlan(avance, fila.pedidos.map((p) => p.id));
-  const filas = filtradas.filas.filter((fila) => {
-    if (!filtroEstado) return true;
-    const a = avanceDe(fila);
-    return filtroEstado === "revision" ? a.enRevision > 0 : a.vigentes > a.liberados;
-  });
-
-  // Qué sigue: lo que Planeación tiene que resolver (ítems en revisión) y lo que todavía no llega a
-  // Producción. Cada paso abre la lista ya filtrada. Cargar Excel está siempre arriba a la derecha.
-  const sumaTodas = sumarAvancePlan(avance, [...avance.keys()]);
-  const otsEnRevision = filtradas.filas.filter((fila) => avanceDe(fila).enRevision > 0).length;
-  const otsSinLiberar = filtradas.filas.filter((fila) => {
-    const a = avanceDe(fila);
-    return a.vigentes > a.liberados;
-  }).length;
-  const pasos: PasoQueSigue[] = [
-    {
-      valor: sumaTodas.enRevision,
-      accion: "Resolver ítems en revisión",
-      detalle: `ítems en revisión, en ${otsEnRevision} O.T.`,
-      href: "/planeacion?f=revision",
-      urgente: true,
-    },
-    {
-      valor: sumaTodas.vigentes - sumaTodas.liberados,
-      accion: "Liberar a Producción",
-      detalle: `ítems aún sin liberar a Producción, en ${otsSinLiberar} O.T.`,
-      href: "/planeacion?f=por-liberar",
-    },
-  ];
+  const filas = filtradas.filas;
 
   // Números de las tarjetas: sobre todas las O.T. vigentes, sin filtros.
   const todas = agruparPorOrdenTrabajo(pedidos ?? []);
@@ -150,10 +118,7 @@ export default async function PlaneacionListPage({
         )}
       </div>
 
-      {!error && pedidos && pedidos.length > 0 && <QueSigue pasos={pasos} />}
-
       <form action="/planeacion" className="flex gap-2">
-        {filtroEstado && <input type="hidden" name="f" value={filtroEstado} />}
         {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
         {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
         <input
@@ -218,18 +183,6 @@ export default async function PlaneacionListPage({
           {busqueda ? `Ninguna O.T. ni modelo coincide con “${busqueda}”` : "No hay pedidos"}
           {clienteFiltro ? ` de ${clienteFiltro}` : ""}
           {anioFiltro ? ` en ${anioFiltro}` : ""}.
-        </p>
-      )}
-
-      {filtroEstado && (
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
-          {filtroEstado === "revision"
-            ? "Mostrando solo las O.T. con ítems en revisión"
-            : "Mostrando solo las O.T. con ítems sin liberar a Producción"}{" "}
-          ({filas.length}).
-          <Link href="/planeacion" className="font-medium underline-offset-2 hover:underline">
-            Ver todas
-          </Link>
         </p>
       )}
 
