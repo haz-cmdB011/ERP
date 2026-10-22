@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Migas from "@/components/migas";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -117,6 +118,13 @@ export default async function MuebleEscaneadoPage({
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-4 p-4 sm:p-6">
+      <Migas
+        items={[
+          { etiqueta: "Escanear QR", href: "/produccion/escanear" },
+          { etiqueta: pedido.numero_pedido, href: `/produccion/pedidos/${pedido.id}` },
+          { etiqueta: `Ítem ${item.item_code}` },
+        ]}
+      />
       <header className="flex flex-col gap-1 border-b border-slate-200 pb-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {pedido.numero_pedido}

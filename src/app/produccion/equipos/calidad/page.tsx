@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Migas from "@/components/migas";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { leer } from "@/lib/supabase/leer";
@@ -78,9 +79,13 @@ export default async function CalidadPorEquipoPage({
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-6">
+      <Migas items={[{ etiqueta: "Equipos", href: "/produccion/equipos" }, { etiqueta: "Calidad por equipo" }]} />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Calidad por equipo</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Qué tan seguido se rechaza lo que entrega cada equipo.
+          </p>
         </div>
         <Link
           href="/produccion/equipos"
@@ -111,7 +116,7 @@ export default async function CalidadPorEquipoPage({
         <EstadoVacio
           titulo="Sin entregas en este periodo"
           descripcion="Cuando los equipos entreguen y se revise lo entregado, aquí aparecerán sus números."
-          accion={{ href: "/produccion/asignaciones", etiqueta: "Ir a Asignaciones" }}
+          accion={{ href: "/produccion/taller?vista=lista", etiqueta: "Ir al taller" }}
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">

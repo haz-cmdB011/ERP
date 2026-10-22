@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { ResumenDelMenu, useHayPendientesEnMenu } from "./resumen-menu";
+import { AccionesDelMenu, ResumenDelMenu, useHayPendientesEnMenu } from "./resumen-menu";
 
 // Avisa a los enlaces del menú (SubnavLink) que cierren el cajón al elegir.
 const CerrarMenu = createContext<() => void>(() => {});
@@ -111,6 +111,7 @@ export default function MenuArea({
               <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
                 {children}
                 <ResumenDelMenu alElegir={cerrar} />
+                <AccionesDelMenu alElegir={cerrar} />
               </div>
             </CerrarMenu.Provider>
           </nav>

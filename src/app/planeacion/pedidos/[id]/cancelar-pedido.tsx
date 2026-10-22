@@ -180,12 +180,18 @@ export default function CancelarPedido({
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => setPidiendoMotivo(true)}
-      className="w-fit rounded border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100"
-    >
-      Cancelar pedido
-    </button>
+    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm text-slate-600">
+        ¿Ya no se va a fabricar? Cancélalo completo; podrás revertirlo desde Archivo. Para cancelar solo algunos
+        muebles, usa el estado de cada fila.
+      </p>
+      <button
+        type="button"
+        onClick={() => setPidiendoMotivo(true)}
+        className="min-h-10 w-fit shrink-0 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+      >
+        Cancelar el pedido completo…
+      </button>
+    </div>
   );
 }

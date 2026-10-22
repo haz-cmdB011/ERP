@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import MigasPedido from "../../migas-pedido";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
@@ -207,6 +208,7 @@ export default async function DespiecePage({
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6">
+      <MigasPedido pedidoId={id} cola={[{ etiqueta: `Despiece · Ítem ${item.item_code}` }]} />
       <header className="flex flex-col gap-1 border-b border-slate-200 pb-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {pedido.numero_pedido} · Ítem {item.item_code}
