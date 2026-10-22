@@ -52,10 +52,16 @@ export default function AsignarLote({
   muebles,
   equipos,
   encargados,
+  etiqueta = "Asignar varios a un equipo",
+  alTerminar,
 }: {
   muebles: MuebleParaLote[];
   equipos: EquipoProduccion[];
   encargados: EncargadoEquipo[];
+  // Texto del botón que abre el modal.
+  etiqueta?: string;
+  // Se llama después de guardar asignaciones (para quien muestra el estado por su cuenta).
+  alTerminar?: () => void;
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
@@ -164,6 +170,7 @@ export default function AsignarLote({
         { etiqueta: "Deshacer", alHacer: () => deshacer(creadas) }
       );
       router.refresh();
+      alTerminar?.();
     }
     if (falladas.length === 0) {
       setAbierto(false);
@@ -183,7 +190,7 @@ export default function AsignarLote({
         title={procesosConTrabajo.length === 0 ? "Ya está asignado todo" : undefined}
         className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        Asignar varios a un equipo
+        {etiqueta}
       </button>
       {abierto && (
         <Modal

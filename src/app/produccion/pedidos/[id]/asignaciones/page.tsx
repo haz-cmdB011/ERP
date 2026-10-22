@@ -8,7 +8,6 @@ import {
 } from "@/lib/auth/get-perfil";
 import {
   etiquetaProceso,
-  PROCESOS,
   formatoFecha,
   textoAvanceAsignacion,
   type AsignacionResumen,
@@ -24,7 +23,7 @@ import DetalleAsignacion, {
 
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
-import { avancePaso, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
+import { disponibleDe, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { rutaSugerida } from "@/lib/produccion/ruta";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { cargarPartes } from "@/lib/produccion/partes-db";
@@ -319,23 +318,6 @@ export default async function AsignacionesPedidoPage({
       )}
     </main>
   );
-}
-
-// Por proceso, lo que falta por asignar en el primer paso de ese proceso que
-// aún tiene lugar (el mismo que elige crear_asignacion_produccion cuando no se
-// le dice el paso) y cuánto de eso ya entregó el paso anterior. Lo que la ruta
-// no lleva queda en 0.
-function disponibleDe(m: MuebleFlujo): Pick<MuebleParaLote, "disponible" | "listo"> {
-  const disponible = Object.fromEntries(PROCESOS.map((p) => [p, 0])) as Record<Proceso, number>;
-  const listo = { ...disponible };
-  for (const p of PROCESOS) {
-    const i = m.ruta.findIndex((x, j) => x.proceso === p && avancePaso(m, j).disponible > 0);
-    if (i < 0) continue;
-    const a = avancePaso(m, i);
-    disponible[p] = a.disponible;
-    listo[p] = a.listo;
-  }
-  return { disponible, listo };
 }
 
 function FilaAsignacion({

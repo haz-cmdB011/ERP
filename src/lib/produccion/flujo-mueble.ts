@@ -3,7 +3,7 @@
 // flujo de la pantalla de asignaciones del PM. Sin base de datos, para poder
 // probarlo.
 
-import { esRetrabajo, type AsignacionResumen, type Proceso } from "./asignaciones";
+import { esRetrabajo, PROCESOS, type AsignacionResumen, type Proceso } from "./asignaciones";
 import { etiquetaPaso, type PasoRuta } from "./ruta";
 
 export type EstadoProceso = "sin_asignar" | "en_proceso" | "terminado";
@@ -267,4 +267,24 @@ export function totalesProceso(muebles: MuebleFlujo[], p: Proceso) {
 export function porcentaje(parte: number, total: number): number {
   if (total <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((parte / total) * 100)));
+}
+
+// Por proceso, lo que falta por asignar en el primer paso de ese proceso que
+// aún tiene lugar (el mismo que elige crear_asignacion_produccion cuando no se
+// le dice el paso) y cuánto de eso ya entregó el paso anterior. Lo que la ruta
+// no lleva queda en 0.
+export function disponibleDe(m: MuebleFlujo): {
+  disponible: Record<Proceso, number>;
+  listo: Record<Proceso, number>;
+} {
+  const disponible = Object.fromEntries(PROCESOS.map((p) => [p, 0])) as Record<Proceso, number>;
+  const listo = { ...disponible };
+  for (const p of PROCESOS) {
+    const i = m.ruta.findIndex((x, j) => x.proceso === p && avancePaso(m, j).disponible > 0);
+    if (i < 0) continue;
+    const a = avancePaso(m, i);
+    disponible[p] = a.disponible;
+    listo[p] = a.listo;
+  }
+  return { disponible, listo };
 }

@@ -12,6 +12,8 @@ import { avisar } from "@/components/avisos";
 import GrupoDesplegable from "@/components/grupo-desplegable";
 import BotonDesplegar from "@/components/boton-desplegar";
 import { useFlip } from "@/lib/ui/use-flip";
+import { agregarItems } from "@/lib/produccion/carrito-navegador";
+import type { ItemCarrito } from "@/lib/produccion/carrito";
 
 export interface ItemLiberacionRow {
   id: string;
@@ -71,11 +73,15 @@ function normalizar(texto: string): string {
 export default function ItemsLiberacionTable({
   items,
   pedidoId,
+  numeroPm,
+  ot,
   puedeSolicitarEliminacion,
   puedeEliminarDefinitivo,
 }: {
   items: ItemLiberacionRow[];
   pedidoId: string;
+  numeroPm: string;
+  ot: string | null;
   puedeSolicitarEliminacion: boolean;
   puedeEliminarDefinitivo: boolean;
 }) {
@@ -294,6 +300,39 @@ export default function ItemsLiberacionTable({
     } finally {
       setLiberando(false);
     }
+  }
+
+  // Pasa lo marcado (muebles y componentes) al carrito, que junta ítems de
+  // cualquier PM u O.T. para asignarlos a equipos desde ahí.
+  function agregarSeleccionAlCarrito() {
+    const nuevos: ItemCarrito[] = items
+      .filter((i) => seleccionados.has(i.id))
+      .map((i) => ({
+        id: i.id,
+        tipo: i.tipo_registro,
+        itemCode: i.item_code,
+        modelo: i.modelo,
+        descripcion: i.descripcion,
+        cantidad: Number(i.cantidad_total),
+        unidad: i.unidad,
+        padreId: i.parent_item_id,
+        pedidoId,
+        numeroPm,
+        ot,
+      }));
+    const agregados = agregarItems(nuevos);
+    const repetidos = nuevos.length - agregados;
+    avisar(
+      agregados === 0
+        ? "Esos ítems ya estaban en el carrito."
+        : `${agregados} ítem(s) al carrito${repetidos > 0 ? ` (${repetidos} ya estaban)` : ""}.`,
+      agregados === 0 ? "info" : "exito",
+      {
+        etiqueta: "Ver carrito",
+        alHacer: () => router.push("/produccion/carrito"),
+      }
+    );
+    setSeleccionados(new Set());
   }
 
   async function revertirSeleccion() {
@@ -915,6 +954,15 @@ export default function ItemsLiberacionTable({
               >
                 Etiquetas QR{seleccionados.size > 0 ? ` (${seleccionados.size})` : ""}
               </a>
+              <button
+                type="button"
+                onClick={agregarSeleccionAlCarrito}
+                disabled={seleccionados.size === 0}
+                title="Junta estos ítems con los de otros PM u O.T. para asignarlos a equipos"
+                className="rounded-lg border border-brand-600 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-brand-500 hover:text-on-brand disabled:opacity-50"
+              >
+                Agregar al carrito{seleccionados.size > 0 ? ` (${seleccionados.size})` : ""}
+              </button>
               <button
                 type="button"
                 onClick={revertirSeleccion}

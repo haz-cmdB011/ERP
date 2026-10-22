@@ -55,12 +55,13 @@ export default async function PedidoProduccionPage({
   const pedidoPromesa = supabase
     .from("pedidos")
     .select(
-      "id, numero_pedido, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente )"
+      "id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, estado, eliminado_en, proyectos ( nombre, cliente )"
     )
     .eq("id", id)
     .maybeSingle<{
       id: string;
       numero_pedido: string;
+      orden_trabajo: string | null;
       fecha_pedido: string | null;
       fecha_entrega: string | null;
       estado: string;
@@ -215,6 +216,8 @@ export default async function PedidoProduccionPage({
         <ItemsLiberacionTable
           items={items}
           pedidoId={id}
+          numeroPm={pedido.numero_pedido}
+          ot={pedido.orden_trabajo}
           puedeSolicitarEliminacion={puedeSolicitarEliminacion}
           puedeEliminarDefinitivo={puedeEliminarDefinitivo}
         />

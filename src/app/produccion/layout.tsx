@@ -9,6 +9,7 @@ import SubnavLink from "@/components/subnav-link";
 import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
 import CuentaPendiente from "@/components/cuenta-pendiente";
+import BotonCarrito from "./boton-carrito";
 
 export const metadata: Metadata = {
   title: { default: "Producción", template: "%s · Producción" },
@@ -88,6 +89,7 @@ export default async function ProduccionLayout({
       </AreaNav>
       {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
+      <BotonCarrito />
     </div>
     </ResumenMenuProvider>
   );
