@@ -7,6 +7,7 @@ import {
   leerFiltroPanel,
   otsDePanel,
   pasaFiltro,
+  resumenOt,
   resumenPm,
   type MuebleDePanel,
 } from "./panel";
@@ -92,6 +93,10 @@ describe("agrupación del panel de asignación", () => {
   it("resume los estados del PM", () => {
     const pm10 = agruparPanel(lista)[0].pms[1];
     expect(resumenPm(pm10)).toEqual({ por_asignar: 1, en_proceso: 1, terminado: 0 });
+  });
+
+  it("resume los estados de toda la O.T.", () => {
+    expect(resumenOt(agruparPanel(lista)[0])).toEqual({ por_asignar: 1, en_proceso: 1, terminado: 1 });
   });
 
   it("lista las O.T. presentes sin repetir", () => {

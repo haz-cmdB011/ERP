@@ -132,9 +132,13 @@ export function agruparPanel(muebles: MuebleDePanel[]): GrupoOtPanel[] {
     });
 }
 
-// Cuántos muebles del PM hay en cada estado (para el encabezado del PM).
-export function resumenPm(pm: GrupoPmPanel): Record<EstadoMueble, number> {
+// Cuántos muebles hay en cada estado (para el encabezado de un PM o de una O.T.).
+export function contarEstados(muebles: MuebleDePanel[]): Record<EstadoMueble, number> {
   const resumen: Record<EstadoMueble, number> = { por_asignar: 0, en_proceso: 0, terminado: 0 };
-  for (const m of pm.muebles) resumen[m.estado] += 1;
+  for (const m of muebles) resumen[m.estado] += 1;
   return resumen;
 }
+
+export const resumenPm = (pm: GrupoPmPanel) => contarEstados(pm.muebles);
+
+export const resumenOt = (g: GrupoOtPanel) => contarEstados(g.pms.flatMap((pm) => pm.muebles));

@@ -174,8 +174,10 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
 - **Panel de asignación** (menú de Producción, `/produccion/panel`): todos los muebles liberados, por O.T. → PM,
   en el formato visual del flujo del PM (`FilaMueble` y `ResumenProceso` de
   `pedidos/[id]/asignaciones/flujo-muebles.tsx`): un "+" en un paso lo asigna, y al abrir un mueble se ven sus
-  asignaciones y entregas. Filtros por la dirección: `estado` (por omisión "Activos" = por asignar + en
-  proceso; los terminados solo si se piden, para no cargar el historial), `ot` y `q`. Lógica pura en
+  asignaciones y entregas. Cada O.T. y cada PM se despliegan como un mueble con sus componentes: cerrada,
+  una O.T. muestra solo su resumen; abierta, sus PM; y abierto un PM, sus muebles (todo cerrado por omisión;
+  abierto al llegar de liberar o con `ot`/`q`). Filtros por la dirección: `estado` (por omisión "Activos" =
+  por asignar + en proceso; los terminados solo si se piden, para no cargar el historial), `ot` y `q`. Lógica pura en
   `src/lib/produccion/panel.ts`, lectura en `panel-db.ts`; `flujo-db.ts` (`cargarFlujoMuebles`) arma el flujo
   y lo comparten el panel y el carrito.
 - La pantalla de asignaciones de un PM (`/produccion/pedidos/<id>/asignaciones`) sigue existiendo (la usan el

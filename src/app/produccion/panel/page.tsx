@@ -222,6 +222,7 @@ export default async function PanelAsignacionPage({
           encargados={encargados ?? []}
           puedeEditar={puedeEditar}
           detalles={detalles}
+          abrirTodo={enfoque || hayFiltros}
         />
       )}
     </main>
