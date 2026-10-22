@@ -7,6 +7,7 @@ import {
   puedeEditarProduccion,
 } from "@/lib/auth/get-perfil";
 import { leer } from "@/lib/supabase/leer";
+import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import type { EncargadoEquipo, EquipoProduccion } from "@/lib/produccion/asignaciones";
 import { entregasPorAsignacion } from "@/lib/produccion/consultar-asignaciones";
 import {
@@ -87,11 +88,24 @@ export default async function PanelAsignacionPage({
   const visibles = delBuscador.filter((m) => pasaFiltro(m.estado, filtro));
   const grupos = agruparPanel(visibles);
 
-  // Entregas y acciones de las asignaciones que se ven (no de todo el historial).
+  // Entregas y acciones de las asignaciones que se ven (no de todo el historial) y la miniatura
+  // de cada mueble (la primera imagen guardada; sin ella la fila queda con un cuadro vacío).
   const asignaciones = visibles.flatMap((m) => m.flujo.asignaciones);
-  const entregas = await entregasPorAsignacion(
-    supabase,
-    asignaciones.map((a) => a.id)
+  const [entregas, imagenesPorItem] = await Promise.all([
+    entregasPorAsignacion(
+      supabase,
+      asignaciones.map((a) => a.id)
+    ),
+    getImagenesConGrandePorItem(
+      supabase,
+      visibles.map((m) => m.flujo.id)
+    ),
+  ]);
+  const imagenes = Object.fromEntries(
+    visibles.flatMap((m) => {
+      const imagen = imagenesPorItem.get(m.flujo.id)?.[0];
+      return imagen ? [[m.flujo.id, imagen]] : [];
+    })
   );
   const detalles = Object.fromEntries(
     asignaciones.map((a) => [
@@ -222,6 +236,7 @@ export default async function PanelAsignacionPage({
           encargados={encargados ?? []}
           puedeEditar={puedeEditar}
           detalles={detalles}
+          imagenes={imagenes}
           abrirTodo={enfoque || hayFiltros}
         />
       )}

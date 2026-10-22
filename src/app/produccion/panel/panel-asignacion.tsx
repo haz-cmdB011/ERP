@@ -53,6 +53,7 @@ export default function PanelAsignacion({
   encargados,
   puedeEditar,
   detalles,
+  imagenes,
   abrirTodo,
 }: {
   grupos: GrupoOtPanel[];
@@ -61,6 +62,8 @@ export default function PanelAsignacion({
   puedeEditar: boolean;
   // Entregas y acciones de cada asignación, armadas en el servidor; por id de asignación.
   detalles: Record<string, ReactNode>;
+  // Miniatura de cada mueble (por id), cuando tiene imagen.
+  imagenes: Record<string, { url: string; urlGrande: string | null }>;
   // Cómo se ve cada O.T. y PM mientras nadie los haya abierto o cerrado a mano.
   abrirTodo: boolean;
 }) {
@@ -227,6 +230,7 @@ export default function PanelAsignacion({
                               mueble={m.flujo}
                               asignar={asignar}
                               detalles={detalles}
+                              imagen={imagenes[m.flujo.id] ?? null}
                               abierto={abierto === m.flujo.id}
                               onAlternar={() => setAbierto(abierto === m.flujo.id ? null : m.flujo.id)}
                             />

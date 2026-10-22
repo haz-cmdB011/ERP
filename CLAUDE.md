@@ -176,7 +176,8 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
   `pedidos/[id]/asignaciones/flujo-muebles.tsx`): un "+" en un paso lo asigna, y al abrir un mueble se ven sus
   asignaciones y entregas. Cada O.T. y cada PM se despliegan como un mueble con sus componentes: cerrada,
   una O.T. muestra solo su resumen; abierta, sus PM; y abierto un PM, sus muebles (todo cerrado por omisión;
-  abierto al llegar de liberar o con `ot`/`q`). Filtros por la dirección: `estado` (por omisión "Activos" =
+  abierto al llegar de liberar o con `ot`/`q`). Cada mueble lleva su miniatura (la primera imagen del ítem,
+  que se amplía al tocarla; sin imagen, un cuadro vacío para que las filas no se desalineen). Filtros por la dirección: `estado` (por omisión "Activos" =
   por asignar + en proceso; los terminados solo si se piden, para no cargar el historial), `ot` y `q`. Lógica pura en
   `src/lib/produccion/panel.ts`, lectura en `panel-db.ts`; `flujo-db.ts` (`cargarFlujoMuebles`) arma el flujo
   y lo comparten el panel y el carrito.
