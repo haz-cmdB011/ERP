@@ -1,10 +1,12 @@
 import Link from "next/link";
 import ChipEstado from "@/components/chip-estado";
+import Chevron from "@/components/chevron";
 import { estadoLiberacion, type AvancePedido } from "@/lib/resumen/avance-items";
 import type { FilaOrdenTrabajo, PedidoConOt } from "@/lib/planeacion/lista-ordenes-trabajo";
 
 // Lista de pedidos de Producción: una tarjeta por O.T. (o por pedido suelto sin O.T.). Toda la
-// tarjeta abre la O.T.; el avance se lee con palabras ("3 de 8 liberados"), no solo con una barra.
+// tarjeta es un enlace, igual que en Planeación: una O.T. con un solo PM abre directo el pedido; con
+// varios, abre la O.T. para elegir. El avance se lee con palabras ("3 de 8 liberados"), no solo con una barra.
 export default function ListaOrdenes({
   filas,
   avanceDe,
@@ -16,9 +18,10 @@ export default function ListaOrdenes({
     <ul className="flex flex-col gap-3">
       {filas.map((fila) => {
         const primero = fila.pedidos[0];
-        const href = fila.ot
-          ? `/produccion/ot/${encodeURIComponent(fila.ot)}`
-          : `/produccion/pedidos/${primero.id}`;
+        const href =
+          fila.ot && fila.pedidos.length > 1
+            ? `/produccion/ot/${encodeURIComponent(fila.ot)}`
+            : `/produccion/pedidos/${primero.id}`;
         const titulo = fila.ot ? `O.T. ${fila.ot}` : primero.numero_pedido;
         const avance = avanceDe(fila);
         const estado = estadoLiberacion(avance);
@@ -36,8 +39,12 @@ export default function ListaOrdenes({
             <div className="min-w-0">
               <p className="font-mono text-base font-semibold text-slate-900">{titulo}</p>
               <p className="truncate text-sm text-slate-700">{primero.proyectos?.nombre ?? "—"}</p>
-              {primero.proyectos?.cliente && (
-                <p className="text-xs text-slate-500">{primero.proyectos.cliente}</p>
+              {(primero.proyectos?.cliente || fila.pedidos.length > 1) && (
+                <p className="text-xs text-slate-500">
+                  {[primero.proyectos?.cliente, fila.pedidos.length > 1 ? `${fila.pedidos.length} pedidos` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
               )}
             </div>
             <div className="flex flex-col gap-1 sm:w-52 sm:shrink-0">
@@ -72,6 +79,10 @@ export default function ListaOrdenes({
                 </>
               )}
             </div>
+            <Chevron
+              abierto={false}
+              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-400 sm:block"
+            />
           </li>
         );
       })}
