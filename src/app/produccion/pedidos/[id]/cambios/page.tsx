@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import MigasPedido from "../migas-pedido";
 import CambiosVersiones from "@/components/cambios-versiones";
 import { tituloPedido } from "@/lib/planeacion/titulo-pedido";
+import PestanasPedido from "../pestanas-pedido";
 
 export async function generateMetadata({
   params,
@@ -20,5 +22,13 @@ export default async function CambiosPedidoPage({
 }) {
   const { id } = await params;
   const { de, a, ver } = await searchParams;
-  return <CambiosVersiones pedidoId={id} area="produccion" de={de} a={a} ver={ver} />;
+  return (
+    <>
+      <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 pt-4 sm:px-6">
+        <MigasPedido pedidoId={id} />
+        <PestanasPedido pedidoId={id} activa="cambios" />
+      </div>
+      <CambiosVersiones pedidoId={id} area="produccion" de={de} a={a} ver={ver} />
+    </>
+  );
 }

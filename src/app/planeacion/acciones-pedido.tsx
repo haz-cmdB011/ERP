@@ -33,18 +33,21 @@ async function llamar(
 // por error:
 //  - En la lista (eliminado = false) solo está la papelera. Pide confirmar y el
 //    aviso trae "Deshacer".
-//  - En "Pedidos eliminados" (eliminado = true) se puede restaurar o eliminar
+//  - En la Papelera (eliminado = true) se puede restaurar o eliminar
 //    definitivamente; esto último exige la contraseña de quien lo hace (el
 //    servidor la comprueba). Para varios a la vez ver pedidos-eliminados.tsx.
 export default function AccionesPedido({
   pedidoId,
   eliminado,
   numeroPedido,
+  conEtiqueta = false,
 }: {
   pedidoId: string;
   eliminado: boolean;
   // Para nombrarlo en los mensajes.
   numeroPedido?: string;
+  // El botón de la papelera lleva texto además del ícono.
+  conEtiqueta?: boolean;
 }) {
   const router = useRouter();
   const [confirmando, setConfirmando] = useState<Accion | null>(null);
@@ -82,11 +85,11 @@ export default function AccionesPedido({
     if (accion === "definitivo") {
       avisar(
         data.conservadoPorFolio
-          ? "Eliminado. Como tenía folio(s) de Calidad, su historial se conserva en Cancelados."
+          ? "Eliminado. Como tenía folio(s) de Calidad, su historial se conserva en Archivo (Cancelados)."
           : "Pedido eliminado definitivamente."
       );
     } else if (accion === "logico") {
-      avisar("Pedido enviado a la papelera.", "exito", {
+      avisar("Pedido enviado a la papelera. Lo encuentras en Archivo › Papelera.", "exito", {
         etiqueta: "Deshacer",
         alHacer: () => deshacer("restaurar"),
       });
@@ -119,6 +122,16 @@ export default function AccionesPedido({
               {cargando === "definitivo" ? "Eliminando..." : "Eliminar definitivamente"}
             </button>
           </>
+        ) : conEtiqueta ? (
+          <button
+            onClick={() => setConfirmando("logico")}
+            disabled={cargando !== null}
+            aria-label={`Enviar ${nombre} a la papelera`}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50 pointer-coarse:min-h-11"
+          >
+            {cargando === "logico" ? "…" : <IconoPapelera />}
+            Enviar a la papelera
+          </button>
         ) : (
           <button
             onClick={() => setConfirmando("logico")}
@@ -136,7 +149,7 @@ export default function AccionesPedido({
       <ConfirmDialog
         open={confirmando === "logico"}
         title="Enviar a la papelera"
-        message={`¿Enviar ${nombre} a la papelera? Se puede restaurar.`}
+        message={`¿Enviar ${nombre} a la papelera? Deja de verse en Pedidos y lo encuentras en Archivo › Papelera, donde se puede restaurar.`}
         confirmLabel="Enviar a la papelera"
         onConfirm={() => void ejecutar("logico")}
         onCancel={() => setConfirmando(null)}
@@ -144,7 +157,7 @@ export default function AccionesPedido({
       <ConfirmDialog
         open={confirmando === "definitivo"}
         title="Eliminar definitivamente"
-        message={`Se borra ${nombre} con todo su historial e imágenes. No se puede deshacer. Si tiene folios de Calidad, se conserva en Cancelados.`}
+        message={`Se borra ${nombre} con todo su historial e imágenes. No se puede deshacer. Si tiene folios de Calidad, se conserva en Archivo (Cancelados).`}
         confirmLabel="Eliminar definitivamente"
         pedirContrasena
         error={confirmando === "definitivo" ? error : null}

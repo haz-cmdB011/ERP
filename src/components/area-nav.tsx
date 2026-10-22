@@ -205,10 +205,13 @@ export default async function AreaNav({
       </header>
       {/* Debajo de las áreas y los paneles, a la altura del contenido: vuelve
           al panel anterior (oculto en el inicio del área). */}
-      <BotonRegresar
-        inicioArea={soloEstimaciones ? "/estimaciones/recibos" : INICIO_AREA[area]}
-        maquilador={soloEstimaciones}
-      />
+      {/* Planeación y Producción usan migas de pan en cada pantalla (components/migas.tsx) en lugar de este botón. */}
+      {area !== "planeacion" && area !== "produccion" && (
+        <BotonRegresar
+          inicioArea={soloEstimaciones ? "/estimaciones/recibos" : INICIO_AREA[area]}
+          maquilador={soloEstimaciones}
+        />
+      )}
     </div>
   );
 }

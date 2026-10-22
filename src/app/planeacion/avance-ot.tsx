@@ -21,6 +21,9 @@ export default function AvanceOt({ avance }: { avance: AvancePlan }) {
         color={porcentaje === 100 ? "bg-emerald-500" : "bg-brand-500"}
         pendiente
       />
+      <span className="text-xs text-slate-500">
+        {liberados} de {vigentes} liberados
+      </span>
       {(enRevision > 0 || cancelados > 0) && (
         <div className="flex flex-wrap gap-1.5">
           {enRevision > 0 && <ChipEstado tono="alerta">{enRevision} en revisión</ChipEstado>}

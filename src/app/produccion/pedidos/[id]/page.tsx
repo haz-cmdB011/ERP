@@ -1,8 +1,10 @@
 import Link from "next/link";
+import Migas from "@/components/migas";
 import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import PestanasPedido from "./pestanas-pedido";
 import ItemsLiberacionTable, {
   type ItemLiberacionRow,
 } from "./items-liberacion-table";
@@ -127,6 +129,15 @@ export default async function PedidoProduccionPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <Migas
+        items={[
+          { etiqueta: "Pedidos", href: "/produccion" },
+          ...(pedido.orden_trabajo
+            ? [{ etiqueta: `O.T. ${pedido.orden_trabajo}`, href: `/produccion/ot/${encodeURIComponent(pedido.orden_trabajo)}` }]
+            : []),
+          { etiqueta: pedido.numero_pedido },
+        ]}
+      />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           {pedido.numero_pedido}
@@ -139,41 +150,55 @@ export default async function PedidoProduccionPage({
         </p>
       </div>
 
-      {versiones && versiones.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
-            {versiones.map((v) => (
+      <PestanasPedido pedidoId={id} activa="muebles" versiones={versiones?.length ?? 0} />
+
+      {/* Con una sola versión no hay nada que elegir: el selector solo aparece si Planeación
+          subió el pedido más de una vez. */}
+      {versiones && versiones.length > 1 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
+              {versiones.map((v) => (
+                <Link
+                  key={v.id}
+                  href={`/produccion/pedidos/${id}?version=${v.numero_version}`}
+                  className={`rounded px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
+                    versionSeleccionada?.id === v.id
+                      ? "bg-brand-500 text-on-brand shadow-sm"
+                      : "text-slate-600 hover:bg-slate-200/70"
+                  }`}
+                >
+                  Versión {v.numero_version}
+                  {v.es_version_activa ? " (la actual)" : ""}
+                </Link>
+              ))}
+            </div>
+            {versionSeleccionada && (
               <Link
-                key={v.id}
-                href={`/produccion/pedidos/${id}?version=${v.numero_version}`}
-                className={`rounded px-3 py-1 font-medium transition-colors ${
-                  versionSeleccionada?.id === v.id
-                    ? "bg-brand-500 text-on-brand shadow-sm"
-                    : "text-slate-600 hover:bg-slate-200/70"
-                }`}
+                href={`/produccion/pedidos/${id}/cambios?a=${versionSeleccionada.numero_version}`}
+                className="text-sm font-medium text-brand-700 hover:underline"
               >
-                v{v.numero_version}
-                {v.es_version_activa ? " (activa)" : ""}
+                Ver qué cambió →
               </Link>
-            ))}
+            )}
           </div>
-          {versiones.length > 1 && versionSeleccionada && (
-            <Link
-              href={`/produccion/pedidos/${id}/cambios?a=${versionSeleccionada.numero_version}`}
-              className="text-sm font-medium text-brand-700 hover:underline"
-            >
-              Ver qué cambió entre versiones →
-            </Link>
-          )}
+          <p className="text-xs text-slate-500">
+            Planeación subió este pedido {versiones.length} veces. La versión actual es la que usa Producción.
+          </p>
         </div>
       )}
 
       {versionSeleccionada?.cargas_archivo && (
-        <p className="text-xs text-slate-500">
-          Archivo: {versionSeleccionada.cargas_archivo.nombre_archivo} ·{" "}
-          {versionSeleccionada.cargas_archivo.filas_exitosas ?? 0} filas
-          ingeridas · {new Date(versionSeleccionada.created_at).toLocaleString()}
-        </p>
+        <details className="text-xs text-slate-500">
+          <summary className="w-fit cursor-pointer select-none font-medium text-slate-600 hover:text-slate-900">
+            Datos del archivo
+          </summary>
+          <p className="mt-1">
+            {versionSeleccionada.cargas_archivo.nombre_archivo} ·{" "}
+            {versionSeleccionada.cargas_archivo.filas_exitosas ?? 0} filas cargadas ·{" "}
+            {new Date(versionSeleccionada.created_at).toLocaleString("es-MX")}
+          </p>
+        </details>
       )}
 
       {!versionSeleccionada && (

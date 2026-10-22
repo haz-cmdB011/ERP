@@ -97,10 +97,10 @@ const ATAJOS_INTERNOS: Atajo[] = [
     claves: "subir pedido manufactura archivo",
   },
   {
-    titulo: "Cancelados",
-    detalle: "Planeación",
-    href: "/planeacion/cancelados",
-    claves: "papelera eliminados",
+    titulo: "Archivo",
+    detalle: "Planeación: cancelados y papelera",
+    href: "/planeacion/archivo",
+    claves: "cancelados papelera eliminados",
   },
   {
     titulo: "Pedidos",

@@ -96,7 +96,14 @@ export default function EstadoRevisionSelect({
         onChange={(e) => cambiar(e.target.value)}
         disabled={guardando}
         aria-label={`Estado de ${etiqueta}`}
-        className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 pointer-coarse:py-2 pointer-coarse:text-sm"
+        title="Normal: sigue su curso. En revisión: necesita atención. Cancelado: ya no se fabricará."
+        className={`rounded border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 pointer-coarse:py-2 pointer-coarse:text-sm ${
+          estadoActual === "en_revision"
+            ? "border-orange-300 bg-orange-50 text-orange-800 hover:bg-orange-100"
+            : estadoActual === "cancelado"
+              ? "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100"
+              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+        }`}
       >
         <option value="">Normal</option>
         <option value="en_revision">{ESTADO_REVISION_LABELS.en_revision}</option>
@@ -106,7 +113,7 @@ export default function EstadoRevisionSelect({
       {pidiendoMotivo && (
         <DialogoMotivo
           titulo={`Cancelar ${etiqueta.toLowerCase()}`}
-          descripcion="Queda marcado como cancelado y se ve en Cancelados. Puedes deshacerlo."
+          descripcion="Queda marcado como cancelado y se ve en Archivo. Puedes deshacerlo."
           etiquetaConfirmar="Cancelar ítem"
           motivoInicial={motivoActual ?? ""}
           enviando={guardando}

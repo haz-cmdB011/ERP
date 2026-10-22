@@ -471,6 +471,8 @@ export default function UploadForm() {
 
   const pendientes = cargas.filter((c) => c.estado === "pendiente").length;
   const terminadas = cargas.filter((c) => c.estado === "terminado").length;
+  // Con todo terminado, el resultado va arriba y la zona para soltar otro Excel queda debajo.
+  const resultadosListos = cargas.length > 0 && cargas.every((c) => c.estado === "terminado");
 
   return (
     <div className="flex flex-col gap-4">
@@ -504,6 +506,8 @@ export default function UploadForm() {
           agregarArchivos(e.dataTransfer.files);
         }}
         className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+          resultadosListos ? "order-last py-6" : ""
+        } ${
           arrastrando
             ? "border-brand-600 bg-brand-50"
             : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50"
@@ -525,7 +529,11 @@ export default function UploadForm() {
           />
         </svg>
         <p className="text-sm font-medium text-slate-700">
-          {arrastrando ? "Suelta los archivos aquí" : "Arrastra aquí uno o varios Excel"}
+          {arrastrando
+            ? "Suelta los archivos aquí"
+            : resultadosListos
+              ? "¿Otro Excel? Arrástralo aquí"
+              : "Arrastra aquí uno o varios Excel"}
         </p>
         <p className="text-xs text-slate-500">
           o <span className="font-medium text-brand-700 underline">haz clic para elegirlos</span> ·
@@ -817,7 +825,7 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult | UploadOmitido
   if (esOmitido(resultado)) {
     return (
       <p className="mt-2 rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-        No se cargó: lo omitiste. El PM sigue en su versión actual.
+        No se cargó: lo omitiste. El pedido sigue en su versión actual.
       </p>
     );
   }
@@ -858,35 +866,43 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult | UploadOmitido
           {resultado.pedidos.every((p) => p.sin_cambios)
             ? "Este archivo ya estaba cargado y sus ítems no cambiaron: no se creó una versión nueva."
             : resultado.pedidos.length === 1
-              ? "Pedido ingerido correctamente."
-              : `${resultado.pedidos.length} pedidos ingeridos correctamente (uno por hoja).`}
+              ? "Pedido cargado correctamente."
+              : `${resultado.pedidos.length} pedidos cargados correctamente (uno por hoja).`}
         </p>
-        <ul className="mt-2 flex flex-col gap-2">
+        <ul className="mt-3 flex flex-col gap-2">
           {resultado.pedidos.map((p) => (
-            <li key={p.pedido_id}>
-              <Link href={`/planeacion/pedidos/${p.pedido_id}`} className="font-medium underline">
-                {p.numero_pedido} →
-              </Link>{" "}
-              <span className="text-green-700">
-                {resultado.pedidos.length > 1 && <>hoja &ldquo;{p.hoja}&rdquo; · </>}
-                {p.sin_cambios ? (
-                  <>sin cambios: sigue en la versión #{p.numero_version}</>
-                ) : (
-                  <>versión #{p.numero_version}</>
-                )}{" "}
-                · {p.items_mo} muebles (MO) y {p.items_fu} componentes (FU)
-              </span>
-              {p.numero_version > 1 && !p.sin_cambios && (
-                <>
-                  {" "}
+            <li
+              key={p.pedido_id}
+              className="flex flex-col gap-3 rounded-lg border border-green-200 bg-white/70 p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="font-semibold text-green-900">{p.numero_pedido}</p>
+                <p className="text-xs text-green-700">
+                  {resultado.pedidos.length > 1 && <>hoja &ldquo;{p.hoja}&rdquo; · </>}
+                  {p.sin_cambios ? (
+                    <>sin cambios: sigue en la versión {p.numero_version}</>
+                  ) : (
+                    <>versión {p.numero_version}</>
+                  )}{" "}
+                  · {p.items_mo} muebles y {p.items_fu} componentes
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/planeacion/pedidos/${p.pedido_id}`}
+                  className="inline-flex min-h-11 items-center rounded-lg bg-brand-500 px-5 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
+                >
+                  Abrir pedido
+                </Link>
+                {p.numero_version > 1 && !p.sin_cambios && (
                   <Link
                     href={`/planeacion/pedidos/${p.pedido_id}/cambios?a=${p.numero_version}`}
-                    className="whitespace-nowrap font-medium underline"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-green-300 bg-white px-4 text-sm font-medium text-green-900 hover:bg-green-50"
                   >
-                    Ver qué cambió vs v{p.numero_version - 1} →
+                    Ver qué cambió
                   </Link>
-                </>
-              )}
+                )}
+              </div>
             </li>
           ))}
         </ul>

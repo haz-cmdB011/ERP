@@ -67,8 +67,8 @@ export default async function PlaneacionLayout({
         <SubnavLink href="/planeacion/upload" icono="subir">
           Cargar Excel
         </SubnavLink>
-        <SubnavLink href="/planeacion/cancelados" icono="cancelados">
-          Cancelados
+        <SubnavLink href="/planeacion/archivo" icono="archivo">
+          Archivo
         </SubnavLink>
       </AreaNav>
       {perfil?.rol === "usuario" && <CuentaPendiente />}

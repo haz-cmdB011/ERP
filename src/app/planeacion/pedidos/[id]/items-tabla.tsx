@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { avisar } from "@/components/avisos";
 import DialogoMotivo from "@/components/dialogo-motivo";
@@ -24,6 +24,9 @@ import type { PlanoLink } from "@/lib/planos/planos-por-item";
 import PlanosItem from "./planos-item";
 import GrupoDesplegable from "@/components/grupo-desplegable";
 import BotonDesplegar from "@/components/boton-desplegar";
+import Chevron from "@/components/chevron";
+import ImagenAmpliable from "@/components/imagen-ampliable";
+import type { ImagenItemUrls } from "@/lib/planeacion/imagenes";
 import { useFlip } from "@/lib/ui/use-flip";
 
 export interface ItemTabla {
@@ -77,10 +80,9 @@ const CHIP_BASE =
 const CHIP_ACTIVO = "border-brand-600 bg-brand-500 text-on-brand";
 const CHIP_INACTIVO = "border-slate-200 text-slate-600 hover:bg-slate-50";
 
-// Solo se muestran los ítems padre (ITEM entero); al hacer click en uno se
-// despliegan sus componentes hijo (ITEM decimal). En pantallas angostas
-// (celular, tablet vertical) modelo, material, descripción y cantidad se
-// apilan en la celda del ítem, como en la tabla de Producción.
+// Solo se muestran los muebles (ítem entero); al tocar uno se despliegan sus componentes (ítem
+// decimal). En escritorio es una tabla; en celular y tablet vertical, una lista de tarjetas con lo
+// mismo: seleccionar, cambiar el estado, enviar a la papelera, planos y ver componentes.
 export default function ItemsTabla({
   muebles,
   imagenesPorItem,
@@ -90,13 +92,15 @@ export default function ItemsTabla({
   filtroInicial,
 }: {
   muebles: MuebleTabla[];
-  imagenesPorItem: Record<string, string[]>;
+  imagenesPorItem: Record<string, ImagenItemUrls[]>;
   planosPorItem: Record<string, PlanoLink[]>;
   puedeEditar: boolean;
   puedeEliminar: boolean;
   filtroInicial: string;
 }) {
   const tablaRef = useFlip<HTMLTableElement>();
+  // En pantallas angostas (celular, tablet vertical) cada mueble es una tarjeta; desde 1024 px, la tabla.
+  const esEscritorio = useEsEscritorio();
   const router = useRouter();
 
   // --- Filtros: modelo (texto), material y estado de revisión ---
@@ -104,6 +108,7 @@ export default function ItemsTabla({
   const [material, setMaterial] = useState<string | null>(null);
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltro>("todos");
   const [limite, setLimite] = useState(MUEBLES_POR_PAGINA);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const filtros = useMemo<FiltrosItems>(
     () => ({ texto: filtro.trim().toLowerCase(), material, estado: estadoFiltro }),
     [filtro, material, estadoFiltro]
@@ -115,13 +120,14 @@ export default function ItemsTabla({
       estado: "todos",
     })
   );
-  const [imagenAbierta, setImagenAbierta] = useState<{ urls: string[]; indice: number } | null>(
-    null
-  );
 
   const materiales = useMemo(() => materialesDe(muebles), [muebles]);
   const conteoEstado = useMemo(() => contarPorEstado(muebles), [muebles]);
   const hayFiltros = !!(filtros.texto || filtros.material || filtros.estado !== "todos");
+  // Material y estado van en un panel plegado; el contador del botón dice cuántos hay puestos.
+  const hayFiltrosDisponibles = materiales.length > 1 || conteoEstado.enRevision > 0;
+  const filtrosActivos = (material ? 1 : 0) + (estadoFiltro !== "todos" ? 1 : 0);
+  const hayComponentes = useMemo(() => muebles.some((m) => m.hijos.length > 0), [muebles]);
 
   // Al cambiar un filtro se abren solos los muebles con un componente que coincide.
   function aplicarFiltros(texto: string, mat: string | null, est: EstadoFiltro) {
@@ -221,10 +227,6 @@ export default function ItemsTabla({
     });
   }
 
-  function abrirImagen(urls: string[], indice: number) {
-    setImagenAbierta({ urls, indice });
-  }
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -235,23 +237,32 @@ export default function ItemsTabla({
           placeholder="Buscar modelo en este pedido..."
           className="min-w-48 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base shadow-sm focus:border-brand-600 focus:outline-none sm:py-2 sm:text-sm"
         />
-        <button
-          type="button"
-          onClick={() => setExpandidos(new Set(muebles.map((m) => m.id)))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50 sm:py-2"
-        >
-          Expandir todo
-        </button>
-        <button
-          type="button"
-          onClick={() => setExpandidos(new Set())}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50 sm:py-2"
-        >
-          Contraer todo
-        </button>
+        {hayFiltrosDisponibles && (
+          <button
+            type="button"
+            onClick={() => setFiltrosAbiertos((a) => !a)}
+            aria-expanded={filtrosAbiertos}
+            className={`rounded-lg border px-3 py-2.5 text-sm shadow-sm sm:py-2 ${
+              filtrosActivos > 0
+                ? "border-brand-600 bg-brand-50 font-medium text-brand-800"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Filtrar{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
+          </button>
+        )}
+        {hayComponentes && (
+          <button
+            type="button"
+            onClick={() => setExpandidos(expandidos.size > 0 ? new Set() : new Set(muebles.map((m) => m.id)))}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50 sm:py-2"
+          >
+            {expandidos.size > 0 ? "Ocultar componentes" : "Mostrar componentes"}
+          </button>
+        )}
       </div>
 
-      {(materiales.length > 1 || conteoEstado.enRevision > 0) && (
+      {hayFiltrosDisponibles && filtrosAbiertos && (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           {materiales.length > 1 && (
             <div className="flex flex-wrap items-center gap-2">
@@ -322,7 +333,7 @@ export default function ItemsTabla({
               disabled={aplicando}
               className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:opacity-50"
             >
-              Marcar en revisión
+              Poner en revisión
             </button>
             <button
               type="button"
@@ -341,14 +352,14 @@ export default function ItemsTabla({
               disabled={aplicando}
               className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
             >
-              Cancelar…
+              Cancelar seleccionados…
             </button>
             <button
               type="button"
               onClick={() => setSeleccion(new Set())}
               className="px-2 py-2 text-slate-500 underline hover:text-slate-800"
             >
-              Quitar selección
+              Deseleccionar
             </button>
           </div>
           {errorLote && !cancelandoLote && (
@@ -362,7 +373,7 @@ export default function ItemsTabla({
       {cancelandoLote && (
         <DialogoMotivo
           titulo={`Cancelar ${seleccion.size} ítem${seleccion.size === 1 ? "" : "s"}`}
-          descripcion="Quedan marcados como cancelados y se ven en Cancelados. Puedes deshacerlo."
+          descripcion="Quedan marcados como cancelados y se ven en Archivo. Puedes deshacerlo."
           etiquetaConfirmar="Cancelar ítems"
           enviando={aplicando}
           error={errorLote}
@@ -371,37 +382,52 @@ export default function ItemsTabla({
         />
       )}
 
-      {visibles.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          {hayFiltros ? "Ningún ítem coincide con los filtros." : "Este pedido no tiene ítems."}
+      {puedeEditar && visibles.length > 0 && (
+        <p className="text-xs text-slate-500">
+          Toca un mueble para ver sus componentes. Marca las casillas para cambiar varios a la vez.
         </p>
       )}
 
-      {visibles.length > 0 && (
+      {visibles.length === 0 && (
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          <p>{hayFiltros ? "Ningún mueble coincide con lo que buscas." : "Este pedido todavía no tiene muebles."}</p>
+          {hayFiltros && (
+            <button
+              type="button"
+              onClick={() => aplicarFiltros("", null, "todos")}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Quitar filtros
+            </button>
+          )}
+        </div>
+      )}
+
+      {visibles.length > 0 &&
+        (esEscritorio ? (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table ref={tablaRef} className="w-full text-left text-xs">
             <thead>
               <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="w-6 py-2 pl-3"></th>
                 {puedeEditar && (
-                  <th className="w-8 px-2 py-2 sm:px-3">
+                  <th className="w-8 px-3 py-2">
                     <input
                       type="checkbox"
                       checked={todosMarcados}
                       onChange={() => marcar(idsVisibles, !todosMarcados)}
                       aria-label="Seleccionar todos los ítems visibles"
-                      className="h-4 w-4 pointer-coarse:h-5 pointer-coarse:w-5"
+                      className="h-4 w-4"
                     />
                   </th>
                 )}
-                <th className="px-2 py-2 sm:px-3">Imagen</th>
-                <th className="px-2 py-2 sm:px-3">Item</th>
-                <th className="hidden px-3 py-2 lg:table-cell">Modelo</th>
-                <th className="hidden px-3 py-2 lg:table-cell">Material</th>
-                <th className="hidden px-3 py-2 lg:table-cell">Descripción</th>
-                <th className="hidden px-3 py-2 lg:table-cell">Cant.</th>
-                <th className="px-2 py-2 sm:px-3">Estado</th>
-                {puedeEliminar && <th className="px-2 py-2 sm:px-3"></th>}
+                <th className="px-3 py-2">Imagen</th>
+                <th className="px-3 py-2">N.º</th>
+                <th className="px-3 py-2">Modelo</th>
+                <th className="px-3 py-2">Descripción</th>
+                <th className="px-3 py-2">Cantidad</th>
+                <th className="px-3 py-2">Estado</th>
+                {puedeEliminar && <th className="px-3 py-2"></th>}
               </tr>
             </thead>
             {enPantalla.map(({ mueble: m, hijos }) => {
@@ -428,7 +454,7 @@ export default function ItemsTabla({
                           )}
                         </td>
                         {puedeEditar && (
-                          <td className="px-2 py-2 sm:px-3" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                             {/* Marcar un mueble marca también sus componentes visibles. */}
                             <input
                               type="checkbox"
@@ -437,42 +463,27 @@ export default function ItemsTabla({
                                 marcar([m.id, ...hijos.map((h) => h.id)], !seleccion.has(m.id))
                               }
                               aria-label={`Seleccionar ítem ${m.item_code}`}
-                              className="h-4 w-4 pointer-coarse:h-5 pointer-coarse:w-5"
+                              className="h-4 w-4"
                             />
                           </td>
                         )}
-                        <td className="px-2 py-2 sm:px-3">
-                          <ImagenesItem urls={imagenesPorItem[m.id] ?? []} onAbrir={abrirImagen} />
+                        <td className="px-3 py-2">
+                          <ImagenesMueble imagenes={imagenesPorItem[m.id] ?? []} etiqueta={`Ítem ${m.item_code}`} />
                         </td>
-                        <td className="px-2 py-2 sm:px-3">
-                          {m.item_code}
-                          <DatosApilados
-                            item={m}
-                            planos={planosPorItem[m.id] ?? []}
-                            componentes={hijos.length}
-                          />
-                        </td>
-                        <td className="hidden px-3 py-2 lg:table-cell">
+                        <td className="px-3 py-2">{m.item_code}</td>
+                        <td className="px-3 py-2">
                           {m.modelo}
                           <PlanosItem planos={planosPorItem[m.id] ?? []} />
                         </td>
-                        <td className="hidden px-3 py-2 lg:table-cell">{m.tipo_material}</td>
-                        <td className="hidden px-3 py-2 lg:table-cell">
-                          {m.descripcion}
-                          {hijos.length > 0 && (
-                            <span className="ml-2 text-xs font-normal text-slate-500">
-                              ({hijos.length} componentes)
-                            </span>
-                          )}
-                        </td>
-                        <td className="hidden px-3 py-2 lg:table-cell">
+                        <td className="px-3 py-2">{m.descripcion}</td>
+                        <td className="px-3 py-2">
                           {m.cantidad_total} {m.unidad}
                         </td>
-                        <td className="px-2 py-2 sm:px-3" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                           <EstadoCelda item={m} puedeEditar={puedeEditar} />
                         </td>
                         {puedeEliminar && (
-                          <td className="px-2 py-2 sm:px-3" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                             <EliminarItemBoton itemId={m.id} />
                           </td>
                         )}
@@ -489,37 +500,33 @@ export default function ItemsTabla({
                           >
                             <td className="guia-hija"></td>
                             {puedeEditar && (
-                              <td className="px-2 py-2 sm:px-3">
+                              <td className="px-3 py-2">
                                 <input
                                   type="checkbox"
                                   checked={seleccion.has(f.id)}
                                   onChange={() => marcar([f.id], !seleccion.has(f.id))}
                                   aria-label={`Seleccionar ítem ${f.item_code}`}
-                                  className="h-4 w-4 pointer-coarse:h-5 pointer-coarse:w-5"
+                                  className="h-4 w-4"
                                 />
                               </td>
                             )}
-                            <td className="py-2 pr-2 pl-3 sm:pr-3 sm:pl-6">
-                              <ImagenesItem urls={imagenesPorItem[f.id] ?? []} onAbrir={abrirImagen} />
+                            <td className="py-2 pr-3 pl-6">
+                              <ImagenesMueble imagenes={imagenesPorItem[f.id] ?? []} etiqueta={`Ítem ${f.item_code}`} />
                             </td>
-                            <td className="py-2 pr-2 pl-2 sm:pr-3 sm:pl-6">
-                              {f.item_code}
-                              <DatosApilados item={f} planos={planosPorItem[f.id] ?? []} componentes={0} corto />
-                            </td>
-                            <td className="hidden px-3 py-2 lg:table-cell">
+                            <td className="px-3 py-2">{f.item_code}</td>
+                            <td className="px-3 py-2">
                               {f.modelo}
                               <PlanosItem planos={planosPorItem[f.id] ?? []} />
                             </td>
-                            <td className="hidden px-3 py-2 lg:table-cell">{f.tipo_material}</td>
-                            <td className="hidden px-3 py-2 lg:table-cell">{f.descripcion?.split("\n")[0]}</td>
-                            <td className="hidden px-3 py-2 lg:table-cell">
+                            <td className="px-3 py-2">{f.descripcion?.split("\n")[0]}</td>
+                            <td className="px-3 py-2">
                               {f.cantidad_total} {f.unidad}
                             </td>
-                            <td className="px-2 py-2 sm:px-3">
+                            <td className="px-3 py-2">
                               <EstadoCelda item={f} puedeEditar={puedeEditar} />
                             </td>
                             {puedeEliminar && (
-                              <td className="px-2 py-2 sm:px-3">
+                              <td className="px-3 py-2">
                                 <EliminarItemBoton itemId={f.id} />
                               </td>
                             )}
@@ -532,7 +539,63 @@ export default function ItemsTabla({
             })}
           </table>
         </div>
-      )}
+        ) : (
+        <div className="flex flex-col gap-3">
+          {puedeEditar && (
+            <label className="flex min-h-10 w-fit items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={todosMarcados}
+                onChange={() => marcar(idsVisibles, !todosMarcados)}
+                className="h-5 w-5"
+              />
+              Seleccionar todos los visibles
+            </label>
+          )}
+          <ul className="flex flex-col gap-3">
+            {enPantalla.map(({ mueble: m, hijos }) => {
+              const abierto = expandidos.has(m.id);
+              return (
+                <li key={m.id} className="flex flex-col gap-2">
+                  <TarjetaItem
+                    item={m}
+                    planos={planosPorItem[m.id] ?? []}
+                    imagenes={imagenesPorItem[m.id] ?? []}
+                    seleccionado={seleccion.has(m.id)}
+                    onMarcar={() => marcar([m.id, ...hijos.map((h) => h.id)], !seleccion.has(m.id))}
+                    puedeEditar={puedeEditar}
+                    puedeEliminar={puedeEliminar}
+                    componentes={hijos.length}
+                    abierto={abierto}
+                    onAlternar={() => alternar(m.id)}
+                  />
+                  {abierto && hijos.length > 0 && (
+                    <ul className="ml-3 flex flex-col gap-2 border-l-2 border-slate-200 pl-3">
+                      {hijos.map((f) => (
+                        <li key={f.id}>
+                          <TarjetaItem
+                            item={f}
+                            planos={planosPorItem[f.id] ?? []}
+                            imagenes={imagenesPorItem[f.id] ?? []}
+                            seleccionado={seleccion.has(f.id)}
+                            onMarcar={() => marcar([f.id], !seleccion.has(f.id))}
+                            puedeEditar={puedeEditar}
+                            puedeEliminar={puedeEliminar}
+                            componentes={0}
+                            abierto={false}
+                            onAlternar={() => {}}
+                            corto
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        ))}
 
       {visibles.length > enPantalla.length && (
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
@@ -554,49 +617,6 @@ export default function ItemsTabla({
         </div>
       )}
 
-      {imagenAbierta && (
-        <VisorImagen
-          urls={imagenAbierta.urls}
-          indice={imagenAbierta.indice}
-          onCambiar={(indice) => setImagenAbierta({ ...imagenAbierta, indice })}
-          onCerrar={() => setImagenAbierta(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// Modelo, plano, descripción, cantidad y material en la celda del ítem, solo en
-// pantallas angostas (en escritorio cada dato tiene su columna).
-function DatosApilados({
-  item,
-  planos,
-  componentes,
-  corto = false,
-}: {
-  item: ItemTabla;
-  planos: PlanoLink[];
-  componentes: number;
-  // Un componente muestra solo la primera línea de su descripción.
-  corto?: boolean;
-}) {
-  const descripcion = corto ? item.descripcion?.split("\n")[0] : item.descripcion;
-  return (
-    <div className="mt-1 flex flex-col gap-1 text-xs font-normal text-slate-700 lg:hidden">
-      {item.modelo && <span className="font-medium text-slate-900">{item.modelo}</span>}
-      <PlanosItem planos={planos} />
-      {descripcion && <p className={corto ? "line-clamp-2" : "line-clamp-3"}>{descripcion}</p>}
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-slate-500">
-        <span className="font-medium text-slate-700">
-          {item.cantidad_total} {item.unidad}
-        </span>
-        {item.tipo_material && <span>{item.tipo_material}</span>}
-        {componentes > 0 && (
-          <span>
-            {componentes} componente{componentes === 1 ? "" : "s"}
-          </span>
-        )}
-      </p>
     </div>
   );
 }
@@ -608,7 +628,7 @@ function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: bool
         itemId={item.id}
         estadoActual={item.estado_revision}
         motivoActual={item.motivo_cancelacion}
-        etiqueta={`Ítem ${item.item_code}`}
+        etiqueta={`N.º ${item.item_code}`}
       />
     );
   }
@@ -616,108 +636,112 @@ function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: bool
   return <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>;
 }
 
-function ImagenesItem({
-  urls,
-  onAbrir,
+// Tarjeta de un mueble o componente en pantallas angostas. Lleva lo mismo que una fila de la tabla.
+function TarjetaItem({
+  item,
+  planos,
+  imagenes,
+  seleccionado,
+  onMarcar,
+  puedeEditar,
+  puedeEliminar,
+  componentes,
+  abierto,
+  onAlternar,
+  corto = false,
 }: {
-  urls: string[];
-  onAbrir: (urls: string[], indice: number) => void;
+  item: ItemTabla;
+  planos: PlanoLink[];
+  imagenes: ImagenItemUrls[];
+  seleccionado: boolean;
+  onMarcar: () => void;
+  puedeEditar: boolean;
+  puedeEliminar: boolean;
+  // Cuántos componentes tiene (0 en un componente o un mueble sin ellos).
+  componentes: number;
+  abierto: boolean;
+  onAlternar: () => void;
+  // Un componente muestra solo la primera línea de su descripción.
+  corto?: boolean;
 }) {
-  if (urls.length === 0) return null;
+  const descripcion = corto ? item.descripcion?.split("\n")[0] : item.descripcion;
+  const fondo = seleccionado ? "bg-brand-50" : colorFilaEstadoRevision(item.estado_revision) || "bg-white";
+  return (
+    <div className={`flex flex-col gap-3 rounded-xl border border-slate-200 p-3 shadow-sm ${fondo}`}>
+      <div className="flex items-start gap-3">
+        {puedeEditar && (
+          <input
+            type="checkbox"
+            checked={seleccionado}
+            onChange={onMarcar}
+            aria-label={`Seleccionar ítem ${item.item_code}`}
+            className="mt-0.5 h-5 w-5 shrink-0"
+          />
+        )}
+        <ImagenesMueble imagenes={imagenes} etiqueta={`Ítem ${item.item_code}`} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-slate-900">
+            N.º {item.item_code}
+            {item.modelo && <span className="ml-2 font-medium text-slate-700">{item.modelo}</span>}
+          </p>
+          {descripcion && (
+            <p className={`mt-0.5 text-sm text-slate-700 ${corto ? "line-clamp-2" : "line-clamp-3"}`}>{descripcion}</p>
+          )}
+          <p className="mt-1 text-xs font-medium text-slate-700">
+            {item.cantidad_total} {item.unidad}
+          </p>
+          <PlanosItem planos={planos} />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="min-w-40 flex-1 [&_select]:w-full">
+          <EstadoCelda item={item} puedeEditar={puedeEditar} />
+        </div>
+        {puedeEliminar && <EliminarItemBoton itemId={item.id} />}
+      </div>
+      {componentes > 0 && (
+        <button
+          type="button"
+          onClick={onAlternar}
+          aria-expanded={abierto}
+          className="inline-flex min-h-11 w-full items-center justify-between rounded-lg border border-slate-200 bg-white/70 px-3 text-sm font-medium text-slate-700 hover:bg-white"
+        >
+          {abierto ? "Ocultar componentes" : "Ver componentes"}
+          <Chevron abierto={abierto} className="h-4 w-4 text-slate-500" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Miniaturas del mueble o componente; al tocarlas se amplían con zoom (rueda, arrastrar, +/−).
+// Sin imagen queda un recuadro gris del mismo tamaño, para que no parezca que algo falló.
+function ImagenesMueble({ imagenes, etiqueta }: { imagenes: ImagenItemUrls[]; etiqueta: string }) {
+  if (imagenes.length === 0) {
+    return (
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-100 text-center text-[9px] leading-tight text-slate-400">
+        Sin imagen
+      </div>
+    );
+  }
   return (
     <div className="flex gap-1">
-      {urls.map((url, indice) => (
-        <button
-          key={url}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAbrir(urls, indice);
-          }}
-          className="cursor-zoom-in"
-          title="Ver imagen"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image */}
-          <img src={url} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded border border-slate-200 object-cover" />
-        </button>
+      {imagenes.map((img) => (
+        <ImagenAmpliable key={img.url} url={img.url} urlGrande={img.urlGrande} alt={etiqueta} />
       ))}
     </div>
   );
 }
 
-function VisorImagen({
-  urls,
-  indice,
-  onCambiar,
-  onCerrar,
-}: {
-  urls: string[];
-  indice: number;
-  onCambiar: (indice: number) => void;
-  onCerrar: () => void;
-}) {
-  const hayVarias = urls.length > 1;
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCerrar();
-      if (hayVarias && e.key === "ArrowRight") onCambiar((indice + 1) % urls.length);
-      if (hayVarias && e.key === "ArrowLeft") onCambiar((indice - 1 + urls.length) % urls.length);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [indice, urls.length, hayVarias, onCambiar, onCerrar]);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onCerrar}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 p-4"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- imágenes en bucket privado vía signed URL, no next/image */}
-      <img
-        src={urls[indice]}
-        alt=""
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-[min(90vw,40rem)] rounded bg-papel object-contain shadow-lg"
-      />
-      <button
-        type="button"
-        onClick={onCerrar}
-        className="absolute top-4 right-4 rounded bg-white/90 px-3 py-1 text-sm font-medium"
-      >
-        Cerrar ✕
-      </button>
-      {hayVarias && (
-        <>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCambiar((indice - 1 + urls.length) % urls.length);
-            }}
-            className="absolute left-4 rounded bg-white/90 px-3 py-2 text-lg"
-            aria-label="Imagen anterior"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCambiar((indice + 1) % urls.length);
-            }}
-            className="absolute right-4 rounded bg-white/90 px-3 py-2 text-lg"
-            aria-label="Imagen siguiente"
-          >
-            ›
-          </button>
-          <span className="absolute bottom-4 rounded bg-white/90 px-2 py-1 text-xs">
-            {indice + 1} / {urls.length}
-          </span>
-        </>
-      )}
-    </div>
+// true desde 1024 px de ancho (la tabla cabe); antes de hidratar se asume escritorio.
+function useEsEscritorio(): boolean {
+  return useSyncExternalStore(
+    (alCambiar) => {
+      const consulta = window.matchMedia("(min-width: 1024px)");
+      consulta.addEventListener("change", alCambiar);
+      return () => consulta.removeEventListener("change", alCambiar);
+    },
+    () => window.matchMedia("(min-width: 1024px)").matches,
+    () => true
   );
 }

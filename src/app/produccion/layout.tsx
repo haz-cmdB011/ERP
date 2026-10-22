@@ -68,26 +68,17 @@ export default async function ProduccionLayout({
         <SubnavLink href="/produccion/panel" icono="flujo">
           Panel de asignación
         </SubnavLink>
-        <SubnavLink href="/produccion/tablero" icono="panel">
-          Tablero del taller
-        </SubnavLink>
-        <SubnavLink href="/produccion/asignaciones" icono="asignaciones">
-          Asignaciones
-        </SubnavLink>
-        <SubnavLink href="/produccion/equipos" icono="equipos">
-          Equipos
-        </SubnavLink>
-        <SubnavLink href="/produccion/rechazos" icono="retrabajo">
-          Rechazado por Calidad
+        <SubnavLink href="/produccion/taller" tambien={["/produccion/rechazos"]} icono="panel">
+          Taller
         </SubnavLink>
         <SubnavLink href="/produccion/escanear" icono="escanear">
           Escanear QR
         </SubnavLink>
-        <SubnavLink href="/produccion/cancelados" icono="cancelados">
-          Cancelados / Eliminados
+        <SubnavLink href="/produccion/equipos" icono="equipos">
+          Equipos
         </SubnavLink>
-        <SubnavLink href="/produccion/folios" icono="folios">
-          Folios de producción
+        <SubnavLink href="/produccion/cancelados" tambien={["/produccion/folios"]} icono="archivo">
+          Archivo
         </SubnavLink>
       </AreaNav>
       {perfil?.rol === "usuario" && <CuentaPendiente />}

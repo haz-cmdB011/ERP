@@ -36,7 +36,7 @@ function Barra({ hecho, total }: { hecho: number; total: number }) {
 // Seguimiento del PM de punta a punta (versión activa): qué parte ya se liberó a
 // Producción, se asignó a equipos, se entregó y evaluó Calidad. Ver
 // lib/planeacion/linea-tiempo.ts para cómo se cuenta cada paso.
-export default function LineaTiempoPm({ tiempo: t }: { tiempo: LineaTiempo }) {
+export default function LineaTiempoPm({ tiempo: t, abierto = false }: { tiempo: LineaTiempo; abierto?: boolean }) {
   const sinLiberar = t.mueblesLiberados === 0;
   const pasos: Paso[] = [
     {
@@ -77,12 +77,12 @@ export default function LineaTiempoPm({ tiempo: t }: { tiempo: LineaTiempo }) {
 
   return (
     // Desplegable y cerrado: son muchos datos y no siempre se necesitan.
-    <details aria-label="Seguimiento del PM" className="group">
+    <details aria-label="Seguimiento del PM" className="group" open={abierto}>
       <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-slate-600 [&::-webkit-details-marker]:hidden">
         <span aria-hidden="true" className="inline-block text-slate-400 transition-transform group-open:rotate-90">
           ▸
         </span>
-        Seguimiento (versión activa)
+        Seguimiento del pedido (versión activa)
       </summary>
       <ol className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {pasos.map((paso, i) => (

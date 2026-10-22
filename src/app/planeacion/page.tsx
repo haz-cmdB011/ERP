@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
+import { getPerfilActual, puedeAdministrarPlaneacion, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
-import PedidosEliminados from "./pedidos-eliminados";
-import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
+import ListaPedidos from "./lista-pedidos";
+import IconoMenu from "@/components/iconos-menu";
+import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
   agruparPorOrdenTrabajo,
   filtrarOrdenesTrabajo,
@@ -14,7 +15,6 @@ import {
 import Bienvenida from "@/components/bienvenida";
 import { ResumenEnMenu } from "@/components/resumen-menu";
 import EstadoVacio from "@/components/estado-vacio";
-import { formatoFechaHora } from "@/lib/resumen/entrega";
 import FiltroRecordado from "@/components/filtro-recordado";
 import {
   COOKIE_FILTRO_PEDIDOS,
@@ -68,24 +68,15 @@ export default async function PlaneacionListPage({
       .returns<PedidoRow[]>(),
   ]);
   const esAdmin = puedeAdministrarPlaneacion(perfil);
+  const puedeCargar = puedeEditarPlaneacion(perfil);
   const filtroGuardado = leerFiltroGuardado(cookieStore.get(COOKIE_FILTRO_PEDIDOS)?.value);
   const filtroActual: FiltroGuardado = { anio: anioParam, cliente: clienteParam };
 
-  // La papelera (solo administradores) y el avance de cada PM se piden a la vez. El
-  // avance es un resumen: si falla la consulta, la lista sigue sin la columna llena.
-  const [{ data: pedidosEliminados }, avance] = await Promise.all([
-    esAdmin
-      ? supabase
-          .from("pedidos")
-          .select(COLUMNAS)
-          .not("eliminado_en", "is", null)
-          .order("eliminado_en", { ascending: false })
-          .returns<PedidoRow[]>()
-      : Promise.resolve({ data: null }),
+  // El avance de cada PM es un resumen: si falla la consulta, la lista sigue sin la columna llena.
+  const avance =
     pedidos && pedidos.length > 0
-      ? avancePlaneacionPorPedido(supabase).catch(() => new Map<string, AvancePlan>())
-      : Promise.resolve(new Map<string, AvancePlan>()),
-  ]);
+      ? await avancePlaneacionPorPedido(supabase).catch(() => new Map<string, AvancePlan>())
+      : new Map<string, AvancePlan>();
 
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
@@ -105,16 +96,26 @@ export default async function PlaneacionListPage({
       {pedidos && pedidos.length > 0 && (
         <ResumenEnMenu
           tarjetas={[
-            { valor: todas.length, etiqueta: "O.T. vigentes", detalle: `${pedidos.length} PM en total`, href: "/planeacion" },
+            { valor: todas.length, etiqueta: "Órdenes de trabajo", detalle: `${pedidos.length} pedidos (PM) en total`, href: "/planeacion" },
           ]}
         />
       )}
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Pedidos — Planeación
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Pedidos</h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">
+            Cada fila es una orden de trabajo (O.T.). Tócala para abrir su pedido.
+          </p>
         </div>
+        {puedeCargar && (
+          <Link
+            href="/planeacion/upload"
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-brand-400"
+          >
+            <IconoMenu nombre="subir" className="h-4 w-4" />
+            Cargar Excel
+          </Link>
+        )}
       </div>
 
       <form action="/planeacion" className="flex gap-2">
@@ -186,26 +187,29 @@ export default async function PlaneacionListPage({
       )}
 
       {filas.length > 0 && (
-        <TablaOrdenesTrabajo
-          filas={filas}
-          hrefOt={(ot) => `/planeacion/ot/${encodeURIComponent(ot)}`}
-          hrefPedido={(id) => `/planeacion/pedidos/${id}`}
-          columnaEstado={{
-            titulo: "Avance",
-            celda: (fila) => <AvanceOt avance={sumarAvancePlan(avance, fila.pedidos.map((p) => p.id))} />,
-          }}
-          accion={
-            esAdmin
-              ? (fila) =>
-                  !fila.ot && (
-                    <AccionesPedido
-                      pedidoId={fila.pedidos[0].id}
-                      numeroPedido={fila.pedidos[0].numero_pedido}
-                      eliminado={false}
-                    />
-                  )
-              : undefined
-          }
+        <ListaPedidos
+          filas={filas.map((fila) => {
+            const primero = fila.pedidos[0];
+            return {
+              clave: fila.ot ?? primero.id,
+              titulo: fila.ot ?? primero.numero_pedido,
+              esOt: !!fila.ot,
+              // Una O.T. con un solo PM abre directo el pedido; con varios, la O.T. para elegir.
+              href:
+                fila.ot && fila.pedidos.length > 1
+                  ? `/planeacion/ot/${encodeURIComponent(fila.ot)}`
+                  : `/planeacion/pedidos/${primero.id}`,
+              proyecto: primero.proyectos?.nombre ?? "—",
+              cliente: primero.proyectos?.cliente ?? null,
+              pedidos: fila.pedidos.length,
+              avance: <AvanceOt avance={sumarAvancePlan(avance, fila.pedidos.map((p) => p.id))} />,
+              // Los PM sueltos (sin O.T.) se envían a la papelera desde la lista; los de una O.T., desde su página.
+              accion:
+                esAdmin && !fila.ot ? (
+                  <AccionesPedido pedidoId={primero.id} numeroPedido={primero.numero_pedido} eliminado={false} />
+                ) : undefined,
+            };
+          })}
         />
       )}
 
@@ -222,37 +226,6 @@ export default async function PlaneacionListPage({
         </section>
       )}
 
-      {/* Plegada por defecto: casi nunca se usa y no debe empujar la lista. */}
-      {esAdmin && pedidosEliminados && pedidosEliminados.length > 0 && (
-        <details className="group rounded-xl border border-slate-200 bg-white shadow-sm">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900 [&::-webkit-details-marker]:hidden">
-            <span>Pedidos eliminados ({pedidosEliminados.length})</span>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-90"
-              aria-hidden="true"
-            >
-              <path d="m9 6 6 6-6 6" />
-            </svg>
-          </summary>
-          <div className="border-t border-slate-100">
-            <PedidosEliminados
-              pedidos={pedidosEliminados.map((p) => ({
-                id: p.id,
-                numero_pedido: p.numero_pedido,
-                proyecto: p.proyectos?.nombre ?? "—",
-                cliente: p.proyectos?.cliente ?? "—",
-                eliminado_en: formatoFechaHora(p.eliminado_en),
-              }))}
-            />
-          </div>
-        </details>
-      )}
     </main>
   );
 }
