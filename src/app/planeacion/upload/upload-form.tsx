@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
 import { describirCambios, type ImpactoPm } from "@/lib/planeacion/impacto-version";
+import type { VistaPrevia } from "@/lib/planeacion/vista-previa";
+import VistaPreviaFormato from "./vista-previa-formato";
 
 // Mismo límite que la ruta /api/planeacion/upload.
 const MAX_FILE_BYTES = 40 * 1024 * 1024;
@@ -42,6 +44,8 @@ interface UploadOk {
 interface UploadError {
   error: string;
   detalles?: FilaError[];
+  // Cómo se leyó el archivo cuando no cumple el formato (ver vista-previa.ts).
+  vistaPrevia?: VistaPrevia | null;
   cargaId?: string;
   // El servidor topó el límite de cargas (429): segundos para reintentar. El
   // archivo no tiene nada malo; vuelve a quedar en espera.
@@ -818,18 +822,30 @@ function ResultadoCarga({ resultado }: { resultado: UploadResult | UploadOmitido
     );
   }
   if (esError(resultado)) {
+    // Los errores de la fila de encabezados ya los muestra la vista previa:
+    // no se repiten en la lista.
+    const filaEncabezado = resultado.vistaPrevia?.filaEncabezado;
+    const detalles = (resultado.detalles ?? []).filter(
+      (d) => filaEncabezado == null || d.fila !== filaEncabezado
+    );
     return (
       <div className="mt-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
         <p className="font-medium">{resultado.error}</p>
-        {resultado.detalles && resultado.detalles.length > 0 && (
+        {detalles.length > 0 && (
           <ul className="mt-2 list-disc pl-5">
-            {resultado.detalles.map((d, i) => (
+            {detalles.map((d, i) => (
               <li key={i}>
                 {d.fila > 0 ? `Fila ${d.fila}: ` : ""}
                 {d.mensaje}
               </li>
             ))}
           </ul>
+        )}
+        {resultado.vistaPrevia && (
+          <VistaPreviaFormato
+            vista={resultado.vistaPrevia}
+            filasConError={(resultado.detalles ?? []).map((d) => d.fila).filter((f) => f > 0)}
+          />
         )}
       </div>
     );

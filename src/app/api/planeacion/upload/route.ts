@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parsePlaneacionLibro } from "@/lib/planeacion/parser";
+import { construirVistaPrevia } from "@/lib/planeacion/vista-previa";
 import type { FilaError, PlaneacionItemParsed } from "@/lib/planeacion/types";
 import {
   comprimirImagenGrande,
@@ -510,11 +511,18 @@ export async function POST(request: Request) {
   }
 
   if (!valido) {
+    // Vista previa de lo que está mal, para que quien carga lo corrija. Si
+    // falla, el rechazo sigue llegando con sus errores.
+    const vistaPrevia = await construirVistaPrevia(buffer).catch((err) => {
+      console.error("No se pudo armar la vista previa del formato.", err);
+      return null;
+    });
     return NextResponse.json(
       {
         error: "El archivo no cumple el formato esperado.",
         detalles: erroresValidacion,
         cargaId: carga.id,
+        vistaPrevia,
       },
       { status: 422 }
     );
