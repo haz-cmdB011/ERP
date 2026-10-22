@@ -410,22 +410,6 @@ export default function ItemsTabla({
             </button>
             <button
               type="button"
-              onClick={() => void aplicarLote("en_revision")}
-              disabled={aplicando}
-              className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:opacity-50"
-            >
-              Poner en revisión
-            </button>
-            <button
-              type="button"
-              onClick={() => void aplicarLote(null)}
-              disabled={aplicando}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
-              Volver a normal
-            </button>
-            <button
-              type="button"
               onClick={() => {
                 setErrorLote(null);
                 setCancelandoLote(true);
