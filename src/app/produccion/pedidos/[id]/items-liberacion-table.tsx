@@ -76,11 +76,14 @@ export default function ItemsLiberacionTable({
   pedidoId,
   puedeSolicitarEliminacion,
   puedeEliminarDefinitivo,
+  situacionPorItem = {},
 }: {
   items: ItemLiberacionRow[];
   pedidoId: string;
   puedeSolicitarEliminacion: boolean;
   puedeEliminarDefinitivo: boolean;
+  // Situación de cada mueble liberado en el taller (para sugerir el siguiente paso).
+  situacionPorItem?: Record<string, "sin-asignar" | "en-taller" | "entregado">;
 }) {
   const router = useRouter();
   const [vistaPapelera, setVistaPapelera] = useState(false);
@@ -406,10 +409,35 @@ export default function ItemsLiberacionTable({
 
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
+      // El siguiente paso de un mueble liberado se hace desde aquí: lleva directo a ese mueble en
+      // "Asignar a equipos" (los componentes se trabajan con su mueble).
+      const siguiente =
+        item.tipo_registro === "MO" ? (situacionPorItem[item.id] ?? "sin-asignar") : null;
+      const href = `/produccion/pedidos/${pedidoId}/asignaciones?mueble=${item.id}`;
       return (
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-emerald-700">
-          <IconoCheck />
-          Enviado a Producción
+        <span className="inline-flex flex-col items-start gap-1">
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-emerald-700">
+            <IconoCheck />
+            Enviado a Producción
+          </span>
+          {siguiente === "sin-asignar" && (
+            <EnlaceFila
+              href={href}
+              className="whitespace-nowrap rounded-md bg-brand-500 px-2.5 py-1 text-xs font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
+            >
+              Asignar a equipos →
+            </EnlaceFila>
+          )}
+          {siguiente === "en-taller" && (
+            <EnlaceFila href={href} className="whitespace-nowrap text-xs font-medium text-brand-700 hover:underline">
+              En taller · ver →
+            </EnlaceFila>
+          )}
+          {siguiente === "entregado" && (
+            <EnlaceFila href={href} className="whitespace-nowrap text-xs font-medium text-slate-500 hover:underline">
+              Entregado · ver →
+            </EnlaceFila>
+          )}
         </span>
       );
     }

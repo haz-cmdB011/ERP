@@ -51,10 +51,13 @@ interface MuebleRow {
 // de su ruta (ver src/lib/produccion/ruta.ts).
 export default async function AsignacionesPedidoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ mueble?: string }>;
 }) {
   const { id } = await params;
+  const { mueble: muebleAbierto } = await searchParams;
   const supabase = await createClient();
   const perfil = await getPerfilActual(supabase);
   const puedeEditar = puedeEditarProduccion(perfil);
@@ -290,6 +293,7 @@ export default async function AsignacionesPedidoPage({
       ) : (
         <FlujoMuebles
           muebles={flujo}
+          abiertoInicial={muebleAbierto ?? null}
           asignar={
             puedeEditar && !pedidoCancelado
               ? {

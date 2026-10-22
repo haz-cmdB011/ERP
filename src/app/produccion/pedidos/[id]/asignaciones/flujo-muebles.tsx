@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ESTADO_ASIGNACION_ESTILOS,
@@ -63,15 +63,26 @@ export default function FlujoMuebles({
   muebles,
   asignar,
   detalles,
+  abiertoInicial = null,
 }: {
   muebles: MuebleFlujo[];
   asignar: AsignarDesdeFlujo | null;
+  // Mueble que se abre al llegar (viene de "Asignar" en la lista de muebles del PM).
+  abiertoInicial?: string | null;
   // Entregas y acciones de cada asignación (registrar entrega, cancelar...),
   // armadas en el servidor; por id de asignación.
   detalles: Record<string, ReactNode>;
 }) {
   const [filtro, setFiltro] = useState<EstadoMueble | "todos">("todos");
-  const [abierto, setAbierto] = useState<string | null>(null);
+  const [abierto, setAbierto] = useState<string | null>(
+    abiertoInicial && muebles.some((m) => m.id === abiertoInicial) ? abiertoInicial : null
+  );
+
+  // Al llegar con un mueble elegido, se baja hasta él.
+  useEffect(() => {
+    if (!abiertoInicial) return;
+    document.getElementById(`mueble-${abiertoInicial}`)?.scrollIntoView({ block: "center" });
+  }, [abiertoInicial]);
 
   const procesos = ORDEN_SUGERIDO.filter((p) => muebles.some((m) => m.ruta.some((x) => x.proceso === p)));
   const estados = new Map(muebles.map((m) => [m.id, estadoMueble(m)]));
@@ -249,7 +260,10 @@ function FilaMueble({
     "self-start rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap sm:self-center";
 
   return (
-    <li className="rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+    <li
+      id={`mueble-${m.id}`}
+      className="scroll-mt-24 rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+    >
       <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
         <button
           type="button"

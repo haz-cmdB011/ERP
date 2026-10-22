@@ -142,6 +142,28 @@ export default async function PedidoProduccionPage({
   ]);
   const folioPorItem = new Map((folios ?? []).map((f) => [f.planeacion_item_id, f.folio]));
 
+  // Qué sigue con cada mueble liberado: sin asignar, en taller o entregado. Sale de las asignaciones
+  // vigentes del PM; es solo para sugerir el siguiente paso, no cambia nada.
+  const situacionPorItem: Record<string, "sin-asignar" | "en-taller" | "entregado"> = {};
+  const asignaciones = await leer(
+    supabase
+      .from("asignaciones_produccion_resumen")
+      .select("planeacion_item_id, estado")
+      .eq("pedido_id", id)
+      .in("estado", ["en_proceso", "parcial", "entregada"])
+      .returns<{ planeacion_item_id: string | null; estado: string }[]>(),
+    "asignaciones_produccion_resumen"
+  );
+  for (const a of asignaciones ?? []) {
+    if (!a.planeacion_item_id) continue;
+    const actual = situacionPorItem[a.planeacion_item_id];
+    if (a.estado === "entregada") {
+      if (!actual) situacionPorItem[a.planeacion_item_id] = "entregado";
+    } else {
+      situacionPorItem[a.planeacion_item_id] = "en-taller";
+    }
+  }
+
   const items: ItemLiberacionRow[] | null = itemsBase
     ? itemsBase.map((i) => ({
         ...i,
@@ -235,6 +257,7 @@ export default async function PedidoProduccionPage({
           pedidoId={id}
           puedeSolicitarEliminacion={puedeSolicitarEliminacion}
           puedeEliminarDefinitivo={puedeEliminarDefinitivo}
+          situacionPorItem={situacionPorItem}
         />
       )}
     </main>
