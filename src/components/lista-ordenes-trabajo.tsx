@@ -118,9 +118,11 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                         {primero.numero_pedido}
                       </span>
                     )}
-                    <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
-                      →
-                    </span>
+                    {!filaClicable && (
+                      <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
+                        →
+                      </span>
+                    )}
                   </EnlaceFila>
                 </td>
                 <td className="px-4 py-3">
