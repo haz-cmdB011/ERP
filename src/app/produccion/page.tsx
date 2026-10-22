@@ -9,16 +9,7 @@ import {
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 import Bienvenida from "@/components/bienvenida";
-import { type TarjetaResumen } from "@/components/resumen-inicio";
-import { ResumenEnMenu } from "@/components/resumen-menu";
-import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
-import { hoyMexico } from "@/lib/produccion/asignaciones";
-import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
-import {
-  DIAS_SIN_REASIGNAR,
-  DIAS_SIN_VERIFICAR,
-  avisoDetenidos,
-} from "@/lib/produccion/detenidos";
+import { avancePorPedido, sumarAvanceDe } from "@/lib/resumen/avance-items";
 import ListaOrdenes from "./lista-ordenes";
 import BuscadorOt from "./buscador-ot";
 
@@ -48,10 +39,9 @@ export default async function ProduccionListPage({
   const supabase = await createClient();
 
   // Búsqueda de muebles (con texto en el buscador se muestran también muebles/modelos
-  // de todos los pedidos), pedidos, avance de liberación por pedido (las tarjetas suman
-  // todo lo vigente) y lo detenido no dependen entre sí: se piden a la vez.
-  const hoy = hoyMexico();
-  const [busqueda, { data: pedidos, error }, avance, detenidos] = await Promise.all([
+  // de todos los pedidos), pedidos y avance de liberación por pedido no dependen entre sí:
+  // se piden a la vez.
+  const [busqueda, { data: pedidos, error }, avance] = await Promise.all([
     consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null),
     supabase
       .from("pedidos")
@@ -62,8 +52,6 @@ export default async function ProduccionListPage({
       .order("created_at", { ascending: false })
       .returns<PedidoConOt[]>(),
     avancePorPedido(supabase, { conCalidad: false }),
-    // Resumen: si falla, la pantalla sigue sin esas tarjetas.
-    cargarDetenidos(supabase, hoy).catch(() => null),
   ]);
 
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
@@ -73,52 +61,15 @@ export default async function ProduccionListPage({
   });
   const { aniosDisponibles, clientesDisponibles } = filtradas;
 
-  const total = sumarAvance(avance);
   const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
   const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porLiberar > 0).length;
   const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
-  const tarjetas: TarjetaResumen[] = [
-    {
-      valor: total.porLiberar,
-      etiqueta: "Ítems por liberar",
-      detalle: `en ${otsConPendientes} O.T.`,
-      href: "/produccion?f=por-liberar",
-      tono: "atencion",
-    },
-    {
-      valor: new Set((pedidos ?? []).map((p) => p.orden_trabajo ?? p.id)).size,
-      etiqueta: "O.T. vigentes",
-      href: "/produccion",
-    },
-  ];
-  if (detenidos) {
-    tarjetas.push(
-      {
-        valor: detenidos.sinVerificar.total,
-        etiqueta: "Entregas por verificar",
-        detalle: "revisa lo que entregaron los equipos",
-        href: "/produccion/taller?vista=lista&estado=por_verificar",
-        tono: "atencion",
-        alerta: avisoDetenidos(detenidos.sinVerificar, DIAS_SIN_VERIFICAR),
-      },
-      {
-        valor: detenidos.sinReasignar.total,
-        etiqueta: "Rechazos por reasignar",
-        detalle: "piezas que Calidad no aprobó",
-        href: "/produccion/rechazos",
-        tono: "atencion",
-        alerta: avisoDetenidos(detenidos.sinReasignar, DIAS_SIN_REASIGNAR),
-      }
-    );
-  }
-
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida />
-      <ResumenEnMenu tarjetas={tarjetas} />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Pedidos</h1>
         <p className="mt-1 text-sm text-slate-500">
