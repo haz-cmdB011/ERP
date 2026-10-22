@@ -39,21 +39,8 @@ export default async function PedidoProduccionPage({
   const { version } = await searchParams;
   const supabase = await createClient();
 
-  // Perfil, pedido y versiones no dependen entre sí: se piden a la vez (un solo
-  // viaje a la base en vez de tres seguidos).
-  const perfilPromesa = (async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return null;
-    const { data } = await supabase
-      .from("perfiles")
-      .select("rol, area")
-      .eq("id", user.id)
-      .maybeSingle<{ rol: string; area: string | null }>();
-    return data;
-  })();
-
+  // Pedido y versiones no dependen entre sí: se piden a la vez (un solo viaje a
+  // la base en vez de dos seguidos).
   const pedidoPromesa = supabase
     .from("pedidos")
     .select(
@@ -80,21 +67,10 @@ export default async function PedidoProduccionPage({
     .order("numero_version", { ascending: false })
     .returns<VersionRow[]>();
 
-  const [perfil, { data: pedido }, { data: versiones }] = await Promise.all([
-    perfilPromesa,
+  const [{ data: pedido }, { data: versiones }] = await Promise.all([
     pedidoPromesa,
     versionesPromesa,
   ]);
-
-  // Refleja is_produccion()/is_admin_area('produccion') del lado del
-  // servidor (ver migración planeacion_items_borrado_produccion): solo
-  // controla qué botones se muestran — el permiso real lo sigue exigiendo
-  // el RPC en la base.
-  const esDesarrollador = perfil?.rol === "desarrollador";
-  const puedeSolicitarEliminacion =
-    esDesarrollador || (perfil?.area === "produccion" && (perfil.rol === "administrador" || perfil.rol === "trabajador"));
-  const puedeEliminarDefinitivo =
-    esDesarrollador || (perfil?.area === "produccion" && perfil.rol === "administrador");
 
   // Un pedido eliminado (papelera de Planeación) deja de existir para
   // Producción — en cuanto se restaure desde Planeación, vuelve a
@@ -233,8 +209,8 @@ export default async function PedidoProduccionPage({
         <ItemsLiberacionTable
           items={items}
           pedidoId={id}
-          puedeSolicitarEliminacion={puedeSolicitarEliminacion}
-          puedeEliminarDefinitivo={puedeEliminarDefinitivo}
+          numeroPm={pedido.numero_pedido}
+          ot={pedido.orden_trabajo}
         />
       )}
     </main>

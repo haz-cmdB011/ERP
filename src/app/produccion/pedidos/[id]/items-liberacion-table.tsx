@@ -1,10 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import ConfirmDialog from "@/components/confirm-dialog";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import { IconoCheck, IconoReloj } from "@/components/iconos-estado";
 import { colorFilaEstadoRevision, ESTADO_REVISION_LABELS, type EstadoRevision } from "@/lib/planeacion/estado-revision";
@@ -12,9 +9,10 @@ import { avisar } from "@/components/avisos";
 import GrupoDesplegable from "@/components/grupo-desplegable";
 import EnlaceFila from "@/components/enlace-fila";
 import MenuMas from "@/components/menu-mas";
-import { AccionesEnMenu } from "@/components/resumen-menu";
 import BotonDesplegar from "@/components/boton-desplegar";
 import { useFlip } from "@/lib/ui/use-flip";
+import { agregarItems, useCarrito } from "@/lib/produccion/carrito-navegador";
+import type { ItemCarrito } from "@/lib/produccion/carrito";
 
 export interface ItemLiberacionRow {
   id: string;
@@ -50,7 +48,6 @@ interface GrupoMueble {
 }
 
 type FiltroEstado = "todos" | "listos" | "incompletos";
-type Confirmacion = { tipo: "solicitar" | "definitivo"; item: ItemLiberacionRow };
 
 const MATERIALES = ["MADERA", "METAL", "TAPIZ", "HIBRIDO"] as const;
 
@@ -74,16 +71,17 @@ function normalizar(texto: string): string {
 export default function ItemsLiberacionTable({
   items,
   pedidoId,
-  puedeSolicitarEliminacion,
-  puedeEliminarDefinitivo,
+  numeroPm,
+  ot,
 }: {
   items: ItemLiberacionRow[];
   pedidoId: string;
-  puedeSolicitarEliminacion: boolean;
-  puedeEliminarDefinitivo: boolean;
+  numeroPm: string;
+  ot: string | null;
 }) {
   const router = useRouter();
-  const [vistaPapelera, setVistaPapelera] = useState(false);
+  const enElCarrito = useCarrito();
+  const idsEnCarrito = useMemo(() => new Set(enElCarrito.map((i) => i.id)), [enElCarrito]);
   const tablaRef = useFlip<HTMLTableElement>();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
   const [filtroMaterial, setFiltroMaterial] = useState<string | null>(null);
@@ -93,23 +91,13 @@ export default function ItemsLiberacionTable({
   // salvo que la búsqueda haya coincidido únicamente con un hijo.
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({});
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
-  const [liberando, setLiberando] = useState(false);
-  const [revirtiendo, setRevirtiendo] = useState(false);
-  const [procesandoId, setProcesandoId] = useState<string | null>(null);
-  const [confirmacion, setConfirmacion] = useState<Confirmacion | null>(null);
-  const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
-  // Cuántos muebles se acaban de liberar: el siguiente paso natural es asignarlos a un equipo.
-  const [recienLiberados, setRecienLiberados] = useState<number | null>(null);
 
-  // Un ítem con eliminación solicitada sale de la lista normal y vive solo
-  // en la Papelera hasta que se restaure o se elimine definitivamente. Un
-  // ítem cancelado (estado_revision, decidido en Planeación) sale de la
-  // lista normal y solo vive en /produccion/cancelados.
+  // Un ítem con eliminación solicitada o cancelado (estado_revision, decidido
+  // en Planeación) sale de la lista normal y solo vive en /produccion/cancelados.
   const itemsActivos = useMemo(
     () => items.filter((i) => !i.eliminacion_solicitada_en && i.estado_revision !== "cancelado"),
     [items]
   );
-  const itemsPapelera = useMemo(() => items.filter((i) => i.eliminacion_solicitada_en), [items]);
 
   const conteos = useMemo(
     () => ({
@@ -251,157 +239,39 @@ export default function ItemsLiberacionTable({
     });
   }
 
-  // Deshacer desde el aviso: llama al endpoint contrario con los mismos ítems.
-  async function deshacerLiberacion(
-    ruta: "liberar" | "revertir",
-    itemIds: string[],
-    mensajeOk: string
-  ) {
-    try {
-      const res = await fetch(`/api/produccion/items/${ruta}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIds }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        avisar(data.error ?? "No se pudo deshacer.", "error");
-        return;
-      }
-      avisar(mensajeOk, "info");
-      if (ruta === "revertir") setRecienLiberados(null);
-      router.refresh();
-    } catch {
-      avisar("Error de red al deshacer.", "error");
-    }
+  // Pasa lo marcado (muebles y componentes) al carrito, que junta ítems de
+  // cualquier PM u O.T. para liberarlos y asignarlos a equipos desde ahí.
+  function agregarSeleccionAlCarrito() {
+    agregarFilasAlCarrito(items.filter((i) => seleccionados.has(i.id)));
+    setSeleccionados(new Set());
   }
 
-  async function liberarSeleccion() {
-    if (seleccionados.size === 0) return;
-    setLiberando(true);
-    setMensaje(null);
-    const itemIds = Array.from(seleccionados);
-    try {
-      const res = await fetch("/api/produccion/items/liberar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIds }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMensaje({ tipo: "error", texto: data.error ?? "No se pudo liberar la selección." });
-        return;
-      }
-      avisar(`${data.liberados} ítem(s) liberado(s) a producción.`, "exito", {
-        etiqueta: "Deshacer",
-        alHacer: () => deshacerLiberacion("revertir", itemIds, "Liberación deshecha."),
-      });
-      setRecienLiberados(data.liberados);
-      setSeleccionados(new Set());
-      router.refresh();
-    } catch {
-      setMensaje({ tipo: "error", texto: "Error de red al liberar la selección." });
-    } finally {
-      setLiberando(false);
-    }
-  }
-
-  async function revertirSeleccion() {
-    if (seleccionados.size === 0) return;
-    setRevirtiendo(true);
-    setMensaje(null);
-    const itemIds = Array.from(seleccionados);
-    try {
-      const res = await fetch("/api/produccion/items/revertir", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIds }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMensaje({ tipo: "error", texto: data.error ?? "No se pudo revertir la selección." });
-        return;
-      }
-      avisar(`${data.revertidos} ítem(s) revertido(s) a pendiente.`, "exito", {
-        etiqueta: "Deshacer",
-        alHacer: () => deshacerLiberacion("liberar", itemIds, "Ítems liberados de nuevo."),
-      });
-      setRecienLiberados(null);
-      setSeleccionados(new Set());
-      router.refresh();
-    } catch {
-      setMensaje({ tipo: "error", texto: "Error de red al revertir la selección." });
-    } finally {
-      setRevirtiendo(false);
-    }
-  }
-
-  async function ejecutarSolicitarEliminacion(item: ItemLiberacionRow) {
-    setProcesandoId(item.id);
-    setMensaje(null);
-    const supabase = createClient();
-    const { error } = await supabase.rpc("solicitar_eliminacion_item", { p_item_id: item.id });
-    setProcesandoId(null);
-    if (error) {
-      setMensaje({ tipo: "error", texto: error.message });
-      return;
-    }
-    avisar(`Ítem ${item.item_code} movido a la papelera.`, "exito", {
-      etiqueta: "Deshacer",
-      alHacer: () => cancelarSolicitud(item),
-    });
-    setSeleccionados((prev) => {
-      const next = new Set(prev);
-      next.delete(item.id);
-      return next;
-    });
-    router.refresh();
-  }
-
-  async function cancelarSolicitud(item: ItemLiberacionRow) {
-    setProcesandoId(item.id);
-    setMensaje(null);
-    const supabase = createClient();
-    const { error } = await supabase.rpc("cancelar_solicitud_eliminacion_item", {
-      p_item_id: item.id,
-    });
-    setProcesandoId(null);
-    if (error) {
-      setMensaje({ tipo: "error", texto: error.message });
-      return;
-    }
-    avisar(`Ítem ${item.item_code} restaurado.`);
-    router.refresh();
-  }
-
-  async function ejecutarEliminarDefinitivo(item: ItemLiberacionRow) {
-    setProcesandoId(item.id);
-    setMensaje(null);
-    const supabase = createClient();
-    const { data: conservadoPorFolio, error } = await supabase.rpc("eliminar_item_definitivo", {
-      p_item_id: item.id,
-    });
-    setProcesandoId(null);
-    if (error) {
-      setMensaje({ tipo: "error", texto: error.message });
-      return;
-    }
-    // El RPC no borra un ítem que ya tiene folio(s) de Calidad — lo deja
-    // cancelado para no perder ese historial (ver Cancelados).
+  function agregarFilasAlCarrito(filas: ItemLiberacionRow[]) {
+    const nuevos: ItemCarrito[] = filas.map((i) => ({
+      id: i.id,
+      tipo: i.tipo_registro,
+      itemCode: i.item_code,
+      modelo: i.modelo,
+      descripcion: i.descripcion,
+      cantidad: Number(i.cantidad_total),
+      unidad: i.unidad,
+      padreId: i.parent_item_id,
+      pedidoId,
+      numeroPm,
+      ot,
+    }));
+    const agregados = agregarItems(nuevos);
+    const repetidos = nuevos.length - agregados;
     avisar(
-      conservadoPorFolio
-        ? `Ítem ${item.item_code} ya tenía folio(s) de Calidad: se conservó como cancelado en vez de eliminarse. Puedes verlo en Cancelados.`
-        : `Ítem ${item.item_code} eliminado definitivamente.`
+      agregados === 0
+        ? "Esos ítems ya estaban en el carrito."
+        : `${agregados} ítem(s) al carrito${repetidos > 0 ? ` (${repetidos} ya estaban)` : ""}.`,
+      agregados === 0 ? "info" : "exito",
+      {
+        etiqueta: "Ver carrito",
+        alHacer: () => router.push("/produccion/carrito"),
+      }
     );
-    router.refresh();
-  }
-
-  function confirmarAccionPendiente() {
-    if (!confirmacion) return;
-    const { tipo, item } = confirmacion;
-    setConfirmacion(null);
-    if (tipo === "solicitar") ejecutarSolicitarEliminacion(item);
-    else ejecutarEliminarDefinitivo(item);
   }
 
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
@@ -435,7 +305,7 @@ export default function ItemsLiberacionTable({
     // Posición entre los hijos de su mueble: escalona la entrada.
     indice?: number;
   }) {
-    const procesando = procesandoId === item.id;
+    const enCarrito = idsEnCarrito.has(item.id);
     const seleccionado = seleccionados.has(item.id);
     const desplegable = !!grupo && grupo.totalHijos > 0;
     const abierto = grupo ? estaAbierto(grupo) : false;
@@ -602,50 +472,44 @@ export default function ItemsLiberacionTable({
                 </svg>
               </EnlaceFila>
             )}
-            {puedeSolicitarEliminacion && (
-              <button
-                type="button"
-                onClick={() => setConfirmacion({ tipo: "solicitar", item })}
-                disabled={procesando}
-                title="Enviar a la papelera"
-                aria-label={`Enviar el ítem ${item.item_code} a la papelera`}
-                className="flex h-11 w-11 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 lg:h-8 lg:w-8"
+            {/* Un mueble lleva consigo sus componentes, igual que al marcarlo. */}
+            <button
+              type="button"
+              onClick={() => agregarFilasAlCarrito(grupo ? [item, ...grupo.hijos] : [item])}
+              title={enCarrito ? "Ya está en el carrito" : "Agregar al carrito"}
+              aria-label={`Agregar el ítem ${item.item_code} al carrito`}
+              className={`flex h-11 w-11 items-center justify-center rounded border transition-colors lg:h-8 lg:w-8 ${
+                enCarrito
+                  ? "border-brand-600 bg-brand-500 text-on-brand"
+                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+                aria-hidden="true"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
-                >
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
-                  <path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                  <path d="M10 11v6M14 11v6" />
-                </svg>
-              </button>
-            )}
+                <circle cx="9" cy="20" r="1.5" />
+                <circle cx="18" cy="20" r="1.5" />
+                <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" />
+              </svg>
+            </button>
           </div>
         </td>
       </tr>
     );
   }
 
-  const hijosDelItemAConfirmar =
-    confirmacion?.tipo === "solicitar" && confirmacion.item.tipo_registro === "MO"
-      ? items.filter((i) => i.parent_item_id === confirmacion.item.id).length
-      : 0;
-
   return (
     <div className="flex flex-col gap-4">
-      {/* Lo de siempre a la vista (buscar y la papelera); estado y material, que se usan
-          poco, quedan en "Filtros", plegado. */}
+      {/* Lo de siempre a la vista (buscar); estado y material, que se usan poco, quedan en
+          "Filtros", plegado. */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        {!vistaPapelera && (
-          <>
             <div className="relative w-full min-w-0 sm:w-auto sm:max-w-md sm:flex-1">
               <svg
                 viewBox="0 0 24 24"
@@ -677,41 +541,9 @@ export default function ItemsLiberacionTable({
             >
               Filtros{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
             </button>
-          </>
-        )}
-        {/* La papelera vive en el menú de tres rayas (AccionesEnMenu); aquí solo queda el regreso. */}
-        {(puedeSolicitarEliminacion || puedeEliminarDefinitivo) && (
-          <AccionesEnMenu
-            acciones={[
-              vistaPapelera
-                ? { etiqueta: "Volver a los muebles", alHacer: () => setVistaPapelera(false), icono: ["m15 18-6-6 6-6"] }
-                : {
-                    etiqueta: "Papelera",
-                    conteo: itemsPapelera.length,
-                    peligro: true,
-                    alHacer: () => setVistaPapelera(true),
-                    icono: [
-                      "M3 6h18",
-                      "M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2",
-                      "m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
-                      "M10 11v6M14 11v6",
-                    ],
-                  },
-            ]}
-          />
-        )}
-        {vistaPapelera && (
-          <button
-            type="button"
-            onClick={() => setVistaPapelera(false)}
-            className="ml-auto min-h-10 rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            ← Volver a los muebles
-          </button>
-        )}
       </div>
 
-      {!vistaPapelera && filtrosAbiertos && (
+      {filtrosAbiertos && (
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-full text-xs font-semibold uppercase tracking-wide text-slate-500 sm:w-auto">
@@ -784,141 +616,14 @@ export default function ItemsLiberacionTable({
         </div>
       )}
 
-      {mensaje && (
-        <div
-          className={`rounded-lg border p-3 text-sm ${
-            mensaje.tipo === "ok"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
-          }`}
-        >
-          {mensaje.texto}
-        </div>
-      )}
-
-      {recienLiberados !== null && recienLiberados > 0 && !vistaPapelera && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"
-        >
-          <span className="min-w-0 flex-1 font-medium">
-            {recienLiberados === 1 ? "1 ítem liberado" : `${recienLiberados} ítems liberados`} a producción. Falta
-            asignarlos a un equipo.
-          </span>
-          <Link
-            href={`/produccion/pedidos/${pedidoId}/asignaciones`}
-            className="inline-flex min-h-10 items-center rounded-lg bg-brand-500 px-4 font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
-          >
-            Asignar a equipos →
-          </Link>
-          <button
-            type="button"
-            onClick={() => setRecienLiberados(null)}
-            className="inline-flex min-h-10 items-center rounded-lg px-3 font-medium text-emerald-800 hover:bg-emerald-100"
-          >
-            Después
-          </button>
-        </div>
-      )}
-
-      {vistaPapelera ? (
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-600">
-            Se pueden restaurar hasta confirmar la eliminación definitiva.
-          </p>
-          {itemsPapelera.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-              La papelera está vacía.
-            </p>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2">Item</th>
-                    <th className="hidden px-3 py-2 lg:table-cell">Modelo</th>
-                    <th className="hidden px-3 py-2 lg:table-cell">Material</th>
-                    <th className="hidden px-3 py-2 lg:table-cell">Descripción</th>
-                    <th className="hidden px-3 py-2 lg:table-cell">Cant.</th>
-                    <th className="hidden px-3 py-2 lg:table-cell">Eliminado</th>
-                    <th className="px-3 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {itemsPapelera.map((item) => {
-                    const procesando = procesandoId === item.id;
-                    return (
-                      <tr key={item.id} className="align-top text-slate-700 transition-colors hover:bg-slate-50">
-                        <td className="px-3 py-3 lg:py-2">
-                          <span className="font-medium text-slate-900 lg:font-normal lg:text-slate-700">
-                            {item.item_code}
-                            {item.modelo && <span className="lg:hidden"> · {item.modelo}</span>}
-                          </span>
-                          {/* Tablet y celular: datos apilados en la misma celda. */}
-                          <div className="mt-1 flex flex-col gap-1 text-sm lg:hidden">
-                            {item.descripcion && <p className="line-clamp-3">{item.descripcion}</p>}
-                            <p className="flex flex-wrap gap-x-3 text-xs text-slate-500">
-                              <span className="font-medium text-slate-700">
-                                {item.cantidad_total} {item.unidad}
-                              </span>
-                              {item.tipo_material && <span>{item.tipo_material}</span>}
-                              <span>
-                                Eliminado el{" "}
-                                {new Date(item.eliminacion_solicitada_en as string).toLocaleDateString("es-MX")}
-                              </span>
-                            </p>
-                          </div>
-                        </td>
-                        <td className="hidden px-3 py-2 lg:table-cell">{item.modelo}</td>
-                        <td className="hidden px-3 py-2 lg:table-cell">{item.tipo_material}</td>
-                        <td className="hidden px-3 py-2 lg:table-cell">{item.descripcion}</td>
-                        <td className="hidden px-3 py-2 lg:table-cell">
-                          {item.cantidad_total} {item.unidad}
-                        </td>
-                        <td className="hidden px-3 py-2 text-slate-500 lg:table-cell">
-                          {new Date(item.eliminacion_solicitada_en as string).toLocaleDateString("es-MX")}
-                        </td>
-                        <td className="px-3 py-3 lg:py-2">
-                          <div className="flex flex-col items-stretch gap-2 lg:flex-row lg:flex-wrap lg:items-center">
-                          {puedeSolicitarEliminacion && (
-                            <button
-                              type="button"
-                              onClick={() => cancelarSolicitud(item)}
-                              disabled={procesando}
-                              className="rounded border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:opacity-50 lg:px-2.5 lg:py-1 lg:text-xs"
-                            >
-                              Restaurar
-                            </button>
-                          )}
-                          {puedeEliminarDefinitivo && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmacion({ tipo: "definitivo", item })}
-                              disabled={procesando}
-                              className="rounded border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 lg:px-2.5 lg:py-1 lg:text-xs"
-                            >
-                              Eliminar definitivamente
-                            </button>
-                          )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
+      <>
           {busqueda.trim() && (
             <p className="text-sm text-slate-500">{grupos.length + sueltos.length} resultado(s)</p>
           )}
 
           {/* Barra de acción masiva: sticky para no tener que subir hasta
               arriba en pedidos con muchos ítems después de seleccionar. La acción
-              principal es liberar; lo demás va en "Más". */}
+              principal es agregar al carrito (ahí se libera y se asigna); lo demás va en "Más". */}
           <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
             <label className="flex min-h-9 items-center gap-2">
               <input
@@ -930,7 +635,7 @@ export default function ItemsLiberacionTable({
               Seleccionar todos ({idsFiltrados.length})
             </label>
             <span className="text-slate-500">
-              {seleccionados.size === 0 ? "Marca lo que quieras liberar" : `${seleccionados.size} seleccionado(s)`}
+              {seleccionados.size === 0 ? "Marca lo que quieras llevar al carrito" : `${seleccionados.size} seleccionado(s)`}
             </span>
             {seleccionados.size > 0 && (
               <button
@@ -949,12 +654,6 @@ export default function ItemsLiberacionTable({
                     deshabilitada: idsListosPorLiberar.length === 0,
                     alHacer: () => setSeleccionados(new Set(idsListosPorLiberar)),
                   },
-                  {
-                    etiqueta: "Imprimir hojas de viajero (PDF)",
-                    deshabilitada: seleccionados.size === 0,
-                    href: `/produccion/pedidos/${pedidoId}/viajero-lote?ids=${Array.from(seleccionados).join(",")}`,
-                    target: "_blank",
-                  },
                   // Sin selección imprime las de todos los muebles liberados.
                   {
                     etiqueta: seleccionados.size > 0 ? `Etiquetas QR (${seleccionados.size})` : "Etiquetas QR de los liberados",
@@ -963,20 +662,16 @@ export default function ItemsLiberacionTable({
                     }`,
                     target: "_blank",
                   },
-                  {
-                    etiqueta: revirtiendo ? "Regresando a pendiente…" : "Regresar a pendiente",
-                    deshabilitada: seleccionados.size === 0 || revirtiendo,
-                    alHacer: revertirSeleccion,
-                  },
                 ]}
               />
               <button
                 type="button"
-                onClick={liberarSeleccion}
-                disabled={seleccionados.size === 0 || liberando}
+                onClick={agregarSeleccionAlCarrito}
+                disabled={seleccionados.size === 0}
+                title="Junta estos ítems con los de otros PM u O.T. para liberarlos y asignarlos a equipos"
                 className="min-h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
               >
-                {liberando ? "Liberando…" : "Liberar a Producción"}
+                Agregar al carrito{seleccionados.size > 0 ? ` (${seleccionados.size})` : ""}
               </button>
             </div>
           </div>
@@ -1034,32 +729,7 @@ export default function ItemsLiberacionTable({
               </table>
             </div>
           )}
-        </>
-      )}
-
-      <ConfirmDialog
-        open={confirmacion !== null}
-        title={
-          confirmacion?.tipo === "definitivo"
-            ? "Eliminar definitivamente"
-            : "Enviar ítem a la papelera"
-        }
-        message={
-          confirmacion?.tipo === "definitivo"
-            ? `Esta acción NO se puede deshacer. ¿Eliminar definitivamente el ítem ${confirmacion.item.item_code}?`
-            : `¿Enviar el ítem ${confirmacion?.item.item_code} a la papelera? Podrás restaurarlo desde ahí mientras nadie confirme la eliminación definitiva.${
-                hijosDelItemAConfirmar > 0
-                  ? ` Este ítem tiene ${hijosDelItemAConfirmar} componente(s) hijo, que se eliminarán junto con él al confirmarse.`
-                  : ""
-              }`
-        }
-        confirmLabel={
-          confirmacion?.tipo === "definitivo" ? "Eliminar definitivamente" : "Enviar a papelera"
-        }
-        destructive
-        onConfirm={confirmarAccionPendiente}
-        onCancel={() => setConfirmacion(null)}
-      />
+      </>
     </div>
   );
 }

@@ -27,8 +27,12 @@ export default async function PestanasPedido({
   const base = `/produccion/pedidos/${pedidoId}`;
   const items: ItemPestana[] = [
     { id: "muebles", etiqueta: "Muebles", href: base },
-    { id: "asignar", etiqueta: "Asignar a equipos", href: `${base}/asignaciones` },
   ];
+  // Asignar a equipos se hace desde el carrito y el panel de asignación: la pestaña solo aparece en
+  // la pantalla de asignaciones del PM (a la que llegan el QR y el tablero).
+  if (activa === "asignar") {
+    items.push({ id: "asignar", etiqueta: "Asignar a equipos", href: `${base}/asignaciones` });
+  }
   if (total > 1 || activa === "cambios") {
     items.push({ id: "cambios", etiqueta: "Cambios", href: `${base}/cambios` });
   }
