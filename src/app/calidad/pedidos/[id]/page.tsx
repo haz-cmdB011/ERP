@@ -393,12 +393,6 @@ export default async function PedidoCalidadPage({
         </p>
       )}
 
-      <RevisionFinalSeccion
-        muebles={mueblesFinal}
-        numeroPedido={pedido.numero_pedido}
-        puedeEvaluar={puedeEvaluar && !pedido.cancelado_en}
-      />
-
       {versionSeleccionada && itemsConInforme.length > 0 && (
         <ItemsCalidadTable
           items={enfoque ? grupoEnfocado : itemsConInforme}
@@ -407,6 +401,13 @@ export default async function PedidoCalidadPage({
           puedeEvaluar={puedeEvaluar}
         />
       )}
+
+      {/* La revisión final del mueble completo va al final: primero se revisan las piezas y los informes. */}
+      <RevisionFinalSeccion
+        muebles={mueblesFinal}
+        numeroPedido={pedido.numero_pedido}
+        puedeEvaluar={puedeEvaluar && !pedido.cancelado_en}
+      />
     </main>
   );
 }
