@@ -109,14 +109,13 @@ export default async function PlaneacionListPage({
         </div>
       </div>
 
-      <AccesosRapidos
-        accesos={[
-          ...(puedeCargar
-            ? [{ href: "/planeacion/upload", icono: "subir" as const, titulo: "Cargar Excel", detalle: "Subir un pedido", principal: true }]
-            : []),
-          { href: "/planeacion/archivo", icono: "archivo" as const, titulo: "Archivo", detalle: "Cancelados y papelera" },
-        ]}
-      />
+      {puedeCargar && (
+        <AccesosRapidos
+          accesos={[
+            { href: "/planeacion/upload", icono: "subir", titulo: "Cargar Excel", detalle: "Subir un pedido", principal: true },
+          ]}
+        />
+      )}
 
       <form action="/planeacion" className="flex gap-2">
         {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
