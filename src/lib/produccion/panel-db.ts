@@ -57,7 +57,7 @@ export async function cargarMueblesDePanel(
   );
   const flujos = await cargarFlujoMuebles(
     supabase,
-    conPedido.map((x) => x.fila)
+    conPedido.map((x) => ({ ...x.fila, pedido_id: x.fila.pedido_versiones?.pedido_id ?? null }))
   );
 
   return conPedido.map(({ fila, pedido }, i) => ({

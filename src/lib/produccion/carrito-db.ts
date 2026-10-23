@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leer } from "@/lib/supabase/leer";
 import type { Proceso } from "./asignaciones";
-import { disponibleDe } from "./flujo-mueble";
+import { disponibleDe, seAsignaCompleto } from "./flujo-mueble";
 import { cargarFlujoMuebles } from "./flujo-db";
 
 // Lo que el carrito necesita saber de la base sobre cada ítem que lleva.
@@ -81,13 +81,19 @@ export async function cargarDatosCarrito(
   }
 
   const flujos = await cargarFlujoMuebles(supabase, asignables);
-  const muebles = flujos.map((m) => ({
-    id: m.id,
-    item_code: m.item_code,
-    modelo: m.modelo,
-    unidad: m.unidad,
-    ...disponibleDe(m),
-  }));
+  // Uno que se asigna por partes sigue en la lista (para abrirlo en el panel) pero sin nada
+  // que asignar completo: sus partes se asignan desde la tabla del despiece.
+  const muebles = flujos.map((m) => {
+    const d = disponibleDe(m);
+    const vacio = Object.fromEntries(Object.keys(d.disponible).map((p) => [p, 0])) as typeof d.disponible;
+    return {
+      id: m.id,
+      item_code: m.item_code,
+      modelo: m.modelo,
+      unidad: m.unidad,
+      ...(seAsignaCompleto(m) ? d : { disponible: vacio, listo: vacio }),
+    };
+  });
 
   return { estados, muebles };
 }

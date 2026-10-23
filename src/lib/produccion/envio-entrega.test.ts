@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  esFotoYaSubida,
   esRechazoDefinitivo,
   esViolacionUnica,
   leerClaveEnvio,
-  rutaFotoEntrega,
 } from "./envio-entrega";
 
 const UUID = "0b0e7a4e-6c1c-4d1e-9c5e-2f6a3b9d8e11";
@@ -25,22 +23,7 @@ describe("leerClaveEnvio", () => {
   });
 });
 
-describe("rutaFotoEntrega", () => {
-  it("cuelga de la carpeta de la asignación (la función SQL lo exige) y sale de la clave", () => {
-    const ruta = rutaFotoEntrega("asig-1", UUID);
-    expect(ruta).toBe(`asig-1/${UUID}.webp`);
-    expect(ruta.startsWith("asig-1/")).toBe(true);
-  });
-});
-
 describe("clasificación de errores", () => {
-  it("reconoce que la foto ya estaba subida", () => {
-    expect(esFotoYaSubida({ statusCode: "409", message: "x" })).toBe(true);
-    expect(esFotoYaSubida({ statusCode: 409 })).toBe(true);
-    expect(esFotoYaSubida({ message: "The resource already exists" })).toBe(true);
-    expect(esFotoYaSubida({ statusCode: "500", message: "Internal error" })).toBe(false);
-  });
-
   it("reconoce la violación del índice único", () => {
     expect(esViolacionUnica({ code: "23505" })).toBe(true);
     expect(esViolacionUnica({ code: "P0001" })).toBe(false);

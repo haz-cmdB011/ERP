@@ -12,6 +12,7 @@ import {
   leerCantidad,
   limpiarLineas,
   mismasLineas,
+  repartirPorcentajes,
   totalLinea,
   validarLineas,
   type LineaDespiece,
@@ -59,13 +60,16 @@ function filasDesde(lineas: LineaDespiece[], avisos: (string | null)[] = []): Fi
   }));
 }
 
+// El % del mueble no se captura: cada línea vale lo mismo (partes iguales).
 function lineasDesde(filas: Fila[]): LineaDespiece[] {
-  return filas.map((f) => ({
+  const porcentajes = repartirPorcentajes(filas.length);
+  return filas.map((f, i) => ({
     id: f.parteId ?? null,
     descripcion: f.descripcion,
     material: f.material || null,
     unidad: f.unidad || null,
     piezas_por_mueble: leerCantidad(f.piezas),
+    porcentaje: porcentajes[i],
     hijo_id: f.hijoId,
   }));
 }
@@ -74,7 +78,7 @@ function numero(n: number): string {
   return n.toLocaleString("es-MX", { maximumFractionDigits: 2 });
 }
 
-const GRID = "sm:grid-cols-[minmax(0,1fr)_6rem_6rem_7rem_2.5rem]";
+const GRID = "sm:grid-cols-[minmax(0,1fr)_6rem_6rem_5.5rem_7rem_2.5rem]";
 
 function claveBorrador(itemId: string): string {
   return `despiece-borrador-${itemId}`;
@@ -301,7 +305,12 @@ export default function DespieceEditor({
   function recuperarBorrador() {
     if (!borrador) return;
     // Los borradores de antes de las partes no traen parteId: la base reconoce la parte por su componente.
-    setFilas(borrador.filas.map((f) => ({ ...f, parteId: f.parteId ?? null, clave: ++ultimaClave, aviso: null })));
+    setFilas(borrador.filas.map((f) => ({
+        ...f,
+        parteId: f.parteId ?? null,
+        clave: ++ultimaClave,
+        aviso: null,
+      })));
     setBorrador(null);
   }
 
@@ -556,6 +565,12 @@ export default function DespieceEditor({
                   className={`${estiloCampo} tabular-nums`}
                 />
               </Campo>
+              <div className="flex min-w-0 flex-col gap-1" title="Cada parte del despiece vale lo mismo">
+                <span className="text-xs font-medium text-slate-500">% del mueble</span>
+                <span className="py-2.5 text-base tabular-nums text-slate-900 sm:py-2 sm:text-sm">
+                  {numero(actuales[i]?.porcentaje ?? 0)} %
+                </span>
+              </div>
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="text-xs font-medium text-slate-500">Para {numero(muebles)}</span>
                 <span className="py-2.5 text-base tabular-nums text-slate-900 sm:py-2 sm:text-sm">
