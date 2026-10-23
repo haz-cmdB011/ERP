@@ -132,7 +132,7 @@ export default async function OrdenTrabajoProduccionPage({
       )}
 
       {pms.length > 0 && (
-        <ul className="flex flex-col gap-3">
+        <ul className="lista-animada flex flex-col gap-3">
           {pms.map((p) => {
             const activa = versionActiva.get(p.id);
             const conteo = activa ? conteoMuebles.get(activa.id) : undefined;
@@ -141,7 +141,7 @@ export default async function OrdenTrabajoProduccionPage({
             return (
               <li
                 key={p.id}
-                className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
+                className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
               >
                 {/* Toda la tarjeta abre el pedido. */}
                 <Link

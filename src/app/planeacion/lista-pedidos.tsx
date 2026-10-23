@@ -35,7 +35,7 @@ export default function ListaPedidos({
         <span className="w-44 shrink-0">{tituloAvance}</span>
         <span className="w-4 shrink-0" />
       </div>
-      <ul className="divide-y divide-slate-100">
+      <ul className="lista-animada divide-y divide-slate-100">
         {filas.map((f) => (
           <li
             key={f.clave}

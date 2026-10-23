@@ -191,7 +191,7 @@ export default async function OrdenTrabajoCalidadPage({
           <h2 className="text-sm font-semibold text-slate-600">
             {pmsVisibles.length} PM con muebles en producción
           </h2>
-          <ul className="flex flex-col gap-3">
+          <ul className="lista-animada flex flex-col gap-3">
             {pmsVisibles.map((p) => {
               const activa = versionActiva.get(p.id);
               const a = activa ? avancePorVersion.get(activa.id) : undefined;
@@ -199,7 +199,7 @@ export default async function OrdenTrabajoCalidadPage({
               return (
                 <li
                   key={p.id}
-                  className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors focus-within:bg-slate-50 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+                  className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 focus-within:bg-slate-50 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
                 >
                   <div className="flex min-w-0 flex-col gap-1">
                     {/* El enlace se extiende sobre toda la tarjeta (after:inset-0): tocar cualquier parte abre el pedido. */}

@@ -19,14 +19,14 @@ export default function AccesosRapidos({ accesos }: { accesos: Acceso[] }) {
         <Link
           key={a.href}
           href={a.href}
-          className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors focus-visible:outline-brand-500 ${
+          className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-brand-500 ${
             a.principal
               ? "border-brand-600 bg-brand-500 text-on-brand hover:bg-brand-400"
               : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
           }`}
         >
           <span
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+            className={`acceso-icono flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
               a.principal ? "bg-white/20" : "bg-slate-100 text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-700"
             }`}
           >

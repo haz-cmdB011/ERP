@@ -36,7 +36,7 @@ export default function BarraPestanas({
             aria-current={esActiva ? "page" : undefined}
             className={`-mb-px inline-flex min-h-11 items-center rounded-t-lg border-b-2 px-4 text-sm font-medium transition-colors ${
               esActiva
-                ? "border-brand-600 font-semibold text-slate-900"
+                ? "pestana-activa border-brand-600 font-semibold text-slate-900"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
             }`}
           >

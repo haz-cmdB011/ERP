@@ -24,13 +24,13 @@ export default function TablaPedidos({
   mostrarProyecto?: boolean;
 }) {
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="lista-animada flex flex-col gap-3">
       {pedidos.map((p) => {
         const activa = p.pedido_versiones.find((v) => v.es_version_activa);
         return (
           <li
             key={p.id}
-            className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors focus-within:bg-slate-50 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+            className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 focus-within:bg-slate-50 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
           >
             <div className="flex min-w-0 flex-col gap-1">
               <EnlaceFila
