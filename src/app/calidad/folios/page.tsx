@@ -1,5 +1,4 @@
 import Link from "next/link";
-import PestanasSeccion from "@/app/calidad/pestanas-seccion";
 import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import Paginacion, { TAMANO_PAGINA } from "@/components/paginacion";
@@ -204,7 +203,6 @@ export default async function FoliosCalidadPage({
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <PestanasSeccion seccion="archivo" />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Folios de calidad</h1>
       </div>

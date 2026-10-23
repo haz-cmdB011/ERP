@@ -1,5 +1,4 @@
 import Link from "next/link";
-import PestanasSeccion from "@/app/calidad/pestanas-seccion";
 import { createClient } from "@/lib/supabase/server";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
@@ -150,7 +149,6 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
-      <PestanasSeccion seccion="revision" />
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">No conformidades</h1>
         <NuevoReporte opciones={opciones} hoy={hoy} sugerido={leerReporteSugerido(parametros)} />
