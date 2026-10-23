@@ -44,7 +44,7 @@ export default function Tarjeta({
   return (
     <details open={abierto} className="group rounded-xl border border-slate-200 bg-white shadow-sm">
       <summary className="flex cursor-pointer list-none items-start gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
-        <span aria-hidden="true" className="inline-block text-slate-400 transition-transform group-open:rotate-90">
+        <span aria-hidden="true" className="inline-block text-slate-500 transition-transform group-open:rotate-90">
           ▸
         </span>
         {cabecera}

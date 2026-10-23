@@ -304,7 +304,7 @@ export default function AsignarLote({
                       </span>
                       {seAdelanta(m) && (
                         <span
-                          className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                          className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700"
                           title="El paso anterior todavía no entrega todas estas piezas"
                         >
                           {m.listo[proceso]} listas

@@ -178,7 +178,7 @@ export function ResumenProceso({
       <p className="mt-2 text-xs text-slate-500 tabular-nums">
         {t.entregado}/{t.piezas} pzas entregadas · {t.asignado} asignadas
       </p>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-500">
         {t.muebles} mueble{t.muebles === 1 ? "" : "s"}
       </p>
     </div>
@@ -280,13 +280,13 @@ export function FilaMueble({
           >
             <span
               aria-hidden
-              className={`text-slate-400 transition-transform ${abierto ? "rotate-90" : ""}`}
+              className={`text-slate-500 transition-transform ${abierto ? "rotate-90" : ""}`}
             >
               ▸
             </span>
             <span className="min-w-0">
               <span className="block truncate font-semibold text-slate-900">
-                <span className="text-slate-400">{m.item_code} ·</span>{" "}
+                <span className="text-slate-500">{m.item_code} ·</span>{" "}
                 {m.modelo ?? "Sin modelo"}
               </span>
               <span className="block text-xs text-slate-500">
@@ -414,7 +414,7 @@ function Paso({
         }}
       >
         <span
-          className="grid size-8 place-items-center rounded-full bg-white text-[10px] font-bold tabular-nums"
+          className="grid size-8 place-items-center rounded-full bg-white text-xs font-bold tabular-nums"
           style={{ color }}
         >
           {a.estado === "terminado"
@@ -424,17 +424,17 @@ function Paso({
               : `${pct}%`}
         </span>
         {a.porReasignar > 0 && (
-          <span className="absolute -top-1 -left-1 grid size-4 place-items-center rounded-full bg-rose-500 text-[10px] font-bold leading-none text-white">
+          <span className="absolute -top-1 -left-1 grid size-4 place-items-center rounded-full bg-rose-500 text-xs font-bold leading-none text-white">
             !
           </span>
         )}
         {conMas && a.estado !== "sin_asignar" && (
-          <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-amber-500 text-[10px] font-bold leading-none text-white">
+          <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-amber-500 text-xs font-bold leading-none text-white">
             +
           </span>
         )}
       </span>
-      <span className="text-[11px] font-medium leading-tight whitespace-nowrap text-slate-700">
+      <span className="text-xs font-medium leading-tight whitespace-nowrap text-slate-700">
         {etiqueta}
       </span>
     </span>
@@ -455,7 +455,7 @@ function DetalleMueble({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <p className="text-slate-600">
           <span className="font-semibold text-slate-700">Ruta:</span> {textoRuta(m.ruta)}
-          {m.versionRuta === 0 && <span className="text-slate-400"> (sugerida)</span>}
+          {m.versionRuta === 0 && <span className="text-slate-500"> (sugerida)</span>}
         </p>
         {asignar && (
           <EditarRuta
@@ -486,7 +486,7 @@ function DetalleMueble({
                     mueble={m}
                     indice={i}
                     asignar={asignar}
-                    className="rounded-md bg-brand-500 px-2 py-0.5 text-[11px] font-semibold text-on-brand transition-colors hover:bg-brand-400"
+                    className="rounded-md bg-brand-500 px-2 py-0.5 text-xs font-semibold text-on-brand transition-colors hover:bg-brand-400"
                   >
                     + Asignar ({a.disponible})
                   </BotonAsignar>
@@ -514,13 +514,13 @@ function DetalleMueble({
                             {x.folio_rechazo ? " (retrabajo)" : ""}
                             {x.folio_revision_final ? ` (retrabajo de ${x.folio_revision_final})` : ""}
                             <span
-                              className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${ESTADO_ASIGNACION_ESTILOS[x.estado]}`}
+                              className={`rounded border px-1.5 py-0.5 text-xs font-medium ${ESTADO_ASIGNACION_ESTILOS[x.estado]}`}
                             >
                               {ESTADO_ASIGNACION_LABELS[x.estado]}
                             </span>
                             {x.adelantada && (
                               <span
-                                className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                                className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700"
                                 title="Se asignó antes de que el paso anterior entregara esas piezas"
                               >
                                 Adelantada

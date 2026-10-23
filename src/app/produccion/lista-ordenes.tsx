@@ -85,7 +85,7 @@ export default function ListaOrdenes({
             </div>
             <Chevron
               abierto={false}
-              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-400 sm:block"
+              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-500 sm:block"
             />
           </li>
         );

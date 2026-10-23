@@ -124,7 +124,7 @@ const CATEGORIA_ESTILO: Record<CategoriaCharola, string> = {
   compleja: "bg-orange-50 text-orange-700 ring-orange-200",
 };
 
-const ETIQUETA = "text-[11px] font-medium uppercase tracking-wide text-slate-500";
+const ETIQUETA = "text-xs font-medium uppercase tracking-wide text-slate-500";
 const CONTROL =
   "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 " +
   "focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
@@ -723,7 +723,7 @@ export default function CapturaElectrificacion({
                 </option>
               ))}
             </select>
-            <span className="text-[11px] text-slate-600">
+            <span className="text-xs text-slate-600">
               Solo se muestran las OT y los modelos que incluyen iluminación.
             </span>
           </label>
@@ -829,7 +829,7 @@ export default function CapturaElectrificacion({
                       <>
                         {" · "}
                         <span
-                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
+                          className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
                         >
                           {BANDA_NOMBRE[b.banda]}
                         </span>
@@ -889,12 +889,12 @@ export default function CapturaElectrificacion({
                                       <span className="font-mono text-slate-900">
                                         {m.modelo}
                                         {m.variantes > 1 && (
-                                          <span className="ml-1.5 rounded bg-amber-50 px-1 font-sans text-[10px] text-amber-700 ring-1 ring-amber-200">
+                                          <span className="ml-1.5 rounded bg-amber-50 px-1 font-sans text-xs text-amber-700 ring-1 ring-amber-200">
                                             variante
                                           </span>
                                         )}
                                       </span>
-                                      <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
+                                      <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">
                                         {m.cantidadPm} en la OT
                                         {m.cantidadRegistrada > 0 && (
                                           <span
@@ -911,10 +911,10 @@ export default function CapturaElectrificacion({
                                       </span>
                                     </span>
                                     {m.descripcion && (
-                                      <span className="truncate text-[11px] text-slate-500">{m.descripcion}</span>
+                                      <span className="truncate text-xs text-slate-500">{m.descripcion}</span>
                                     )}
                                     {(otElegida?.numPms ?? 0) > 1 && m.pms && (
-                                      <span className="truncate font-mono text-[10px] text-slate-600">
+                                      <span className="truncate font-mono text-xs text-slate-600">
                                         {m.pms}
                                       </span>
                                     )}
@@ -1034,7 +1034,7 @@ export default function CapturaElectrificacion({
                                 {cat && puedeVerSugerido && (
                                   <span
                                     title={CATEGORIA_RANGO[cat]}
-                                    className={`mb-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${CATEGORIA_ESTILO[cat]}`}
+                                    className={`mb-1 rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${CATEGORIA_ESTILO[cat]}`}
                                   >
                                     {CATEGORIA_NOMBRE[cat]}
                                   </span>
@@ -1165,7 +1165,7 @@ export default function CapturaElectrificacion({
                             onChange={(e) => actualizar(r.id, { justificacion: e.target.value })}
                           />
                           {faltaJustificar && (
-                            <span className="text-[11px] text-rose-600">
+                            <span className="text-xs text-rose-600">
                               Sin justificación no se puede guardar este renglón.
                             </span>
                           )}
@@ -1294,7 +1294,7 @@ export default function CapturaElectrificacion({
               </label>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
-                  <div className="bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     LED — precio por metro
                   </div>
                   <div className="flex flex-col gap-2 p-3">
@@ -1319,7 +1319,7 @@ export default function CapturaElectrificacion({
                   </div>
                 </div>
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
-                  <div className="bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Charola — precio por categoría
                   </div>
                   <div className="flex flex-col gap-2 p-3">
@@ -1347,7 +1347,7 @@ export default function CapturaElectrificacion({
                   </div>
                 </div>
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
-                  <div className="bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Prioridad
                   </div>
                   <table className="w-full text-left text-xs">
@@ -1450,7 +1450,7 @@ function VarianteElegida({
       (m) => claveVariante(m.modelo, m.descripcionPm) === claveVariante(r.modelo, r.descripcionPm)
     );
     return (
-      <p className="mt-0.5 truncate text-[11px] text-slate-500" title={r.descripcionPm}>
+      <p className="mt-0.5 truncate text-xs text-slate-500" title={r.descripcionPm}>
         {elegida?.descripcion ?? r.descripcionPm.split("\n")[0]}
       </p>
     );
@@ -1459,7 +1459,7 @@ function VarianteElegida({
   const variantes = q ? (modelos ?? []).filter((m) => claveModelo(m.modelo) === q).length : 0;
   if (r.descripcionPm === null && variantes > 1) {
     return (
-      <p className="mt-0.5 text-[11px] text-amber-700">
+      <p className="mt-0.5 text-xs text-amber-700">
         {variantes} variantes con este código: elige la tuya en la lista.
       </p>
     );

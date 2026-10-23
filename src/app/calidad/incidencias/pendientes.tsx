@@ -51,7 +51,7 @@ export default function Pendientes({
         </>
       )}
       {datos.sinFecha > 0 && (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500">
           Otros {datos.sinFecha} abiertos no tienen fecha, así que no se sabe qué tan viejos son.
         </p>
       )}

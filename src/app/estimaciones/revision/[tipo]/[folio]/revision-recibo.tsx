@@ -120,7 +120,7 @@ const BANDA_ESTILO: Record<Banda, string> = {
   justificar: "bg-rose-50 text-rose-700 ring-rose-200",
 };
 
-const ETIQUETA = "text-[11px] font-medium uppercase tracking-wide text-slate-500";
+const ETIQUETA = "text-xs font-medium uppercase tracking-wide text-slate-500";
 const CONTROL =
   "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 " +
   "focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
@@ -690,7 +690,7 @@ function RenglonRevisionCard({
                     void decidir(Number(aceptado));
                   }}
                 />
-                <span className="text-[11px] font-normal text-slate-600">Enter para guardar</span>
+                <span className="text-xs font-normal text-slate-600">Enter para guardar</span>
               </label>
               {b.banda === "justificar" && (
                 <textarea

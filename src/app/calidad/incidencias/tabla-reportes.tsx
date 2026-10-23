@@ -87,7 +87,7 @@ export default function TablaReportes({
               <tr key={i.id} className="border-t border-slate-100 align-top">
                 <td className="whitespace-nowrap px-2 py-2 text-slate-700">
                   {i.fecha ? diaCorto(i.fecha) : "—"}
-                  {i.fecha && <span className="block text-xs text-slate-400">Sem {semanaDe(i.fecha)?.numero}</span>}
+                  {i.fecha && <span className="block text-xs text-slate-500">Sem {semanaDe(i.fecha)?.numero}</span>}
                 </td>
                 {mostrarDias && (
                   <td className="px-2 py-2 text-right tabular-nums text-amber-700">{i.dias ?? "—"}</td>
@@ -110,7 +110,7 @@ export default function TablaReportes({
                 <td className="px-2 py-2 text-slate-700">{i.areas.join(", ") || "—"}</td>
                 <td className="px-2 py-2 text-slate-700">
                   {i.motivo ?? "—"}
-                  <span className="block text-xs text-slate-400">{i.categoria_motivo}</span>
+                  <span className="block text-xs text-slate-500">{i.categoria_motivo}</span>
                 </td>
                 <td className="px-2 py-2 text-slate-700">{i.areas_reporta.join(", ") || "—"}</td>
                 <td className="px-2 py-2">

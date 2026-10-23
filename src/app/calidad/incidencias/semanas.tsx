@@ -43,13 +43,13 @@ export default function Semanas({
                     className="flex w-full flex-col items-center justify-end gap-0.5 rounded-sm hover:bg-slate-50"
                     style={{ height: ALTO + 18 }}
                   >
-                    <span className="text-[10px] tabular-nums leading-none text-slate-500">{s.total || ""}</span>
+                    <span className="text-xs tabular-nums leading-none text-slate-500">{s.total || ""}</span>
                     <span className="flex w-4 flex-col justify-end overflow-hidden rounded-t" style={{ height: alto }}>
                       <span className="w-full bg-amber-400" style={{ height: abierto }} />
                       <span className="w-full bg-brand-500" style={{ height: alto - abierto }} />
                     </span>
                   </Link>
-                  <span className="text-[10px] tabular-nums text-slate-500">{s.numero}</span>
+                  <span className="text-xs tabular-nums text-slate-500">{s.numero}</span>
                 </li>
               );
             })}

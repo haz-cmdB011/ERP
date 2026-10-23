@@ -191,7 +191,7 @@ export default async function AreaNav({
                 {a.nombre}
                 {a.area === "estimaciones" && porRevisar > 0 && (
                   <span
-                    className="anim-aviso ml-0.5 min-w-5 rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white"
+                    className="anim-aviso ml-0.5 min-w-5 rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-white"
                     title={`${porRevisar} recibo${porRevisar === 1 ? "" : "s"} por revisar`}
                   >
                     {porRevisar > 99 ? "99+" : porRevisar}

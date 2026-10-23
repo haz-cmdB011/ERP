@@ -550,7 +550,7 @@ export default async function ReportePage({
                         <ul className="flex flex-col gap-1.5 text-sm text-slate-700">
                           {comparativa.hallazgos.map((h) => (
                             <li key={h} className="flex gap-2">
-                              <span aria-hidden="true" className="text-slate-400">
+                              <span aria-hidden="true" className="text-slate-500">
                                 •
                               </span>
                               <span>{h}</span>

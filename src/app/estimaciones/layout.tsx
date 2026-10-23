@@ -17,7 +17,7 @@ import CuentaPendiente from "@/components/cuenta-pendiente";
 function Globo({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
-    <span className="anim-aviso ml-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+    <span className="anim-aviso ml-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-xs font-semibold text-white">
       {n}
     </span>
   );

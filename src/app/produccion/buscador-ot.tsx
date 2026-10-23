@@ -183,7 +183,7 @@ export default function BuscadorOt({
                   if (lista.length === 0) return null;
                   return (
                     <li key={grupo} role="presentation">
-                      <p className="bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      <p className="bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         {grupo}
                       </p>
                       <ul role="presentation">

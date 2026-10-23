@@ -245,13 +245,13 @@ export default async function CalidadListPage({
                     enTaller={sinResumen ? 0 : enTallerDe(fila)}
                   />
                   {!sinResumen && reinspeccionDe(fila) > 0 && (
-                    <span className="text-[11px] font-medium text-rose-700">
+                    <span className="text-xs font-medium text-rose-700">
                       {reinspeccionDe(fila)} por reinspeccionar
                     </span>
                   )}
                   {/* Con barra de avance; si todo está en taller, ya lo dice la etiqueta. */}
                   {!sinResumen && enTallerDe(fila) > 0 && avanceDe(fila).liberados > 0 && (
-                    <span className="text-[11px] text-slate-500">{enTallerDe(fila)} en taller</span>
+                    <span className="text-xs text-slate-500">{enTallerDe(fila)} en taller</span>
                   )}
                 </div>
               ),

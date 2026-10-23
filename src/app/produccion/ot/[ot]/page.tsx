@@ -153,12 +153,12 @@ export default async function OrdenTrabajoProduccionPage({
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="text-base font-semibold text-slate-900">{p.numero_pedido}</span>
                     {p.cancelado_en && (
-                      <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                      <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
                         Cancelado
                       </span>
                     )}
                     {activa && activa.numero_version > 1 && (
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
                         Versión {activa.numero_version}
                       </span>
                     )}

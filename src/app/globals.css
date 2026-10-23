@@ -792,3 +792,19 @@ html.transicion-tema *::after {
     rotate: -4deg;
   }
 }
+
+/* Zonas táctiles: en pantallas táctiles las casillas y los botones de opción son más grandes y
+   tienen aire alrededor, para acertar con el dedo o con guantes. */
+@media (pointer: coarse) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+  /* Las casillas dentro de una tabla o lista ganan un margen táctil sin mover el diseño. */
+  td > input[type="checkbox"],
+  th > input[type="checkbox"],
+  li > label > input[type="checkbox"] {
+    outline-offset: 6px;
+  }
+}

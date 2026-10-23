@@ -412,7 +412,7 @@ export default function ItemsCalidadTable({
             Cancelado
           </span>
           {item.motivoCancelacion && (
-            <p className="mt-1 max-w-[220px] text-[11px] text-slate-500">
+            <p className="mt-1 max-w-[220px] text-xs text-slate-500">
               Motivo: {item.motivoCancelacion}
             </p>
           )}
@@ -437,10 +437,10 @@ export default function ItemsCalidadTable({
             {item.situacion?.corto ?? "Sin evaluar"}
           </span>
           {item.situacion && !puedeEvaluar && (
-            <p className="mt-0.5 max-w-[240px] text-[11px] leading-snug text-slate-500">{item.situacion.detalle}</p>
+            <p className="mt-0.5 max-w-[240px] text-xs leading-snug text-slate-500">{item.situacion.detalle}</p>
           )}
           {antiguo && (
-            <p className="mt-1 text-[11px] font-medium text-amber-600">
+            <p className="mt-1 text-xs font-medium text-amber-600">
               ⚠ {dias} día{dias === 1 ? "" : "s"} esperando evaluación
             </p>
           )}
@@ -460,7 +460,7 @@ export default function ItemsCalidadTable({
           {ultimo.aprobado ? "Aprobado" : "No aprobado"}
         </EnlaceFila>
         {!ultimo.aprobado && (
-          <p className="mt-0.5 text-[11px] font-medium text-rose-600">
+          <p className="mt-0.5 text-xs font-medium text-rose-600">
             {nombreCategoria(ultimo.categoria) ?? "Por reinspeccionar"}
           </p>
         )}
@@ -468,7 +468,7 @@ export default function ItemsCalidadTable({
           <button
             type="button"
             onClick={() => setPreviewInforme({ item, informe: ultimo })}
-            className="mt-1 block text-[11px] text-rose-500 underline hover:text-rose-700"
+            className="mt-1 block text-xs text-rose-500 underline hover:text-rose-700"
           >
             Ver motivo
           </button>
@@ -500,7 +500,7 @@ export default function ItemsCalidadTable({
           {estado === "aprobado" ? <IconoCheck /> : estado === "no_aprobado" ? <IconoX /> : <IconoReloj />}
           {estado === "aprobado" ? "Aprobado" : estado === "no_aprobado" ? "En retrabajo" : "Por evaluar"}
         </span>
-        <p className="mt-0.5 text-[11px] text-slate-600">
+        <p className="mt-0.5 text-xs text-slate-600">
           {detalle.join(" · ")} {detalle.length > 0 ? `(${unidad})` : ""}
         </p>
       </div>
@@ -527,7 +527,7 @@ export default function ItemsCalidadTable({
           {ultimo.folio}
         </EnlaceFila>
         {ultimo.cantidad !== null && (
-          <span className={`ml-1 text-[11px] ${ultimo.aprobado ? "text-emerald-700" : "text-rose-700"}`}>
+          <span className={`ml-1 text-xs ${ultimo.aprobado ? "text-emerald-700" : "text-rose-700"}`}>
             {ultimo.cantidad} {item.unidad ?? "pz"}
           </span>
         )}
@@ -536,7 +536,7 @@ export default function ItemsCalidadTable({
             <button
               type="button"
               onClick={() => toggleHistorial(item.id)}
-              className="text-[11px] text-slate-600 underline hover:text-slate-600"
+              className="text-xs text-slate-600 underline hover:text-slate-600"
             >
               {abierto ? "Ocultar" : "Ver"} historial ({item.informes.length})
             </button>
@@ -547,7 +547,7 @@ export default function ItemsCalidadTable({
                     <button
                       type="button"
                       onClick={() => setPreviewInforme({ item, informe: inf })}
-                      className="text-left text-[11px] text-slate-500 underline hover:text-slate-700"
+                      className="text-left text-xs text-slate-500 underline hover:text-slate-700"
                     >
                       {inf.folio} · {inf.aprobado ? "Aprobado" : "No aprobado"}
                       {inf.cantidad !== null ? ` · ${inf.cantidad} ${item.unidad ?? "pz"}` : ""} —{" "}
@@ -592,11 +592,11 @@ export default function ItemsCalidadTable({
               <IconoX />
             </button>
           </div>
-          <p className="max-w-[240px] text-[11px] leading-snug text-slate-500">{motivo}</p>
+          <p className="max-w-[240px] text-xs leading-snug text-slate-500">{motivo}</p>
           {item.enTaller && (
             <Link
               href={hrefReportarFalla(proyecto, item)}
-              className="text-[11px] font-medium text-rose-700 underline-offset-2 hover:underline max-md:py-2"
+              className="text-xs font-medium text-rose-700 underline-offset-2 hover:underline max-md:py-2"
             >
               Reportar falla
             </Link>
@@ -741,7 +741,7 @@ export default function ItemsCalidadTable({
 
   const ENCABEZADO = (
     <thead>
-      <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+      <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
         <th className="px-3 py-2.5"></th>
         <th className="px-3 py-2.5">Item</th>
         <th className="px-3 py-2.5">Descripción</th>
@@ -961,7 +961,7 @@ export default function ItemsCalidadTable({
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] text-slate-600">Folio {previewInforme.informe.folio}</p>
+                <p className="text-xs text-slate-600">Folio {previewInforme.informe.folio}</p>
                 <h3 className="text-sm font-semibold text-slate-900">
                   Ítem {previewInforme.item.item_code}
                   {previewInforme.item.modelo ? ` — ${previewInforme.item.modelo}` : ""}
@@ -995,13 +995,13 @@ export default function ItemsCalidadTable({
             >
               {previewInforme.informe.aprobado ? "APROBADO" : "NO APROBADO"}
             </p>
-            <p className="text-center text-[11px] text-slate-600">
+            <p className="text-center text-xs text-slate-600">
               {formatoFechaHora(previewInforme.informe.elaborado_en)}
             </p>
 
             {!previewInforme.informe.aprobado && previewInforme.informe.descripcion && (
               <div className="mt-3 rounded-lg bg-rose-50 p-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-500">
+                <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">
                   Motivo
                   {nombreCategoria(previewInforme.informe.categoria)
                     ? ` · ${nombreCategoria(previewInforme.informe.categoria)}`

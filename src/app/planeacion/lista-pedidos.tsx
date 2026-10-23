@@ -58,7 +58,7 @@ export default function ListaPedidos({
             {f.accion && <div className="relative z-10 shrink-0">{f.accion}</div>}
             <Chevron
               abierto={false}
-              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-700 sm:block"
+              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-700 sm:block"
             />
           </div>
         </li>

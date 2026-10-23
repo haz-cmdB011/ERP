@@ -210,7 +210,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
       >
         <IconoLupa className="h-[18px] w-[18px] transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-125" />
         <span className="hidden xl:inline">Buscar…</span>
-        <kbd className="hidden rounded border border-nav-line bg-nav-hover px-1.5 font-sans text-[11px] text-on-nav-suave xl:inline">
+        <kbd className="hidden rounded border border-nav-line bg-nav-hover px-1.5 font-sans text-xs text-on-nav-suave xl:inline">
           {atajo}
         </kbd>
       </button>
@@ -256,7 +256,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
               <button
                 type="button"
                 onClick={cerrar}
-                className="shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-500 hover:text-slate-800"
+                className="shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-500 hover:text-slate-800"
               >
                 Esc
               </button>
@@ -293,7 +293,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
                   aria-label={grupo.titulo}
                   className="pb-1"
                 >
-                  <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
                     {grupo.titulo}
                   </p>
                   {grupo.resultados.map((r, j) => {
@@ -312,7 +312,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
                           elegido ? "bg-brand-50" : ""
                         }`}
                       >
-                        <span className="w-14 shrink-0 text-[11px] sm:w-20 font-medium uppercase tracking-wide text-slate-600">
+                        <span className="w-14 shrink-0 text-xs sm:w-20 font-medium uppercase tracking-wide text-slate-600">
                           {ETIQUETA_TIPO[r.tipo]}
                         </span>
                         <span className="min-w-0 flex-1">
@@ -344,7 +344,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
               ))}
             </div>
 
-            <div className="hidden items-center gap-4 border-t border-slate-100 bg-slate-50 px-4 py-2 text-[11px] text-slate-500 sm:flex">
+            <div className="hidden items-center gap-4 border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500 sm:flex">
               <span>↑ ↓ para elegir</span>
               <span>↵ para abrir</span>
               <span>Esc para cerrar</span>

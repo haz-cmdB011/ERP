@@ -39,7 +39,7 @@ export function FiltrosOrdenesTrabajo({
             <Link
               key={a ?? "todos"}
               href={hrefListaPedidos(base, { q, anio: a ? String(a) : undefined, cliente: clienteParam, entrega })}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors pointer-coarse:py-2.5 ${
                 activo
                   ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"

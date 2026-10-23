@@ -79,7 +79,7 @@ export default function LineaTiempoPm({ tiempo: t, abierto = false }: { tiempo: 
     // Desplegable y cerrado: son muchos datos y no siempre se necesitan.
     <details aria-label="Seguimiento del PM" className="group" open={abierto}>
       <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-slate-600 [&::-webkit-details-marker]:hidden">
-        <span aria-hidden="true" className="inline-block text-slate-400 transition-transform group-open:rotate-90">
+        <span aria-hidden="true" className="inline-block text-slate-500 transition-transform group-open:rotate-90">
           ▸
         </span>
         Seguimiento del pedido (versión activa)
@@ -88,7 +88,7 @@ export default function LineaTiempoPm({ tiempo: t, abierto = false }: { tiempo: 
         {pasos.map((paso, i) => (
           <li key={paso.titulo} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <p className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] text-slate-600">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-600">
                 {i + 1}
               </span>
               {paso.titulo}

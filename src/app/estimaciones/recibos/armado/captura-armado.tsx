@@ -119,7 +119,7 @@ const BANDA_ESTILO: Record<string, string> = {
   justificar: "bg-rose-50 text-rose-700 ring-rose-200",
 };
 
-const ETIQUETA = "text-[11px] font-medium uppercase tracking-wide text-slate-500";
+const ETIQUETA = "text-xs font-medium uppercase tracking-wide text-slate-500";
 const CONTROL =
   "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 " +
   "focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
@@ -782,7 +782,7 @@ export default function CapturaArmado({
                       <>
                         {" · "}
                         <span
-                          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
+                          className={`rounded px-1.5 py-0.5 text-xs font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
                         >
                           {BANDA_NOMBRE[b.banda]}
                         </span>
@@ -1041,7 +1041,7 @@ export default function CapturaArmado({
                             onChange={(e) => actualizar(r.id, { justificacion: e.target.value })}
                           />
                           {faltaJustificar && (
-                            <span className="text-[11px] text-rose-600">
+                            <span className="text-xs text-rose-600">
                               Sin justificación no se puede guardar este renglón.
                             </span>
                           )}
@@ -1298,7 +1298,7 @@ function Total({
 function TablaParametro({ titulo, filas }: { titulo: string; filas: string[][] }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
-      <div className="bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+      <div className="bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
         {titulo}
       </div>
       <table className="w-full text-left text-xs">

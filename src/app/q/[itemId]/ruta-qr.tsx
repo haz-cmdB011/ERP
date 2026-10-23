@@ -53,7 +53,7 @@ export default function RutaQr({ resumen: r }: { resumen: ResumenRuta }) {
             className={`flex items-center justify-between gap-3 px-3 py-2 text-sm ${i === r.actual ? "bg-brand-50/60" : ""}`}
           >
             <span className="flex min-w-0 items-center gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] text-slate-600">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-600">
                 {i + 1}
               </span>
               <span className="truncate font-medium text-slate-900">{t.etiqueta}</span>

@@ -211,12 +211,12 @@ export default async function OrdenTrabajoCalidadPage({
                         {p.numero_pedido}
                       </EnlaceFila>
                       {p.cancelado_en && (
-                        <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                        <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
                           Cancelado
                         </span>
                       )}
                       {activa && activa.numero_version > 1 && (
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
                           Versión {activa.numero_version}
                         </span>
                       )}
@@ -235,7 +235,7 @@ export default async function OrdenTrabajoCalidadPage({
                       ] as [string, number, string][]
                     ).map(([etiqueta, valor, color]) => (
                       <div key={etiqueta}>
-                        <dt className="text-[10px] font-medium uppercase tracking-wide text-slate-500">{etiqueta}</dt>
+                        <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{etiqueta}</dt>
                         <dd className={`text-lg font-semibold tabular-nums ${valor > 0 ? color : "text-slate-300"}`}>
                           {valor}
                         </dd>
