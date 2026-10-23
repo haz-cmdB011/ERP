@@ -1,4 +1,5 @@
 import Link from "next/link";
+import IconoMenu from "@/components/iconos-menu";
 import ChipEstado from "@/components/chip-estado";
 import Chevron from "@/components/chevron";
 import { estadoLiberacion, type AvancePedido } from "@/lib/resumen/avance-items";
@@ -54,7 +55,10 @@ export default function ListaOrdenes({
                 <>
                   <p className="text-sm text-slate-700">
                     {estado === "liberado" ? (
-                      <span className="font-medium text-emerald-700">Todo liberado</span>
+                      <span className="inline-flex items-center gap-1.5 font-medium text-emerald-700">
+                        <IconoMenu nombre="check" className="h-4 w-4" />
+                        Todo liberado
+                      </span>
                     ) : (
                       <>
                         <span className="font-semibold">{avance.liberados}</span> de {avance.total} liberados

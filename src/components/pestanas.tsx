@@ -1,9 +1,11 @@
 import Link from "next/link";
+import IconoMenu, { type NombreIcono } from "@/components/iconos-menu";
 
 export interface Pestana {
   id: string;
   etiqueta: string;
   href: string;
+  icono?: NombreIcono;
 }
 
 // Pestañas que viven en la dirección (?pestana=...): se pueden compartir, sobreviven a recargar y
@@ -49,6 +51,7 @@ export default function Pestanas({
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
             }`}
           >
+            {p.icono && <IconoMenu nombre={p.icono} className="mr-2 h-4 w-4 shrink-0" />}
             {p.etiqueta}
           </Link>
         );

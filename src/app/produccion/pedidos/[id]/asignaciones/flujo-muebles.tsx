@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import ImagenAmpliable from "@/components/imagen-ampliable";
 import {
   ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
@@ -143,7 +144,7 @@ export default function FlujoMuebles({
   );
 }
 
-function ResumenProceso({
+export function ResumenProceso({
   proceso,
   muebles,
 }: {
@@ -226,18 +227,22 @@ function porAsignar(
   return !!asignar && avancePaso(m, indice).disponible > 0;
 }
 
-function FilaMueble({
+export function FilaMueble({
   mueble: m,
   asignar,
   detalles,
   abierto,
   onAlternar,
+  imagen,
 }: {
   mueble: MuebleFlujo;
   asignar: AsignarDesdeFlujo | null;
   detalles: Record<string, ReactNode>;
   abierto: boolean;
   onAlternar: () => void;
+  // Miniatura del mueble, discreta y a la vista: con imagen se muestra (y se amplía al tocarla), con
+  // null queda un cuadro vacío para que las filas no se desalineen y omitida no hay lugar para ella.
+  imagen?: { url: string; urlGrande: string | null } | null;
 }) {
   const siguiente = siguientePaso(m);
   const terminado = siguiente === "Terminado";
@@ -251,28 +256,45 @@ function FilaMueble({
   return (
     <li className="rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
-        <button
-          type="button"
-          onClick={onAlternar}
-          aria-expanded={abierto}
-          className="flex min-w-0 items-center gap-2 text-left sm:w-48"
-        >
-          <span
-            aria-hidden
-            className={`text-slate-400 transition-transform ${abierto ? "rotate-90" : ""}`}
+        <div className={`flex min-w-0 items-center gap-2 ${imagen === undefined ? "sm:w-48" : "sm:w-60"}`}>
+          {imagen ? (
+            <ImagenAmpliable
+              url={imagen.url}
+              urlGrande={imagen.urlGrande}
+              alt={`Ítem ${m.item_code}${m.modelo ? ` — ${m.modelo}` : ""}`}
+              className="h-11 w-11"
+            />
+          ) : (
+            imagen === null && (
+              <span
+                className="block h-11 w-11 shrink-0 rounded border border-dashed border-slate-200"
+                title="Sin imagen"
+              />
+            )
+          )}
+          <button
+            type="button"
+            onClick={onAlternar}
+            aria-expanded={abierto}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
           >
-            ▸
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate font-semibold text-slate-900">
-              <span className="text-slate-400">{m.item_code} ·</span>{" "}
-              {m.modelo ?? "Sin modelo"}
+            <span
+              aria-hidden
+              className={`text-slate-400 transition-transform ${abierto ? "rotate-90" : ""}`}
+            >
+              ▸
             </span>
-            <span className="block text-xs text-slate-500">
-              {m.cantidad} {m.unidad ?? ""} · ver detalle
+            <span className="min-w-0">
+              <span className="block truncate font-semibold text-slate-900">
+                <span className="text-slate-400">{m.item_code} ·</span>{" "}
+                {m.modelo ?? "Sin modelo"}
+              </span>
+              <span className="block text-xs text-slate-500">
+                {m.cantidad} {m.unidad ?? ""} · ver detalle
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+        </div>
 
         <ol className="flex flex-1 items-center overflow-x-auto">
           {m.ruta.map((p, j) => (

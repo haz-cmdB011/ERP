@@ -10,6 +10,7 @@ import {
   type EstadoAsignacion,
   type Proceso,
 } from "./asignaciones";
+import { tandas } from "./tandas";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -117,27 +118,34 @@ export async function entregasPorAsignacion(
   const mapa = new Map<string, EntregaConFoto[]>();
   if (asignacionIds.length === 0) return mapa;
 
-  const { data } = await supabase
-    .from("entregas_produccion")
-    .select(
-      "id, asignacion_id, fecha_entrega, cantidad, folios_calidad, foto_path, registrado_en, anulada_en, motivo_anulacion, verificada_en, rechazada_en, motivo_rechazo"
-    )
-    .in("asignacion_id", asignacionIds)
-    .order("fecha_entrega")
-    .order("registrado_en")
-    .returns<EntregaProduccion[]>();
+  // .in() con muchos ids rompe el largo de la dirección: de 50 en 50.
+  const entregas: EntregaProduccion[] = [];
+  for (const lote of tandas(asignacionIds)) {
+    const { data } = await supabase
+      .from("entregas_produccion")
+      .select(
+        "id, asignacion_id, fecha_entrega, cantidad, folios_calidad, foto_path, registrado_en, anulada_en, motivo_anulacion, verificada_en, rechazada_en, motivo_rechazo"
+      )
+      .in("asignacion_id", lote)
+      .order("fecha_entrega")
+      .order("registrado_en")
+      .returns<EntregaProduccion[]>();
+    entregas.push(...(data ?? []));
+  }
 
-  const entregaIds = (data ?? []).map((e) => e.id);
-  const { data: informes } = entregaIds.length
-    ? await supabase
-        .from("informes_calidad")
-        .select("id, folio, aprobado, cantidad, entrega_id")
-        .in("entrega_id", entregaIds)
-        .order("elaborado_en")
-        .returns<(Omit<ResultadoCalidad, "cantidad"> & { cantidad: number | string; entrega_id: string })[]>()
-    : { data: [] };
+  type Informe = Omit<ResultadoCalidad, "cantidad"> & { cantidad: number | string; entrega_id: string };
+  const informes: Informe[] = [];
+  for (const lote of tandas(entregas.map((e) => e.id))) {
+    const { data } = await supabase
+      .from("informes_calidad")
+      .select("id, folio, aprobado, cantidad, entrega_id")
+      .in("entrega_id", lote)
+      .order("elaborado_en")
+      .returns<Informe[]>();
+    informes.push(...(data ?? []));
+  }
   const calidadPorEntrega = new Map<string, ResultadoCalidad[]>();
-  for (const i of informes ?? []) {
+  for (const i of informes) {
     const lista = calidadPorEntrega.get(i.entrega_id) ?? [];
     lista.push({ id: i.id, folio: i.folio, aprobado: i.aprobado, cantidad: Number(i.cantidad) });
     calidadPorEntrega.set(i.entrega_id, lista);
@@ -146,10 +154,10 @@ export async function entregasPorAsignacion(
   const urlPorRuta = await firmarUrls(
     supabase,
     BUCKET_FOTOS_ENTREGA,
-    (data ?? []).map((e) => e.foto_path)
+    entregas.map((e) => e.foto_path)
   );
 
-  for (const e of data ?? []) {
+  for (const e of entregas) {
     const lista = mapa.get(e.asignacion_id) ?? [];
     lista.push({ ...e, fotoUrl: urlPorRuta.get(e.foto_path) ?? null, calidad: calidadPorEntrega.get(e.id) ?? [] });
     mapa.set(e.asignacion_id, lista);

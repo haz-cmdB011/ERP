@@ -112,7 +112,7 @@ export default async function OrdenTrabajoProduccionPage({
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Migas items={[{ etiqueta: "Pedidos", href: "/produccion" }, { etiqueta: `O.T. ${ot}` }]} />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
           O.T. <span className="font-mono">{ot}</span>
         </h1>
         {primero && (
@@ -121,8 +121,7 @@ export default async function OrdenTrabajoProduccionPage({
           </p>
         )}
         <p className="mt-1 text-sm text-slate-500">
-          Una O.T. es la orden de trabajo del proyecto. Cada pedido (PM) se libera y se asigna por separado:
-          ábrelo para liberar muebles.
+          Abre un pedido (PM) para ver sus muebles liberados y asignarlos.
         </p>
       </div>
 
@@ -144,7 +143,7 @@ export default async function OrdenTrabajoProduccionPage({
                 key={p.id}
                 className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
               >
-                {/* Toda la tarjeta abre el pedido; el botón de asignar va encima. */}
+                {/* Toda la tarjeta abre el pedido. */}
                 <Link
                   href={`/produccion/pedidos/${p.id}`}
                   aria-label={`Abrir el pedido ${p.numero_pedido}`}
@@ -186,16 +185,11 @@ export default async function OrdenTrabajoProduccionPage({
                     </p>
                   )}
                 </div>
-                <Link
-                  href={`/produccion/pedidos/${p.id}/asignaciones`}
-                  className="relative z-10 inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400"
-                >
-                  Asignar a equipos
-                </Link>
               </li>
             );
           })}
         </ul>
+
       )}
     </main>
   );

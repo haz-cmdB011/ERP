@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import IconoMenu, { type NombreIcono } from "@/components/iconos-menu";
 import Link from "next/link";
 import PestanasSeccion from "@/app/produccion/pestanas-seccion";
 import VistaEquipos from "./vista-equipos";
@@ -8,9 +9,9 @@ export const metadata: Metadata = { title: "Taller" };
 
 type Vista = "equipos" | "lista";
 
-const VISTAS: { id: Vista; etiqueta: string; href: string }[] = [
-  { id: "equipos", etiqueta: "Por equipo", href: "/produccion/taller" },
-  { id: "lista", etiqueta: "Lista", href: "/produccion/taller?vista=lista" },
+const VISTAS: { id: Vista; etiqueta: string; icono: NombreIcono; href: string }[] = [
+  { id: "equipos", etiqueta: "Por equipo", icono: "equipos", href: "/produccion/taller" },
+  { id: "lista", etiqueta: "Lista", icono: "pedidos", href: "/produccion/taller?vista=lista" },
 ];
 
 // El taller en una sola pantalla con dos vistas de lo mismo: "Por equipo" (qué tiene cada equipo y qué
@@ -31,7 +32,7 @@ export default async function TallerPage({
       <PestanasSeccion seccion="taller" />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Taller</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Taller</h1>
           <p className="mt-1 text-sm text-slate-500">
             {vista === "equipos" ? "Qué hay en cada equipo ahora y qué va atrasado." : "Cada asignación, con sus filtros y entregas."}
           </p>
@@ -46,6 +47,7 @@ export default async function TallerPage({
                 v.id === vista ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-slate-200/70"
               }`}
             >
+              <IconoMenu nombre={v.icono} className="mr-1.5 h-4 w-4 shrink-0" />
               {v.etiqueta}
             </Link>
           ))}

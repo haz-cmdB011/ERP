@@ -1,4 +1,5 @@
 import Link from "next/link";
+import IconoMenu from "@/components/iconos-menu";
 import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -200,8 +201,9 @@ export default async function VistaLista({
             </Link>
             <a
               href={`/api/produccion/asignaciones/exportar${filtrosAQuery(filtros)}`}
-              className="px-1 py-2 text-slate-500 underline hover:text-slate-700"
+              className="inline-flex items-center gap-1.5 px-1 py-2 text-slate-500 underline hover:text-slate-700"
             >
+              <IconoMenu nombre="descargar" className="h-4 w-4" />
               Descargar Excel
             </a>
           </div>

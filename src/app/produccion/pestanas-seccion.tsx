@@ -5,19 +5,20 @@ import BarraPestanas, { type ItemPestana } from "@/components/barra-pestanas";
 
 // Las secciones del menú de Producción que agrupan varias pantallas. Cada pantalla conserva su
 // propia dirección (los enlaces de otras partes siguen sirviendo); aquí solo se muestran juntas.
+// Cada pestaña lleva su icono (los nombres salen de components/iconos-menu.tsx).
 const SECCIONES = {
   taller: {
     etiqueta: "Secciones del taller",
     items: [
-      { id: "taller", etiqueta: "Taller", href: "/produccion/taller" },
-      { id: "rechazos", etiqueta: "Rechazos de Calidad", href: "/produccion/rechazos" },
+      { id: "taller", etiqueta: "Taller", icono: "panel", href: "/produccion/taller" },
+      { id: "rechazos", etiqueta: "Rechazos de Calidad", icono: "retrabajo", href: "/produccion/rechazos" },
     ],
   },
   archivo: {
     etiqueta: "Secciones del archivo",
     items: [
-      { id: "cancelados", etiqueta: "Cancelados", href: "/produccion/cancelados" },
-      { id: "folios", etiqueta: "Folios", href: "/produccion/folios" },
+      { id: "cancelados", etiqueta: "Cancelados", icono: "cancelados", href: "/produccion/cancelados" },
+      { id: "folios", etiqueta: "Folios", icono: "folios", href: "/produccion/folios" },
     ],
   },
 } satisfies Record<string, { etiqueta: string; items: ItemPestana[] }>;

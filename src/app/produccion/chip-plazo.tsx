@@ -10,6 +10,7 @@ export default function ChipPlazo({ plazo, fecha }: { plazo: Plazo; fecha?: stri
   return (
     <ChipEstado
       tono={plazo.tipo === "vencido" ? "peligro" : "alerta"}
+      icono={plazo.tipo === "vencido" ? "alerta" : "reloj"}
       titulo={fecha ? `Entrega del pedido: ${formatoFecha(fecha)}` : undefined}
     >
       {texto}
