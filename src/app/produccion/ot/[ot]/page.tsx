@@ -141,7 +141,7 @@ export default async function OrdenTrabajoProduccionPage({
             return (
               <li
                 key={p.id}
-                className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+                className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:min-h-[6.5rem] sm:flex-row sm:items-center sm:justify-between"
               >
                 {/* Toda la tarjeta abre el pedido. */}
                 <Link

@@ -65,15 +65,7 @@ export default async function OrdenTrabajoPage({ params }: { params: Promise<{ o
       )}
 
       {pms.length > 0 && (
-        <TablaPedidos
-          pedidos={pms}
-          esAdmin={esAdmin}
-          mostrarProyecto={pms.some(
-            (p) =>
-              p.proyectos?.nombre !== primero?.proyectos?.nombre ||
-              p.proyectos?.cliente !== primero?.proyectos?.cliente
-          )}
-        />
+        <TablaPedidos pedidos={pms} esAdmin={esAdmin} />
       )}
     </main>
   );

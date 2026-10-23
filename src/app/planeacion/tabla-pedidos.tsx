@@ -12,16 +12,14 @@ export interface PedidoLista {
 
 // Los PM de una O.T. (en su página), uno por tarjeta, igual que en Producción. Toda la tarjeta es el
 // enlace al pedido (el del número, extendido con after:inset-0); "Ver qué cambió" y las acciones van
-// por encima (z-10) para seguir funcionando solas. Proyecto y cliente solo salen cuando los PM de la
-// O.T. no comparten los mismos: si no, ya están en el encabezado de la página.
+// por encima (z-10) para seguir funcionando solas. Misma medida y mismas tres líneas (número,
+// proyecto, entrega) que las tarjetas de PM de Producción y de Calidad.
 export default function TablaPedidos({
   pedidos,
   esAdmin,
-  mostrarProyecto = true,
 }: {
   pedidos: PedidoLista[];
   esAdmin: boolean;
-  mostrarProyecto?: boolean;
 }) {
   return (
     <ul className="lista-animada flex flex-col gap-3">
@@ -30,7 +28,7 @@ export default function TablaPedidos({
         return (
           <li
             key={p.id}
-            className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 focus-within:bg-slate-50 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+            className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 focus-within:bg-slate-50 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:min-h-[6.5rem] sm:flex-row sm:items-center sm:justify-between sm:gap-6"
           >
             <div className="flex min-w-0 flex-col gap-1">
               <EnlaceFila
@@ -39,12 +37,7 @@ export default function TablaPedidos({
               >
                 {p.numero_pedido}
               </EnlaceFila>
-              {mostrarProyecto && (
-                <>
-                  <p className="truncate text-sm text-slate-700">{p.proyectos?.nombre ?? "—"}</p>
-                  {p.proyectos?.cliente && <p className="text-xs text-slate-500">{p.proyectos.cliente}</p>}
-                </>
-              )}
+              <p className="truncate text-sm text-slate-700">{p.proyectos?.nombre ?? "—"}</p>
               <p className="text-xs text-slate-500">Entrega: {formatoFechaDMA(p.fecha_entrega)}</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end">
