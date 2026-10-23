@@ -19,6 +19,8 @@ export interface MuebleBase {
   descripcion: string | null;
   cantidad_total: number | string;
   unidad: string | null;
+  // El PM del mueble: con él se arma el enlace a su despiece.
+  pedido_id?: string | null;
 }
 
 // El flujo (ruta, asignaciones, partes, revisión final) de varios muebles a la vez, en el
@@ -38,10 +40,17 @@ export async function cargarFlujoMuebles(
         leer(
           supabase
             .from("planeacion_items")
-            .select("parent_item_id, descripcion")
+            .select("parent_item_id, descripcion, eliminacion_solicitada_en, estado_revision")
             .in("parent_item_id", lote)
             .eq("tipo_registro", "FU")
-            .returns<{ parent_item_id: string | null; descripcion: string | null }[]>(),
+            .returns<
+              {
+                parent_item_id: string | null;
+                descripcion: string | null;
+                eliminacion_solicitada_en: string | null;
+                estado_revision: string | null;
+              }[]
+            >(),
           "los componentes"
         )
       )
@@ -75,7 +84,12 @@ export async function cargarFlujoMuebles(
     : null;
 
   const descripcionesHijos = new Map<string, string[]>();
+  // Muebles con componentes vigentes: se asignan por su despiece.
+  const conComponentes = new Set<string>();
   for (const c of componentes.flatMap((l) => l ?? [])) {
+    if (c.parent_item_id && !c.eliminacion_solicitada_en && c.estado_revision !== "cancelado") {
+      conComponentes.add(c.parent_item_id);
+    }
     if (!c.parent_item_id || !c.descripcion) continue;
     const lista = descripcionesHijos.get(c.parent_item_id) ?? [];
     lista.push(c.descripcion);
@@ -112,6 +126,8 @@ export async function cargarFlujoMuebles(
       asignaciones: porItem.get(m.id) ?? [],
       revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
       partes: partes.get(m.id) ?? [],
+      conComponentes: conComponentes.has(m.id),
+      despieceHref: m.pedido_id ? `/produccion/pedidos/${m.pedido_id}/despiece/${m.id}` : null,
     };
   });
 }

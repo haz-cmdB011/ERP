@@ -204,6 +204,13 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
 - **Bloqueo** (`guardar_despiece_produccion`): una parte con asignaciones vigentes no se quita ni baja su
   cantidad por mueble; agregar partes o subir cantidades sí. Al volver a la sugerencia, la parte se
   reconoce por su componente del PM. El retrabajo hereda la parte (`trg_paso_de_retrabajo`).
+- **El despiece se usa para asignar** (migración `despiece_porcentaje_obligatorio`): un mueble con
+  componentes vigentes en el PM no se asigna sin despiece guardado (`requiere_despiece`; en el panel sale
+  "Hacer despiece" en lugar del "+"); los muebles sin componentes se asignan completos. Cada parte vale un
+  **% del mueble** en partes iguales (`partes_despiece.porcentaje`): no se captura, el editor lo calcula
+  solo al guardar (`repartirPorcentajes`); la base acepta un % por línea que sume 100. Al abrir un mueble en el panel se ve su despiece con el avance
+  por parte, y el anillo de cada paso es el avance ponderado (`avancePonderado`). Solo es visual: el cobro
+  y la revisión final siguen contando un mueble cuando todas sus partes.
 - Pendiente: fase 2, ruta propia por parte; fase 3, cobro por partes; la ficha del QR (`/q`) asigna aún
   como mueble completo.
 

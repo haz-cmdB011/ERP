@@ -43,6 +43,10 @@ export interface LineaDespiece {
   unidad: string | null;
   // Piezas que lleva un solo mueble.
   piezas_por_mueble: number;
+  // Cuánto del mueble vale la parte (0–100; todas las líneas suman 100). No se captura:
+  // el editor lo reparte en partes iguales al guardar. Con él, el panel de asignación da
+  // el avance del mueble por parte. null u omitido: despieces guardados antes del %.
+  porcentaje?: number | null;
   // Componente del PM de donde salió la línea; null si la agregó el trabajador.
   hijo_id: string | null;
 }
@@ -67,6 +71,21 @@ export const MAX_PIEZAS = 100000;
 function redondear(n: number): number {
   // EPSILON: 1.005 debe dar 1.01 como en la base, no 1.
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// El 100 % repartido en partes iguales a dos decimales; lo que sobra del redondeo va
+// en la última para que sumen 100 exacto.
+export function repartirPorcentajes(n: number): number[] {
+  if (n <= 0) return [];
+  const cada = Math.floor((100 / n) * 100) / 100;
+  const lista = Array.from({ length: n }, () => cada);
+  lista[n - 1] = redondear(100 - cada * (n - 1));
+  return lista;
+}
+
+// Suma de los porcentajes, a dos decimales.
+export function sumaPorcentajes(lineas: { porcentaje?: number | null }[]): number {
+  return redondear(lineas.reduce((s, l) => s + (Number(l.porcentaje) || 0), 0));
 }
 
 function sinAcentos(texto: string): string {
@@ -259,6 +278,8 @@ export function sugerirDespiece(padre: PadreDespiece, hijos: HijoDespiece[]): Su
     avisosPorLinea.push(null);
   }
 
+  // Las partes sugeridas valen lo mismo; el trabajador ajusta el % al revisar.
+  repartirPorcentajes(lineas.length).forEach((p, i) => (lineas[i].porcentaje = p));
   return { lineas, avisosPorLinea, avisos, cortada };
 }
 
@@ -272,6 +293,7 @@ export function limpiarLineas(lineas: LineaDespiece[]): LineaDespiece[] {
     material: materialEscrito(l.material),
     unidad: etiquetaUnidad(l.unidad),
     piezas_por_mueble: redondear(Number(l.piezas_por_mueble)),
+    porcentaje: l.porcentaje == null || Number.isNaN(Number(l.porcentaje)) ? null : redondear(Number(l.porcentaje)),
     hijo_id: l.hijo_id,
   }));
 }
@@ -282,7 +304,9 @@ export function validarLineas(lineas: LineaDespiece[]): string | null {
   if (lineas.length === 0) return "El despiece necesita al menos una línea.";
   if (lineas.length > MAX_LINEAS) return `El despiece no puede pasar de ${MAX_LINEAS} líneas.`;
   const hijosVistos = new Set<string>();
-  for (const [i, l] of limpiarLineas(lineas).entries()) {
+  const limpias = limpiarLineas(lineas);
+  const conPorcentaje = limpias.filter((l) => l.porcentaje != null).length;
+  for (const [i, l] of limpias.entries()) {
     const n = i + 1;
     if (!l.descripcion) return `Línea ${n}: escribe la descripción.`;
     if (l.descripcion.length > MAX_DESCRIPCION) return `Línea ${n}: la descripción es muy larga.`;
@@ -292,10 +316,19 @@ export function validarLineas(lineas: LineaDespiece[]): string | null {
       return `Línea ${n}: la cantidad por mueble debe ser mayor que cero.`;
     }
     if (l.piezas_por_mueble > MAX_PIEZAS) return `Línea ${n}: la cantidad por mueble es demasiado grande.`;
+    if (l.porcentaje != null && (l.porcentaje < 0 || l.porcentaje > 100)) {
+      return `Línea ${n}: el porcentaje debe estar entre 0 y 100.`;
+    }
     if (l.hijo_id) {
       if (hijosVistos.has(l.hijo_id)) return `Línea ${n}: ese componente del PM ya está en otra línea.`;
       hijosVistos.add(l.hijo_id);
     }
+  }
+  if (conPorcentaje > 0 && conPorcentaje < limpias.length) {
+    return "Pon el porcentaje en todas las líneas del despiece (o en ninguna).";
+  }
+  if (conPorcentaje > 0 && Math.abs(sumaPorcentajes(limpias) - 100) > 0.05) {
+    return `Los porcentajes suman ${sumaPorcentajes(limpias)} %; deben sumar 100 %.`;
   }
   return null;
 }
@@ -312,6 +345,7 @@ export function mismasLineas(a: LineaDespiece[], b: LineaDespiece[]): boolean {
         l.material === y[i].material &&
         l.unidad === y[i].unidad &&
         l.piezas_por_mueble === y[i].piezas_por_mueble &&
+        (l.porcentaje ?? null) === (y[i].porcentaje ?? null) &&
         l.hijo_id === y[i].hijo_id
     )
   );
@@ -338,6 +372,7 @@ export function lineasDesdeJson(valor: unknown): LineaDespiece[] {
       material: texto(l.material),
       unidad: texto(l.unidad),
       piezas_por_mueble: Number(l.piezas_por_mueble) || 0,
+      porcentaje: l.porcentaje == null || l.porcentaje === "" || Number.isNaN(Number(l.porcentaje)) ? null : Number(l.porcentaje),
       hijo_id: texto(l.hijo_id),
     });
   }

@@ -19,7 +19,7 @@ import Modal, {
 } from "./modal";
 import CampoEncargado from "./campo-encargado";
 
-import type { OpcionPaso, ParteMueble } from "@/lib/produccion/flujo-mueble";
+import { pesosPartes, type OpcionPaso, type ParteMueble } from "@/lib/produccion/flujo-mueble";
 
 export type { OpcionPaso };
 
@@ -72,6 +72,8 @@ export default function AsignarForm({
 }) {
   const router = useRouter();
   const hayPartes = partes.length > 0;
+  // El % del mueble que vale cada parte (lo guardado en el despiece o partes iguales).
+  const pesos = pesosPartes(partes);
   // Por partes si el mueble tiene varias; con una sola, el mueble completo.
   const modoInicial: Modo = partes.length > 1 ? "partes" : "mueble";
   const inicialDe = (modo: Modo) =>
@@ -280,6 +282,9 @@ export default function AsignarForm({
                     Elegir todas las que faltan
                   </button>
                 </legend>
+                <p className="text-xs text-slate-500">
+                  Lo elegido es el {fmt(seleccion.reduce((s, id) => s + (pesos.get(id) ?? 0), 0))} % del mueble.
+                </p>
                 <ul className="flex max-h-56 flex-col divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
                   {partes.map((pt) => {
                     const av = avanceParte(paso, pt.id);
@@ -306,7 +311,8 @@ export default function AsignarForm({
                           <span className="min-w-0 flex-1">
                             <span className="block text-slate-900">{pt.descripcion}</span>
                             <span className="block text-xs text-slate-500">
-                              {fmt(pt.piezasPorMueble)} {pt.unidad ?? "PZA"} por mueble ·{" "}
+                              {fmt(pesos.get(pt.id) ?? 0)} % del mueble · {fmt(pt.piezasPorMueble)} {pt.unidad ?? "PZA"} por
+                              mueble ·{" "}
                               {disponible <= 0 ? "ya asignada" : `${fmt(disponible)} mueble(s) por asignar`}
                               {paso.anterior && disponible > 0 && av ? ` · ${fmt(av.listo)} listos` : ""}
                             </span>

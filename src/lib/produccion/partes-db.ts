@@ -23,12 +23,19 @@ export async function cargarPartes(
   for (let i = 0; i < itemIds.length; i += 100) {
     const { data, error } = await supabase
       .from("partes_despiece")
-      .select("id, planeacion_item_id, descripcion, piezas_por_mueble, unidad")
+      .select("id, planeacion_item_id, descripcion, piezas_por_mueble, unidad, porcentaje")
       .in("planeacion_item_id", itemIds.slice(i, i + 100))
       .is("retirada_en", null)
       .order("orden")
       .returns<
-        { id: string; planeacion_item_id: string; descripcion: string; piezas_por_mueble: number | string; unidad: string | null }[]
+        {
+          id: string;
+          planeacion_item_id: string;
+          descripcion: string;
+          piezas_por_mueble: number | string;
+          unidad: string | null;
+          porcentaje: number | string | null;
+        }[]
       >();
     if (error) {
       if (tablaNoExiste(error)) return mapa;
@@ -40,6 +47,7 @@ export async function cargarPartes(
         descripcion: p.descripcion,
         piezasPorMueble: Number(p.piezas_por_mueble),
         unidad: p.unidad,
+        porcentaje: p.porcentaje == null ? null : Number(p.porcentaje),
       });
     }
   }

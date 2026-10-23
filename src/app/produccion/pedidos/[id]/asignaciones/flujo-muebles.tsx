@@ -15,12 +15,15 @@ import {
 import {
   asignacionesDelPaso,
   avancePaso,
+  avancePonderado,
   estadoMueble,
   estadoObra,
   indiceSiguiente,
   opcionesDePasos,
   pasoConAsignaciones,
+  pesosPartes,
   porcentaje,
+  requiereDespiece,
   siguientePaso,
   totalesProceso,
   type EstadoMueble,
@@ -224,7 +227,19 @@ function porAsignar(
   indice: number,
   asignar: AsignarDesdeFlujo | null,
 ): asignar is AsignarDesdeFlujo {
-  return !!asignar && avancePaso(m, indice).disponible > 0;
+  // Con componentes, primero el despiece: se asigna por sus partes.
+  return !!asignar && !requiereDespiece(m) && avancePaso(m, indice).disponible > 0;
+}
+
+// Enlace al despiece del mueble (o solo el texto si la pantalla no sabe dónde está).
+function EnlaceDespiece({ mueble: m, className, children }: { mueble: MuebleFlujo; className: string; children: ReactNode }) {
+  return m.despieceHref ? (
+    <Link href={m.despieceHref} className={className}>
+      {children}
+    </Link>
+  ) : (
+    <span className={className}>{children}</span>
+  );
 }
 
 export function FilaMueble({
@@ -347,6 +362,13 @@ export function FilaMueble({
           <span className={`${estiloPildora} bg-emerald-50 text-emerald-700`}>
             {obra === "liberado" ? "✓ Liberado a obra" : "✓ Terminado"}
           </span>
+        ) : asignar && requiereDespiece(m) ? (
+          <EnlaceDespiece
+            mueble={m}
+            className={`${estiloPildora} bg-amber-500 text-white shadow-sm transition-colors hover:bg-amber-600`}
+          >
+            Hacer despiece →
+          </EnlaceDespiece>
         ) : indiceAsignar !== null && porAsignar(m, indiceAsignar, asignar) ? (
           <BotonAsignar
             mueble={m}
@@ -393,8 +415,8 @@ function Paso({
 }) {
   const a = avancePaso(m, indice);
   const etiqueta = etiquetaPaso(m.ruta, indice);
-  const pct =
-    a.estado === "terminado" ? 100 : porcentaje(a.entregado, m.cantidad);
+  // Con despiece, el avance pondera cada parte por su % del mueble.
+  const pct = avancePonderado(m, indice);
   const color = COLOR[a.estado];
   const titulo = `${indice + 1}. ${etiqueta}: ${a.entregado}/${m.cantidad} entregadas, ${a.asignado} asignadas${
     a.porReasignar > 0 ? `, ${a.porReasignar} rechazadas por Calidad sin reasignar` : ""
@@ -441,6 +463,89 @@ function Paso({
   );
 }
 
+// El despiece del mueble al abrirlo: sus partes con el % del mueble que vale cada una y
+// cuánto lleva cada paso de la ruta. Sin despiece (y con componentes), el aviso para hacerlo.
+function Despiece({ mueble: m, puedeAsignar }: { mueble: MuebleFlujo; puedeAsignar: boolean }) {
+  const partes = m.partes ?? [];
+  if (requiereDespiece(m)) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <p>Este mueble tiene componentes: guarda su despiece para asignarlo por partes.</p>
+        {puedeAsignar && (
+          <EnlaceDespiece mueble={m} className="font-semibold underline">
+            Hacer despiece
+          </EnlaceDespiece>
+        )}
+      </div>
+    );
+  }
+  if (partes.length === 0) return null;
+  const pesos = pesosPartes(partes);
+  const avances = m.ruta.map((_, i) => avancePaso(m, i));
+  const fmt = (n: number) => n.toLocaleString("es-MX", { maximumFractionDigits: 2 });
+  return (
+    <div className="flex flex-col gap-1.5 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-slate-700">Despiece ({partes.length} partes)</p>
+        <EnlaceDespiece mueble={m} className="font-medium text-sky-700 underline">
+          Ver o editar despiece
+        </EnlaceDespiece>
+      </div>
+      <div className="overflow-x-auto rounded-lg bg-white">
+        <table className="w-full text-left tabular-nums">
+          <thead className="text-slate-500">
+            <tr>
+              <th className="p-2 font-medium">Parte</th>
+              <th className="p-2 font-medium">% del mueble</th>
+              {m.ruta.map((_, i) => (
+                <th key={i} className="p-2 font-medium whitespace-nowrap">
+                  {etiquetaPaso(m.ruta, i)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {partes.map((p) => (
+              <tr key={p.id}>
+                <td className="p-2 text-slate-900">
+                  {p.descripcion}
+                  <span className="block text-slate-500">
+                    {fmt(p.piezasPorMueble)} {p.unidad ?? "pz"} por mueble
+                  </span>
+                </td>
+                <td className="p-2 text-slate-700">{fmt(pesos.get(p.id) ?? 0)} %</td>
+                {avances.map((a, i) => {
+                  const x = a.partes[p.id];
+                  return (
+                    <td
+                      key={i}
+                      className="p-2 whitespace-nowrap text-slate-600"
+                      title="Muebles entregados / asignados de esta parte"
+                    >
+                      {x ? `${fmt(x.entregado)}/${fmt(x.asignado)}` : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="text-slate-700">
+            <tr className="border-t border-slate-200">
+              <td className="p-2 font-medium">Avance del mueble</td>
+              <td className="p-2" />
+              {m.ruta.map((_, i) => (
+                <td key={i} className="p-2 font-semibold whitespace-nowrap">
+                  {avancePonderado(m, i)} %
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function DetalleMueble({
   mueble: m,
   asignar,
@@ -468,6 +573,7 @@ function DetalleMueble({
           />
         )}
       </div>
+      <Despiece mueble={m} puedeAsignar={!!asignar} />
       <div className="grid gap-3 lg:grid-cols-2">
         {m.ruta.map((p, i) => {
           const lista = asignacionesDelPaso(m, i);

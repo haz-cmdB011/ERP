@@ -30,6 +30,11 @@ export interface MuebleFlujo {
   // asignar por separado. Omitido si la pantalla no las leyó: entonces cuentan las
   // partes que ya tienen asignaciones.
   partes?: ParteMueble[];
+  // Tiene componentes vigentes en el PM: entonces se asigna por su despiece y, sin
+  // despiece guardado, no se asigna (requiere_despiece en la base). Omitido = no se sabe.
+  conComponentes?: boolean;
+  // Dónde se hace su despiece (null u omitido si la pantalla no lo sabe).
+  despieceHref?: string | null;
 }
 
 // Una parte del despiece del mueble.
@@ -38,6 +43,22 @@ export interface ParteMueble {
   descripcion: string;
   piezasPorMueble: number;
   unidad: string | null;
+  // % del mueble que vale (todas suman 100). null: las partes valen lo mismo.
+  porcentaje?: number | null;
+}
+
+// Hay que guardar el despiece antes de asignar: tiene componentes y aún no tiene partes.
+export function requiereDespiece(m: MuebleFlujo): boolean {
+  return !!m.conComponentes && (m.partes?.length ?? 0) === 0;
+}
+
+// El % del mueble que vale cada parte: el guardado o, si falta en alguna, partes iguales.
+export function pesosPartes(partes: ParteMueble[]): Map<string, number> {
+  const completos = partes.length > 0 && partes.every((p) => p.porcentaje != null);
+  const total = completos ? partes.reduce((s, p) => s + Number(p.porcentaje), 0) : 0;
+  return new Map(
+    partes.map((p) => [p.id, completos && total > 0 ? (Number(p.porcentaje) / total) * 100 : 100 / partes.length])
+  );
 }
 
 // Cómo va una parte en un paso (todo en muebles: lo del mueble completo cuenta para
@@ -173,6 +194,26 @@ export function avancePaso(m: MuebleFlujo, indice: number): AvancePaso {
     estado = entregado >= m.cantidad && !retrabajoAbierto && porReasignar <= 0 ? "terminado" : "en_proceso";
   }
   return { estado, asignado, entregado, disponible, listo, porReasignar, partes };
+}
+
+// Avance del paso en % del mueble (0–100), ponderado por el % de cada parte: lo del
+// mueble completo cuenta entero y cada parte suma su % por lo que entregó. Sin partes,
+// lo entregado contra la cantidad. Solo para mostrar: el cobro y la revisión final
+// siguen contando un mueble cuando todas sus partes (cobertura_por_partes).
+export function avancePonderado(m: MuebleFlujo, indice: number, campo: "entregado" | "asignado" = "entregado"): number {
+  const a = avancePaso(m, indice);
+  if (a.estado === "terminado" && campo === "entregado") return 100;
+  if (m.cantidad <= 0) return 0;
+  const partes = m.partes ?? [];
+  if (partes.length === 0) return porcentaje(a[campo], m.cantidad);
+  const pesos = pesosPartes(partes);
+  let suma = 0;
+  for (const p of partes) {
+    const x = a.partes[p.id];
+    if (!x) continue;
+    suma += (pesos.get(p.id) ?? 0) * Math.min(1, x[campo] / m.cantidad);
+  }
+  return Math.max(0, Math.min(100, Math.round(suma)));
 }
 
 // Un paso de la ruta del mueble, tal como se ofrece en el formulario de asignación.

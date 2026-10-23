@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { AsignacionResumen, Proceso } from "./asignaciones";
 import {
   avancePaso,
+  avancePonderado,
   estadoMueble,
   estadoObra,
   opcionesDePasos,
   pasoConAsignaciones,
+  pesosPartes,
+  requiereDespiece,
   siguientePaso,
   totalesProceso,
   type MuebleFlujo,
@@ -243,5 +246,37 @@ describe("totalesProceso", () => {
       entregado: 5,
     });
     expect(totalesProceso([conLuz, mueble([])], "armado").piezas).toBe(20);
+  });
+});
+
+describe("despiece con porcentaje", () => {
+  const partes = [
+    { id: "madera", descripcion: "Estructura de madera", piezasPorMueble: 1, unidad: "PZA", porcentaje: 70 },
+    { id: "metal", descripcion: "Base de metal", piezasPorMueble: 6, unidad: "PZA", porcentaje: 30 },
+  ];
+
+  it("el avance pondera cada parte por su %", () => {
+    const m: MuebleFlujo = {
+      ...mueble([asig("armado", 10, 10, { parte_id: "madera" }), asig("armado", 10, 5, { parte_id: "metal" })]),
+      partes,
+    };
+    // 70 % entregado completo + 30 % a la mitad.
+    expect(avancePonderado(m, 0)).toBe(85);
+    expect(avancePonderado(m, 0, "asignado")).toBe(100);
+    expect(avancePonderado(m, 1)).toBe(0);
+  });
+  it("lo del mueble completo cuenta entero", () => {
+    const m: MuebleFlujo = { ...mueble([asig("armado", 5, 5)]), partes };
+    expect(avancePonderado(m, 0)).toBe(50);
+  });
+  it("sin % guardado las partes valen lo mismo", () => {
+    const sinPct = partes.map((p) => ({ ...p, porcentaje: null }));
+    expect(pesosPartes(sinPct)).toEqual(new Map([["madera", 50], ["metal", 50]]));
+  });
+  it("con componentes y sin despiece no se asigna", () => {
+    const m = mueble([]);
+    expect(requiereDespiece({ ...m, conComponentes: true, partes: [] })).toBe(true);
+    expect(requiereDespiece({ ...m, conComponentes: true, partes })).toBe(false);
+    expect(requiereDespiece({ ...m, conComponentes: false, partes: [] })).toBe(false);
   });
 });
