@@ -127,9 +127,10 @@ Calidad solo **evalúa** piezas que Producción preaprobó, pero **ve** todo lo 
 `listosParaCalidad` en `src/lib/calidad/estado-item.ts`, lectura en `preaprobados-db.ts`) y abajo, plegado,
 "En taller" (`enTallerParaCalidad`, el mueble va junto con sus componentes). Lo de taller no se aprueba ni
 cuenta como pendiente en el panel ni en la O.T.; tiene "Reportar falla", que abre el alta de no conformidades
-prellenada (`?reportar=1&reportar_proyecto=…&reportar_mueble=…`). La preaprobación se hace al **registrar la
-entrega**: quien toma la foto marca si las piezas cumplen (nace verificada y pasa a Calidad) o no
-cumplen (nace rechazada, con motivo). Lo controla el ajuste `verificacion_produccion` de la tabla
+prellenada (`?reportar=1&reportar_proyecto=…&reportar_mueble=…`). Producción **ya no califica** al registrar la
+entrega ni sube foto (migración `entrega_sin_foto_ni_calificacion`): solo fecha, cantidad y folio, y la
+entrega nace verificada y pasa a Calidad, que es quien evalúa. Las entregas viejas conservan su foto y su
+"cumplen / no cumplen". Lo controla el ajuste `verificacion_produccion` de la tabla
 `ajustes_flujo`, hoy ENCENDIDO (migración `entrega_con_preaprobacion`). Apagado, Calidad evalúa todo
 ítem liberado aunque no haya entregas (un mueble sin entregas se evalúa completo) y las entregas nacen
 verificadas. Cómo apagarlo o encenderlo y qué anotar después: `docs/operacion.md` ("Si Calidad no puede
@@ -302,14 +303,14 @@ de Producción y Calidad siguen yendo directo a su pantalla; las hojas viejas (d
 
 ## Capturas sin conexión
 
-En el taller a veces se cae el Wi-Fi. La **entrega de Producción** (con su foto) se guarda en el
+En el taller a veces se cae el Wi-Fi. La **entrega de Producción** se guarda en el
 propio aparato (IndexedDB) si no hay red y se manda sola al volver, con un indicador en pantalla
 (`EstadoEnvios`, en el layout raíz). Núcleo en `src/lib/offline/cola-envios.ts` (sin navegador, con
 pruebas), almacén en `almacen-indexeddb.ts`, pegamento del navegador en `cola-navegador.ts`.
 
-- **Repetir un envío nunca duplica**: cada captura lleva una `claveEnvio`; el servidor sube la foto a
-  una ruta que sale de ella y el índice único `idx_entregas_produccion_foto_path_unica` impide
-  registrar la entrega dos veces (`src/app/api/produccion/entregas/route.ts`).
+- **Repetir un envío nunca duplica**: cada captura lleva una `claveEnvio` que queda en la
+  entrega (`entregas_produccion.clave_envio`, índice único `idx_entregas_produccion_clave_envio_unica`):
+  `registrar_entrega_produccion` devuelve la misma entrega en vez de registrar otra (`src/app/api/produccion/entregas/route.ts`).
 - Para llevar **otra captura** a la cola: que su ruta de servidor acepte `claveEnvio` y sea idempotente
   (si la operación crea algo, la clave debe identificarlo de forma única) y mandarla con
   `enviarOGuardar` en vez de `fetch`. No encolar lo que no sea seguro repetir.

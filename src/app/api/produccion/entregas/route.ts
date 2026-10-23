@@ -1,45 +1,28 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
-import {
-  BUCKET_FOTOS_ENTREGA,
-  esResultadoRevision,
-  leerCantidad,
-  leerFecha,
-  mensajeErrorRpc,
-} from "@/lib/produccion/asignaciones";
-import { comprimirFotoEntrega, TAMANO_MAXIMO_FOTO } from "@/lib/produccion/foto-entrega";
-import {
-  esFotoYaSubida,
-  esRechazoDefinitivo,
-  esViolacionUnica,
-  leerClaveEnvio,
-  rutaFotoEntrega,
-} from "@/lib/produccion/envio-entrega";
+import { leerCantidad, leerFecha, mensajeErrorRpc } from "@/lib/produccion/asignaciones";
+import { esRechazoDefinitivo, esViolacionUnica, leerClaveEnvio } from "@/lib/produccion/envio-entrega";
 
 export const runtime = "nodejs";
 
-// Registra una entrega de un equipo: fecha en que terminó, cantidad, folio de
-// la hoja de entrega, la foto de la hoja (multipart/form-data) y la revisión de
-// quien la registra (`resultado`: "cumple" pasa a Calidad; "no_cumple", con
-// `motivo`, regresa al equipo). La foto se comprime, se sube al bucket privado
-// y después se registra la entrega con la función registrar_entrega_produccion,
-// que vuelve a validar todo (permisos, cantidades, fechas, motivo). Sin
-// `resultado` (capturas guardadas sin red con la pantalla anterior) la entrega
-// queda por verificar, como antes.
+// Registra una entrega de un equipo: fecha en que terminó, cantidad y folio de la hoja
+// de entrega. Producción no califica las piezas ni sube foto (migración
+// entrega_sin_foto_ni_calificacion): la entrega pasa a Calidad, que es quien evalúa.
+// registrar_entrega_produccion vuelve a validar todo (permisos, cantidades, fechas).
+// Las capturas que quedaron en la cola con la pantalla anterior traen foto y
+// calificación: se ignoran y se registran igual que las nuevas.
 //
 // Es seguro REPETIR el mismo envío: el celular guarda las capturas hechas sin red y las
 // reenvía al volver la conexión, y puede reenviar una que el servidor ya había guardado
 // (la red se cortó antes de que llegara la respuesta). La `claveEnvio` que manda el celular
-// fija la ruta de la foto, y un índice único sobre foto_path (migración
-// entregas_foto_unica) impide que esa ruta registre dos entregas: el reintento recibe la
-// misma entrega, marcada `repetida`.
-async function entregaDeFoto(supabase: Awaited<ReturnType<typeof createClient>>, ruta: string) {
+// queda en la entrega (índice único): la función devuelve la misma entrega en vez de
+// registrar otra.
+async function entregaDeClave(supabase: Awaited<ReturnType<typeof createClient>>, clave: string) {
   const { data } = await supabase
     .from("entregas_produccion")
     .select("id")
-    .eq("foto_path", ruta)
+    .eq("clave_envio", clave)
     .maybeSingle<{ id: string }>();
   return data?.id ?? null;
 }
@@ -65,22 +48,11 @@ export async function POST(request: Request) {
   const fecha = leerFecha(form.get("fecha"));
   const cantidad = leerCantidad(form.get("cantidad"));
   const folios = form.get("folios");
-  const foto = form.get("foto");
-  const resultadoCrudo = form.get("resultado");
-  const resultado = resultadoCrudo === null || resultadoCrudo === "" ? null : resultadoCrudo;
-  const motivo = form.get("motivo");
 
   if (typeof asignacionId !== "string" || !/^[0-9a-f-]{36}$/i.test(asignacionId)) {
     return NextResponse.json({ error: "Asignación no válida." }, { status: 400 });
   }
-  const ruta = rutaFotoEntrega(asignacionId, leerClaveEnvio(form.get("claveEnvio")));
-
-  // ¿Este mismo envío ya se registró en un intento anterior?
-  const previa = await entregaDeFoto(supabase, ruta);
-  if (previa) {
-    return NextResponse.json({ ok: true, id: previa, repetida: true });
-  }
-
+  const clave = leerClaveEnvio(form.get("claveEnvio"));
   if (!fecha) {
     return NextResponse.json({ error: "Fecha de entrega no válida." }, { status: 400 });
   }
@@ -90,61 +62,21 @@ export async function POST(request: Request) {
   if (typeof folios !== "string" || !folios.trim()) {
     return NextResponse.json({ error: "Escribe el folio de la hoja de entrega." }, { status: 400 });
   }
-  if (resultado !== null && !esResultadoRevision(resultado)) {
-    return NextResponse.json({ error: "Indica si las piezas cumplen o no." }, { status: 400 });
-  }
-  const motivoRechazo = typeof motivo === "string" ? motivo.trim().slice(0, 500) : "";
-  if (resultado === "no_cumple" && !motivoRechazo) {
-    return NextResponse.json({ error: "Escribe por qué no cumplen las piezas." }, { status: 400 });
-  }
-  if (!(foto instanceof File) || foto.size === 0) {
-    return NextResponse.json({ error: "Falta la foto de los folios." }, { status: 400 });
-  }
-  if (foto.size > TAMANO_MAXIMO_FOTO) {
-    return NextResponse.json({ error: "La foto pesa demasiado (máximo 4 MB)." }, { status: 413 });
-  }
-
-  const comprimida = await comprimirFotoEntrega(Buffer.from(await foto.arrayBuffer()));
-  if (!comprimida) {
-    return NextResponse.json(
-      { error: "No se pudo leer la foto. Usa JPG, PNG o WebP." },
-      { status: 400 }
-    );
-  }
-
-  // Si un intento anterior de este envío ya subió la foto (y se cortó antes de registrar),
-  // se reutiliza: es la misma foto. Nunca se reemplaza, así que el navegador puede guardarla en
-  // caché un año (ver urls-firmadas.ts).
-  const { error: errorSubida } = await supabase.storage
-    .from(BUCKET_FOTOS_ENTREGA)
-    .upload(ruta, comprimida, { contentType: "image/webp", cacheControl: "31536000" });
-  if (errorSubida && !esFotoYaSubida(errorSubida)) {
-    return NextResponse.json(
-      { error: `No se pudo subir la foto: ${errorSubida.message}` },
-      { status: 500 }
-    );
-  }
 
   const { data: entregaId, error } = await supabase.rpc("registrar_entrega_produccion", {
     p_asignacion_id: asignacionId,
     p_fecha_entrega: fecha,
     p_cantidad: cantidad,
     p_folios_calidad: folios.trim().slice(0, 500),
-    p_foto_path: ruta,
-    p_resultado: resultado,
-    p_motivo_rechazo: resultado === "no_cumple" ? motivoRechazo : null,
+    p_clave_envio: clave,
   });
 
   if (error) {
-    // Dos envíos iguales a la vez: ganó el otro. La foto es la de la entrega registrada,
-    // así que NO se borra.
+    // Dos envíos iguales a la vez: ganó el otro.
     if (esViolacionUnica(error)) {
-      const id = await entregaDeFoto(supabase, ruta);
+      const id = await entregaDeClave(supabase, clave);
       if (id) return NextResponse.json({ ok: true, id, repetida: true });
     }
-    // La entrega no quedó: la foto subida no debe quedar huérfana. El bucket
-    // no deja borrar a nadie desde la app, por eso se usa service role.
-    await createAdminClient().storage.from(BUCKET_FOTOS_ENTREGA).remove([ruta]);
     // 400 = la regla de la base la rechazó (repetir no la arregla). Cualquier otra falla
     // (corte con la base, tiempo agotado) es pasajera: 500, y el celular reintenta.
     return NextResponse.json(
