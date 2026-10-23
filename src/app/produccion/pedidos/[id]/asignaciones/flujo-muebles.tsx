@@ -213,6 +213,7 @@ function BotonAsignar({
       equipos={asignar.equipos}
       encargados={asignar.encargados}
       partes={m.partes}
+      conComponentes={m.conComponentes}
       pasoInicial={indice}
       className={className}
       titulo={titulo}

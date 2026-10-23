@@ -207,7 +207,9 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
   reconoce por su componente del PM. El retrabajo hereda la parte (`trg_paso_de_retrabajo`).
 - **El despiece se usa para asignar** (migración `despiece_porcentaje_obligatorio`): un mueble con
   componentes vigentes en el PM no se asigna sin despiece guardado (`requiere_despiece`; en el panel sale
-  "Hacer despiece" en lugar del "+"); los muebles sin componentes se asignan completos. Cada parte vale un
+  "Hacer despiece" en lugar del "+"); los muebles sin componentes se asignan completos. "Mueble completo" solo existe para muebles sin
+  componentes: uno con componentes se asigna únicamente por partes (`AsignarForm` sin selector;
+  `tiene_componentes` en `crear_asignacion_produccion`, migración `asignar_por_partes_con_componentes`). Cada parte vale un
   **% del mueble** en partes iguales (`partes_despiece.porcentaje`): no se captura, el editor lo calcula
   solo al guardar (`repartirPorcentajes`); la base acepta un % por línea que sume 100. Al abrir un mueble en el panel se ve su despiece con el avance
   por parte, y el anillo de cada paso es el avance ponderado (`avancePonderado`). Solo es visual: el cobro

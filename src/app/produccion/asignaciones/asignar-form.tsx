@@ -38,10 +38,10 @@ function disponibleDelPaso(p: OpcionPaso, modo: Modo): number {
 // que el paso anterior ya entregó se permite, con aviso: queda marcado como
 // adelantado.
 //
-// Con despiece, se asigna por partes (lo normal cuando el mueble tiene varias): se
-// eligen las partes que van al equipo y para cuántos muebles; las piezas son esa
-// cantidad por las piezas por mueble de cada parte. También se puede asignar el
-// mueble completo, que cuenta para todas sus partes (migración despiece_por_partes).
+// Un mueble con componentes se asigna SOLO por partes de su despiece: se eligen las partes
+// que van al equipo y para cuántos muebles; las piezas son esa cantidad por las piezas por
+// mueble de cada parte. Un mueble sin componentes se asigna SOLO completo (migraciones
+// despiece_por_partes y asignar_por_partes_con_componentes).
 export default function AsignarForm({
   itemId,
   descripcion,
@@ -50,6 +50,7 @@ export default function AsignarForm({
   equipos,
   encargados,
   partes = [],
+  conComponentes,
   pasoInicial: pasoPedido,
   children,
   className,
@@ -63,6 +64,8 @@ export default function AsignarForm({
   encargados: EncargadoEquipo[];
   // Partes vigentes del despiece del mueble (vacío si no tiene despiece).
   partes?: ParteMueble[];
+  // Tiene componentes en el PM: entonces solo por partes. Omitido: se decide por si tiene partes.
+  conComponentes?: boolean;
   // Para abrir el formulario ya en un paso (desde el flujo del PM).
   pasoInicial?: number;
   // Contenido y estilo del botón que lo abre (por omisión, "Asignar").
@@ -74,15 +77,16 @@ export default function AsignarForm({
   const hayPartes = partes.length > 0;
   // El % del mueble que vale cada parte (lo guardado en el despiece o partes iguales).
   const pesos = pesosPartes(partes);
-  // Por partes si el mueble tiene varias; con una sola, el mueble completo.
-  const modoInicial: Modo = partes.length > 1 ? "partes" : "mueble";
+  // Con componentes, solo por partes; sin ellos, solo el mueble completo.
+  const modo: Modo = (conComponentes ?? hayPartes) ? "partes" : "mueble";
+  // Con componentes y sin despiece guardado no hay qué asignar: primero el despiece.
+  const faltaDespiece = modo === "partes" && !hayPartes;
   const inicialDe = (modo: Modo) =>
     pasoPedido !== undefined && pasos[pasoPedido] && disponibleDelPaso(pasos[pasoPedido], modo) > 0
       ? pasoPedido
       : Math.max(0, pasos.findIndex((p) => disponibleDelPaso(p, modo) > 0));
   const [abierto, setAbierto] = useState(false);
-  const [modo, setModo] = useState<Modo>(modoInicial);
-  const [indice, setIndice] = useState(inicialDe(modoInicial));
+  const [indice, setIndice] = useState(inicialDe(modo));
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [equipoId, setEquipoId] = useState("");
   const [cantidad, setCantidad] = useState("");
@@ -124,25 +128,16 @@ export default function AsignarForm({
   }
 
   function abrir() {
-    const i = inicialDe(modoInicial);
-    setModo(modoInicial);
+    const i = inicialDe(modo);
     setIndice(i);
     setSeleccion([]);
     setEquipoId("");
-    setCantidad(sugerirPara(pasos[i], modoInicial, []));
+    setCantidad(sugerirPara(pasos[i], modo, []));
     setFecha(hoyMexico());
     setNotas("");
     setEncargado("");
     setError(null);
     setAbierto(true);
-  }
-
-  function cambiarModo(m: Modo) {
-    const i = pasos[indice] && disponibleDelPaso(pasos[indice], m) > 0 ? indice : inicialDe(m);
-    setModo(m);
-    setIndice(i);
-    setSeleccion([]);
-    setCantidad(sugerirPara(pasos[i], m, []));
   }
 
   function cambiarPaso(i: number) {
@@ -221,25 +216,17 @@ export default function AsignarForm({
       </button>
       {abierto && (
         <Modal titulo="Asignar a un equipo" subtitulo={descripcion} onCerrar={() => !enviando && setAbierto(false)}>
+          {faltaDespiece ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Este mueble tiene componentes: guarda su despiece para asignarlo por partes.
+            </p>
+          ) : (
           <form onSubmit={enviar} className="flex flex-col gap-3">
-            {hayPartes && (
-              <div role="radiogroup" aria-label="Qué se asigna" className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
-                {(["partes", "mueble"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    role="radio"
-                    aria-checked={modo === m}
-                    onClick={() => cambiarModo(m)}
-                    className={`rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
-                      modo === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    {m === "partes" ? "Por partes" : "Mueble completo"}
-                  </button>
-                ))}
-              </div>
-            )}
+            <p className="text-sm text-slate-600">
+              {modo === "partes"
+                ? "Este mueble tiene componentes: se asigna por partes de su despiece."
+                : "Este mueble no tiene componentes: se asigna completo."}
+            </p>
             <fieldset className="grid grid-cols-2 gap-2">
               <legend className="mb-1 text-sm font-medium text-slate-700">Paso de la ruta</legend>
               {pasos.map((p) => {
@@ -413,6 +400,7 @@ export default function AsignarForm({
               </button>
             </div>
           </form>
+          )}
         </Modal>
       )}
     </>
