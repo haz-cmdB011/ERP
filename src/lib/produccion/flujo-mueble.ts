@@ -45,6 +45,20 @@ export interface ParteMueble {
   unidad: string | null;
   // % del mueble que vale (todas suman 100). null: las partes valen lo mismo.
   porcentaje?: number | null;
+  // Procesos de la ruta del mueble que esta parte se salta (ej. el herraje no va a
+  // Barniz). Omitido = lleva todos.
+  procesosOmitidos?: Proceso[];
+}
+
+// ¿La parte pasa por este proceso?
+export function parteLleva(parte: Pick<ParteMueble, "procesosOmitidos">, proceso: Proceso): boolean {
+  return !(parte.procesosOmitidos ?? []).includes(proceso);
+}
+
+// Se asigna completo (en muebles): no tiene componentes ni partes. Los demás se asignan
+// por partes de su despiece, una a una, así que no entran en "Asignar varios a un equipo".
+export function seAsignaCompleto(m: MuebleFlujo): boolean {
+  return !m.conComponentes && (m.partes?.length ?? 0) === 0;
 }
 
 // Hay que guardar el despiece antes de asignar: tiene componentes y aún no tiene partes.
@@ -61,9 +75,12 @@ export function pesosPartes(partes: ParteMueble[]): Map<string, number> {
   );
 }
 
-// Cómo va una parte en un paso (todo en muebles: lo del mueble completo cuenta para
-// todas sus partes).
+// Cómo va una parte en un paso, en PIEZAS de la parte (migración
+// partes_en_piezas_y_ruta_por_parte): lo del mueble completo cuenta para todas sus
+// partes, por sus piezas por mueble.
 export interface AvanceParte {
+  // Piezas de la parte en el paso: piezas por mueble × cantidad del mueble.
+  total: number;
   asignado: number;
   entregado: number;
   disponible: number;
@@ -118,10 +135,15 @@ export function pasoConAsignaciones(m: MuebleFlujo, indice: number): boolean {
 type Campo = "cantidad" | "entregado" | "verificado";
 
 // Las partes que cuentan: las vigentes del despiece o, si la pantalla no las leyó,
-// las que ya tienen asignaciones.
-function idsPartes(m: MuebleFlujo): string[] {
-  if (m.partes) return m.partes.map((p) => p.id);
-  return [...new Set(m.asignaciones.flatMap((a) => (a.parte_id ? [a.parte_id] : [])))];
+// las que ya tienen asignaciones (sin sus datos: 1 pieza por mueble, todos los procesos).
+function partesDe(m: MuebleFlujo): ParteMueble[] {
+  if (m.partes) return m.partes;
+  return [...new Set(m.asignaciones.flatMap((a) => (a.parte_id ? [a.parte_id] : [])))].map((id) => ({
+    id,
+    descripcion: "",
+    piezasPorMueble: 1,
+    unidad: null,
+  }));
 }
 
 // Lo del mueble completo y lo de cada parte en una lista de asignaciones.
@@ -135,12 +157,8 @@ function porParte(lista: AsignacionResumen[], campo: Campo) {
   return { mueble, de: (id: string) => partes.get(id) ?? 0 };
 }
 
-// Lo del mueble completo más lo de su parte más atrasada: un mueble cuenta cuando
-// todas sus partes. Mismo cálculo que cobertura_por_partes en la base.
-function cobertura(ids: string[], lista: AsignacionResumen[], campo: Campo): number {
-  const s = porParte(lista, campo);
-  return ids.length === 0 ? s.mueble : redondear(s.mueble + Math.min(...ids.map(s.de)));
-}
+// En muebles, con dos decimales hacia abajo (mismo criterio que la base: trunc).
+const truncar = (n: number) => Math.floor(n * 100 + 1e-9) / 100;
 
 // Sin canceladas ni retrabajos: lo que cuenta contra la cantidad del mueble.
 function normalesDelPaso(m: MuebleFlujo, indice: number): AsignacionResumen[] {
@@ -149,44 +167,76 @@ function normalesDelPaso(m: MuebleFlujo, indice: number): AsignacionResumen[] {
 
 // Asignado, entregado y lo que queda del paso. El retrabajo no cuenta contra la
 // cantidad, pero mientras siga abierto (o haya rechazos de Calidad sin
-// reasignar) el paso no está terminado. Con partes, el paso va en lo de la parte
-// más atrasada. Mismo cálculo que crear_asignacion_produccion (tope y `adelantada`).
+// reasignar) el paso no está terminado.
+//
+// Con partes, cada una va en sus piezas y solo cuentan las que llevan el proceso del
+// paso; el paso (en muebles) va en lo de la parte más atrasada, pasada a muebles. Si
+// ninguna parte lleva el proceso, el paso no les aplica y cuenta como terminado. Mismo
+// cálculo que crear_asignacion_produccion (tope y `adelantada`) y cobertura_por_partes.
 export function avancePaso(m: MuebleFlujo, indice: number): AvancePaso {
-  const ids = idsPartes(m);
+  const proceso = m.ruta[indice]?.proceso;
+  const todas = partesDe(m);
+  const partesPaso = proceso ? todas.filter((p) => parteLleva(p, proceso)) : todas;
   const delPaso = asignacionesDelPaso(m, indice).filter((a) => !a.cancelada_en);
   const normales = delPaso.filter((a) => !esRetrabajo(a));
-  const anteriores = indice === 0 ? null : normalesDelPaso(m, indice - 1);
-  const asignado = cobertura(ids, normales, "cantidad");
-  const entregado = cobertura(ids, normales, "entregado");
+  const porReasignar = redondear(delPaso.reduce((s, a) => s + Number(a.rechazado_por_reasignar ?? 0), 0));
+
+  if (todas.length > 0 && partesPaso.length === 0) {
+    const c = m.cantidad;
+    return { estado: "terminado", asignado: c, entregado: c, disponible: 0, listo: 0, porReasignar, partes: {} };
+  }
 
   const asig = porParte(normales, "cantidad");
   const entr = porParte(normales, "entregado");
-  const veri = anteriores ? porParte(anteriores, "verificado") : null;
-  // Lo que se puede asignar sin adelantarse a una parte: lo que el paso anterior le
-  // verificó menos lo que ya tiene aquí.
-  const listoDe = (asignadoAqui: number, verificadoAntes: number, disponible: number) =>
-    veri ? Math.min(disponible, Math.max(0, redondear(verificadoAntes - asignadoAqui))) : disponible;
+
+  // El paso anterior de cada parte: el último antes de este que la parte lleva (para el
+  // mueble completo, el anterior de la ruta).
+  const anteriorDe = (p: ParteMueble | null) => {
+    for (let j = indice - 1; j >= 0; j--) {
+      if (!p || parteLleva(p, m.ruta[j].proceso)) return j;
+    }
+    return null;
+  };
+  const verificadoAntes = (p: ParteMueble | null) => {
+    const j = anteriorDe(p);
+    if (j === null) return null;
+    const v = porParte(normalesDelPaso(m, j), "verificado");
+    return p ? redondear(v.mueble * p.piezasPorMueble + v.de(p.id)) : v.mueble;
+  };
+  // Lo que se puede asignar sin adelantarse: lo que el paso anterior verificó menos lo
+  // que ya hay aquí; sin paso anterior, todo lo disponible.
+  const listoDe = (asignadoAqui: number, antes: number | null, disponible: number) =>
+    antes === null ? disponible : Math.min(disponible, Math.max(0, redondear(antes - asignadoAqui)));
 
   const partes: Record<string, AvanceParte> = {};
-  for (const id of ids) {
-    const asignadoParte = redondear(asig.mueble + asig.de(id));
-    const disponible = Math.max(0, redondear(m.cantidad - asignadoParte));
-    partes[id] = {
+  for (const p of partesPaso) {
+    const total = redondear(m.cantidad * p.piezasPorMueble);
+    const asignadoParte = redondear(asig.mueble * p.piezasPorMueble + asig.de(p.id));
+    const disponible = Math.max(0, redondear(total - asignadoParte));
+    partes[p.id] = {
+      total,
       asignado: asignadoParte,
-      entregado: redondear(entr.mueble + entr.de(id)),
+      entregado: redondear(entr.mueble * p.piezasPorMueble + entr.de(p.id)),
       disponible,
-      listo: listoDe(asignadoParte, veri ? veri.mueble + veri.de(id) : 0, disponible),
+      listo: listoDe(asignadoParte, verificadoAntes(p), disponible),
     };
   }
-  // El mueble completo cuenta para todas sus partes: cabe lo que le quede a la que más lleva.
-  const maxParte = ids.length ? Math.max(...ids.map(asig.de)) : 0;
-  const disponible = Math.max(0, redondear(m.cantidad - asig.mueble - maxParte));
-  const listo =
-    ids.length === 0
-      ? listoDe(asig.mueble, veri?.mueble ?? 0, disponible)
-      : Math.min(disponible, ...ids.map((id) => listoDe(partes[id].asignado, veri ? veri.mueble + veri.de(id) : 0, m.cantidad)));
 
-  const porReasignar = redondear(delPaso.reduce((s, a) => s + Number(a.rechazado_por_reasignar ?? 0), 0));
+  // En muebles: lo del mueble completo más la parte más atrasada (asignado, entregado)
+  // o la que más lleva (lo que le cabe al mueble completo).
+  const enMuebles = (f: (p: ParteMueble) => number, g: (xs: number[]) => number) =>
+    partesPaso.length === 0 ? 0 : truncar(g(partesPaso.map((p) => f(p) / p.piezasPorMueble)));
+  const asignado = redondear(asig.mueble + enMuebles((p) => asig.de(p.id), (xs) => Math.min(...xs)));
+  const entregado = redondear(entr.mueble + enMuebles((p) => entr.de(p.id), (xs) => Math.min(...xs)));
+  const disponible = Math.max(
+    0,
+    redondear(m.cantidad - asig.mueble - enMuebles((p) => asig.de(p.id), (xs) => Math.max(...xs)))
+  );
+  const listo =
+    partesPaso.length === 0
+      ? listoDe(asig.mueble, verificadoAntes(null), disponible)
+      : Math.min(disponible, ...partesPaso.map((p) => truncar(partes[p.id].listo / p.piezasPorMueble)));
+
   let estado: EstadoProceso;
   if (normales.length === 0) estado = "sin_asignar";
   else {
@@ -196,24 +246,80 @@ export function avancePaso(m: MuebleFlujo, indice: number): AvancePaso {
   return { estado, asignado, entregado, disponible, listo, porReasignar, partes };
 }
 
-// Avance del paso en % del mueble (0–100), ponderado por el % de cada parte: lo del
-// mueble completo cuenta entero y cada parte suma su % por lo que entregó. Sin partes,
-// lo entregado contra la cantidad. Solo para mostrar: el cobro y la revisión final
-// siguen contando un mueble cuando todas sus partes (cobertura_por_partes).
+// Avance del paso en % del mueble (0–100), ponderado por el % de cada parte que lleva
+// el proceso (los % se reparten entre ellas): lo del mueble completo cuenta entero y
+// cada parte suma su % por lo que entregó de sus piezas. Sin partes, lo entregado
+// contra la cantidad. Solo para mostrar: el cobro y la revisión final siguen contando
+// un mueble cuando todas sus partes (cobertura_por_partes).
 export function avancePonderado(m: MuebleFlujo, indice: number, campo: "entregado" | "asignado" = "entregado"): number {
   const a = avancePaso(m, indice);
   if (a.estado === "terminado" && campo === "entregado") return 100;
   if (m.cantidad <= 0) return 0;
-  const partes = m.partes ?? [];
+  const proceso = m.ruta[indice]?.proceso;
+  const partes = (m.partes ?? []).filter((p) => !proceso || parteLleva(p, proceso));
   if (partes.length === 0) return porcentaje(a[campo], m.cantidad);
   const pesos = pesosPartes(partes);
   let suma = 0;
   for (const p of partes) {
     const x = a.partes[p.id];
-    if (!x) continue;
-    suma += (pesos.get(p.id) ?? 0) * Math.min(1, x[campo] / m.cantidad);
+    if (!x || x.total <= 0) continue;
+    suma += (pesos.get(p.id) ?? 0) * Math.min(1, x[campo] / x.total);
   }
   return Math.max(0, Math.min(100, Math.round(suma)));
+}
+
+// Encuadre de un mueble con despiece: cuántos muebles completos se pueden armar con lo que
+// ya terminó cada parte y qué le falta a cada una para alcanzar a la más adelantada. Una
+// pieza está terminada cuando se entregó en el último paso de la ruta que su parte lleva
+// (la tabla en Barniz; el herraje, que no va a Barniz, en Armado). Ej.: 23 muebles, tabla 3
+// por mueble con 20 terminadas (6 muebles) y herraje 1 por mueble con 0: 0 completos; para
+// los 6 que ya cubre la tabla faltan 6 herrajes. Sin partes, los muebles entregados en el
+// último paso. Solo para mostrar.
+export interface EncuadreParte {
+  id: string;
+  // Piezas terminadas de la parte y los muebles completos que alcanzan (hacia abajo).
+  terminadas: number;
+  muebles: number;
+  // Piezas que le faltan para llegar a los muebles de la parte más adelantada.
+  faltan: number;
+}
+
+export interface Encuadre {
+  completos: number;
+  // Muebles que cubre la parte más adelantada (a los que se encuadra el faltante).
+  meta: number;
+  partes: EncuadreParte[];
+}
+
+export function encuadreMueble(m: MuebleFlujo): Encuadre {
+  const partes = partesDe(m);
+  if (partes.length === 0) {
+    const ultimo = m.ruta.length - 1;
+    const completos = ultimo < 0 ? 0 : Math.min(m.cantidad, Math.floor(avancePaso(m, ultimo).entregado + 1e-9));
+    return { completos, meta: completos, partes: [] };
+  }
+  const datos = partes.map((p) => {
+    let ultimo = -1;
+    m.ruta.forEach((paso, i) => {
+      if (parteLleva(p, paso.proceso)) ultimo = i;
+    });
+    const e = ultimo < 0 ? null : porParte(normalesDelPaso(m, ultimo), "entregado");
+    const terminadas = e ? redondear(e.mueble * p.piezasPorMueble + e.de(p.id)) : 0;
+    const muebles = Math.min(m.cantidad, Math.floor(terminadas / p.piezasPorMueble + 1e-9));
+    return { p, terminadas, muebles };
+  });
+  const completos = Math.min(...datos.map((d) => d.muebles));
+  const meta = Math.max(...datos.map((d) => d.muebles));
+  return {
+    completos,
+    meta,
+    partes: datos.map(({ p, terminadas, muebles }) => ({
+      id: p.id,
+      terminadas,
+      muebles,
+      faltan: Math.max(0, redondear(meta * p.piezasPorMueble - terminadas)),
+    })),
+  };
 }
 
 // Un paso de la ruta del mueble, tal como se ofrece en el formulario de asignación.
@@ -231,8 +337,8 @@ export interface OpcionPaso {
   listo: number;
   // Etiqueta del paso anterior (null en el primero).
   anterior: string | null;
-  // Lo mismo por parte del despiece (vacío si el mueble no tiene partes).
-  partes: { id: string; disponible: number; listo: number }[];
+  // Por parte del despiece que lleva el proceso, en piezas (vacío si no tiene partes).
+  partes: { id: string; total: number; disponible: number; listo: number }[];
 }
 
 // Los pasos de la ruta del mueble como opciones del formulario de asignación.
@@ -247,7 +353,7 @@ export function opcionesDePasos(m: MuebleFlujo): OpcionPaso[] {
       disponible: a.disponible,
       listo: a.listo,
       anterior: i > 0 ? etiquetaPaso(m.ruta, i - 1) : null,
-      partes: Object.entries(a.partes).map(([id, x]) => ({ id, disponible: x.disponible, listo: x.listo })),
+      partes: Object.entries(a.partes).map(([id, x]) => ({ id, total: x.total, disponible: x.disponible, listo: x.listo })),
     };
   });
 }

@@ -24,7 +24,7 @@ import DetalleAsignacion, {
 
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
-import { disponibleDe, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
+import { disponibleDe, seAsignaCompleto, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { rutaSugerida } from "@/lib/produccion/ruta";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { cargarPartes } from "@/lib/produccion/partes-db";
@@ -229,8 +229,9 @@ export default async function AsignacionesPedidoPage({
     };
   });
 
-  // Para asignar varios muebles de una vez: lo que falta de cada uno.
-  const paraLote: MuebleParaLote[] = flujo.map((m) => ({
+  // Para asignar varios muebles de una vez: lo que falta de cada uno (solo los que se
+  // asignan completos; los demás van por partes de su despiece).
+  const paraLote: MuebleParaLote[] = flujo.filter(seAsignaCompleto).map((m) => ({
     id: m.id,
     item_code: m.item_code,
     modelo: m.modelo,

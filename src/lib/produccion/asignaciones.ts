@@ -124,29 +124,16 @@ export function etiquetaProceso(a: {
   return a.parte_descripcion ? `${proceso} · ${a.parte_descripcion}` : proceso;
 }
 
-// "5/7 PZA" de un mueble completo; de una parte, en muebles y con sus piezas:
-// "5/7 muebles · 42 PZA".
+// "5/7 PZA". Una asignación de una parte va en piezas de esa parte, con su unidad
+// (migración partes_en_piezas_y_ruta_por_parte).
 export function textoAvanceAsignacion(
   a: Pick<AsignacionResumen, "cantidad" | "entregado" | "unidad"> & {
     parte_id?: string | null;
-    parte_piezas_por_mueble?: number | null;
     parte_unidad?: string | null;
   }
 ): string {
-  const avance = `${Number(a.entregado)}/${Number(a.cantidad)}`;
-  const piezas = piezasDeParte(Number(a.cantidad), a);
-  return piezas ? `${avance} muebles · ${piezas}` : `${avance} ${a.unidad ?? ""}`.trim();
-}
-
-// Piezas de una parte para cierta cantidad de muebles ("42 PZA" = 7 muebles × 6); null
-// si la asignación es del mueble completo.
-export function piezasDeParte(
-  muebles: number,
-  a: { parte_id?: string | null; parte_piezas_por_mueble?: number | null; parte_unidad?: string | null }
-): string | null {
-  if (!a.parte_id || a.parte_piezas_por_mueble == null) return null;
-  const piezas = Math.round(Number(muebles) * Number(a.parte_piezas_por_mueble) * 100) / 100;
-  return `${piezas} ${a.parte_unidad ?? "PZA"}`;
+  const unidad = a.parte_id ? (a.parte_unidad ?? a.unidad) : a.unidad;
+  return `${Number(a.entregado)}/${Number(a.cantidad)} ${unidad ?? ""}`.trim();
 }
 
 // Un retrabajo (de un lote o de la revisión final) no cuenta contra la cantidad

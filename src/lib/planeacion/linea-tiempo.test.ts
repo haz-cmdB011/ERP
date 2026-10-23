@@ -187,3 +187,34 @@ describe("armarLineaTiempo", () => {
     expect(t.evaluados).toBe(1);
   });
 });
+
+describe("armarLineaTiempo con partes en piezas", () => {
+  const liberadoMueble = { estado_liberacion: "enviado_a_produccion" } as const;
+  it("cada parte cuenta sus piezas ÷ piezas por mueble y solo en los procesos que lleva", () => {
+    // 10 muebles: tabla 3 por mueble (30 piezas); herraje 1 por mueble y sin Barniz.
+    const partes = new Map([
+      [
+        "m1",
+        [
+          { id: "tabla", piezasPorMueble: 3 },
+          { id: "herraje", piezasPorMueble: 1, procesosOmitidos: ["barniz"] },
+        ],
+      ],
+    ]);
+    const t = armarLineaTiempo(
+      [item("m1", liberadoMueble)],
+      [
+        asig("m1", "armado", 30, 30, { parte_id: "tabla" }),
+        asig("m1", "armado", 10, 10, { parte_id: "herraje" }),
+        asig("m1", "barniz", 30, 15, { parte_id: "tabla" }),
+      ],
+      new Set(),
+      new Map(),
+      partes
+    );
+    expect(t.asignados.armado).toBe(1);
+    expect(t.entregados.armado).toBe(1);
+    expect(t.asignados.barniz).toBe(1);
+    expect(t.entregados.barniz).toBe(0);
+  });
+});

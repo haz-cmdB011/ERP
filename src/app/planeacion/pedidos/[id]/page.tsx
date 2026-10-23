@@ -183,7 +183,12 @@ export default async function PedidoDetailPage({
       asignaciones,
       conInforme,
       new Map([...rutas].map(([itemId, r]) => [itemId, r.pasos.filter((p) => p.id !== null) as { id: string; proceso: string }[]])),
-      new Map([...partes].map(([itemId, ps]) => [itemId, ps.map((p) => p.id)]))
+      new Map(
+        [...partes].map(([itemId, ps]) => [
+          itemId,
+          ps.map((p) => ({ id: p.id, piezasPorMueble: p.piezasPorMueble, procesosOmitidos: p.procesosOmitidos })),
+        ])
+      )
     );
   }
 
