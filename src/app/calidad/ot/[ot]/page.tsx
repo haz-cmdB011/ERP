@@ -191,61 +191,75 @@ export default async function OrdenTrabajoCalidadPage({
           <h2 className="text-sm font-semibold text-slate-600">
             {pmsVisibles.length} PM con muebles en producción
           </h2>
-          <ul className="lista-animada flex flex-col gap-3">
-            {pmsVisibles.map((p) => {
-              const activa = versionActiva.get(p.id);
-              const a = activa ? avancePorVersion.get(activa.id) : undefined;
-              const sinEvaluar = a ? a.enviados - a.aprobados - a.rechazados : 0;
-              return (
-                <li
-                  key={p.id}
-                  className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 focus-within:bg-slate-50 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:min-h-[6.5rem] sm:flex-row sm:items-center sm:justify-between sm:gap-6"
-                >
-                  <div className="flex min-w-0 flex-col gap-1">
-                    {/* El enlace se extiende sobre toda la tarjeta (after:inset-0): tocar cualquier parte abre el pedido. */}
-                    <p className="flex flex-wrap items-center gap-2">
-                      <EnlaceFila
-                        href={`/calidad/pedidos/${p.id}`}
-                        className="text-base font-semibold text-slate-900 outline-none after:absolute after:inset-0 after:rounded-xl hover:text-brand-700 focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
-                      >
-                        {p.numero_pedido}
-                      </EnlaceFila>
-                      {p.cancelado_en && (
-                        <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
-                          Cancelado
-                        </span>
-                      )}
-                      {activa && activa.numero_version > 1 && (
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
-                          Versión {activa.numero_version}
-                        </span>
-                      )}
-                    </p>
-                    <p className="truncate text-sm text-slate-700">{p.proyectos?.nombre ?? "—"}</p>
-                    <p className="text-xs text-slate-500">Entrega: {p.fecha_entrega ?? "—"}</p>
-                  </div>
-                  <dl className="grid grid-cols-5 gap-x-4 gap-y-1 text-center sm:w-80 sm:shrink-0">
-                    {(
-                      [
-                        ["En Calidad", a?.enviados ?? 0, "text-slate-900"],
-                        ["Aprobados", a?.aprobados ?? 0, "text-emerald-700"],
-                        ["Rechazados", a?.rechazados ?? 0, "text-rose-700"],
-                        ["Sin evaluar", sinEvaluar, "text-amber-700"],
-                        ["En taller", a?.enTaller ?? 0, "text-slate-500"],
-                      ] as [string, number, string][]
-                    ).map(([etiqueta, valor, color]) => (
-                      <div key={etiqueta}>
-                        <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{etiqueta}</dt>
-                        <dd className={`text-lg font-semibold tabular-nums ${valor > 0 ? color : "text-slate-300"}`}>
-                          {valor}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-3">Pedido</th>
+                  <th className="px-4 py-3">Proyecto</th>
+                  <th className="px-4 py-3">Entrega</th>
+                  <th className="px-4 py-3">Versión activa</th>
+                  <th className="px-4 py-3 text-right">En Calidad</th>
+                  <th className="px-4 py-3 text-right">Aprobados</th>
+                  <th className="px-4 py-3 text-right">Rechazados</th>
+                  <th className="px-4 py-3 text-right">Sin evaluar</th>
+                  <th className="px-4 py-3 text-right" title="Producción todavía no los preaprueba">
+                    En taller
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {pmsVisibles.map((p) => {
+                  const activa = versionActiva.get(p.id);
+                  const a = activa ? avancePorVersion.get(activa.id) : undefined;
+                  const sinEvaluar = a ? a.enviados - a.aprobados - a.rechazados : 0;
+                  return (
+                    <tr key={p.id} className="relative align-top transition-colors focus-within:bg-slate-50 hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        {/* El enlace se extiende sobre toda la fila (after:inset-0): tocar cualquier parte abre el pedido. */}
+                        <EnlaceFila
+                          href={`/calidad/pedidos/${p.id}`}
+                          className="group inline-flex items-center gap-2 whitespace-nowrap font-medium text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
+                        >
+                          {p.numero_pedido}
+                          <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
+                            →
+                          </span>
+                        </EnlaceFila>
+                        {p.cancelado_en && (
+                          <span className="ml-2 rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                            Cancelado
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        {activa ? (
+                          <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            #{activa.numero_version}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-700">{a?.enviados ?? 0}</td>
+                      <td className="px-4 py-3 text-right font-medium text-emerald-700">
+                        {a?.aprobados || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-rose-700">
+                        {a?.rechazados || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-amber-700">
+                        {sinEvaluar || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-500">{a?.enTaller || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </main>
