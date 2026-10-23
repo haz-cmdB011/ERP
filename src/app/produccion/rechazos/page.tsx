@@ -246,7 +246,7 @@ export default async function RechazosPage() {
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <PestanasSeccion seccion="taller" />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Rechazos de Calidad</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Rechazos de Calidad</h1>
         <p className="mt-1 text-sm text-slate-500">
           Piezas que Calidad no aprobó. Reasígnalas a un equipo para que las corrija.
         </p>

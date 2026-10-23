@@ -229,7 +229,7 @@ export default async function AsignacionesPedidoPage({
       <MigasPedido pedidoId={id} />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
             Asignar a equipos — {pedido.numero_pedido}
           </h1>
           <p className="text-sm text-slate-600">
