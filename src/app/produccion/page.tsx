@@ -1,5 +1,4 @@
 import Link from "next/link";
-import AccesosRapidos from "@/components/accesos-rapidos";
 import { createClient } from "@/lib/supabase/server";
 import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
 import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
@@ -10,12 +9,7 @@ import {
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 import Bienvenida from "@/components/bienvenida";
-import { avancePorPedido, sumarAvance, sumarAvanceDe } from "@/lib/resumen/avance-items";
-import QueSigue, { type PasoQueSigue } from "@/components/que-sigue";
-import { hoyMexico } from "@/lib/produccion/asignaciones";
-import { resumirTaller } from "@/lib/produccion/atrasos";
-import { cargarTaller } from "@/lib/produccion/cargar-taller";
-import { cargarDetenidos } from "@/lib/produccion/detenidos-db";
+import { avancePorPedido, sumarAvanceDe } from "@/lib/resumen/avance-items";
 import ListaOrdenes from "./lista-ordenes";
 import BuscadorOt from "./buscador-ot";
 
@@ -45,11 +39,9 @@ export default async function ProduccionListPage({
   const supabase = await createClient();
 
   // Búsqueda de muebles (con texto en el buscador se muestran también muebles/modelos
-  // de todos los pedidos), pedidos, avance de liberación por pedido y lo que espera en el taller
-  // no dependen entre sí: se piden a la vez. Lo del taller es un resumen: si falla, "Qué sigue"
-  // sigue sin esos pasos.
-  const hoy = hoyMexico();
-  const [busqueda, { data: pedidos, error }, avance, detenidos, taller] = await Promise.all([
+  // de todos los pedidos), pedidos y avance de liberación por pedido no dependen entre sí:
+  // se piden a la vez.
+  const [busqueda, { data: pedidos, error }, avance] = await Promise.all([
     consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null),
     supabase
       .from("pedidos")
@@ -60,8 +52,6 @@ export default async function ProduccionListPage({
       .order("created_at", { ascending: false })
       .returns<PedidoConOt[]>(),
     avancePorPedido(supabase, { conCalidad: false }),
-    cargarDetenidos(supabase, hoy).catch(() => null),
-    cargarTaller(supabase, hoy).catch(() => null),
   ]);
 
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
@@ -77,40 +67,6 @@ export default async function ProduccionListPage({
   const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
   const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
 
-  // Lo que sigue en el flujo, en el orden en que ocurre: liberar → (asignar y entregar en el taller)
-  // → verificar lo entregado → reasignar lo que Calidad rechazó. Cada paso lleva a donde se hace.
-  const totalAvance = sumarAvance(avance);
-  const otsPorLiberar = [...avance.values()].filter((a) => a.porLiberar > 0).length;
-  const atrasadas = taller ? resumirTaller(taller.asignaciones, taller.plazos, hoy).atrasadas.length : 0;
-  const pasos: PasoQueSigue[] = [
-    {
-      valor: totalAvance.porLiberar,
-      accion: "Liberar muebles",
-      detalle: `ítems por liberar en ${otsPorLiberar} PM`,
-      href: "/produccion?f=por-liberar",
-    },
-    {
-      valor: atrasadas,
-      accion: "Revisar lo atrasado",
-      detalle: "asignaciones con la entrega vencida",
-      href: "/produccion/taller",
-      urgente: true,
-    },
-    {
-      valor: detenidos?.sinVerificar.total ?? 0,
-      accion: "Verificar entregas",
-      detalle: "lo que entregaron los equipos",
-      href: "/produccion/taller?vista=lista&estado=por_verificar",
-    },
-    {
-      valor: detenidos?.sinReasignar.total ?? 0,
-      accion: "Reasignar rechazos",
-      detalle: "piezas que Calidad no aprobó",
-      href: "/produccion/rechazos",
-      urgente: true,
-    },
-  ];
-
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida />
@@ -120,17 +76,6 @@ export default async function ProduccionListPage({
           Abre una O.T. para liberar sus muebles y asignarlos a equipos.
         </p>
       </div>
-
-      <AccesosRapidos
-        accesos={[
-          { href: "/produccion/taller", icono: "panel", titulo: "Taller", detalle: "Qué tiene cada equipo", principal: true },
-          { href: "/produccion/escanear", icono: "escanear", titulo: "Escanear QR", detalle: "Abrir un mueble" },
-          { href: "/produccion/equipos", icono: "equipos", titulo: "Equipos", detalle: "Altas y encargados" },
-          { href: "/produccion/cancelados", icono: "archivo", titulo: "Archivo", detalle: "Cancelados y folios" },
-        ]}
-      />
-
-      <QueSigue pasos={pasos} />
 
       <BuscadorOt
         opciones={(pedidos ?? []).map((p) => ({

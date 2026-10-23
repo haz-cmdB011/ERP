@@ -222,12 +222,6 @@ export default function ItemsTabla({
   }
 
   // Mandar a Producción: libera los elegidos que siguen pendientes (los ya liberados se saltan).
-  // Producción solo ve lo liberado de cada PM.
-  const idsPendientes = useMemo(
-    () => muebles.flatMap((m) => [m, ...m.hijos]).filter((i) => i.estado_liberacion !== LIBERADO).map((i) => i.id),
-    [muebles]
-  );
-
   async function deshacerLiberacion(itemIds: string[]) {
     try {
       const res = await fetch("/api/produccion/items/revertir", {
@@ -310,17 +304,6 @@ export default function ItemsTabla({
             }`}
           >
             Filtrar{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
-          </button>
-        )}
-        {puedeEditar && idsPendientes.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setSeleccion(new Set(idsPendientes))}
-            title="Marca todo lo que aún no se ha liberado a Producción"
-            className="inline-flex items-center gap-2 rounded-lg border border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-800 shadow-sm hover:bg-brand-100 sm:py-2"
-          >
-            <IconoMenu nombre="enviar" className="h-4 w-4" />
-            Liberar a Producción ({idsPendientes.length})
           </button>
         )}
         {hayComponentes && (
