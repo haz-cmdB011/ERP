@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import IconoMenu from "@/components/iconos-menu";
 import { useRouter } from "next/navigation";
 import { avisar } from "@/components/avisos";
 import DialogoMotivo from "@/components/dialogo-motivo";
@@ -19,7 +20,6 @@ import {
   type FiltrosItems,
 } from "@/lib/planeacion/filtrar-items";
 import EstadoRevisionSelect from "./estado-revision-select";
-import EliminarItemBoton from "./eliminar-item-boton";
 import type { PlanoLink } from "@/lib/planos/planos-por-item";
 import PlanosItem from "./planos-item";
 import GrupoDesplegable from "@/components/grupo-desplegable";
@@ -39,7 +39,11 @@ export interface ItemTabla {
   cantidad_total: number;
   estado_revision: EstadoRevision;
   motivo_cancelacion: string | null;
+  // "enviado_a_produccion" cuando Planeación ya lo liberó a Producción.
+  estado_liberacion: string;
 }
+
+const LIBERADO = "enviado_a_produccion";
 
 export interface MuebleTabla extends ItemTabla {
   hijos: ItemTabla[];
@@ -88,14 +92,12 @@ export default function ItemsTabla({
   imagenesPorItem,
   planosPorItem,
   puedeEditar,
-  puedeEliminar,
   filtroInicial,
 }: {
   muebles: MuebleTabla[];
   imagenesPorItem: Record<string, ImagenItemUrls[]>;
   planosPorItem: Record<string, PlanoLink[]>;
   puedeEditar: boolean;
-  puedeEliminar: boolean;
   filtroInicial: string;
 }) {
   const tablaRef = useFlip<HTMLTableElement>();
@@ -149,6 +151,7 @@ export default function ItemsTabla({
   const [aplicando, setAplicando] = useState(false);
   const [cancelandoLote, setCancelandoLote] = useState(false);
   const [errorLote, setErrorLote] = useState<string | null>(null);
+  const [liberando, setLiberando] = useState(false);
 
   const porId = useMemo(() => {
     const mapa = new Map<string, ItemTabla>();
@@ -216,6 +219,58 @@ export default function ItemsTabla({
       alHacer: () => deshacerLote(previos),
     });
     router.refresh();
+  }
+
+  // Mandar a Producción: libera los elegidos que siguen pendientes (los ya liberados se saltan).
+  async function deshacerLiberacion(itemIds: string[]) {
+    try {
+      const res = await fetch("/api/produccion/items/revertir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        avisar(data.error ?? "No se pudo deshacer.", "error");
+        return;
+      }
+      avisar("Liberación deshecha.", "info");
+      router.refresh();
+    } catch {
+      avisar("Error de red al deshacer.", "error");
+    }
+  }
+
+  async function liberarSeleccion() {
+    const aLiberar = [...seleccion].filter((id) => porId.get(id)?.estado_liberacion !== LIBERADO);
+    if (aLiberar.length === 0) {
+      avisar("Los ítems elegidos ya están liberados a Producción.", "info");
+      return;
+    }
+    setLiberando(true);
+    setErrorLote(null);
+    try {
+      const res = await fetch("/api/produccion/items/liberar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIds: aLiberar }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorLote(data.error ?? "No se pudo liberar la selección.");
+        return;
+      }
+      setSeleccion(new Set());
+      avisar(`${data.liberados ?? aLiberar.length} ítem(s) liberado(s) a Producción.`, "exito", {
+        etiqueta: "Deshacer",
+        alHacer: () => deshacerLiberacion(aLiberar),
+      });
+      router.refresh();
+    } catch {
+      setErrorLote("Error de red. Intenta de nuevo.");
+    } finally {
+      setLiberando(false);
+    }
   }
 
   function alternar(id: string) {
@@ -329,19 +384,12 @@ export default function ItemsTabla({
           <div className="ml-auto flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => void aplicarLote("en_revision")}
-              disabled={aplicando}
-              className="rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:opacity-50"
+              onClick={() => void liberarSeleccion()}
+              disabled={aplicando || liberando}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
             >
-              Poner en revisión
-            </button>
-            <button
-              type="button"
-              onClick={() => void aplicarLote(null)}
-              disabled={aplicando}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
-              Volver a normal
+              <IconoMenu nombre="enviar" className="h-4 w-4" />
+              {liberando ? "Liberando…" : "Liberar a Producción"}
             </button>
             <button
               type="button"
@@ -405,10 +453,10 @@ export default function ItemsTabla({
 
       {visibles.length > 0 &&
         (esEscritorio ? (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table ref={tablaRef} className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-100 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                 <th className="w-6 py-2 pl-3"></th>
                 {puedeEditar && (
                   <th className="w-8 px-3 py-2">
@@ -424,10 +472,8 @@ export default function ItemsTabla({
                 <th className="px-3 py-2">Imagen</th>
                 <th className="px-3 py-2">N.º</th>
                 <th className="px-3 py-2">Modelo</th>
-                <th className="px-3 py-2">Descripción</th>
                 <th className="px-3 py-2">Cantidad</th>
                 <th className="px-3 py-2">Estado</th>
-                {puedeEliminar && <th className="px-3 py-2"></th>}
               </tr>
             </thead>
             {enPantalla.map(({ mueble: m, hijos }) => {
@@ -439,7 +485,7 @@ export default function ItemsTabla({
                       <tr
                         data-flip={m.id}
                         onClick={() => alternar(m.id)}
-                        className={`cursor-pointer border-t border-slate-200 align-top text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${
+                        className={`cursor-pointer border-t border-slate-100 align-top text-sm text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${
                           seleccion.has(m.id) ? "bg-brand-50" : colorFilaEstadoRevision(m.estado_revision)
                         }`}
                       >
@@ -472,21 +518,20 @@ export default function ItemsTabla({
                         </td>
                         <td className="px-3 py-2">{m.item_code}</td>
                         <td className="px-3 py-2">
-                          {m.modelo}
+                          <span className="font-medium">{m.modelo}</span>
+                          {m.descripcion && (
+                            <span className="mt-0.5 line-clamp-2 block text-xs font-normal text-slate-500">
+                              {m.descripcion.split("\n")[0]}
+                            </span>
+                          )}
                           <PlanosItem planos={planosPorItem[m.id] ?? []} />
                         </td>
-                        <td className="px-3 py-2">{m.descripcion}</td>
                         <td className="px-3 py-2">
                           {m.cantidad_total} {m.unidad}
                         </td>
                         <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                           <EstadoCelda item={m} puedeEditar={puedeEditar} />
                         </td>
-                        {puedeEliminar && (
-                          <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                            <EliminarItemBoton itemId={m.id} />
-                          </td>
-                        )}
                       </tr>
                       {mostrar &&
                         hijos.map((f, i) => (
@@ -516,20 +561,19 @@ export default function ItemsTabla({
                             <td className="px-3 py-2">{f.item_code}</td>
                             <td className="px-3 py-2">
                               {f.modelo}
+                              {f.descripcion && (
+                                <span className="mt-0.5 line-clamp-2 block text-xs text-slate-500">
+                                  {f.descripcion.split("\n")[0]}
+                                </span>
+                              )}
                               <PlanosItem planos={planosPorItem[f.id] ?? []} />
                             </td>
-                            <td className="px-3 py-2">{f.descripcion?.split("\n")[0]}</td>
                             <td className="px-3 py-2">
                               {f.cantidad_total} {f.unidad}
                             </td>
                             <td className="px-3 py-2">
                               <EstadoCelda item={f} puedeEditar={puedeEditar} />
                             </td>
-                            {puedeEliminar && (
-                              <td className="px-3 py-2">
-                                <EliminarItemBoton itemId={f.id} />
-                              </td>
-                            )}
                           </tr>
                         ))}
                     </>
@@ -564,7 +608,6 @@ export default function ItemsTabla({
                     seleccionado={seleccion.has(m.id)}
                     onMarcar={() => marcar([m.id, ...hijos.map((h) => h.id)], !seleccion.has(m.id))}
                     puedeEditar={puedeEditar}
-                    puedeEliminar={puedeEliminar}
                     componentes={hijos.length}
                     abierto={abierto}
                     onAlternar={() => alternar(m.id)}
@@ -580,7 +623,6 @@ export default function ItemsTabla({
                             seleccionado={seleccion.has(f.id)}
                             onMarcar={() => marcar([f.id], !seleccion.has(f.id))}
                             puedeEditar={puedeEditar}
-                            puedeEliminar={puedeEliminar}
                             componentes={0}
                             abierto={false}
                             onAlternar={() => {}}
@@ -622,18 +664,35 @@ export default function ItemsTabla({
 }
 
 function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: boolean }) {
+  const liberado = item.estado_liberacion === LIBERADO;
+  const chip = liberado ? (
+    <span className="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-emerald-700">
+      <span aria-hidden="true">✓</span> En Producción
+    </span>
+  ) : null;
   if (puedeEditar) {
     return (
-      <EstadoRevisionSelect
-        itemId={item.id}
-        estadoActual={item.estado_revision}
-        motivoActual={item.motivo_cancelacion}
-        etiqueta={`N.º ${item.item_code}`}
-      />
+      <div className="flex flex-col items-start">
+        <EstadoRevisionSelect
+          itemId={item.id}
+          estadoActual={item.estado_revision}
+          motivoActual={item.motivo_cancelacion}
+          etiqueta={`N.º ${item.item_code}`}
+        />
+        {chip}
+      </div>
     );
   }
-  if (!item.estado_revision) return <span className="text-slate-500">—</span>;
-  return <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>;
+  return (
+    <div className="flex flex-col items-start">
+      {item.estado_revision ? (
+        <span>{ESTADO_REVISION_LABELS[item.estado_revision]}</span>
+      ) : (
+        <span className="text-slate-500">—</span>
+      )}
+      {chip}
+    </div>
+  );
 }
 
 // Tarjeta de un mueble o componente en pantallas angostas. Lleva lo mismo que una fila de la tabla.
@@ -644,7 +703,6 @@ function TarjetaItem({
   seleccionado,
   onMarcar,
   puedeEditar,
-  puedeEliminar,
   componentes,
   abierto,
   onAlternar,
@@ -656,7 +714,6 @@ function TarjetaItem({
   seleccionado: boolean;
   onMarcar: () => void;
   puedeEditar: boolean;
-  puedeEliminar: boolean;
   // Cuántos componentes tiene (0 en un componente o un mueble sin ellos).
   componentes: number;
   abierto: boolean;
@@ -697,7 +754,6 @@ function TarjetaItem({
         <div className="min-w-40 flex-1 [&_select]:w-full">
           <EstadoCelda item={item} puedeEditar={puedeEditar} />
         </div>
-        {puedeEliminar && <EliminarItemBoton itemId={item.id} />}
       </div>
       {componentes > 0 && (
         <button

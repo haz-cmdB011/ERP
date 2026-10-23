@@ -103,9 +103,6 @@ export default async function PedidoDetailPage({
     versionesPromesa,
   ]);
   const puedeEditar = puedeEditarPlaneacion(perfil);
-  // Enviar un ítem a la papelera lo puede hacer quien edita en Planeación (la
-  // eliminación definitiva sigue siendo de los administradores de Producción).
-  const puedeEliminar = puedeEditar;
 
   if (!pedido) {
     notFound();
@@ -264,7 +261,7 @@ export default async function PedidoDetailPage({
         ]}
       />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{pedido.numero_pedido}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{pedido.numero_pedido}</h1>
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
@@ -293,8 +290,8 @@ export default async function PedidoDetailPage({
             etiqueta="Secciones del pedido"
             activa={pestanaActiva}
             items={[
-              { id: "muebles", etiqueta: "Muebles", href: hrefPestana("muebles") },
-              { id: "versiones", etiqueta: "Versiones", href: hrefPestana("versiones") },
+              { id: "muebles", etiqueta: "Muebles", icono: "muebles", href: hrefPestana("muebles") },
+              { id: "versiones", etiqueta: "Versiones", icono: "versiones", href: hrefPestana("versiones") },
             ]}
           />
           <div
@@ -320,7 +317,6 @@ export default async function PedidoDetailPage({
                     imagenesPorItem={Object.fromEntries(imagenesPorItem)}
                     planosPorItem={planosPorItem}
                     puedeEditar={puedeEditar}
-                    puedeEliminar={puedeEliminar}
                     filtroInicial={modelo ?? ""}
                   />
                 )}

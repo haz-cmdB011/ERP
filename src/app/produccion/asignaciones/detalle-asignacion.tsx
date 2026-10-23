@@ -1,4 +1,5 @@
 import ImagenAmpliable from "@/components/imagen-ampliable";
+import IconoMenu, { type NombreIcono } from "@/components/iconos-menu";
 import {
   ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
@@ -21,11 +22,19 @@ const REVISION: Record<RevisionEntrega, { texto: string; clase: string }> = {
   anulada: { texto: "ANULADA", clase: "text-rose-700" },
 };
 
+const ICONO_ESTADO: Record<AsignacionResumen["estado"], NombreIcono> = {
+  en_proceso: "reloj",
+  parcial: "entregas",
+  entregada: "check",
+  cancelada: "cancelados",
+};
+
 export function EstadoAsignacionBadge({ estado }: { estado: AsignacionResumen["estado"] }) {
   return (
     <span
-      className={`inline-block whitespace-nowrap rounded border px-2 py-0.5 text-xs font-medium ${ESTADO_ASIGNACION_ESTILOS[estado]}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 text-xs font-medium ${ESTADO_ASIGNACION_ESTILOS[estado]}`}
     >
+      <IconoMenu nombre={ICONO_ESTADO[estado]} className="h-3 w-3" />
       {ESTADO_ASIGNACION_LABELS[estado]}
     </span>
   );

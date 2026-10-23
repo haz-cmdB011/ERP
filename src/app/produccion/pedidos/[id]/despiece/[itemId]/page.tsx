@@ -213,7 +213,7 @@ export default async function DespiecePage({
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {pedido.numero_pedido} · Ítem {item.item_code}
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
           Despiece{item.modelo ? ` — ${item.modelo}` : ""}
         </h1>
         {pedido.proyectos && (

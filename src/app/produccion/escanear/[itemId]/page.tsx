@@ -130,7 +130,7 @@ export default async function MuebleEscaneadoPage({
           {pedido.numero_pedido}
           {folio?.folio ? ` · ${folio.folio}` : ""}
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
           {item.modelo ?? `Ítem ${item.item_code}`}
         </h1>
         <p className="text-sm text-slate-600">

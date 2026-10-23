@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeAdministrarPlaneacion } from "@/lib/auth/get-perfil";
 import Migas from "@/components/migas";
-import Pestanas, { idPanel, idPestana } from "@/components/pestanas";
+import Pestanas, { type Pestana, idPanel, idPestana } from "@/components/pestanas";
 import CanceladosContenido from "./cancelados";
 import PapeleraContenido from "./papelera";
 
@@ -23,14 +23,14 @@ export default async function ArchivoPage({
   const veLaPapelera = puedeAdministrarPlaneacion(perfil);
   const activa = pestana === "papelera" && veLaPapelera ? "papelera" : "cancelados";
 
-  const items = [{ id: "cancelados", etiqueta: "Cancelados", href: "/planeacion/archivo" }];
-  if (veLaPapelera) items.push({ id: "papelera", etiqueta: "Papelera", href: "/planeacion/archivo?pestana=papelera" });
+  const items: Pestana[] = [{ id: "cancelados", etiqueta: "Cancelados", icono: "cancelados", href: "/planeacion/archivo" }];
+  if (veLaPapelera) items.push({ id: "papelera", etiqueta: "Papelera", icono: "archivo", href: "/planeacion/archivo?pestana=papelera" });
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Migas items={[{ etiqueta: "Pedidos", href: "/planeacion" }, { etiqueta: "Archivo" }]} />
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Archivo</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Archivo</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-600">
           Lo que ya no está en la lista de Pedidos: {veLaPapelera ? "lo cancelado y lo enviado a la papelera" : "lo cancelado"}.
         </p>
