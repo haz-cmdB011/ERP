@@ -217,7 +217,6 @@ export default async function CalidadListPage({
 
       {filas.length > 0 && (
         <TablaOrdenesTrabajo
-          filaClicable
           filas={filas}
           hrefOt={(ot) => `/calidad/ot/${encodeURIComponent(ot)}`}
           hrefPedido={(id) => `/calidad/pedidos/${id}`}
