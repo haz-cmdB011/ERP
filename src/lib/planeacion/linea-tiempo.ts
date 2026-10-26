@@ -39,9 +39,16 @@ export interface AsignacionTiempo {
   parte_id?: string | null;
 }
 
-// Partes vigentes del despiece de cada mueble (sus ids). Un mueble que no aparece
-// cuenta las partes que ya tienen asignaciones.
-export type PartesPorMueble = ReadonlyMap<string, readonly string[]>;
+// Partes vigentes del despiece de cada mueble: su id o, con sus datos, las piezas por
+// mueble (sus asignaciones van en piezas) y los procesos que se salta (migración
+// partes_en_piezas_y_ruta_por_parte). Solo el id = 1 pieza por mueble, todos los
+// procesos. Un mueble que no aparece cuenta las partes que ya tienen asignaciones.
+export interface ParteTiempo {
+  id: string;
+  piezasPorMueble: number;
+  procesosOmitidos?: readonly string[];
+}
+export type PartesPorMueble = ReadonlyMap<string, readonly (string | ParteTiempo)[]>;
 
 // Pasos vigentes de la ruta guardada de cada mueble, en orden. Un mueble sin
 // ruta guardada cuenta un paso por proceso.
@@ -88,17 +95,25 @@ export function armarLineaTiempo(
   const vigentesAsig = asignaciones.filter(
     (a) => !a.cancelada_en && a.planeacion_item_id && !a.informe_rechazo_id && !a.revision_final_rechazo_id
   );
-  const partesDe = (itemId: string): readonly string[] =>
-    partes.get(itemId) ??
-    [...new Set(vigentesAsig.flatMap((a) => (a.planeacion_item_id === itemId && a.parte_id ? [a.parte_id] : [])))];
-  const sumaPor = new Map<string, { mueble: { a: number; e: number }; partes: Map<string, { a: number; e: number }> }>();
+  const partesDe = (itemId: string): ParteTiempo[] =>
+    (
+      partes.get(itemId) ??
+      [...new Set(vigentesAsig.flatMap((a) => (a.planeacion_item_id === itemId && a.parte_id ? [a.parte_id] : [])))]
+    ).map((p) => (typeof p === "string" ? { id: p, piezasPorMueble: 1 } : p));
+  // Las partes que pasan por el proceso.
+  const partesDelProceso = (itemId: string, proceso: string) =>
+    partesDe(itemId).filter((p) => !(p.procesosOmitidos ?? []).includes(proceso));
+  const sumaPor = new Map<
+    string,
+    { proceso: string; mueble: { a: number; e: number }; partes: Map<string, { a: number; e: number }> }
+  >();
   for (const a of vigentesAsig) {
     const itemId = a.planeacion_item_id as string;
     const delProceso = pasosDe(itemId, a.proceso);
     const paso = a.paso_id && delProceso.includes(a.paso_id) ? a.paso_id : delProceso[0];
     if (!paso) continue;
     const clave = `${itemId}|${paso}`;
-    const s = sumaPor.get(clave) ?? { mueble: { a: 0, e: 0 }, partes: new Map() };
+    const s = sumaPor.get(clave) ?? { proceso: a.proceso, mueble: { a: 0, e: 0 }, partes: new Map() };
     const destino = a.parte_id ? (s.partes.get(a.parte_id) ?? { a: 0, e: 0 }) : s.mueble;
     destino.a += Number(a.cantidad);
     destino.e += Number(a.entregado);
@@ -108,8 +123,12 @@ export function armarLineaTiempo(
   const asignadoPor = new Map<string, number>();
   const entregadoPor = new Map<string, number>();
   for (const [clave, s] of sumaPor) {
-    const ids = partesDe(clave.split("|")[0]);
-    const minimo = (campo: "a" | "e") => (ids.length ? Math.min(...ids.map((id) => s.partes.get(id)?.[campo] ?? 0)) : 0);
+    // Cada parte en muebles (sus piezas ÷ piezas por mueble), solo las que llevan el proceso.
+    const ps = partesDelProceso(clave.split("|")[0], s.proceso);
+    const minimo = (campo: "a" | "e") =>
+      ps.length
+        ? Math.floor(Math.min(...ps.map((p) => (s.partes.get(p.id)?.[campo] ?? 0) / p.piezasPorMueble)) * 100 + 1e-9) / 100
+        : 0;
     asignadoPor.set(clave, s.mueble.a + minimo("a"));
     entregadoPor.set(clave, s.mueble.e + minimo("e"));
   }
@@ -117,6 +136,8 @@ export function armarLineaTiempo(
   const contar = (porClave: Map<string, number>, proceso: Proceso): number =>
     mueblesLiberados.filter((m) => {
       const delProceso = pasosDe(m.id, proceso);
+      // Con despiece, si ninguna parte pasa por el proceso, ese paso no les aplica.
+      if (delProceso.length > 0 && partesDe(m.id).length > 0 && partesDelProceso(m.id, proceso).length === 0) return true;
       return (
         delProceso.length > 0 &&
         delProceso.every((p) => (porClave.get(`${m.id}|${p}`) ?? 0) + TOLERANCIA >= Number(m.cantidad_total))
