@@ -267,7 +267,7 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
 - **Componentes (hijos)**: salen como filas aparte bajo su mueble y el campo "Modelo" del recibo de
   Acabados/Armado también los ofrece (`CampoModeloOt`). Un recibo puede cobrar un componente suelto y se
   compara contra la cantidad de ese componente: el trigger `est_conciliar_renglon_pm` no cambió, solo
-  `cantidad_pm_variante` los incluye. Electrificación sigue solo con padres con iluminación. El saldo por
+  `cantidad_pm_variante` los incluye. Electrificación sigue solo con padres, pero cuenta los que llevan iluminación o electrificación en él o en sus componentes (`admite_electrificacion`, migración `electrificacion_estimaciones_por_componentes`). El saldo por
   código (`cantidad_pm_ot`, `saldosDeVariantes`) NO suma componentes.
 - **"Calidad aprobó" por área** (`aprobado_calidad_variante`, interna): barniz → Acabados y armado → Armado, de
   lotes de equipos que no son de planta (la planta no cobra recibo); en un componente, su último informe (todo
