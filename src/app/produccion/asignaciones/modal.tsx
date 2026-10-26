@@ -24,8 +24,10 @@ export default function Modal({
 
   return (
     <div
-      // En celular sube desde abajo (hoja), más cómodo para el pulgar.
-      className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/40 sm:items-center sm:p-4"
+      // En celular sube desde abajo (hoja), más cómodo para el pulgar. No usa portal: se
+      // abre dentro de quien lo llama (p. ej. una celda de tabla), así que reinicia el
+      // texto heredado (whitespace-nowrap, alineación) para que todo se acomode.
+      className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/40 text-left text-base font-normal whitespace-normal sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={titulo}

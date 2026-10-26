@@ -68,7 +68,7 @@ export async function cargarLineaTiempo(supabase: SupabaseClient, e: Entrada): P
                 id: string;
                 asignacion_id: string;
                 cantidad: number | string;
-                foto_path: string;
+                foto_path: string | null;
                 registrado_en: string;
                 registrado_por: string | null;
                 anulada_en: string | null;
@@ -137,7 +137,7 @@ export async function cargarLineaTiempo(supabase: SupabaseClient, e: Entrada): P
   const fotos = await firmarUrls(
     supabase,
     BUCKET_FOTOS_ENTREGA,
-    (entregas ?? []).map((x) => x.foto_path).filter(Boolean)
+    (entregas ?? []).flatMap((x) => (x.foto_path ? [x.foto_path] : []))
   );
 
   const componentePorId = new Map(e.componentes.map((c) => [c.id, c]));
@@ -210,7 +210,7 @@ export async function cargarLineaTiempo(supabase: SupabaseClient, e: Entrada): P
       verificada_en: x.verificada_en,
       rechazada_en: x.rechazada_en,
       motivo_rechazo: x.motivo_rechazo,
-      fotoUrl: fotos.get(x.foto_path) ?? null,
+      fotoUrl: x.foto_path ? (fotos.get(x.foto_path) ?? null) : null,
     })),
     informes: (informes ?? []).map((i) => ({
       id: i.id,

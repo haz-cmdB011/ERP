@@ -2,12 +2,16 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { avisar } from "@/components/avisos";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import {
   ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
   PROCESO_LABELS,
   formatoFecha,
+  mensajeErrorRpc,
   type EncargadoEquipo,
   type EquipoProduccion,
   type Proceso,
@@ -15,21 +19,24 @@ import {
 import {
   asignacionesDelPaso,
   avancePaso,
+  avancePonderado,
+  encuadreMueble,
   estadoMueble,
   estadoObra,
   indiceSiguiente,
   opcionesDePasos,
-  pasoConAsignaciones,
+  parteLleva,
   porcentaje,
+  requiereDespiece,
   siguientePaso,
   totalesProceso,
   type EstadoMueble,
   type EstadoProceso,
   type MuebleFlujo,
+  type ParteMueble,
 } from "@/lib/produccion/flujo-mueble";
-import { ORDEN_SUGERIDO, etiquetaPaso, textoRuta } from "@/lib/produccion/ruta";
+import { ORDEN_SUGERIDO, etiquetaPaso } from "@/lib/produccion/ruta";
 import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
-import EditarRuta from "./editar-ruta";
 
 // Color de cada estado (variables de la paleta: el tema oscuro las invierte).
 const COLOR: Record<EstadoProceso, string> = {
@@ -189,6 +196,7 @@ export function ResumenProceso({
 function BotonAsignar({
   mueble: m,
   indice,
+  parte,
   asignar,
   className,
   titulo,
@@ -196,6 +204,8 @@ function BotonAsignar({
 }: {
   mueble: MuebleFlujo;
   indice: number;
+  // La parte del despiece que se asigna (desde su celda de la tabla).
+  parte?: string;
   asignar: AsignarDesdeFlujo;
   className: string;
   titulo?: string;
@@ -210,7 +220,9 @@ function BotonAsignar({
       equipos={asignar.equipos}
       encargados={asignar.encargados}
       partes={m.partes}
+      conComponentes={m.conComponentes}
       pasoInicial={indice}
+      parteInicial={parte}
       className={className}
       titulo={titulo}
     >
@@ -219,12 +231,27 @@ function BotonAsignar({
   );
 }
 
+// Se asigna por partes de su despiece: tiene componentes (o ya tiene partes).
+const porPartes = (m: MuebleFlujo) => !!m.conComponentes || (m.partes?.length ?? 0) > 0;
+
 function porAsignar(
   m: MuebleFlujo,
   indice: number,
   asignar: AsignarDesdeFlujo | null,
 ): asignar is AsignarDesdeFlujo {
-  return !!asignar && avancePaso(m, indice).disponible > 0;
+  // Con componentes se asigna por partes, desde la tabla del despiece.
+  return !!asignar && !porPartes(m) && avancePaso(m, indice).disponible > 0;
+}
+
+// Enlace al despiece del mueble (o solo el texto si la pantalla no sabe dónde está).
+function EnlaceDespiece({ mueble: m, className, children }: { mueble: MuebleFlujo; className: string; children: ReactNode }) {
+  return m.despieceHref ? (
+    <Link href={m.despieceHref} className={className}>
+      {children}
+    </Link>
+  ) : (
+    <span className={className}>{children}</span>
+  );
 }
 
 export function FilaMueble({
@@ -290,7 +317,16 @@ export function FilaMueble({
                 {m.modelo ?? "Sin modelo"}
               </span>
               <span className="block text-xs text-slate-500">
-                {m.cantidad} {m.unidad ?? ""} · ver detalle
+                {m.cantidad} {m.unidad ?? ""}
+                {(m.partes?.length ?? 0) > 0 && (
+                  <span
+                    className="font-semibold text-slate-700"
+                    title="Muebles completos: los que alcanza la parte más atrasada, con lo entregado en el último paso de cada parte"
+                  >
+                    {" "}
+                    · {encuadreMueble(m).completos}/{m.cantidad} completos
+                  </span>
+                )}
               </span>
             </span>
           </button>
@@ -299,31 +335,19 @@ export function FilaMueble({
         <ol className="flex flex-1 items-center overflow-x-auto">
           {m.ruta.map((p, j) => (
             <li key={p.id ?? `${p.proceso}-${j}`} className="flex flex-1 items-start last:flex-none">
-              {porAsignar(m, j, asignar) ? (
-                <BotonAsignar
-                  mueble={m}
-                  indice={j}
-                  asignar={asignar}
-                  titulo={`Asignar ${etiquetaPaso(m.ruta, j)}`}
-                  className="group rounded-lg p-1 transition-colors hover:bg-slate-100 focus-visible:bg-slate-100"
-                >
-                  <Paso mueble={m} indice={j} conMas />
-                </BotonAsignar>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onAlternar}
-                  className="rounded-lg p-1 transition-colors hover:bg-slate-50"
-                >
-                  <Paso mueble={m} indice={j} />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={onAlternar}
+                className="rounded-lg p-1 transition-colors hover:bg-slate-50"
+              >
+                <Paso mueble={m} indice={j} />
+              </button>
               {j < m.ruta.length - 1 && (
-                // A la altura del centro del círculo (p-1 del botón + mitad de size-10,
+                // A la altura del centro del círculo (p-1 del botón + mitad de size-16,
                 // menos la mitad del grosor), no del paso con su etiqueta.
                 <span
                   aria-hidden
-                  className="mx-1 mt-[23px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
+                  className="mx-1 mt-[35px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
                   style={{
                     background:
                       avancePaso(m, j).estado === "terminado"
@@ -347,6 +371,21 @@ export function FilaMueble({
           <span className={`${estiloPildora} bg-emerald-50 text-emerald-700`}>
             {obra === "liberado" ? "✓ Liberado a obra" : "✓ Terminado"}
           </span>
+        ) : asignar && requiereDespiece(m) ? (
+          <EnlaceDespiece
+            mueble={m}
+            className={`${estiloPildora} bg-amber-500 text-white shadow-sm transition-colors hover:bg-amber-600`}
+          >
+            Hacer despiece →
+          </EnlaceDespiece>
+        ) : asignar && porPartes(m) && indiceAsignar !== null ? (
+          <button
+            type="button"
+            onClick={() => !abierto && onAlternar()}
+            className={`${estiloPildora} bg-amber-500 text-white shadow-sm transition-colors hover:bg-amber-600`}
+          >
+            + Asignar partes
+          </button>
         ) : indiceAsignar !== null && porAsignar(m, indiceAsignar, asignar) ? (
           <BotonAsignar
             mueble={m}
@@ -380,64 +419,207 @@ export function FilaMueble({
   );
 }
 
-// Un paso del flujo: anillo con el avance (entregado / cantidad). Con `conMas`
-// lleva un "+" porque al tocarlo se asigna.
-function Paso({
-  mueble: m,
-  indice,
-  conMas = false,
-}: {
-  mueble: MuebleFlujo;
-  indice: number;
-  conMas?: boolean;
-}) {
+// Un paso del flujo: anillo con el avance del paso (con despiece, ponderado por el % de
+// cada parte). Solo muestra: se asigna desde la tabla del despiece o con el botón de la
+// fila.
+function Paso({ mueble: m, indice }: { mueble: MuebleFlujo; indice: number }) {
   const a = avancePaso(m, indice);
   const etiqueta = etiquetaPaso(m.ruta, indice);
-  const pct =
-    a.estado === "terminado" ? 100 : porcentaje(a.entregado, m.cantidad);
+  // Con despiece, el avance pondera cada parte por su % del mueble.
+  const pct = avancePonderado(m, indice);
   const color = COLOR[a.estado];
-  const titulo = `${indice + 1}. ${etiqueta}: ${a.entregado}/${m.cantidad} entregadas, ${a.asignado} asignadas${
+  const titulo = `${indice + 1}. ${etiqueta}: ${pct}% · ${a.entregado}/${m.cantidad} entregadas, ${a.asignado} asignadas${
     a.porReasignar > 0 ? `, ${a.porReasignar} rechazadas por Calidad sin reasignar` : ""
   }`;
 
   return (
-    <span className="flex flex-col items-center gap-1" title={titulo}>
+    <span className="flex flex-col items-center gap-1.5" title={titulo}>
       <span
-        className="relative grid size-10 place-items-center rounded-full transition-[background,transform] duration-300 group-hover:scale-110"
+        className="relative grid size-16 place-items-center rounded-full transition-[background] duration-300"
         style={{
           background:
             a.estado === "sin_asignar"
               ? "transparent"
               : `conic-gradient(${color} ${pct}%, var(--color-slate-200) 0)`,
-          border:
-            a.estado === "sin_asignar" ? `2px dashed ${color}` : undefined,
+          border: a.estado === "sin_asignar" ? `2px dashed ${color}` : undefined,
         }}
       >
         <span
-          className="grid size-8 place-items-center rounded-full bg-white text-xs font-bold tabular-nums"
+          className="grid size-[3.25rem] place-items-center rounded-full bg-white text-sm font-bold tabular-nums"
           style={{ color }}
         >
-          {a.estado === "terminado"
-            ? "✓"
-            : a.estado === "sin_asignar"
-              ? "+"
-              : `${pct}%`}
+          {a.estado === "terminado" ? "✓" : `${pct}%`}
         </span>
         {a.porReasignar > 0 && (
-          <span className="absolute -top-1 -left-1 grid size-4 place-items-center rounded-full bg-rose-500 text-xs font-bold leading-none text-white">
+          <span className="absolute -top-1 -left-1 grid size-5 place-items-center rounded-full bg-rose-500 text-xs font-bold leading-none text-white">
             !
           </span>
         )}
-        {conMas && a.estado !== "sin_asignar" && (
-          <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-amber-500 text-xs font-bold leading-none text-white">
-            +
-          </span>
-        )}
       </span>
-      <span className="text-xs font-medium leading-tight whitespace-nowrap text-slate-700">
-        {etiqueta}
-      </span>
+      <span className="text-xs font-medium leading-tight whitespace-nowrap text-slate-700">{etiqueta}</span>
     </span>
+  );
+}
+
+// Quita o agrega un proceso a la ruta de una parte (guardar_procesos_parte). Un proceso
+// con asignaciones vigentes de la parte no se quita: la base lo rechaza.
+function CambiarProcesoParte({
+  parte,
+  proceso,
+  lleva,
+}: {
+  parte: ParteMueble;
+  proceso: Proceso;
+  lleva: boolean;
+}) {
+  const router = useRouter();
+  const [guardando, setGuardando] = useState(false);
+  async function cambiar() {
+    const actuales = parte.procesosOmitidos ?? [];
+    const omitidos = lleva ? [...actuales, proceso] : actuales.filter((p) => p !== proceso);
+    setGuardando(true);
+    const { error } = await createClient().rpc("guardar_procesos_parte", {
+      p_parte_id: parte.id,
+      p_omitidos: omitidos,
+    });
+    setGuardando(false);
+    if (error) {
+      avisar(mensajeErrorRpc(error.message), "error");
+      return;
+    }
+    avisar(
+      lleva
+        ? `"${parte.descripcion}" ya no pasa por ${PROCESO_LABELS[proceso]}`
+        : `"${parte.descripcion}" ahora pasa por ${PROCESO_LABELS[proceso]}`
+    );
+    router.refresh();
+  }
+  return (
+    <button
+      type="button"
+      onClick={cambiar}
+      disabled={guardando}
+      title={
+        lleva
+          ? `Esta parte no pasa por ${PROCESO_LABELS[proceso]}: quitar el proceso de su ruta`
+          : `Agregar ${PROCESO_LABELS[proceso]} a la ruta de esta parte`
+      }
+      className="rounded px-1.5 py-0.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+    >
+      {lleva ? "Quitar" : "+ Agregar"}
+    </button>
+  );
+}
+
+// El despiece del mueble al abrirlo: sus partes y,
+// por cada paso de la ruta, lo que lleva esa parte en piezas. Ahí se asigna (el "+" de la
+// celda abre el formulario con esa parte y ese paso) y se arma la ruta de cada parte
+// (quitar o agregar el proceso). Sin despiece (y con componentes), el aviso para hacerlo.
+function Despiece({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDesdeFlujo | null }) {
+  const partes = m.partes ?? [];
+  if (requiereDespiece(m)) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <p>Este mueble tiene componentes: guarda su despiece para asignarlo por partes.</p>
+        {asignar && (
+          <EnlaceDespiece mueble={m} className="font-semibold underline">
+            Hacer despiece
+          </EnlaceDespiece>
+        )}
+      </div>
+    );
+  }
+  if (partes.length === 0) return null;
+  const avances = m.ruta.map((_, i) => avancePaso(m, i));
+  const fmt = (n: number) => n.toLocaleString("es-MX", { maximumFractionDigits: 2 });
+  return (
+    <div className="flex flex-col gap-1.5 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-slate-700">
+          Despiece ({partes.length} partes){" "}
+          <span className="font-normal text-slate-500">· en piezas de cada parte; asigna con el +</span>
+        </p>
+        <EnlaceDespiece mueble={m} className="font-medium text-sky-700 underline">
+          Ver o editar despiece
+        </EnlaceDespiece>
+      </div>
+      <div className="overflow-x-auto rounded-lg bg-white">
+        <table className="w-full text-left tabular-nums">
+          <thead className="text-slate-500">
+            <tr>
+              <th className="p-2 font-medium">Parte</th>
+              {m.ruta.map((_, i) => (
+                <th key={i} className="p-2 font-medium whitespace-nowrap">
+                  {etiquetaPaso(m.ruta, i)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {partes.map((p) => (
+              <tr key={p.id}>
+                <td className="p-2 text-slate-900">
+                  {p.descripcion}
+                  <span className="block text-slate-500">
+                    {fmt(p.piezasPorMueble)} {p.unidad ?? "pz"} por mueble · {fmt(p.piezasPorMueble * m.cantidad)} en total
+                  </span>
+                </td>
+                {avances.map((a, i) => {
+                  const proceso = m.ruta[i].proceso;
+                  const x = a.partes[p.id];
+                  if (!parteLleva(p, proceso)) {
+                    return (
+                      <td key={i} className="p-2 whitespace-nowrap text-slate-500">
+                        <span className="flex items-start gap-2">
+                          {asignar && <span aria-hidden className="size-6 shrink-0" />}
+                          <span>
+                            <span className="block">No lleva</span>
+                            {asignar && <CambiarProcesoParte parte={p} proceso={proceso} lleva={false} />}
+                          </span>
+                        </span>
+                      </td>
+                    );
+                  }
+                  return (
+                    <td key={i} className="p-2 whitespace-nowrap text-slate-600">
+                      <span className="flex items-start gap-2">
+                        {/* El "+" a la izquierda: asigna esta parte en este paso. */}
+                        {asignar && x && x.disponible > 0 ? (
+                          <BotonAsignar
+                            mueble={m}
+                            indice={i}
+                            parte={p.id}
+                            asignar={asignar}
+                            titulo={`Asignar ${p.descripcion} en ${etiquetaPaso(m.ruta, i)} (${fmt(x.disponible)} ${p.unidad ?? "pz"} por asignar)`}
+                            className="grid size-6 shrink-0 place-items-center rounded-md bg-brand-500 text-sm font-bold text-on-brand transition-colors hover:bg-brand-400"
+                          >
+                            +
+                          </BotonAsignar>
+                        ) : (
+                          asignar && <span aria-hidden className="size-6 shrink-0" />
+                        )}
+                        <span>
+                          <span
+                            className="block font-medium text-slate-900"
+                            title={`Entregadas / piezas de la parte (${x ? fmt(x.asignado) : 0} asignadas)`}
+                          >
+                            {x ? `${fmt(x.entregado)}/${fmt(x.total)}` : "—"}
+                            <span className="ml-1 font-normal text-slate-500">{p.unidad ?? "pz"}</span>
+                          </span>
+                          {asignar && x && x.asignado === 0 && (
+                            <CambiarProcesoParte parte={p} proceso={proceso} lleva />
+                          )}
+                        </span>
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -452,22 +634,7 @@ function DetalleMueble({
 }) {
   return (
     <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <p className="text-slate-600">
-          <span className="font-semibold text-slate-700">Ruta:</span> {textoRuta(m.ruta)}
-          {m.versionRuta === 0 && <span className="text-slate-500"> (sugerida)</span>}
-        </p>
-        {asignar && (
-          <EditarRuta
-            itemId={m.id}
-            descripcion={subtitulo(m, asignar)}
-            ruta={m.ruta}
-            version={m.versionRuta}
-            aplica={m.aplica}
-            bloqueados={m.ruta.map((_, i) => pasoConAsignaciones(m, i))}
-          />
-        )}
-      </div>
+      <Despiece mueble={m} asignar={asignar} />
       <div className="grid gap-3 lg:grid-cols-2">
         {m.ruta.map((p, i) => {
           const lista = asignacionesDelPaso(m, i);

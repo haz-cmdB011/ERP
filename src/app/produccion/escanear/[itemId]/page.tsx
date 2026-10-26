@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import {
   etiquetaProceso,
-  piezasDeParte,
   textoAvanceAsignacion,
   diasEnProceso,
   formatoFecha,
@@ -202,10 +201,8 @@ export default async function MuebleEscaneadoPage({
                   <span className="font-semibold text-slate-900">
                     {Number(a.entregado)} de {Number(a.cantidad)}
                   </span>{" "}
-                  {a.parte_id ? "muebles" : (a.unidad ?? "")} · faltan{" "}
+                  {(a.parte_id ? a.parte_unidad : null) ?? a.unidad ?? ""} · faltan{" "}
                   <span className="font-semibold text-slate-900">{pendiente}</span>
-                  {/* Una parte se entrega por muebles: estas son sus piezas. */}
-                  {piezasDeParte(pendiente, a) && ` (${piezasDeParte(pendiente, a)})`}
                 </p>
                 {puedeEditar ? (
                   <RegistrarEntrega

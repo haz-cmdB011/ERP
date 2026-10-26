@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import BotonDesplegar from "@/components/boton-desplegar";
 import {
@@ -8,18 +8,23 @@ import {
   type EncargadoEquipo,
   type EquipoProduccion,
 } from "@/lib/produccion/asignaciones";
-import { disponibleDe, type EstadoMueble, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
+import { disponibleDe, seAsignaCompleto, type EstadoMueble, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { resumenOt, resumenPm, type GrupoOtPanel } from "@/lib/produccion/panel";
-import { ORDEN_SUGERIDO } from "@/lib/produccion/ruta";
 import AsignarLote, { type MuebleParaLote } from "@/app/produccion/asignaciones/asignar-lote";
-import {
-  FilaMueble,
-  ResumenProceso,
-} from "@/app/produccion/pedidos/[id]/asignaciones/flujo-muebles";
+import { FilaMueble } from "@/app/produccion/pedidos/[id]/asignaciones/flujo-muebles";
 
 // Lo que falta por asignar de un mueble, en el formato de "Asignar varios a un equipo".
+// Uno que se asigna por partes no entra: queda sin nada por asignar en el lote.
 function paraLote(m: MuebleFlujo): MuebleParaLote {
-  return { id: m.id, item_code: m.item_code, modelo: m.modelo, unidad: m.unidad, ...disponibleDe(m) };
+  const d = disponibleDe(m);
+  const vacio = Object.fromEntries(PROCESOS.map((p) => [p, 0])) as typeof d.disponible;
+  return {
+    id: m.id,
+    item_code: m.item_code,
+    modelo: m.modelo,
+    unidad: m.unidad,
+    ...(seAsignaCompleto(m) ? d : { disponible: vacio, listo: vacio }),
+  };
 }
 
 const tieneTrabajo = (m: MuebleParaLote) => PROCESOS.some((p) => m.disponible[p] > 0);
@@ -81,11 +86,6 @@ export default function PanelAsignacion({
     setPmsAbiertos(Object.fromEntries(grupos.flatMap((g) => g.pms.map((pm) => [pm.pedidoId, abrir]))));
   }
 
-  const muebles = useMemo(
-    () => grupos.flatMap((g) => g.pms.flatMap((pm) => pm.muebles.map((m) => m.flujo))),
-    [grupos]
-  );
-  const procesos = ORDEN_SUGERIDO.filter((p) => muebles.some((m) => m.ruta.some((x) => x.proceso === p)));
   // Asignar varios de una vez solo vale la pena si hay trabajo en más de un PM (con un solo PM
   // basta el botón de ese PM).
   const pmsConTrabajo = grupos
@@ -95,14 +95,6 @@ export default function PanelAsignacion({
 
   return (
     <section className="flex flex-col gap-5">
-      {procesos.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {procesos.map((p) => (
-            <ResumenProceso key={p} proceso={p} muebles={muebles} />
-          ))}
-        </div>
-      )}
-
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

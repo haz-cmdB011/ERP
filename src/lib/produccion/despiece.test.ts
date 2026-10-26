@@ -10,6 +10,7 @@ import {
   lineasDesdeJson,
   limpiarLineas,
   mismasLineas,
+  repartirPorcentajes,
   sugerirDespiece,
   totalLinea,
   trasladarLineas,
@@ -54,9 +55,9 @@ describe("sugerirDespiece", () => {
       hijo("b", { item_code: 13.02, descripcion: "ESTRUCTURA", tipo_material: "metal", unidad: "JUEGO", cantidad_x_mueble: 1, cantidad_total: 3, fila_excel_origen: 11 }),
     ]);
     expect(s.lineas).toEqual([
-      { descripcion: "TABLERO", material: "Madera", unidad: "PZA", piezas_por_mueble: 3, hijo_id: "a" },
-      { descripcion: "ESTRUCTURA", material: "Metal", unidad: "JUEGO", piezas_por_mueble: 1, hijo_id: "b" },
-      { descripcion: "SUPERFICIE", material: "Superficie sólida", unidad: "PZA", piezas_por_mueble: 1, hijo_id: "c" },
+      { descripcion: "TABLERO", material: "Madera", unidad: "PZA", piezas_por_mueble: 3, porcentaje: 33.33, hijo_id: "a" },
+      { descripcion: "ESTRUCTURA", material: "Metal", unidad: "JUEGO", piezas_por_mueble: 1, porcentaje: 33.33, hijo_id: "b" },
+      { descripcion: "SUPERFICIE", material: "Superficie sólida", unidad: "PZA", piezas_por_mueble: 1, porcentaje: 33.34, hijo_id: "c" },
     ]);
     expect(s.avisosPorLinea).toEqual([null, null, null]);
     expect(s.avisos).toEqual([]);
@@ -123,7 +124,7 @@ describe("sugerirDespiece", () => {
   it("un mueble sin componentes se propone completo, en una sola línea", () => {
     const s = sugerirDespiece(padre, []);
     expect(s.lineas).toEqual([
-      { descripcion: "MUEBLE DE PRUEBA", material: "Híbrido", unidad: "PZA", piezas_por_mueble: 1, hijo_id: null },
+      { descripcion: "MUEBLE DE PRUEBA", material: "Híbrido", unidad: "PZA", piezas_por_mueble: 1, porcentaje: 100, hijo_id: null },
     ]);
     expect(s.avisos[0]).toMatch(/no tiene componentes/);
   });
@@ -231,7 +232,7 @@ describe("limpiarLineas y mismasLineas", () => {
     expect(
       limpiarLineas([{ descripcion: "  TABLERO   MDF ", material: " ", unidad: "", piezas_por_mueble: 1.005, hijo_id: null }])
     ).toEqual([
-      { id: null, descripcion: "TABLERO MDF", material: null, unidad: null, piezas_por_mueble: 1.01, hijo_id: null },
+      { id: null, descripcion: "TABLERO MDF", material: null, unidad: null, piezas_por_mueble: 1.01, porcentaje: null, hijo_id: null },
     ]);
   });
 
@@ -256,6 +257,23 @@ describe("limpiarLineas y mismasLineas", () => {
   });
 });
 
+describe("porcentajes del despiece", () => {
+  it("reparte el 100 % en partes iguales y lo que sobra va en la última", () => {
+    expect(repartirPorcentajes(3)).toEqual([33.33, 33.33, 33.34]);
+    expect(repartirPorcentajes(1)).toEqual([100]);
+    expect(repartirPorcentajes(0)).toEqual([]);
+  });
+  it("exige el % en todas las líneas o en ninguna, y que sume 100", () => {
+    expect(validarLineas([lineaBase, { ...lineaBase, hijo_id: null }])).toBeNull();
+    expect(validarLineas([{ ...lineaBase, porcentaje: 60 }, { ...lineaBase, hijo_id: null, porcentaje: 40 }])).toBeNull();
+    expect(validarLineas([{ ...lineaBase, porcentaje: 60 }, { ...lineaBase, hijo_id: null }])).toMatch(/todas las líneas/);
+    expect(validarLineas([{ ...lineaBase, porcentaje: 60 }, { ...lineaBase, hijo_id: null, porcentaje: 30 }])).toMatch(/suman 90/);
+  });
+  it("un cambio de % cuenta como cambio del despiece", () => {
+    expect(mismasLineas([{ ...lineaBase, porcentaje: 50 }], [{ ...lineaBase, porcentaje: 60 }])).toBe(false);
+  });
+});
+
 describe("leerCantidad", () => {
   it("acepta coma o punto y devuelve NaN si no es un número", () => {
     expect(leerCantidad("2")).toBe(2);
@@ -275,8 +293,8 @@ describe("lineasDesdeJson", () => {
         { piezas_por_mueble: "2" },
       ])
     ).toEqual([
-      { id: "p1", descripcion: "TABLERO", material: "Madera", unidad: null, piezas_por_mueble: 3, hijo_id: "a" },
-      { id: null, descripcion: "", material: null, unidad: null, piezas_por_mueble: 2, hijo_id: null },
+      { id: "p1", descripcion: "TABLERO", material: "Madera", unidad: null, piezas_por_mueble: 3, porcentaje: null, hijo_id: "a" },
+      { id: null, descripcion: "", material: null, unidad: null, piezas_por_mueble: 2, porcentaje: null, hijo_id: null },
     ]);
     expect(lineasDesdeJson(null)).toEqual([]);
     expect(lineasDesdeJson({})).toEqual([]);

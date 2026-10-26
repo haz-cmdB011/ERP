@@ -29,6 +29,7 @@ import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
 import { avancePaso, indiceSiguiente, opcionesDePasos, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { etiquetaPaso, rutaSugerida } from "@/lib/produccion/ruta";
+import { cargarPartes } from "@/lib/produccion/partes-db";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
@@ -161,13 +162,22 @@ export default async function FichaMuebleQrPage({
   }
 
   const hoy = hoyMexico();
-  const [componentes, asignaciones, folio, plazos, rutas, finalActiva, planos, recibosOt] = await Promise.all([
+  const [componentes, asignaciones, folio, plazos, rutas, finalActiva, planos, recibosOt, partes] = await Promise.all([
     leer(
       supabase
         .from("planeacion_items")
-        .select("id, item_code, modelo, descripcion")
+        .select("id, item_code, modelo, descripcion, eliminacion_solicitada_en, estado_revision")
         .eq("parent_item_id", item.id)
-        .returns<{ id: string; item_code: number; modelo: string | null; descripcion: string | null }[]>(),
+        .returns<
+          {
+            id: string;
+            item_code: number;
+            modelo: string | null;
+            descripcion: string | null;
+            eliminacion_solicitada_en: string | null;
+            estado_revision: string | null;
+          }[]
+        >(),
       "los componentes del mueble"
     ),
     leer(
@@ -192,6 +202,8 @@ export default async function FichaMuebleQrPage({
     // Los datos del plano (especificación, acabados, notas): el PDF vive en el servidor de Ingeniería.
     getPlanosPorItem(supabase, pmDePlanos(pedido), [item]),
     cargarRecibosDeOt(supabase, pedido.orden_trabajo ?? pedido.numero_pedido),
+    // Partes del despiece: con componentes se asigna por partes.
+    cargarPartes(supabase, [item.id]),
   ]);
   const cobros = cobrosDelMueble(
     {
@@ -225,6 +237,10 @@ export default async function FichaMuebleQrPage({
     versionRuta: guardada?.version ?? 0,
     asignaciones: todas,
     revisionFinal: finalActiva ? { aprobadas: resumenFinal?.aprobadas ?? 0 } : null,
+    partes: partes.get(item.id) ?? [],
+    conComponentes: (componentes ?? []).some(
+      (c) => !c.eliminacion_solicitada_en && c.estado_revision !== "cancelado"
+    ),
   };
 
   const eventos = lineaTiempoMueble(
@@ -432,6 +448,8 @@ export default async function FichaMuebleQrPage({
             pasos={opciones}
             equipos={equipos ?? []}
             encargados={encargados ?? []}
+            partes={flujo.partes}
+            conComponentes={flujo.conComponentes}
             pasoInicial={sigue?.indice}
             className={clase}
           >

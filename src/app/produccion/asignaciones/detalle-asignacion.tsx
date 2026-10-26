@@ -107,12 +107,9 @@ export default function DetalleAsignacion({
                       : "border-slate-200 bg-white"
                 }`}
               >
-                {e.fotoUrl ? (
+                {/* Solo las entregas viejas traen foto; las nuevas se registran sin ella. */}
+                {e.fotoUrl && (
                   <ImagenAmpliable url={e.fotoUrl} alt="Foto de la hoja de entrega" className="h-16 w-16" />
-                ) : (
-                  <span className="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-xs text-slate-600">
-                    Sin foto
-                  </span>
                 )}
                 <div className="min-w-0 flex-1 text-sm">
                   <p className="font-medium text-slate-900">

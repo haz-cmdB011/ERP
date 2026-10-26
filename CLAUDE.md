@@ -127,9 +127,10 @@ Calidad solo **evalúa** piezas que Producción preaprobó, pero **ve** todo lo 
 `listosParaCalidad` en `src/lib/calidad/estado-item.ts`, lectura en `preaprobados-db.ts`) y abajo, plegado,
 "En taller" (`enTallerParaCalidad`, el mueble va junto con sus componentes). Lo de taller no se aprueba ni
 cuenta como pendiente en el panel ni en la O.T.; tiene "Reportar falla", que abre el alta de no conformidades
-prellenada (`?reportar=1&reportar_proyecto=…&reportar_mueble=…`). La preaprobación se hace al **registrar la
-entrega**: quien toma la foto marca si las piezas cumplen (nace verificada y pasa a Calidad) o no
-cumplen (nace rechazada, con motivo). Lo controla el ajuste `verificacion_produccion` de la tabla
+prellenada (`?reportar=1&reportar_proyecto=…&reportar_mueble=…`). Producción **ya no califica** al registrar la
+entrega ni sube foto (migración `entrega_sin_foto_ni_calificacion`): solo fecha, cantidad y folio, y la
+entrega nace verificada y pasa a Calidad, que es quien evalúa. Las entregas viejas conservan su foto y su
+"cumplen / no cumplen". Lo controla el ajuste `verificacion_produccion` de la tabla
 `ajustes_flujo`, hoy ENCENDIDO (migración `entrega_con_preaprobacion`). Apagado, Calidad evalúa todo
 ítem liberado aunque no haya entregas (un mueble sin entregas se evalúa completo) y las entregas nacen
 verificadas. Cómo apagarlo o encenderlo y qué anotar después: `docs/operacion.md` ("Si Calidad no puede
@@ -142,7 +143,9 @@ Cada mueble padre liberado tiene una **ruta**: pasos en orden que se pueden repe
 Armado). La sugerida es Armado → Superficie Sólida → Barniz → Electrificación (S.S. y Electrificación solo
 si el mueble o sus componentes las llevan); se crea con la primera asignación o al guardar la ruta
 (`guardar_ruta_produccion`, bloqueo optimista por versión). Migración `ruta_produccion`, lógica sin base en
-`src/lib/produccion/ruta.ts` y `flujo-mueble.ts`.
+`src/lib/produccion/ruta.ts` y `flujo-mueble.ts`. **La ruta ya no se edita en pantalla** (oct 2026: se quitó
+"Editar ruta" del panel porque descuadraba lo demás): cada mueble usa la sugerida. `guardar_ruta_produccion`
+y el soporte de pasos repetidos siguen en la base, sin uso desde la app.
 
 - Cada asignación es de un paso (`asignaciones_produccion.paso_id`) y el tope es **por paso** (la cantidad
   del mueble), no por proceso. El retrabajo no cuenta y hereda el paso (`trg_paso_de_retrabajo`).
@@ -172,8 +175,8 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
   asignación con esos muebles (`/produccion/panel?ids=…`, máximo `MAX_IDS_PANEL`). Lo asignado desde el
   carrito (muebles que ya estaban liberados) también sale.
 - **Panel de asignación** (menú de Producción, `/produccion/panel`): todos los muebles liberados, por O.T. → PM,
-  en el formato visual del flujo del PM (`FilaMueble` y `ResumenProceso` de
-  `pedidos/[id]/asignaciones/flujo-muebles.tsx`): un "+" en un paso lo asigna, y al abrir un mueble se ven sus
+  en el formato visual del flujo del PM (`FilaMueble` de
+  `pedidos/[id]/asignaciones/flujo-muebles.tsx`; sin las tarjetas de avance por proceso): un "+" en un paso lo asigna, y al abrir un mueble se ven sus
   asignaciones y entregas. Cada O.T. y cada PM se despliegan como un mueble con sus componentes: cerrada,
   una O.T. muestra solo su resumen; abierta, sus PM; y abierto un PM, sus muebles (todo cerrado por omisión;
   abierto al llegar de liberar o con `ot`/`q`). Cada mueble lleva su miniatura (la primera imagen del ítem,
@@ -184,28 +187,51 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
 - La pantalla de asignaciones de un PM (`/produccion/pedidos/<id>/asignaciones`) sigue existiendo (la usan el
   QR y el tablero), pero ya no se llega a ella desde el pedido ni la O.T.
 
-## Despiece por partes (fase 1)
+## Despiece por partes (fases 1 y 2)
 
 Un mueble se puede asignar **por partes de su despiece** (migración `despiece_por_partes`): cada línea del
 despiece es una parte con id fijo (`partes_despiece`; la línea lleva `id` en `despieces_produccion.lineas`)
 y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mueble completo (null).
 
-- La cantidad sigue en **muebles**: "la base de metal para 7 muebles" = 7 × piezas por mueble. El tope por
-  paso ahora es por parte; lo del mueble completo cuenta para todas sus partes.
-- **Un paso avanza lo de la parte más atrasada**: lo del mueble completo + el mínimo entre partes vigentes
-  (`cobertura_por_partes` en la base; `avancePaso` en `flujo-mueble.ts`; la línea de tiempo de Planeación,
-  igual). Con eso cuentan la revisión final (`piezas_listas_revision_final`) y el cobro
+- Una asignación de una parte va en **piezas de esa parte** (migración `partes_en_piezas_y_ruta_por_parte`):
+  la Tabla, 3 por mueble × 13 muebles = 39 piezas; se pueden asignar 20. Sus entregas y lotes también van en
+  piezas y la asignación lleva la unidad de la parte. Tope por paso de una parte = piezas por mueble ×
+  cantidad del mueble. Lo del mueble completo (muebles sin componentes o asignaciones viejas) sigue en
+  muebles y cuenta para todas sus partes × sus piezas por mueble.
+- **Ruta por parte**: una parte se puede saltar procesos de la ruta del mueble
+  (`partes_despiece.procesos_omitidos`, `guardar_procesos_parte`; ej. el herraje no va a Barniz). No se le
+  asigna un proceso que omite y en ese paso no cuenta; si ninguna parte lleva el proceso, el paso cuenta como
+  terminado. El paso anterior de una parte (para "listo"/adelantada) es el último que la parte lleva.
+- **Un paso avanza lo de la parte más atrasada**: lo del mueble completo + el mínimo, entre las partes que
+  llevan el proceso, de sus piezas ÷ piezas por mueble (`cobertura_por_partes` con el proceso, en la base;
+  `avancePaso` en `flujo-mueble.ts`). La revisión final toma de cada parte su último paso. Con eso cuentan la revisión final (`piezas_listas_revision_final`) y el cobro
   (`verificado_produccion_variante`, `aprobado_calidad_variante`): un mueble cuenta cuando todas sus
   partes. Si un mueble se reparte entre planta y maquilador, lo liberado para cobrar queda en 0 hasta la
   fase 3 (cobro por partes).
-- Asignar: `AsignarForm` con "Por partes" (lo sugerido si hay varias) o "Mueble completo"; varias partes
-  al mismo equipo y paso van juntas (`crear_asignaciones_por_partes`, todo o nada). La parte sale en
-  `etiquetaProceso` ("Armado · Base de metal") y las piezas con `textoAvanceAsignacion`/`piezasDeParte`.
+- Asignar: en el panel, desde la **tabla del despiece** del mueble (al abrirlo): cada celda parte × paso
+  muestra entregadas/piezas y un "+" que abre `AsignarForm` con esa parte y ese paso; ahí mismo
+  "Quitar"/"+ Agregar" arma la ruta de la parte. Los círculos de cada paso solo muestran el avance
+  (ponderado). `AsignarForm` asigna una parte a la vez, en piezas (`crear_asignacion_produccion` con
+  `p_parte_id`; `crear_asignaciones_por_partes` ya no se usa). La parte sale en `etiquetaProceso`
+  ("Armado · Base de metal") y `textoAvanceAsignacion` da "5/39 PZA" con la unidad de la parte.
 - **Bloqueo** (`guardar_despiece_produccion`): una parte con asignaciones vigentes no se quita ni baja su
   cantidad por mueble; agregar partes o subir cantidades sí. Al volver a la sugerencia, la parte se
   reconoce por su componente del PM. El retrabajo hereda la parte (`trg_paso_de_retrabajo`).
-- Pendiente: fase 2, ruta propia por parte; fase 3, cobro por partes; la ficha del QR (`/q`) asigna aún
-  como mueble completo.
+- **El despiece se usa para asignar** (migración `despiece_porcentaje_obligatorio`): un mueble con
+  componentes vigentes en el PM no se asigna sin despiece guardado (`requiere_despiece`; en el panel sale
+  "Hacer despiece" en lugar del "+"); los muebles sin componentes se asignan completos. "Mueble completo" solo existe para muebles sin
+  componentes: uno con componentes se asigna únicamente por partes (`AsignarForm` sin selector;
+  `tiene_componentes` en `crear_asignacion_produccion`, migración `asignar_por_partes_con_componentes`). Cada parte vale un
+  **% del mueble** en partes iguales (`partes_despiece.porcentaje`): no se captura, el editor lo calcula
+  solo al guardar (`repartirPorcentajes`); la base acepta un % por línea que sume 100. Al abrir un mueble en el panel se ve su despiece con el avance
+  por parte, y el anillo de cada paso es el avance ponderado (`avancePonderado`). Solo es visual: el cobro
+  y la revisión final siguen contando un mueble cuando todas sus partes.
+- **Encuadre** (`encuadreMueble` en `flujo-mueble.ts`, solo pantalla): muebles completos = lo que alcanza la
+  parte más atrasada, con lo entregado en el último paso que cada parte lleva (piezas ÷ piezas por mueble,
+  hacia abajo). También da, por parte, sus piezas terminadas, los muebles que alcanza y lo que le falta
+  para llegar a la más adelantada (20 tablas de 3 = 6 muebles → al herraje le faltan 6). En pantalla solo
+  sale "0/23 completos" junto a la cantidad del mueble en el panel; el resto queda como lógica.
+- Pendiente: fase 3, cobro por partes.
 
 ## Revisión final de Calidad
 
@@ -241,7 +267,7 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
 - **Componentes (hijos)**: salen como filas aparte bajo su mueble y el campo "Modelo" del recibo de
   Acabados/Armado también los ofrece (`CampoModeloOt`). Un recibo puede cobrar un componente suelto y se
   compara contra la cantidad de ese componente: el trigger `est_conciliar_renglon_pm` no cambió, solo
-  `cantidad_pm_variante` los incluye. Electrificación sigue solo con padres con iluminación. El saldo por
+  `cantidad_pm_variante` los incluye. Electrificación sigue solo con padres, pero cuenta los que llevan iluminación o electrificación en él o en sus componentes (`admite_electrificacion`, migración `electrificacion_estimaciones_por_componentes`). El saldo por
   código (`cantidad_pm_ot`, `saldosDeVariantes`) NO suma componentes.
 - **"Calidad aprobó" por área** (`aprobado_calidad_variante`, interna): barniz → Acabados y armado → Armado, de
   lotes de equipos que no son de planta (la planta no cobra recibo); en un componente, su último informe (todo
@@ -295,14 +321,14 @@ de Producción y Calidad siguen yendo directo a su pantalla; las hojas viejas (d
 
 ## Capturas sin conexión
 
-En el taller a veces se cae el Wi-Fi. La **entrega de Producción** (con su foto) se guarda en el
+En el taller a veces se cae el Wi-Fi. La **entrega de Producción** se guarda en el
 propio aparato (IndexedDB) si no hay red y se manda sola al volver, con un indicador en pantalla
 (`EstadoEnvios`, en el layout raíz). Núcleo en `src/lib/offline/cola-envios.ts` (sin navegador, con
 pruebas), almacén en `almacen-indexeddb.ts`, pegamento del navegador en `cola-navegador.ts`.
 
-- **Repetir un envío nunca duplica**: cada captura lleva una `claveEnvio`; el servidor sube la foto a
-  una ruta que sale de ella y el índice único `idx_entregas_produccion_foto_path_unica` impide
-  registrar la entrega dos veces (`src/app/api/produccion/entregas/route.ts`).
+- **Repetir un envío nunca duplica**: cada captura lleva una `claveEnvio` que queda en la
+  entrega (`entregas_produccion.clave_envio`, índice único `idx_entregas_produccion_clave_envio_unica`):
+  `registrar_entrega_produccion` devuelve la misma entrega en vez de registrar otra (`src/app/api/produccion/entregas/route.ts`).
 - Para llevar **otra captura** a la cola: que su ruta de servidor acepte `claveEnvio` y sea idempotente
   (si la operación crea algo, la clave debe identificarlo de forma única) y mandarla con
   `enviarOGuardar` en vez de `fetch`. No encolar lo que no sea seguro repetir.
