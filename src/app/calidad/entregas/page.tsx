@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import PestanasSeccion from "@/app/calidad/pestanas-seccion";
 import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
@@ -31,6 +32,7 @@ export default async function EntregasProduccionPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <PestanasSeccion seccion="revision" />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Entregas de Producción</h1>

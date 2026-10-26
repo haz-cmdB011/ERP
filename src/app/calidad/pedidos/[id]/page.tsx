@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MigasPedido from "./migas-pedido";
 import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -323,6 +324,7 @@ export default async function PedidoCalidadPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <MigasPedido pedidoId={id} />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           {pedido.numero_pedido}
@@ -391,12 +393,6 @@ export default async function PedidoCalidadPage({
         </p>
       )}
 
-      <RevisionFinalSeccion
-        muebles={mueblesFinal}
-        numeroPedido={pedido.numero_pedido}
-        puedeEvaluar={puedeEvaluar && !pedido.cancelado_en}
-      />
-
       {versionSeleccionada && itemsConInforme.length > 0 && (
         <ItemsCalidadTable
           items={enfoque ? grupoEnfocado : itemsConInforme}
@@ -405,6 +401,13 @@ export default async function PedidoCalidadPage({
           puedeEvaluar={puedeEvaluar}
         />
       )}
+
+      {/* La revisión final del mueble completo va al final: primero se revisan las piezas y los informes. */}
+      <RevisionFinalSeccion
+        muebles={mueblesFinal}
+        numeroPedido={pedido.numero_pedido}
+        puedeEvaluar={puedeEvaluar && !pedido.cancelado_en}
+      />
     </main>
   );
 }
