@@ -136,9 +136,7 @@ export default function PanelAsignacion({
           >
             <div
               onClick={alternarOt}
-              className={`flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-slate-50 ${
-                abierta ? "fila-padre-abierta" : ""
-              }`}
+              className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-slate-50"
             >
               <BotonDesplegar
                 abierto={abierta}
@@ -166,7 +164,7 @@ export default function PanelAsignacion({
             </div>
 
             {abierta && (
-              <div className="anim-desplegar guia-hija flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 p-3">
+              <div className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 py-3 pr-3 pl-6">
                 {g.pms.map((pm) => {
                   const pmAbierta = pmAbierto(pm.pedidoId);
                   const alternarPm = () =>
@@ -182,9 +180,7 @@ export default function PanelAsignacion({
                     >
                       <div
                         onClick={alternarPm}
-                        className={`flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 transition-colors hover:bg-slate-50 ${
-                          pmAbierta ? "fila-padre-abierta" : ""
-                        }`}
+                        className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 transition-colors hover:bg-slate-50"
                       >
                         <BotonDesplegar
                           abierto={pmAbierta}

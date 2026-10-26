@@ -16,13 +16,13 @@ const CHIP: Record<EstadoTramo, TonoChip> = {
 // Tarjeta de estado de la ficha del QR: dónde va el mueble en una frase y una barra con
 // un tramo por paso del recorrido (ver lib/trazabilidad/resumen-ruta.ts). Al tocarla se
 // abre la ruta completa, paso por paso. El tramo donde va el mueble es más grueso.
-export default function RutaQr({ resumen: r }: { resumen: ResumenRuta }) {
+export default function RutaQr({ resumen: r, completa }: { resumen: ResumenRuta; completa: boolean }) {
   return (
     <details className="group rounded-xl border border-slate-200 bg-white shadow-sm">
       <summary className="flex cursor-pointer list-none flex-col gap-2 p-3 [&::-webkit-details-marker]:hidden">
         <span className="flex items-baseline justify-between gap-3">
           <span className="text-base font-semibold text-slate-900">{r.titulo}</span>
-          {r.actual !== null && (
+          {completa && r.actual !== null && (
             <span className="shrink-0 text-xs text-slate-500">
               Paso {r.actual + 1} de {r.tramos.length}
             </span>
@@ -38,8 +38,8 @@ export default function RutaQr({ resumen: r }: { resumen: ResumenRuta }) {
           ))}
         </span>
         <span className="flex items-center gap-1 text-xs font-medium text-brand-700">
-          <span className="group-open:hidden">Ver la ruta completa</span>
-          <span className="hidden group-open:inline">Ocultar la ruta</span>
+          <span className="group-open:hidden">{completa ? "Ver la ruta completa" : "Ver el detalle"}</span>
+          <span className="hidden group-open:inline">{completa ? "Ocultar la ruta" : "Ocultar el detalle"}</span>
           <span aria-hidden="true" className="transition-transform group-open:rotate-180">
             ▾
           </span>

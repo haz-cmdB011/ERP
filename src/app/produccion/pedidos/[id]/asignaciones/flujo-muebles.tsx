@@ -278,11 +278,20 @@ export function FilaMueble({
   const i = indiceSiguiente(m);
   const indiceAsignar = i !== null && avancePaso(m, i).estado === "sin_asignar" ? i : null;
   const estiloPildora =
-    "self-start rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap sm:self-center";
+    "rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap";
 
   return (
     <li className="rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+      <div
+        // Tocar cualquier parte de la fila la abre o la cierra; los botones y enlaces
+        // conservan su propia acción (y los diálogos en portal no cuentan).
+        onClick={(e) => {
+          const t = e.target as HTMLElement;
+          if (!e.currentTarget.contains(t) || t.closest("a, button, input, select, textarea")) return;
+          onAlternar();
+        }}
+        className="flex cursor-pointer flex-col gap-3 p-3 sm:flex-row sm:items-center"
+      >
         <div className={`flex min-w-0 items-center gap-2 ${imagen === undefined ? "sm:w-48" : "sm:w-60"}`}>
           {imagen ? (
             <ImagenAmpliable
@@ -299,67 +308,7 @@ export function FilaMueble({
               />
             )
           )}
-          <button
-            type="button"
-            onClick={onAlternar}
-            aria-expanded={abierto}
-            className="flex min-w-0 flex-1 items-center gap-2 text-left"
-          >
-            <span
-              aria-hidden
-              className={`text-slate-500 transition-transform ${abierto ? "rotate-90" : ""}`}
-            >
-              ▸
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate font-semibold text-slate-900">
-                <span className="text-slate-500">{m.item_code} ·</span>{" "}
-                {m.modelo ?? "Sin modelo"}
-              </span>
-              <span className="block text-xs text-slate-500">
-                {m.cantidad} {m.unidad ?? ""}
-                {(m.partes?.length ?? 0) > 0 && (
-                  <span
-                    className="font-semibold text-slate-700"
-                    title="Muebles completos: los que alcanza la parte más atrasada, con lo entregado en el último paso de cada parte"
-                  >
-                    {" "}
-                    · {encuadreMueble(m).completos}/{m.cantidad} completos
-                  </span>
-                )}
-              </span>
-            </span>
-          </button>
-        </div>
-
-        <ol className="flex flex-1 items-center overflow-x-auto">
-          {m.ruta.map((p, j) => (
-            <li key={p.id ?? `${p.proceso}-${j}`} className="flex flex-1 items-start last:flex-none">
-              <button
-                type="button"
-                onClick={onAlternar}
-                className="rounded-lg p-1 transition-colors hover:bg-slate-50"
-              >
-                <Paso mueble={m} indice={j} />
-              </button>
-              {j < m.ruta.length - 1 && (
-                // A la altura del centro del círculo (p-1 del botón + mitad de size-16,
-                // menos la mitad del grosor), no del paso con su etiqueta.
-                <span
-                  aria-hidden
-                  className="mx-1 mt-[35px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
-                  style={{
-                    background:
-                      avancePaso(m, j).estado === "terminado"
-                        ? COLOR.terminado
-                        : "var(--color-slate-200)",
-                  }}
-                />
-              )}
-            </li>
-          ))}
-        </ol>
-
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
         {terminado && obra === "en_revision_final" ? (
           <span
             className={`${estiloPildora} bg-sky-50 text-sky-700`}
@@ -406,6 +355,67 @@ export function FilaMueble({
             {siguiente} →
           </span>
         )}
+          <button
+            type="button"
+            onClick={onAlternar}
+            aria-expanded={abierto}
+            className="flex min-w-0 max-w-full items-center gap-2 text-left"
+          >
+            <span
+              aria-hidden
+              className={`text-slate-500 transition-transform ${abierto ? "rotate-90" : ""}`}
+            >
+              ▸
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-semibold text-slate-900">
+                <span className="text-slate-500">{m.item_code} ·</span>{" "}
+                {m.modelo ?? "Sin modelo"}
+              </span>
+              <span className="block text-xs text-slate-500">
+                {m.cantidad} {m.unidad ?? ""}
+                {(m.partes?.length ?? 0) > 0 && (
+                  <span
+                    className="font-semibold text-slate-700"
+                    title="Muebles completos: los que alcanza la parte más atrasada, con lo entregado en el último paso de cada parte"
+                  >
+                    {" "}
+                    · {encuadreMueble(m).completos}/{m.cantidad} completos
+                  </span>
+                )}
+              </span>
+            </span>
+          </button>
+          </div>
+        </div>
+
+        <ol className="flex flex-1 items-center overflow-x-auto">
+          {m.ruta.map((p, j) => (
+            <li key={p.id ?? `${p.proceso}-${j}`} className="flex flex-1 items-start last:flex-none">
+              <button
+                type="button"
+                onClick={onAlternar}
+                className="rounded-lg p-1 transition-colors hover:bg-slate-50"
+              >
+                <Paso mueble={m} indice={j} />
+              </button>
+              {j < m.ruta.length - 1 && (
+                // A la altura del centro del círculo (p-1 del botón + mitad de size-16,
+                // menos la mitad del grosor), no del paso con su etiqueta.
+                <span
+                  aria-hidden
+                  className="mx-1 mt-[35px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
+                  style={{
+                    background:
+                      avancePaso(m, j).estado === "terminado"
+                        ? COLOR.terminado
+                        : "var(--color-slate-200)",
+                  }}
+                />
+              )}
+            </li>
+          ))}
+        </ol>
       </div>
 
       {abierto && (
@@ -640,14 +650,19 @@ function DetalleMueble({
           const lista = asignacionesDelPaso(m, i);
           const a = avancePaso(m, i);
           return (
-            <div key={p.id ?? `${p.proceso}-${i}`} className="flex flex-col gap-1.5 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold text-slate-700">
+            <details key={p.id ?? `${p.proceso}-${i}`} open className="group flex flex-col gap-1.5 text-xs">
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
+                <span aria-hidden className="text-xs text-slate-500 transition-transform group-open:rotate-90">
+                  ▶
+                </span>
+                <span className="font-semibold text-slate-700">
                   {i + 1}. {etiquetaPaso(m.ruta, i)}
                   {i > 0 && a.disponible > 0 && (
                     <span className="ml-1 font-normal text-slate-500">· {a.listo} listas</span>
                   )}
-                </p>
+                </span>
+              </summary>
+              <div className="flex items-center justify-between gap-2">
                 {porAsignar(m, i, asignar) && (
                   <BotonAsignar
                     mueble={m}
@@ -719,7 +734,7 @@ function DetalleMueble({
                   ))}
                 </ul>
               )}
-            </div>
+            </details>
           );
         })}
       </div>

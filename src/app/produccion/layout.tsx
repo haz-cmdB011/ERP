@@ -71,9 +71,6 @@ export default async function ProduccionLayout({
         <SubnavLink href="/produccion/taller" tambien={["/produccion/rechazos"]} icono="panel">
           Taller
         </SubnavLink>
-        <SubnavLink href="/produccion/escanear" icono="escanear">
-          Escanear QR
-        </SubnavLink>
         <SubnavLink href="/produccion/equipos" icono="equipos">
           Equipos
         </SubnavLink>

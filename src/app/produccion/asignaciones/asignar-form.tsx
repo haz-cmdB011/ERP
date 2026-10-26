@@ -19,7 +19,7 @@ import Modal, {
 } from "./modal";
 import CampoEncargado from "./campo-encargado";
 
-import { pesosPartes, type OpcionPaso, type ParteMueble } from "@/lib/produccion/flujo-mueble";
+import { type OpcionPaso, type ParteMueble } from "@/lib/produccion/flujo-mueble";
 
 export type { OpcionPaso };
 
@@ -78,8 +78,6 @@ export default function AsignarForm({
 }) {
   const router = useRouter();
   const hayPartes = partes.length > 0;
-  // El % del mueble que vale cada parte (lo guardado en el despiece o partes iguales).
-  const pesos = pesosPartes(partes);
   // Con componentes, solo por partes; sin ellos, solo el mueble completo.
   const modo: Modo = (conComponentes ?? hayPartes) ? "partes" : "mueble";
   // Con componentes y sin despiece guardado no hay qué asignar: primero el despiece.
@@ -286,7 +284,6 @@ export default function AsignarForm({
                           <span className="min-w-0 flex-1">
                             <span className="block text-slate-900">{pt.descripcion}</span>
                             <span className="block text-xs text-slate-500">
-                              {fmt(pesos.get(pt.id) ?? 0)} % del mueble ·{" "}
                               {disponible <= 0
                                 ? "ya asignada"
                                 : `${fmt(disponible)} de ${fmt(av?.total ?? 0)} ${pt.unidad ?? "PZA"} por asignar`}
