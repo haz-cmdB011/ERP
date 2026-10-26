@@ -185,7 +185,7 @@ export function ResumenProceso({
       <p className="mt-2 text-xs text-slate-500 tabular-nums">
         {t.entregado}/{t.piezas} pzas entregadas · {t.asignado} asignadas
       </p>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-500">
         {t.muebles} mueble{t.muebles === 1 ? "" : "s"}
       </p>
     </div>
@@ -278,7 +278,7 @@ export function FilaMueble({
   const i = indiceSiguiente(m);
   const indiceAsignar = i !== null && avancePaso(m, i).estado === "sin_asignar" ? i : null;
   const estiloPildora =
-    "rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap";
+    "rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap";
 
   return (
     <li className="rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
@@ -363,13 +363,13 @@ export function FilaMueble({
           >
             <span
               aria-hidden
-              className={`text-slate-400 transition-transform ${abierto ? "rotate-90" : ""}`}
+              className={`text-slate-500 transition-transform ${abierto ? "rotate-90" : ""}`}
             >
               ▸
             </span>
             <span className="min-w-0">
               <span className="block truncate font-semibold text-slate-900">
-                <span className="text-slate-400">{m.item_code} ·</span>{" "}
+                <span className="text-slate-500">{m.item_code} ·</span>{" "}
                 {m.modelo ?? "Sin modelo"}
               </span>
               <span className="block text-xs text-slate-500">
@@ -514,7 +514,7 @@ function CambiarProcesoParte({
           ? `Esta parte no pasa por ${PROCESO_LABELS[proceso]}: quitar el proceso de su ruta`
           : `Agregar ${PROCESO_LABELS[proceso]} a la ruta de esta parte`
       }
-      className="rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+      className="rounded px-1.5 py-0.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
     >
       {lleva ? "Quitar" : "+ Agregar"}
     </button>
@@ -579,7 +579,7 @@ function Despiece({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: Asigna
                   const x = a.partes[p.id];
                   if (!parteLleva(p, proceso)) {
                     return (
-                      <td key={i} className="p-2 whitespace-nowrap text-slate-400">
+                      <td key={i} className="p-2 whitespace-nowrap text-slate-500">
                         <span className="flex items-start gap-2">
                           {asignar && <span aria-hidden className="size-6 shrink-0" />}
                           <span>
@@ -652,7 +652,7 @@ function DetalleMueble({
           return (
             <details key={p.id ?? `${p.proceso}-${i}`} open className="group flex flex-col gap-1.5 text-xs">
               <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
-                <span aria-hidden className="text-[10px] text-slate-400 transition-transform group-open:rotate-90">
+                <span aria-hidden className="text-xs text-slate-500 transition-transform group-open:rotate-90">
                   ▶
                 </span>
                 <span className="font-semibold text-slate-700">
@@ -668,7 +668,7 @@ function DetalleMueble({
                     mueble={m}
                     indice={i}
                     asignar={asignar}
-                    className="rounded-md bg-brand-500 px-2 py-0.5 text-[11px] font-semibold text-on-brand transition-colors hover:bg-brand-400"
+                    className="rounded-md bg-brand-500 px-2 py-0.5 text-xs font-semibold text-on-brand transition-colors hover:bg-brand-400"
                   >
                     + Asignar ({a.disponible})
                   </BotonAsignar>
@@ -696,13 +696,13 @@ function DetalleMueble({
                             {x.folio_rechazo ? " (retrabajo)" : ""}
                             {x.folio_revision_final ? ` (retrabajo de ${x.folio_revision_final})` : ""}
                             <span
-                              className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${ESTADO_ASIGNACION_ESTILOS[x.estado]}`}
+                              className={`rounded border px-1.5 py-0.5 text-xs font-medium ${ESTADO_ASIGNACION_ESTILOS[x.estado]}`}
                             >
                               {ESTADO_ASIGNACION_LABELS[x.estado]}
                             </span>
                             {x.adelantada && (
                               <span
-                                className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                                className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700"
                                 title="Se asignó antes de que el paso anterior entregara esas piezas"
                               >
                                 Adelantada

@@ -57,7 +57,7 @@ export default function SelectorMotivo({
             >
               <span className="w-10 shrink-0 text-xs tabular-nums text-slate-500">{m.codigo}</span>
               <span className="flex-1 text-sm font-medium text-slate-900">{m.nombre}</span>
-              <span className="shrink-0 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] uppercase text-slate-600">
+              <span className="shrink-0 rounded-full border border-slate-300 px-2 py-0.5 text-xs uppercase text-slate-600">
                 {TIPO_PROBLEMA_LABELS[m.tipo]}
               </span>
             </button>

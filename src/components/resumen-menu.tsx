@@ -141,7 +141,7 @@ export function ResumenDelMenu({ alElegir }: { alElegir: () => void }) {
   if (tarjetas.length === 0) return null;
   return (
     <section aria-label="Resumen" className="mt-3 border-t border-slate-200 pt-3">
-      <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">Resumen</p>
+      <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-widest text-slate-500">Resumen</p>
       <ul className="flex flex-col gap-0.5">
         {tarjetas.map((t) => {
           const atencion = t.valor > 0 && t.tono === "atencion";
@@ -149,7 +149,7 @@ export function ResumenDelMenu({ alElegir }: { alElegir: () => void }) {
             <>
               <span
                 className={`w-9 shrink-0 text-right text-xl font-semibold tabular-nums ${
-                  atencion ? "text-brand-800" : t.valor > 0 ? "text-slate-900" : "text-slate-400"
+                  atencion ? "text-brand-800" : t.valor > 0 ? "text-slate-900" : "text-slate-500"
                 }`}
               >
                 {t.valor}

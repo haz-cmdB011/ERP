@@ -170,7 +170,7 @@ export function CampoModeloOt({
         }}
       />
       {descripcionPm != null && descripcionPm !== "" ? (
-        <p className="mt-0.5 truncate text-[11px] text-slate-500" title={descripcionPm}>
+        <p className="mt-0.5 truncate text-xs text-slate-500" title={descripcionPm}>
           {elegida?.esComponente && (
             <span className="mr-1 rounded bg-slate-100 px-1 font-medium text-slate-600">
               componente {elegida.itemCodigo}
@@ -182,7 +182,7 @@ export function CampoModeloOt({
       ) : (
         descripcionPm == null &&
         variantesDelCodigo > 1 && (
-          <p className="mt-0.5 text-[11px] text-amber-700">
+          <p className="mt-0.5 text-xs text-amber-700">
             {variantesDelCodigo} variantes con este código: elige la tuya en la lista.
           </p>
         )
@@ -206,12 +206,12 @@ export function CampoModeloOt({
                 <span className="flex items-center justify-between gap-2">
                   {m.esComponente ? (
                     <span className="text-slate-800">
-                      <span className="mr-1 text-slate-400" aria-hidden>
+                      <span className="mr-1 text-slate-500" aria-hidden>
                         ↳
                       </span>
                       <span className="font-mono">{m.itemCodigo ?? m.modelo}</span>
                       {m.material && (
-                        <span className="ml-1.5 rounded bg-slate-100 px-1 text-[10px] uppercase text-slate-600">
+                        <span className="ml-1.5 rounded bg-slate-100 px-1 text-xs uppercase text-slate-600">
                           {m.material}
                         </span>
                       )}
@@ -220,13 +220,13 @@ export function CampoModeloOt({
                     <span className="font-mono text-slate-900">
                       {m.modelo}
                       {m.variantes > 1 && (
-                        <span className="ml-1.5 rounded bg-amber-50 px-1 font-sans text-[10px] text-amber-700 ring-1 ring-amber-200">
+                        <span className="ml-1.5 rounded bg-amber-50 px-1 font-sans text-xs text-amber-700 ring-1 ring-amber-200">
                           variante
                         </span>
                       )}
                     </span>
                   )}
-                  <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-500">
+                  <span className="whitespace-nowrap text-xs tabular-nums text-slate-500">
                     {m.cantidadPm} en la OT
                     {m.cantidadRegistrada > 0 && (
                       <>
@@ -243,13 +243,13 @@ export function CampoModeloOt({
                   </span>
                 </span>
                 {m.descripcion && (
-                  <span className="truncate text-[11px] text-slate-500">
+                  <span className="truncate text-xs text-slate-500">
                     {m.esComponente && m.padreModelo ? `componente de ${m.padreModelo} · ` : ""}
                     {m.descripcion}
                   </span>
                 )}
                 {variosPm && m.pms && (
-                  <span className="truncate font-mono text-[10px] text-slate-600">{m.pms}</span>
+                  <span className="truncate font-mono text-xs text-slate-600">{m.pms}</span>
                 )}
               </button>
             </li>

@@ -132,7 +132,7 @@ export default async function OrdenTrabajoProduccionPage({
       )}
 
       {pms.length > 0 && (
-        <ul className="flex flex-col gap-3">
+        <ul className="lista-animada flex flex-col gap-3">
           {pms.map((p) => {
             const activa = versionActiva.get(p.id);
             const conteo = activa ? conteoMuebles.get(activa.id) : undefined;
@@ -141,7 +141,7 @@ export default async function OrdenTrabajoProduccionPage({
             return (
               <li
                 key={p.id}
-                className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
+                className="relative flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:min-h-[6.5rem] sm:flex-row sm:items-center sm:justify-between"
               >
                 {/* Toda la tarjeta abre el pedido. */}
                 <Link
@@ -153,12 +153,12 @@ export default async function OrdenTrabajoProduccionPage({
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="text-base font-semibold text-slate-900">{p.numero_pedido}</span>
                     {p.cancelado_en && (
-                      <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                      <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
                         Cancelado
                       </span>
                     )}
                     {activa && activa.numero_version > 1 && (
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
                         Versión {activa.numero_version}
                       </span>
                     )}

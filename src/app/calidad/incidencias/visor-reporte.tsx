@@ -9,7 +9,7 @@ import { diaLargo } from "./formato";
 function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{etiqueta}</dt>
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{etiqueta}</dt>
       <dd className="text-sm text-slate-900">{children}</dd>
     </div>
   );
@@ -22,7 +22,7 @@ function Texto({ titulo, texto }: { titulo: string; texto: string | null | undef
       {texto ? (
         <p className="whitespace-pre-line text-sm leading-relaxed text-slate-900">{texto}</p>
       ) : (
-        <p className="text-sm text-slate-400">Sin escribir.</p>
+        <p className="text-sm text-slate-500">Sin escribir.</p>
       )}
     </section>
   );
@@ -41,7 +41,7 @@ function HojaReporte({ i, idHoja }: { i: Incidencia; idHoja: string }) {
     <div data-ficha-reporte={idHoja} className="flex w-[640px] flex-col gap-5 bg-white p-6 text-slate-900">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Calidad · Reporte</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Calidad · Reporte</p>
           <h3 className="text-lg font-semibold">{i.tipo}</h3>
         </div>
         <span

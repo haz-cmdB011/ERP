@@ -72,7 +72,7 @@ export default function DialogoDescuadres({
               ) : null}
             </p>
             <label className="mt-2 flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Motivo
               </span>
               <textarea

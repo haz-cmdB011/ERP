@@ -39,7 +39,7 @@ export function FiltrosOrdenesTrabajo({
             <Link
               key={a ?? "todos"}
               href={hrefListaPedidos(base, { q, anio: a ? String(a) : undefined, cliente: clienteParam, entrega })}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors pointer-coarse:py-2.5 ${
                 activo
                   ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
@@ -64,6 +64,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   hrefPedido,
   accion,
   columnaEstado,
+  filaClicable = false,
 }: {
   filas: FilaOrdenTrabajo<P>[];
   hrefOt: (ot: string) => string;
@@ -72,6 +73,9 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
   // Columna extra con el estado de cada O.T. (liberación en Producción,
   // evaluación en Calidad).
   columnaEstado?: { titulo: string; celda: (fila: FilaOrdenTrabajo<P>) => React.ReactNode };
+  // El enlace de la O.T. se extiende sobre toda la fila: tocar cualquier parte la abre. Los botones
+  // de `accion` quedan por encima para seguir funcionando solos.
+  filaClicable?: boolean;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -90,9 +94,21 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
             // Un PM suelto (sin O.T.) lleva directo a su detalle.
             const href = fila.ot ? hrefOt(fila.ot) : hrefPedido(primero.id);
             return (
-              <tr key={fila.ot ?? primero.id} className="align-top transition-colors hover:bg-slate-50">
+              <tr
+                key={fila.ot ?? primero.id}
+                className={`align-top transition-colors hover:bg-slate-50 ${
+                  filaClicable ? "relative focus-within:bg-slate-50" : ""
+                }`}
+              >
                 <td className="px-4 py-3">
-                  <EnlaceFila href={href} className="group inline-flex items-center gap-2 whitespace-nowrap">
+                  <EnlaceFila
+                    href={href}
+                    className={`group inline-flex items-center gap-2 whitespace-nowrap ${
+                      filaClicable
+                        ? "outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
+                        : ""
+                    }`}
+                  >
                     {fila.ot ? (
                       <span className="font-mono font-semibold text-slate-900 group-hover:text-brand-700 group-hover:underline">
                         {fila.ot}
@@ -102,9 +118,11 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                         {primero.numero_pedido}
                       </span>
                     )}
-                    <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
-                      →
-                    </span>
+                    {!filaClicable && (
+                      <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
+                        →
+                      </span>
+                    )}
                   </EnlaceFila>
                 </td>
                 <td className="px-4 py-3">
@@ -114,7 +132,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
                   )}
                 </td>
                 {columnaEstado && <td className="px-4 py-3">{columnaEstado.celda(fila)}</td>}
-                {accion && <td className="px-4 py-3">{accion(fila)}</td>}
+                {accion && <td className={`px-4 py-3 ${filaClicable ? "relative z-10" : ""}`}>{accion(fila)}</td>}
               </tr>
             );
           })}

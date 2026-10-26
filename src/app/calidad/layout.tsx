@@ -64,11 +64,17 @@ export default async function CalidadLayout({
         <SubnavLink href="/calidad" icono="pedidos" tambien={["/calidad/pedidos", "/calidad/ot"]}>
           Pedidos
         </SubnavLink>
-        <SubnavLink href="/calidad/entregas" tambien={["/calidad/incidencias"]} icono="por_revisar">
-          Revisión
+        <SubnavLink href="/calidad/entregas" icono="por_revisar">
+          Entregas
         </SubnavLink>
-        <SubnavLink href="/calidad/cancelados" tambien={["/calidad/folios"]} icono="archivo">
-          Archivo
+        <SubnavLink href="/calidad/cancelados" icono="cancelados">
+          Cancelados
+        </SubnavLink>
+        <SubnavLink href="/calidad/folios" icono="folios">
+          Folios de calidad
+        </SubnavLink>
+        <SubnavLink href="/calidad/incidencias" icono="incidencias">
+          No conformidades
         </SubnavLink>
       </AreaNav>
       {perfil?.rol === "usuario" && <CuentaPendiente />}

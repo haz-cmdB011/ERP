@@ -344,7 +344,7 @@ export default async function PedidoDetailPage({
                           <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                             Versión {v.numero_version}
                             {v.es_version_activa && (
-                              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] font-semibold text-brand-800">
+                              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800">
                                 activa
                               </span>
                             )}

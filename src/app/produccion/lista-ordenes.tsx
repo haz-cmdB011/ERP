@@ -16,7 +16,7 @@ export default function ListaOrdenes({
   avanceDe: (fila: FilaOrdenTrabajo<PedidoConOt>) => AvancePedido;
 }) {
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="lista-animada flex flex-col gap-3">
       {filas.map((fila) => {
         const primero = fila.pedidos[0];
         const href =
@@ -30,7 +30,7 @@ export default function ListaOrdenes({
         return (
           <li
             key={fila.ot ?? primero.id}
-            className="relative flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+            className="relative flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
           >
             <Link
               href={href}
@@ -85,7 +85,7 @@ export default function ListaOrdenes({
             </div>
             <Chevron
               abierto={false}
-              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-400 sm:block"
+              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-500 sm:block"
             />
           </li>
         );

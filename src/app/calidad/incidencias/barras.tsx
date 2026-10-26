@@ -63,7 +63,7 @@ export default function Barras({
         </ul>
       )}
       {filas.length > maximo && (
-        <p className="text-xs text-slate-400">y {filas.length - maximo} más; usa los filtros para verlos.</p>
+        <p className="text-xs text-slate-500">y {filas.length - maximo} más; usa los filtros para verlos.</p>
       )}
     </Tarjeta>
   );

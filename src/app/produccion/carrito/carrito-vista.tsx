@@ -372,7 +372,7 @@ function Estado({
   vigente: boolean | undefined;
   liberado: boolean | undefined;
 }) {
-  if (!cargado) return <span className="text-xs text-slate-400">…</span>;
+  if (!cargado) return <span className="text-xs text-slate-500">…</span>;
   if (vigente === undefined) {
     return <span className="whitespace-nowrap text-xs font-medium text-rose-700">Ya no existe</span>;
   }

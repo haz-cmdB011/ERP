@@ -191,7 +191,7 @@ export default async function AreaNav({
                 {a.nombre}
                 {a.area === "estimaciones" && porRevisar > 0 && (
                   <span
-                    className="anim-aviso ml-0.5 min-w-5 rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white"
+                    className="anim-aviso ml-0.5 min-w-5 rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-white"
                     title={`${porRevisar} recibo${porRevisar === 1 ? "" : "s"} por revisar`}
                   >
                     {porRevisar > 99 ? "99+" : porRevisar}
@@ -205,13 +205,10 @@ export default async function AreaNav({
       </header>
       {/* Debajo de las áreas y los paneles, a la altura del contenido: vuelve
           al panel anterior (oculto en el inicio del área). */}
-      {/* Planeación, Producción y Calidad usan migas de pan en cada pantalla (components/migas.tsx) en lugar de este botón. */}
-      {area !== "planeacion" && area !== "produccion" && area !== "calidad" && (
-        <BotonRegresar
-          inicioArea={soloEstimaciones ? "/estimaciones/recibos" : INICIO_AREA[area]}
-          maquilador={soloEstimaciones}
-        />
-      )}
+      <BotonRegresar
+        inicioArea={soloEstimaciones ? "/estimaciones/recibos" : INICIO_AREA[area]}
+        maquilador={soloEstimaciones}
+      />
     </div>
   );
 }

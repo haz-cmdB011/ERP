@@ -724,3 +724,87 @@ html.transicion-tema *::after {
     animation: aparece-con-rebote 450ms ease-out backwards;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Interacción: las tarjetas de las listas entran una tras otra, los botones
+   "se hunden" al presionarlos y la pestaña que se activa se asienta. Solo para
+   quien no pidió menos movimiento. Todo usa propiedades individuales
+   (translate, scale) para no pisar los transform de Tailwind.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes subir-entrada {
+    from {
+      opacity: 0;
+      translate: 0 12px;
+    }
+  }
+  .lista-animada > li {
+    animation: subir-entrada 420ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  .lista-animada > li:nth-child(2) {
+    animation-delay: 45ms;
+  }
+  .lista-animada > li:nth-child(3) {
+    animation-delay: 90ms;
+  }
+  .lista-animada > li:nth-child(4) {
+    animation-delay: 135ms;
+  }
+  .lista-animada > li:nth-child(5) {
+    animation-delay: 180ms;
+  }
+  .lista-animada > li:nth-child(6) {
+    animation-delay: 225ms;
+  }
+  .lista-animada > li:nth-child(n + 7) {
+    animation-delay: 270ms;
+  }
+
+  /* Pulso al presionar: baja un poco y vuelve. */
+  @keyframes presionar {
+    40% {
+      scale: 0.95;
+    }
+  }
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  .presionable:active {
+    animation: presionar 240ms ease-out;
+  }
+
+  /* La pestaña activa se asienta desde un poco más abajo. */
+  @keyframes pestana-entra {
+    from {
+      opacity: 0.55;
+      translate: 0 3px;
+    }
+  }
+  .pestana-activa {
+    animation: pestana-entra 320ms ease-out;
+  }
+
+  /* El icono de un acceso rápido crece y se inclina al señalarlo. */
+  .acceso-icono {
+    transition: scale 220ms cubic-bezier(0.3, 1.6, 0.5, 1), rotate 220ms ease;
+  }
+  .group:hover .acceso-icono {
+    scale: 1.14;
+    rotate: -4deg;
+  }
+}
+
+/* Zonas táctiles: en pantallas táctiles las casillas y los botones de opción son más grandes y
+   tienen aire alrededor, para acertar con el dedo o con guantes. */
+@media (pointer: coarse) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+  /* Las casillas dentro de una tabla o lista ganan un margen táctil sin mover el diseño. */
+  td > input[type="checkbox"],
+  th > input[type="checkbox"],
+  li > label > input[type="checkbox"] {
+    outline-offset: 6px;
+  }
+}

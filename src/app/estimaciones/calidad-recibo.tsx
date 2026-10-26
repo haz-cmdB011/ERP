@@ -48,7 +48,7 @@ export default function CalidadRecibo({ contra }: { contra: ReciboContraCalidad 
           <p className="font-medium text-amber-950">
             <span className="font-mono">{l.modelo}</span>
             {l.esComponente && (
-              <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+              <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
                 componente
               </span>
             )}

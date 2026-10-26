@@ -165,7 +165,7 @@ export default async function DiscrepanciasPage({
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Fecha</th>
                 <th className="px-3 py-2.5">Recibo</th>
                 <th className="px-3 py-2.5">Área</th>
@@ -226,7 +226,7 @@ export default async function DiscrepanciasPage({
                     {f.estado === "pendiente" ? (
                       <DecidirBotones id={f.id} />
                     ) : (
-                      <div className="flex flex-col items-end gap-0.5 text-[11px] text-slate-600">
+                      <div className="flex flex-col items-end gap-0.5 text-xs text-slate-600">
                         <span
                           className={`rounded-full px-2 py-0.5 font-semibold ring-1 ${
                             f.estado === "aceptada"

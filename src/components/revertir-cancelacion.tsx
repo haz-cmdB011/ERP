@@ -45,7 +45,7 @@ function BotonConfirmado({
   if (confirmando) {
     return (
       <div className="flex flex-col gap-1">
-        <p className="text-[11px] text-gray-600">{pregunta}</p>
+        <p className="text-xs text-gray-600">{pregunta}</p>
         <div className="flex items-center gap-2">
           <button
             type="button"

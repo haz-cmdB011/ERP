@@ -344,7 +344,7 @@ export default function ItemsLiberacionTable({
             />
           ) : (
             <span
-              className={`flex items-center justify-center rounded bg-slate-100 text-center text-[9px] font-medium leading-tight text-slate-400 ${
+              className={`flex items-center justify-center rounded bg-slate-100 text-center text-[9px] font-medium leading-tight text-slate-500 ${
                 indentado ? "h-12 w-12 lg:h-9 lg:w-9" : "h-16 w-16 lg:h-11 lg:w-11"
               }`}
             >
@@ -366,7 +366,7 @@ export default function ItemsLiberacionTable({
             {item.modelo && <span className="lg:hidden">· {item.modelo}</span>}
           </span>
           {desplegable && grupo && (
-            <span className="mt-0.5 block text-[11px] font-normal text-slate-500">
+            <span className="mt-0.5 block text-xs font-normal text-slate-500">
               {grupo.totalHijos} componente{grupo.totalHijos === 1 ? "" : "s"}
               {grupo.hijos.length !== grupo.totalHijos ? ` (${grupo.hijos.length} coinciden)` : ""}
             </span>
@@ -692,7 +692,7 @@ export default function ItemsLiberacionTable({
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table ref={tablaRef} className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2"></th>
                     <th className="py-2 pr-1 lg:px-3">Imagen</th>
                     <th className="px-3 py-2">Item</th>

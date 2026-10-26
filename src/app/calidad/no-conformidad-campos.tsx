@@ -195,7 +195,7 @@ export default function NoConformidadCampos({
       </div>
 
       <fieldset className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3">
-        <legend className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Dónde se detectó</legend>
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Dónde se detectó</legend>
         <label className={estiloEtiqueta}>
           Área donde se detectó
           {selectorArea("areaDeteccion", "responsableDeteccion")}
@@ -210,7 +210,7 @@ export default function NoConformidadCampos({
       </fieldset>
 
       <fieldset className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3">
-        <legend className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">De dónde viene</legend>
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">De dónde viene</legend>
         <label className={estiloEtiqueta}>
           Área origen de la no conformidad
           {selectorArea("areaOrigen", "responsableOrigen")}
@@ -234,7 +234,7 @@ export default function NoConformidadCampos({
       </label>
 
       <fieldset className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3">
-        <legend className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Solución y cierre</legend>
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Solución y cierre</legend>
         <label className={estiloEtiqueta}>
           Descripción de la solución
           <textarea rows={3} maxLength={1000} value={valor.solucion} onChange={set("solucion")} className={estiloCampo} />

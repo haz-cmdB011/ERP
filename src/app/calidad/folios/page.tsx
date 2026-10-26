@@ -1,5 +1,4 @@
 import Link from "next/link";
-import PestanasSeccion from "@/app/calidad/pestanas-seccion";
 import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import Paginacion, { TAMANO_PAGINA } from "@/components/paginacion";
@@ -204,7 +203,6 @@ export default async function FoliosCalidadPage({
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <PestanasSeccion seccion="archivo" />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Folios de calidad</h1>
       </div>
@@ -321,7 +319,7 @@ export default async function FoliosCalidadPage({
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Folio</th>
                 <th className="px-3 py-2.5">Resultado</th>
                 <th className="px-3 py-2.5">Motivo</th>
@@ -362,14 +360,14 @@ export default async function FoliosCalidadPage({
                         {inf.aprobado ? "Aprobado" : "No aprobado"}
                       </span>
                       {!inf.aprobado && nombreCategoria(inf.categoria) && (
-                        <p className="mt-1 text-[11px] font-medium text-rose-600">
+                        <p className="mt-1 text-xs font-medium text-rose-600">
                           {nombreCategoria(inf.categoria)}
                         </p>
                       )}
                       {situacion && (
                         <p className="mt-1">
                           <span
-                            className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${TONOS[situacion.tono]}`}
+                            className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${TONOS[situacion.tono]}`}
                           >
                             {situacion.etiqueta}
                           </span>
@@ -382,7 +380,7 @@ export default async function FoliosCalidadPage({
                     <td className="px-3 py-2 text-slate-700">
                       {inf.area_origen ?? "—"}
                       {inf.responsable_origen && (
-                        <p className="text-[11px] text-slate-500">{inf.responsable_origen}</p>
+                        <p className="text-xs text-slate-500">{inf.responsable_origen}</p>
                       )}
                     </td>
                     <td className="px-3 py-2">
@@ -394,7 +392,7 @@ export default async function FoliosCalidadPage({
                             {ESTATUS_LABELS[estatus.estatus]}
                           </span>
                           {estatus.fecha && (
-                            <p className="mt-1 text-[11px] text-slate-500">{formatoFechaDMA(estatus.fecha)}</p>
+                            <p className="mt-1 text-xs text-slate-500">{formatoFechaDMA(estatus.fecha)}</p>
                           )}
                         </>
                       ) : (
@@ -414,7 +412,7 @@ export default async function FoliosCalidadPage({
                           {pedido?.numero_pedido ?? "—"}
                         </span>
                       )}
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         {pedido?.proyectos?.nombre ?? "—"} — {pedido?.proyectos?.cliente ?? "—"}
                       </p>
                     </td>

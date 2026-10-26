@@ -135,7 +135,7 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
           Revisar {lote.pendiente} {unidad} del {formatoFecha(lote.fecha_entrega)}
         </button>
         {compacto && (
-          <span className="text-[11px] text-slate-500">
+          <span className="text-xs text-slate-500">
             {etiquetaProceso(lote)} · {lote.equipo}
             {lote.folio_rechazo ? ` · retrabajo de ${lote.folio_rechazo}` : ""}
           </span>

@@ -170,13 +170,13 @@ export default async function MisRecibosPage() {
                         <EstadoReciboBadge estado={r.estado} />
                         {(discrepanciasPorRecibo.get(r.id)?.rechazadas ?? 0) > 0 &&
                           r.estado !== "cancelado" && (
-                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200">
+                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
                               Motivo no aceptado
                             </span>
                           )}
                         {(discrepanciasPorRecibo.get(r.id)?.pendientes ?? 0) > 0 &&
                           r.estado !== "cancelado" && (
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
                               Descuadre en revisión
                             </span>
                           )}
