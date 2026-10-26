@@ -284,6 +284,15 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   (`recibo_contra_calidad`, que trae lo aprobado y lo verificado; `src/app/estimaciones/calidad-recibo.tsx`): es
   un aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece al liberarse.
 - No cubre el doble cobro (el mueble y también sus componentes por el mismo trabajo): salen juntos en pantalla.
+- **Recibos por llegar** (panel de Estimaciones y `/estimaciones/por-llegar`, solo quien revisa recibos): lo que
+  **Calidad aprobó** y aún no se cobra, por área (Acabados, Armado), con base Calidad siempre (el maquilador solo
+  cobra lo aprobado), aunque `cobro_segun_produccion` esté encendido. "Calidad aprobó" incluye la revisión final
+  del mueble (sin pasar de lo que Producción verificó de equipos externos; migración `recibos_por_llegar`). Cuenta
+  muebles, al menos un recibo por O.T. y área (los equipos no están ligados al contratista) y un importe con el
+  último precio pagado del modelo. Cada área muestra una tarjeta por mueble **entregado a Calidad** aunque no
+  esté aprobado (`muebles_en_calidad`, migración `muebles_en_calidad`): aprobados, en revisión, sin entregar y,
+  por parte del despiece, piezas entregadas y aprobadas. Lógica en `src/lib/estimaciones/por-llegar.ts`,
+  lectura en `-db.ts`.
 
 ## QR del mueble
 
