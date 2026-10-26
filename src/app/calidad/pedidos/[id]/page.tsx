@@ -381,9 +381,6 @@ export default async function PedidoCalidadPage({
           <Link href={hrefTodoElPedido} className="font-medium underline-offset-2 hover:underline">
             Ver todo el pedido
           </Link>
-          <Link href="/calidad/escanear" className="font-medium underline-offset-2 hover:underline">
-            Escanear otro
-          </Link>
         </p>
       )}
 
