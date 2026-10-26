@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Migas from "@/components/migas";
+import EnlaceFila from "@/components/enlace-fila";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -167,6 +168,7 @@ export default async function OrdenTrabajoCalidadPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <Migas items={[{ etiqueta: "Pedidos", href: "/calidad" }, { etiqueta: `O.T. ${ot}` }]} />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           O.T. <span className="font-mono">{ot}</span>
@@ -212,14 +214,18 @@ export default async function OrdenTrabajoCalidadPage({
                   const a = activa ? avancePorVersion.get(activa.id) : undefined;
                   const sinEvaluar = a ? a.enviados - a.aprobados - a.rechazados : 0;
                   return (
-                    <tr key={p.id} className="align-top transition-colors hover:bg-slate-50">
+                    <tr key={p.id} className="relative align-top transition-colors focus-within:bg-slate-50 hover:bg-slate-50">
                       <td className="px-4 py-3">
-                        <Link
+                        {/* El enlace se extiende sobre toda la fila (after:inset-0): tocar cualquier parte abre el pedido. */}
+                        <EnlaceFila
                           href={`/calidad/pedidos/${p.id}`}
-                          className="whitespace-nowrap font-medium text-slate-900 hover:text-brand-700 hover:underline"
+                          className="group inline-flex items-center gap-2 whitespace-nowrap font-medium text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
                         >
                           {p.numero_pedido}
-                        </Link>
+                          <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
+                            →
+                          </span>
+                        </EnlaceFila>
                         {p.cancelado_en && (
                           <span className="ml-2 rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
                             Cancelado
