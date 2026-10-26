@@ -44,7 +44,7 @@ import {
   type AccionQr,
   type AreaQr,
 } from "@/lib/trazabilidad/areas-qr";
-import { resumenRuta } from "@/lib/trazabilidad/resumen-ruta";
+import { resumenRuta, resumenRutaDeArea, type EntradaRuta } from "@/lib/trazabilidad/resumen-ruta";
 import { lineaTiempoMueble } from "@/lib/trazabilidad/linea-tiempo-mueble";
 import { cargarLineaTiempo } from "@/lib/trazabilidad/linea-tiempo-db";
 import { cobrosDelMueble, resumenPago } from "@/lib/trazabilidad/pago-maquilador";
@@ -243,6 +243,11 @@ export default async function FichaMuebleQrPage({
     ),
   };
 
+  const areas = areasQrDePerfil(perfil);
+  const area = areaQrElegida(areas, areaPedida);
+  // El pago al maquilador (en la ruta y en el historial) solo lo ve Estimaciones.
+  const verPago = area === "estimaciones";
+
   const eventos = lineaTiempoMueble(
     await cargarLineaTiempo(supabase, {
       item,
@@ -250,7 +255,7 @@ export default async function FichaMuebleQrPage({
       folio: folio ?? null,
       asignaciones: todas,
       ruta: flujo.ruta,
-      cobros,
+      cobros: verPago ? cobros : [],
     })
   );
 
@@ -268,7 +273,7 @@ export default async function FichaMuebleQrPage({
   const sigue =
     opciones.find((p) => p.indice === siguiente && p.disponible > 0) ?? opciones.find((p) => p.disponible > 0);
 
-  const ruta = resumenRuta({
+  const entradaRuta: EntradaRuta = {
     liberado,
     cantidad: flujo.cantidad,
     unidad,
@@ -283,11 +288,13 @@ export default async function FichaMuebleQrPage({
           liberado: resumenFinal.liberado_a_obra,
         }
       : null,
-    pago: { estado: pago.estado, cobrado: pago.cobrado, pagado: pago.pagado },
-  });
+    pago: verPago ? { estado: pago.estado, cobrado: pago.cobrado, pagado: pago.pagado } : null,
+  };
 
-  const areas = areasQrDePerfil(perfil);
-  const area = areaQrElegida(areas, areaPedida);
+  // La ruta completa (Producción, revisión final y pago) es solo del desarrollador; cada área
+  // ve únicamente su tramo.
+  const rutaCompleta = perfil.rol === "desarrollador";
+  const ruta = rutaCompleta ? resumenRuta(entradaRuta) : area ? resumenRutaDeArea(entradaRuta, area) : null;
 
   // Asignar y reasignar desde el QR: solo en la pestaña de Producción y para quien puede
   // editar ahí (la base lo vuelve a revisar en crear_asignacion_produccion).
@@ -523,7 +530,7 @@ export default async function FichaMuebleQrPage({
         </p>
       )}
 
-      <RutaQr resumen={ruta} />
+      {ruta && ruta.tramos.length > 0 && <RutaQr resumen={ruta} completa={rutaCompleta} />}
 
       {area && panel ? (
         <section aria-labelledby="acciones-titulo" className="flex flex-col gap-3">

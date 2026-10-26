@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resumenRuta, type EntradaRuta } from "./resumen-ruta";
+import { resumenRuta, resumenRutaDeArea, type EntradaRuta } from "./resumen-ruta";
 
 const BASE: EntradaRuta = {
   liberado: true,
@@ -74,5 +74,40 @@ describe("resumenRuta", () => {
       titulo: "Sin liberar a Producción",
       actual: null,
     });
+  });
+});
+
+describe("resumenRutaDeArea", () => {
+  it("Producción solo ve sus pasos", () => {
+    const r = resumenRutaDeArea(BASE, "produccion");
+    expect(r).toMatchObject({ titulo: "En Armado", detalle: "5 de 7 PZA entregadas", actual: 0 });
+    expect(r.tramos.map((t) => t.etiqueta)).toEqual(["Armado", "Barniz"]);
+  });
+
+  it("Calidad solo ve la revisión final; apagada, no ve nada", () => {
+    expect(resumenRutaDeArea(BASE, "calidad").tramos.map((t) => t.etiqueta)).toEqual(["Revisión final"]);
+    expect(resumenRutaDeArea({ ...BASE, revisionFinal: null }, "calidad").tramos).toEqual([]);
+  });
+
+  it("Estimaciones solo ve el pago", () => {
+    const r = resumenRutaDeArea(BASE, "estimaciones");
+    expect(r.tramos.map((t) => t.etiqueta)).toEqual(["Pago al maquilador"]);
+    expect(r.titulo).toBe("Por cobrar");
+  });
+
+  it("Planeación solo ve la liberación", () => {
+    expect(resumenRutaDeArea(BASE, "planeacion").tramos.map((t) => t.etiqueta)).toEqual(["Liberación a Producción"]);
+    expect(resumenRutaDeArea({ ...BASE, liberado: false }, "planeacion").titulo).toBe("Sin liberar a Producción");
+  });
+});
+
+describe("sin permiso de ver el pago", () => {
+  it("la ruta completa no trae el paso del pago", () => {
+    const r = resumenRuta({ ...BASE, pago: null });
+    expect(r.tramos.map((t) => t.etiqueta)).toEqual(["Armado", "Barniz", "Revisión final"]);
+  });
+
+  it("Estimaciones sin pago no ve tramos", () => {
+    expect(resumenRutaDeArea({ ...BASE, pago: null }, "estimaciones").tramos).toEqual([]);
   });
 });
