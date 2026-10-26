@@ -1,18 +1,17 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { FiltrosOrdenesTrabajo, TablaOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
+import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import {
   filtrarOrdenesTrabajo,
   hrefListaPedidos,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
-import { ResumenEnMenu } from "@/components/resumen-menu";
 import { cargarResumenCalidad, type ResumenCalidadConTaller } from "@/lib/calidad/resumen-db";
-import { detallePorEvaluar } from "@/lib/calidad/resumen";
 import type { AvancePedido } from "@/lib/resumen/avance-items";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import EstadoCalidad from "./estado-calidad";
+import ListaPedidos from "@/app/planeacion/lista-pedidos";
 
 // Igual que en Planeación y Producción: órdenes de trabajo con sus PM. Al
 // entrar a una O.T. se ven sus PM con el avance de evaluación.
@@ -87,8 +86,6 @@ export default async function CalidadListPage({
   // Ítems que Calidad ve pero siguen en taller (no cuentan como pendientes).
   const enTallerDe = (fila: (typeof filtradas.filas)[number]) =>
     pedidoIdsDe(fila).reduce((n, id) => n + (resumen?.enTallerPorPedido.get(id) ?? 0), 0);
-  const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porEvaluar > 0).length;
-  const otsConReinspeccion = filtradas.filas.filter((fila) => reinspeccionDe(fila) > 0).length;
   const filas = filtradas.filas.filter(
     (fila) =>
       !filtroEstado ||
@@ -98,46 +95,11 @@ export default async function CalidadListPage({
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida />
-      {sinResumen ? (
+      {sinResumen && (
         <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           No se pudieron calcular los números del panel. Recarga la página para reintentar; la lista de
           abajo sí está completa.
         </p>
-      ) : (
-        <ResumenEnMenu
-          tarjetas={[
-            {
-              valor: resumen!.porEvaluar,
-              etiqueta: "Ítems por evaluar",
-              detalle: `en ${otsConPendientes} O.T. · ${detallePorEvaluar(resumen!)}`,
-              href: "/calidad?f=por-evaluar",
-              tono: "atencion",
-            },
-            {
-              valor: resumen!.porReinspeccionar,
-              etiqueta: "Por reinspeccionar",
-              detalle: `no aprobados, en ${otsConReinspeccion} O.T.`,
-              href: "/calidad?f=reinspeccion",
-              tono: "atencion",
-            },
-            {
-              valor: resumen!.tasaAprobacion ?? 0,
-              etiqueta: "% de aprobación",
-              detalle:
-                resumen!.tasaAprobacion === null
-                  ? "sin evaluaciones en 30 días"
-                  : `${resumen!.evaluaciones30d} evaluaciones en 30 días`,
-              tono: "suave",
-            },
-            {
-              valor: resumen!.liberados,
-              etiqueta: "Ítems liberados a Calidad",
-              detalle: "preaprobados por Producción",
-              href: "/calidad",
-              tono: "suave",
-            },
-          ]}
-        />
       )}
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
@@ -216,32 +178,38 @@ export default async function CalidadListPage({
       )}
 
       {filas.length > 0 && (
-        <TablaOrdenesTrabajo
-          filaClicable
-          filas={filas}
-          hrefOt={(ot) => `/calidad/ot/${encodeURIComponent(ot)}`}
-          hrefPedido={(id) => `/calidad/pedidos/${id}`}
-          columnaEstado={{
-            titulo: "Evaluación",
-            celda: (fila) => (
-              <div className="flex flex-col items-start gap-1">
-                <EstadoCalidad
-                  cancelado={false}
-                  avance={sinResumen ? undefined : avanceDe(fila)}
-                  enTaller={sinResumen ? 0 : enTallerDe(fila)}
-                />
-                {!sinResumen && reinspeccionDe(fila) > 0 && (
-                  <span className="text-[11px] font-medium text-rose-700">
-                    {reinspeccionDe(fila)} por reinspeccionar
-                  </span>
-                )}
-                {/* Con barra de avance; si todo está en taller, ya lo dice la etiqueta. */}
-                {!sinResumen && enTallerDe(fila) > 0 && avanceDe(fila).liberados > 0 && (
-                  <span className="text-[11px] text-slate-500">{enTallerDe(fila)} en taller</span>
-                )}
-              </div>
-            ),
-          }}
+        <ListaPedidos
+          tituloAvance="Evaluación"
+          filas={filas.map((fila) => {
+            const primero = fila.pedidos[0];
+            return {
+              clave: fila.ot ?? primero.id,
+              titulo: fila.ot ?? primero.numero_pedido,
+              esOt: !!fila.ot,
+              href: fila.ot ? `/calidad/ot/${encodeURIComponent(fila.ot)}` : `/calidad/pedidos/${primero.id}`,
+              proyecto: primero.proyectos?.nombre ?? "—",
+              cliente: primero.proyectos?.cliente ?? null,
+              pedidos: fila.pedidos.length,
+              avance: (
+                <div className="flex flex-col items-start gap-1">
+                  <EstadoCalidad
+                    cancelado={false}
+                    avance={sinResumen ? undefined : avanceDe(fila)}
+                    enTaller={sinResumen ? 0 : enTallerDe(fila)}
+                  />
+                  {!sinResumen && reinspeccionDe(fila) > 0 && (
+                    <span className="text-xs font-medium text-rose-700">
+                      {reinspeccionDe(fila)} por reinspeccionar
+                    </span>
+                  )}
+                  {/* Con barra de avance; si todo está en taller, ya lo dice la etiqueta. */}
+                  {!sinResumen && enTallerDe(fila) > 0 && avanceDe(fila).liberados > 0 && (
+                    <span className="text-xs text-slate-500">{enTallerDe(fila)} en taller</span>
+                  )}
+                </div>
+              ),
+            };
+          })}
         />
       )}
     </main>

@@ -782,8 +782,9 @@ function ImagenesMueble({ imagenes, etiqueta }: { imagenes: ImagenItemUrls[]; et
   }
   return (
     <div className="flex gap-1">
-      {imagenes.map((img) => (
-        <ImagenAmpliable key={img.url} url={img.url} urlGrande={img.urlGrande} alt={etiqueta} />
+      {imagenes.map((img, i) => (
+        // La misma imagen puede venir repetida en un ítem: la URL sola no sirve de llave.
+        <ImagenAmpliable key={`${i}-${img.url}`} url={img.url} urlGrande={img.urlGrande} alt={etiqueta} />
       ))}
     </div>
   );
