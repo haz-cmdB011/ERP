@@ -186,7 +186,7 @@ export default function PersonalizarApariencia() {
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-[18px] w-[18px]"
+          className="h-[22px] w-[22px]"
           aria-hidden="true"
         >
           <path d="M12 22a10 10 0 1 1 10-10c0 2.8-2.2 4-4 4h-1.8a1.7 1.7 0 0 0-1.2 2.9c.6.6.6 1.4.2 2A3 3 0 0 1 12 22Z" />

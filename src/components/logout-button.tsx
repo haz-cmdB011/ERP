@@ -58,7 +58,7 @@ export default function LogoutButton({ etiqueta }: { etiqueta?: string } = {}) {
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-[18px] w-[18px] transition-transform duration-200 group-hover:translate-x-1"
+        className="h-[22px] w-[22px] transition-transform duration-200 group-hover:translate-x-1"
         aria-hidden="true"
       >
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

@@ -222,9 +222,6 @@ export default async function OrdenTrabajoCalidadPage({
                           className="group inline-flex items-center gap-2 whitespace-nowrap font-medium text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
                         >
                           {p.numero_pedido}
-                          <span className="text-slate-500 group-hover:text-brand-700" aria-hidden>
-                            →
-                          </span>
                         </EnlaceFila>
                         {p.cancelado_en && (
                           <span className="ml-2 rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">

@@ -276,40 +276,45 @@ function PedidoCancelado({
         </div>
         {puedeRevertir && <RevertirPedidoBoton pedidoId={pedido.id} etiqueta={etiquetaRevertir} />}
       </div>
-      <table className="w-full text-left text-xs">
-        <thead>
-          <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <th className="px-3 py-2">Item</th>
-            <th className="px-3 py-2">Modelo</th>
-            <th className="px-3 py-2">Material</th>
-            <th className="px-3 py-2">Descripción</th>
-            <th className="px-3 py-2">Cant.</th>
-            <th className="px-3 py-2">Motivo</th>
-            <th className="px-3 py-2">Folio</th>
-            {puedeRevertir && <th className="px-3 py-2"></th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {pedido.items.map((it) => (
-            <tr key={it.id}>
-              <td className="px-3 py-2 font-medium text-slate-900">{it.item_code}</td>
-              <td className="px-3 py-2">{it.modelo ?? "—"}</td>
-              <td className="px-3 py-2">{it.tipo_material ?? "—"}</td>
-              <td className="px-3 py-2">{it.descripcion ?? "—"}</td>
-              <td className="px-3 py-2">
-                {it.cantidad_total} {it.unidad}
-              </td>
-              <td className="px-3 py-2">{it.motivo ?? "—"}</td>
-              <td className="px-3 py-2">{it.folio ?? "sin evaluar"}</td>
-              {puedeRevertir && (
-                <td className="px-3 py-2">
-                  <RevertirItemBoton itemId={it.id} />
-                </td>
-              )}
+      <details className="group">
+        <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 max-md:min-h-11">
+          Ver {pedido.items.length} {pedido.items.length === 1 ? "ítem cancelado" : "ítems cancelados"}
+        </summary>
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-3 py-2">Item</th>
+              <th className="px-3 py-2">Modelo</th>
+              <th className="px-3 py-2">Material</th>
+              <th className="px-3 py-2">Descripción</th>
+              <th className="px-3 py-2">Cant.</th>
+              <th className="px-3 py-2">Motivo</th>
+              <th className="px-3 py-2">Folio</th>
+              {puedeRevertir && <th className="px-3 py-2"></th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {pedido.items.map((it) => (
+              <tr key={it.id}>
+                <td className="px-3 py-2 font-medium text-slate-900">{it.item_code}</td>
+                <td className="px-3 py-2">{it.modelo ?? "—"}</td>
+                <td className="px-3 py-2">{it.tipo_material ?? "—"}</td>
+                <td className="px-3 py-2">{it.descripcion ?? "—"}</td>
+                <td className="px-3 py-2">
+                  {it.cantidad_total} {it.unidad}
+                </td>
+                <td className="px-3 py-2">{it.motivo ?? "—"}</td>
+                <td className="px-3 py-2">{it.folio ?? "sin evaluar"}</td>
+                {puedeRevertir && (
+                  <td className="px-3 py-2">
+                    <RevertirItemBoton itemId={it.id} />
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
     </div>
   );
 }
