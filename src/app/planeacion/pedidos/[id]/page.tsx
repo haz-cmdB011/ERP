@@ -17,7 +17,7 @@ import { armarLineaTiempo, type LineaTiempo } from "@/lib/planeacion/linea-tiemp
 import { asignacionesDePedido, idsConInformeDeCalidad } from "@/lib/planeacion/linea-tiempo-db";
 import { cargarRutas, type RutaGuardada } from "@/lib/produccion/rutas-db";
 import { cargarPartes } from "@/lib/produccion/partes-db";
-import type { ParteMueble } from "@/lib/produccion/flujo-mueble";
+import type { ParteDespiece } from "@/lib/produccion/flujo-mueble";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 
 import { paginarTodo } from "@/lib/supabase/paginar";
@@ -176,19 +176,25 @@ export default async function PedidoDetailPage({
       // Es un resumen: sin rutas cuenta un paso por proceso en vez de tumbar la pantalla.
       cargarRutas(supabase, mueblesIds).catch(() => new Map<string, RutaGuardada>()),
       // Igual sin partes: cuenta las que ya tienen asignaciones.
-      cargarPartes(supabase, mueblesIds).catch(() => new Map<string, ParteMueble[]>()),
+      cargarPartes(supabase, mueblesIds).catch(() => new Map<string, ParteDespiece[]>()),
     ]);
     tiempo = armarLineaTiempo(
       items,
       asignaciones,
       conInforme,
-      new Map([...rutas].map(([itemId, r]) => [itemId, r.pasos.filter((p) => p.id !== null) as { id: string; proceso: string }[]])),
+      // Los pasos del mueble completo y los de cada parte (cada una tiene su ruta).
       new Map(
-        [...partes].map(([itemId, ps]) => [
+        [...rutas].map(([itemId, r]) => [
           itemId,
-          ps.map((p) => ({ id: p.id, piezasPorMueble: p.piezasPorMueble, procesosOmitidos: p.procesosOmitidos })),
+          [
+            ...r.pasos.flatMap((p) => (p.id ? [{ id: p.id, proceso: p.proceso, parteId: null }] : [])),
+            ...[...r.partes].flatMap(([parteId, ps]) =>
+              ps.flatMap((p) => (p.id ? [{ id: p.id, proceso: p.proceso, parteId }] : []))
+            ),
+          ],
         ])
-      )
+      ),
+      new Map([...partes].map(([itemId, ps]) => [itemId, ps.map((p) => ({ id: p.id, piezasPorMueble: p.piezasPorMueble }))]))
     );
   }
 

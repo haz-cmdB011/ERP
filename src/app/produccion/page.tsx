@@ -1,27 +1,25 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
 import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
 import EstadoVacio from "@/components/estado-vacio";
 import {
+  clienteDe,
   filtrarOrdenesTrabajo,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import ResultadosMuebles from "./resultados-muebles";
 import Bienvenida from "@/components/bienvenida";
-import { avancePorPedido, sumarAvanceDe } from "@/lib/resumen/avance-items";
+import { avancePorPedido, estadoLiberacion, sumarAvanceDe } from "@/lib/resumen/avance-items";
+import { traerTodo } from "@/lib/supabase/traer-todo";
+import { DesplegableCliente, SelectorEstado } from "@/components/controles-lista";
+import {
+  agruparPorCliente,
+  filtrarPorEstado,
+  leerEstadoLista,
+  paramEstadoLista,
+} from "@/lib/planeacion/vista-lista";
 import ListaOrdenes from "./lista-ordenes";
 import BuscadorOt from "./buscador-ot";
-
-function hrefLista(o: { q?: string; anio?: number | null; cliente?: string; porLiberar?: boolean }): string {
-  const params = new URLSearchParams();
-  if (o.q) params.set("q", o.q);
-  if (o.anio) params.set("anio", String(o.anio));
-  if (o.cliente) params.set("cliente", o.cliente);
-  if (o.porLiberar) params.set("f", "por-liberar");
-  const texto = params.toString();
-  return texto ? `/produccion?${texto}` : "/produccion";
-}
 
 // Igual que en Planeación: órdenes de trabajo con sus PM. Al entrar a una O.T.
 // se ven sus PM; el buscador además encuentra muebles y modelos en todos los
@@ -29,19 +27,18 @@ function hrefLista(o: { q?: string; anio?: number | null; cliente?: string; porL
 export default async function ProduccionListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; f?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; estado?: string }>;
 }) {
-  const { q, anio, cliente, f } = await searchParams;
-  const soloPorLiberar = f === "por-liberar";
+  const { q, anio, estado: estadoParam } = await searchParams;
   const consulta = (q ?? "").trim();
+  const estado = leerEstadoLista(estadoParam, !!consulta);
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
-  const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
   const supabase = await createClient();
 
   // Búsqueda de muebles (con texto en el buscador se muestran también muebles/modelos
   // de todos los pedidos), pedidos y avance de liberación por pedido no dependen entre sí:
   // se piden a la vez.
-  const [busqueda, { data: pedidos, error }, avance] = await Promise.all([
+  const [busqueda, { data: pedidos, error }, avance, enTaller] = await Promise.all([
     consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null),
     supabase
       .from("pedidos")
@@ -52,20 +49,46 @@ export default async function ProduccionListPage({
       .order("created_at", { ascending: false })
       .returns<PedidoConOt[]>(),
     avancePorPedido(supabase, { conCalidad: false }),
+    // Pedidos con asignaciones todavía en el taller: siguen activos aunque ya se hayan liberado todos.
+    traerTodo<{ pedido_id: string }>((desde, hasta) =>
+      supabase
+        .from("asignaciones_produccion_resumen")
+        .select("pedido_id")
+        .in("estado", ["en_proceso", "parcial"])
+        .order("pedido_id")
+        .range(desde, hasta)
+        .returns<{ pedido_id: string }[]>()
+    ),
   ]);
+  const pedidosEnTaller = new Set(enTaller.data.map((a) => a.pedido_id));
 
   const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
     anio: anioFiltro,
-    cliente: clienteFiltro,
+    cliente: "",
     busqueda: consulta,
   });
-  const { aniosDisponibles, clientesDisponibles } = filtradas;
+  const { aniosDisponibles } = filtradas;
 
   const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
     sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
-  const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porLiberar > 0).length;
-  const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
-  const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
+  // Terminada = todo liberado y nada en el taller. Si no se pudo leer el taller, no se esconde nada.
+  const terminada = (fila: (typeof filtradas.filas)[number]) =>
+    !enTaller.error &&
+    estadoLiberacion(avanceDe(fila)) === "liberado" &&
+    !fila.pedidos.some((p) => pedidosEnTaller.has(p.id));
+  const cuentas = {
+    activos: filtrarPorEstado(filtradas.filas, "activos", terminada).length,
+    terminados: filtrarPorEstado(filtradas.filas, "terminados", terminada).length,
+    todos: filtradas.filas.length,
+  };
+  const filasEstado = filtrarPorEstado(filtradas.filas, estado, terminada);
+  const filas = filasEstado;
+  const hayFiltros = !!(consulta || anioFiltro);
+  const estadoLink = paramEstadoLista(estado, !!consulta);
+  const paramsLista = {
+    q: consulta || undefined,
+    anio: anioFiltro ? String(anioFiltro) : undefined,
+  };
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
@@ -87,42 +110,29 @@ export default async function ProduccionListPage({
         }))}
         consulta={consulta}
         anio={anioFiltro}
-        cliente={clienteFiltro || undefined}
       />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-          <Link
-            href={hrefLista({ q: consulta, anio: anioFiltro, cliente: clienteFiltro })}
-            className={`rounded-md px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
-              !soloPorLiberar ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Todas
-          </Link>
-          <Link
-            href={hrefLista({ q: consulta, anio: anioFiltro, cliente: clienteFiltro, porLiberar: true })}
-            className={`rounded-md px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
-              soloPorLiberar ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Con muebles por liberar ({otsConPendientes})
-          </Link>
-        </div>
+        <SelectorEstado
+          base="/produccion"
+          actual={estado}
+          cuentas={cuentas}
+          params={paramsLista}
+          hayBusqueda={!!consulta}
+        />
         {aniosDisponibles.length > 0 && (
-          <details open={!!(anioFiltro || clienteFiltro)} className="group">
+          <details open={!!anioFiltro} className="group">
             <summary className="cursor-pointer select-none font-medium text-slate-600 hover:text-slate-900">
-              Filtrar por año o cliente
-              {anioFiltro || clienteFiltro ? " (activo)" : ""}
+              Filtrar por año
+              {anioFiltro ? " (activo)" : ""}
             </summary>
             <div className="mt-3">
               <FiltrosOrdenesTrabajo
                 base="/produccion"
                 anios={aniosDisponibles}
                 anio={anioFiltro}
-                clientes={clientesDisponibles}
-                cliente={clienteFiltro}
                 q={consulta || undefined}
+                estado={estadoLink}
               />
             </div>
           </details>
@@ -152,21 +162,31 @@ export default async function ProduccionListPage({
           {filas.length === 0 ? (
             <EstadoVacio
               titulo={
-                soloPorLiberar
-                  ? "No hay muebles por liberar"
-                  : hayFiltros
-                    ? "Ninguna O.T. coincide"
-                    : "No hay pedidos"
+                hayFiltros
+                  ? "Ninguna O.T. coincide"
+                  : estado === "activos"
+                    ? "No hay O.T. activas"
+                    : estado === "terminados"
+                      ? "No hay O.T. terminadas"
+                      : "No hay pedidos"
               }
-              descripcion={soloPorLiberar ? "Todo está al día." : hayFiltros ? "Prueba con otra búsqueda o quita los filtros." : undefined}
-              accion={
-                soloPorLiberar || hayFiltros
-                  ? { href: "/produccion", etiqueta: soloPorLiberar ? "Ver todas las O.T." : "Quitar filtros" }
-                  : undefined
-              }
+              descripcion={hayFiltros ? "Prueba con otra búsqueda o quita los filtros." : undefined}
+              accion={hayFiltros ? { href: "/produccion", etiqueta: "Quitar filtros" } : undefined}
             />
           ) : (
-            <ListaOrdenes filas={filas} avanceDe={avanceDe} />
+            <div className="flex flex-col gap-3">
+              {agruparPorCliente(filas, (fila) => clienteDe(fila.pedidos[0])).map((grupo, _, grupos) => (
+                <DesplegableCliente
+                  key={grupo.cliente}
+                  cliente={grupo.cliente}
+                  total={grupo.filas.length}
+                  // Abiertos al buscar o si es uno solo: no se esconde lo que se acaba de pedir.
+                  abierto={!!consulta || grupos.length === 1}
+                >
+                  <ListaOrdenes filas={grupo.filas} avanceDe={avanceDe} />
+                </DesplegableCliente>
+              ))}
+            </div>
           )}
         </section>
       )}

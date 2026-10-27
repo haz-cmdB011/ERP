@@ -1,6 +1,7 @@
 -- Objetos que esta migración debe dejar en la base (los comprueba `npm run db:verificar`):
 -- @verifica function public.tiene_componentes
--- @verifica function-contiene public.crear_asignacion_produccion tiene_componentes
+-- (La regla "con componentes, solo por partes" la quitó rutas_por_parte: el mueble completo
+-- tiene su propia ruta. Ya no se comprueba en crear_asignacion_produccion.)
 
 -- ============================================================================
 -- Producción — un mueble con componentes se asigna solo por partes.

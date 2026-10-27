@@ -1,14 +1,22 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
+import { DesplegableCliente, SelectorEstado } from "@/components/controles-lista";
 import {
+  agruparPorCliente,
+  filtrarPorEstado,
+  leerEstadoLista,
+  paramEstadoLista,
+} from "@/lib/planeacion/vista-lista";
+import {
+  clienteDe,
   filtrarOrdenesTrabajo,
   hrefListaPedidos,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
 import Bienvenida from "@/components/bienvenida";
 import { cargarResumenCalidad, type ResumenCalidadConTaller } from "@/lib/calidad/resumen-db";
-import type { AvancePedido } from "@/lib/resumen/avance-items";
+import { estadoCalidad, type AvancePedido } from "@/lib/resumen/avance-items";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import EstadoCalidad from "./estado-calidad";
 import ListaPedidos from "@/app/planeacion/lista-pedidos";
@@ -18,13 +26,14 @@ import ListaPedidos from "@/app/planeacion/lista-pedidos";
 export default async function CalidadListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; f?: string }>;
+  searchParams: Promise<{ q?: string; anio?: string; estado?: string; f?: string }>;
 }) {
-  const { q, anio, cliente, f } = await searchParams;
+  const { q, anio, estado: estadoParam, f } = await searchParams;
   const filtroEstado = f === "por-evaluar" || f === "reinspeccion" ? f : null;
   const busqueda = q?.trim() ?? "";
   const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
-  const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
+  const estado = leerEstadoLista(estadoParam, !!busqueda);
+  const estadoLink = paramEstadoLista(estado, !!busqueda);
   const supabase = await createClient();
 
   // Los pedidos y el resumen de evaluación no dependen entre sí: se piden a la vez.
@@ -62,10 +71,10 @@ export default async function CalidadListPage({
     : pedidos.filter((p) => resumen.porPedido.has(p.id) || resumen.enTallerPorPedido.has(p.id));
   const filtradas = filtrarOrdenesTrabajo(pedidosParaCalidad, {
     anio: anioFiltro,
-    cliente: clienteFiltro,
+    cliente: "",
     busqueda,
   });
-  const { aniosDisponibles, clientesDisponibles } = filtradas;
+  const { aniosDisponibles } = filtradas;
 
   const pedidoIdsDe = (fila: (typeof filtradas.filas)[number]) => fila.pedidos.map((p) => p.id);
   // Avance de una O.T. con la forma que espera la etiqueta de estado.
@@ -86,11 +95,24 @@ export default async function CalidadListPage({
   // Ítems que Calidad ve pero siguen en taller (no cuentan como pendientes).
   const enTallerDe = (fila: (typeof filtradas.filas)[number]) =>
     pedidoIdsDe(fila).reduce((n, id) => n + (resumen?.enTallerPorPedido.get(id) ?? 0), 0);
-  const filas = filtradas.filas.filter(
+  // Con el filtro del panel (por evaluar / reinspección) se muestran esas O.T. sin importar su estado.
+  const filasFiltro = filtradas.filas.filter(
     (fila) =>
       !filtroEstado ||
       (filtroEstado === "por-evaluar" ? avanceDe(fila).porEvaluar > 0 : reinspeccionDe(fila) > 0)
   );
+  // Terminada = todo evaluado, nada por reinspeccionar y nada en taller. Sin resumen no se esconde nada.
+  const terminada = (fila: (typeof filtradas.filas)[number]) =>
+    !sinResumen &&
+    estadoCalidad(avanceDe(fila)) === "evaluado" &&
+    reinspeccionDe(fila) === 0 &&
+    enTallerDe(fila) === 0;
+  const cuentas = {
+    activos: filtrarPorEstado(filasFiltro, "activos", terminada).length,
+    terminados: filtrarPorEstado(filasFiltro, "terminados", terminada).length,
+    todos: filasFiltro.length,
+  };
+  const filas = filtroEstado ? filasFiltro : filtrarPorEstado(filasFiltro, estado, terminada);
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
@@ -111,7 +133,7 @@ export default async function CalidadListPage({
 
       <form action="/calidad" className="flex gap-2">
         {anioFiltro && <input type="hidden" name="anio" value={anioFiltro} />}
-        {clienteFiltro && <input type="hidden" name="cliente" value={clienteFiltro} />}
+        {estadoLink && <input type="hidden" name="estado" value={estadoLink} />}
         <input
           type="search"
           name="q"
@@ -129,7 +151,7 @@ export default async function CalidadListPage({
           <Link
             href={hrefListaPedidos("/calidad", {
               anio: anioFiltro ? String(anioFiltro) : undefined,
-              cliente: clienteFiltro || undefined,
+              estado: estadoLink,
             })}
             className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-brand-700 hover:underline"
           >
@@ -160,10 +182,19 @@ export default async function CalidadListPage({
         base="/calidad"
         anios={aniosDisponibles}
         anio={anioFiltro}
-        clientes={clientesDisponibles}
-        cliente={clienteFiltro}
         q={busqueda || undefined}
+        estado={estadoLink}
       />
+
+      {pedidosParaCalidad.length > 0 && !filtroEstado && (
+        <SelectorEstado
+          base="/calidad"
+          actual={estado}
+          cuentas={cuentas}
+          params={{ q: busqueda || undefined, anio: anioFiltro ? String(anioFiltro) : undefined }}
+          hayBusqueda={!!busqueda}
+        />
+      )}
 
       {pedidos.length > 0 && pedidosParaCalidad.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
@@ -173,44 +204,61 @@ export default async function CalidadListPage({
 
       {pedidosParaCalidad.length > 0 && filas.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-          Ninguna O.T. coincide con los filtros.
+          {estado === "activos" && !busqueda && !filtroEstado && !anioFiltro
+            ? "No hay O.T. activas."
+            : estado === "terminados" && !busqueda && !filtroEstado && !anioFiltro
+              ? "No hay O.T. terminadas."
+              : "Ninguna O.T. coincide con los filtros."}
         </p>
       )}
 
       {filas.length > 0 && (
-        <ListaPedidos
-          tituloAvance="Evaluación"
-          filas={filas.map((fila) => {
-            const primero = fila.pedidos[0];
-            return {
-              clave: fila.ot ?? primero.id,
-              titulo: fila.ot ?? primero.numero_pedido,
-              esOt: !!fila.ot,
-              href: fila.ot ? `/calidad/ot/${encodeURIComponent(fila.ot)}` : `/calidad/pedidos/${primero.id}`,
-              proyecto: primero.proyectos?.nombre ?? "—",
-              cliente: primero.proyectos?.cliente ?? null,
-              pedidos: fila.pedidos.length,
-              avance: (
-                <div className="flex flex-col items-start gap-1">
-                  <EstadoCalidad
-                    cancelado={false}
-                    avance={sinResumen ? undefined : avanceDe(fila)}
-                    enTaller={sinResumen ? 0 : enTallerDe(fila)}
-                  />
-                  {!sinResumen && reinspeccionDe(fila) > 0 && (
-                    <span className="text-xs font-medium text-rose-700">
-                      {reinspeccionDe(fila)} por reinspeccionar
-                    </span>
-                  )}
-                  {/* Con barra de avance; si todo está en taller, ya lo dice la etiqueta. */}
-                  {!sinResumen && enTallerDe(fila) > 0 && avanceDe(fila).liberados > 0 && (
-                    <span className="text-xs text-slate-500">{enTallerDe(fila)} en taller</span>
-                  )}
-                </div>
-              ),
-            };
-          })}
-        />
+        <div className="flex flex-col gap-3">
+          {agruparPorCliente(filas, (fila) => clienteDe(fila.pedidos[0])).map((grupo, _, grupos) => (
+            <DesplegableCliente
+              key={grupo.cliente}
+              cliente={grupo.cliente}
+              total={grupo.filas.length}
+              // Abiertos al buscar, al venir de un filtro del panel o si es uno solo.
+              abierto={!!busqueda || !!filtroEstado || grupos.length === 1}
+            >
+              <ListaPedidos
+                tituloAvance="Evaluación"
+                filas={grupo.filas.map((fila) => {
+                  const primero = fila.pedidos[0];
+                  return {
+                    clave: fila.ot ?? primero.id,
+                    titulo: fila.ot ?? primero.numero_pedido,
+                    esOt: !!fila.ot,
+                    href: fila.ot ? `/calidad/ot/${encodeURIComponent(fila.ot)}` : `/calidad/pedidos/${primero.id}`,
+                    proyecto: primero.proyectos?.nombre ?? "—",
+                    // El cliente ya es el encabezado del desplegable.
+                    cliente: null,
+                    pedidos: fila.pedidos.length,
+                    avance: (
+                      <div className="flex flex-col items-start gap-1">
+                        <EstadoCalidad
+                          cancelado={false}
+                          avance={sinResumen ? undefined : avanceDe(fila)}
+                          enTaller={sinResumen ? 0 : enTallerDe(fila)}
+                        />
+                        {!sinResumen && reinspeccionDe(fila) > 0 && (
+                          <span className="text-xs font-medium text-rose-700">
+                            {reinspeccionDe(fila)} por reinspeccionar
+                          </span>
+                        )}
+                        {/* Con barra de avance; si todo está en taller, ya lo dice la etiqueta. */}
+                        {!sinResumen && enTallerDe(fila) > 0 && avanceDe(fila).liberados > 0 && (
+                          <span className="text-xs text-slate-500">{enTallerDe(fila)} en taller</span>
+                        )}
+                      </div>
+                    ),
+                  };
+                })}
+              />
+            </DesplegableCliente>
+          ))}
+        </div>
       )}
     </main>
   );

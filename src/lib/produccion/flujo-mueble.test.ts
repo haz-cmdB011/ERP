@@ -1,16 +1,27 @@
 import { describe, expect, it } from "vitest";
 import type { AsignacionResumen, Proceso } from "./asignaciones";
 import {
+  asignacionesDelPaso,
+  avanceColumna,
+  columnasMueble,
+  pasoEnColumna,
+  avanceEnRuta,
+  avancePartes,
   avancePaso,
-  avancePonderado,
   encuadreMueble,
   estadoMueble,
   estadoObra,
+  etapasMueble,
+  indiceSiguiente,
+  opcionesAsignar,
   opcionesDePasos,
-  parteLleva,
+  partesCompletas,
   pasoConAsignaciones,
   pesosPartes,
+  procesosDe,
   requiereDespiece,
+  rutasDelFlujo,
+  siguienteAsignable,
   siguientePaso,
   totalesProceso,
   type MuebleFlujo,
@@ -144,125 +155,194 @@ describe("opcionesDePasos", () => {
     ];
     const m = mueble([asig("armado", 10, 6, { verificado: 4, paso_id: "p1" }), asig("barniz", 3, 0, { paso_id: "p2" })], ruta);
     expect(opcionesDePasos(m)).toEqual([
-      { indice: 0, id: "p1", proceso: "armado", etiqueta: "Armado 1", disponible: 0, listo: 0, anterior: null, partes: [] },
-      { indice: 1, id: "p2", proceso: "barniz", etiqueta: "Barniz", disponible: 7, listo: 1, anterior: "Armado 1", partes: [] },
-      { indice: 2, id: "p3", proceso: "armado", etiqueta: "Armado 2", disponible: 10, listo: 0, anterior: "Barniz", partes: [] },
+      { indice: 0, id: "p1", proceso: "armado", etiqueta: "Armado 1", disponible: 0, listo: 0, anterior: null },
+      { indice: 1, id: "p2", proceso: "barniz", etiqueta: "Barniz", disponible: 7, listo: 1, anterior: "Armado 1" },
+      { indice: 2, id: "p3", proceso: "armado", etiqueta: "Armado 2", disponible: 10, listo: 0, anterior: "Barniz" },
     ]);
   });
 });
 
-describe("por partes del despiece (en piezas)", () => {
-  // 10 muebles: madera 1 por mueble (10 piezas), metal 6 por mueble (60 piezas).
-  const partes: ParteMueble[] = [
-    { id: "madera", descripcion: "Estructura de madera", piezasPorMueble: 1, unidad: "PZA" },
-    { id: "metal", descripcion: "Base de metal", piezasPorMueble: 6, unidad: "PZA" },
+describe("rutas por parte (cada parte la suya, en sus piezas)", () => {
+  // 10 muebles: tabla 3 por mueble (30 piezas) Armado → Barniz; herraje 1 por mueble, solo Armado.
+  const tabla: ParteMueble = {
+    id: "tabla",
+    descripcion: "Tabla",
+    piezasPorMueble: 3,
+    unidad: "PZA",
+    ruta: [
+      { id: "t1", proceso: "armado" },
+      { id: "t2", proceso: "barniz" },
+    ],
+  };
+  const herraje: ParteMueble = {
+    id: "herraje",
+    descripcion: "Herraje",
+    piezasPorMueble: 1,
+    unidad: "JUEGO",
+    ruta: [{ id: "h1", proceso: "armado" }],
+  };
+  // El mueble completo, ya con sus partes: se ensambla (Armado) y se barniza.
+  const rutaMueble: PasoRuta[] = [
+    { id: "m1", proceso: "armado" },
+    { id: "m2", proceso: "barniz" },
   ];
-  const conPartes = (asignaciones: AsignacionResumen[], ps: ParteMueble[] = partes): MuebleFlujo => ({
-    ...mueble(asignaciones),
-    partes: ps,
+  const conPartes = (asignaciones: AsignacionResumen[], ruta: PasoRuta[] = []): MuebleFlujo => ({
+    ...mueble(asignaciones, ruta),
+    partes: [tabla, herraje],
   });
 
-  it("cada parte va en sus piezas y el paso en lo de la parte más atrasada (en muebles)", () => {
+  it("cada parte avanza en su ruta y en sus piezas", () => {
     const m = conPartes([
-      asig("armado", 10, 10, { parte_id: "madera" }),
-      asig("armado", 60, 30, { parte_id: "metal" }),
+      asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1", verificado: 12 }),
+      asig("barniz", 6, 0, { parte_id: "tabla", paso_id: "t2" }),
+      asig("armado", 4, 4, { parte_id: "herraje", paso_id: "h1" }),
     ]);
-    const a = avancePaso(m, 0);
-    expect(a).toMatchObject({ estado: "en_proceso", asignado: 10, entregado: 5, disponible: 0 });
-    expect(a.partes).toEqual({
-      madera: { total: 10, asignado: 10, entregado: 10, disponible: 0, listo: 0 },
-      metal: { total: 60, asignado: 60, entregado: 30, disponible: 0, listo: 0 },
-    });
+    expect(avanceEnRuta(m, 0, tabla)).toMatchObject({ estado: "terminado", total: 30, asignado: 30, entregado: 30 });
+    expect(avanceEnRuta(m, 1, tabla)).toMatchObject({ estado: "en_proceso", total: 30, disponible: 24, listo: 6 });
+    expect(avanceEnRuta(m, 0, herraje)).toMatchObject({ estado: "en_proceso", total: 10, disponible: 6, listo: 6 });
   });
 
-  it("una parte sin asignar deja el paso a medias y es lo que queda por asignar", () => {
-    const m = conPartes([asig("armado", 10, 10, { parte_id: "madera" })]);
-    const a = avancePaso(m, 0);
-    expect(a).toMatchObject({ estado: "en_proceso", asignado: 0, entregado: 0 });
-    expect(a.partes.metal).toMatchObject({ total: 60, disponible: 60 });
-    expect(a.partes.madera).toMatchObject({ disponible: 0 });
-    // El mueble completo ya no cabe: la madera está asignada completa.
-    expect(a.disponible).toBe(0);
+  it("lo de una parte no aparece en el mueble completo ni en otra parte", () => {
+    const m = conPartes([asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" })], rutaMueble);
+    expect(avancePaso(m, 0)).toMatchObject({ estado: "sin_asignar", asignado: 0, disponible: 10 });
+    expect(avanceEnRuta(m, 0, herraje)).toMatchObject({ estado: "sin_asignar", asignado: 0 });
+    expect(asignacionesDelPaso(m, 0, tabla)).toHaveLength(1);
+    expect(asignacionesDelPaso(m, 0)).toHaveLength(0);
   });
 
-  it("se puede asignar una parte por piezas sueltas, sin que sean muebles completos", () => {
-    const m = conPartes([asig("armado", 20, 0, { parte_id: "metal" })]);
-    // 20 de 60 piezas de metal = 3.33 muebles: lo que le cabe al mueble completo baja a 6.66.
-    expect(avancePaso(m, 0).partes.metal).toMatchObject({ asignado: 20, disponible: 40 });
-    expect(avancePaso(m, 0).disponible).toBe(6.67);
+  it("el primer paso del mueble va detrás de sus partes: la más atrasada en su último paso", () => {
+    const m = conPartes(
+      [
+        asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+        asig("barniz", 30, 15, { parte_id: "tabla", paso_id: "t2", verificado: 15 }),
+        asig("armado", 10, 10, { parte_id: "herraje", paso_id: "h1", verificado: 8 }),
+      ],
+      rutaMueble
+    );
+    // Tabla: 15 en Barniz = 5 muebles; herraje: 8. Para ensamblar hay 5.
+    expect(partesCompletas(m, "verificado")).toBe(5);
+    expect(avancePaso(m, 0)).toMatchObject({ disponible: 10, listo: 5 });
+    expect(opcionesDePasos(m)[0].anterior).toBe("Las partes");
   });
 
-  it("lo del mueble completo cuenta para todas sus partes, por sus piezas", () => {
-    const m = conPartes([asig("armado", 4, 4), asig("armado", 6, 6, { parte_id: "madera" })]);
-    const a = avancePaso(m, 0);
-    expect(a).toMatchObject({ asignado: 4, entregado: 4, disponible: 0 });
-    expect(a.partes.madera).toMatchObject({ asignado: 10, disponible: 0 });
-    expect(a.partes.metal).toMatchObject({ asignado: 24, disponible: 36 });
+  it("las partes son una etapa antes de la ruta del mueble", () => {
+    const sinNada = conPartes([], rutaMueble);
+    expect(etapasMueble(sinNada)).toEqual([
+      { tipo: "partes" },
+      { tipo: "paso", indice: 0 },
+      { tipo: "paso", indice: 1 },
+    ]);
+    // Dice el proceso que les toca a las partes, no "partes".
+    expect(siguientePaso(sinNada)).toBe("Asignar a Armado");
+    expect(indiceSiguiente(sinNada)).toBeNull();
+    const tablaArmada = conPartes([asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" })], rutaMueble);
+    expect(siguientePaso(tablaArmada)).toBe("En Armado");
+    const partesListas = conPartes(
+      [
+        asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+        asig("barniz", 30, 30, { parte_id: "tabla", paso_id: "t2" }),
+        asig("armado", 10, 10, { parte_id: "herraje", paso_id: "h1" }),
+      ],
+      rutaMueble
+    );
+    expect(avancePartes(partesListas)).toMatchObject({ estado: "terminado", pct: 100, completas: 10 });
+    expect(siguientePaso(partesListas)).toBe("Asignar a Armado");
+    expect(indiceSiguiente(partesListas)).toBe(0);
+    expect(estadoMueble(partesListas)).toBe("por_asignar");
   });
 
-  it("todas las partes completas terminan el paso", () => {
+  it("un anillo por proceso: las partes que lo llevan (por su %) y el mueble completo si también", () => {
+    const m = conPartes(
+      [
+        asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+        asig("barniz", 30, 15, { parte_id: "tabla", paso_id: "t2" }),
+        asig("armado", 10, 5, { parte_id: "herraje", paso_id: "h1" }),
+      ],
+      []
+    );
+    expect(columnasMueble(m).map((c) => c.etiqueta)).toEqual(["Armado", "Barniz"]);
+    // Armado: tabla 100 % y herraje 50 %, cada uno la mitad del mueble.
+    expect(avanceColumna(m, columnasMueble(m)[0])).toMatchObject({ estado: "en_proceso", pct: 75, muebles: 5 });
+    // Barniz: solo la tabla lo lleva.
+    expect(avanceColumna(m, columnasMueble(m)[1])).toMatchObject({ estado: "en_proceso", pct: 50, muebles: 5 });
+    expect(pasoEnColumna(herraje.ruta, { proceso: "barniz", vez: 1 })).toBe(-1);
+    // El Armado del mueble completo va en la misma columna: es la 1ª vez en su ruta.
+    const conMueble = conPartes([], rutaMueble);
+    expect(columnasMueble(conMueble).map((c) => c.etiqueta)).toEqual(["Armado", "Barniz"]);
+    expect(avanceColumna(conMueble, columnasMueble(conMueble)[0]).estado).toBe("sin_asignar");
+  });
+
+  it("sin ruta del mueble, termina cuando terminan sus partes", () => {
     const m = conPartes([
-      asig("armado", 10, 10, { parte_id: "madera" }),
-      asig("armado", 60, 60, { parte_id: "metal" }),
+      asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+      asig("barniz", 30, 30, { parte_id: "tabla", paso_id: "t2" }),
+      asig("armado", 10, 10, { parte_id: "herraje", paso_id: "h1" }),
     ]);
-    expect(avancePaso(m, 0).estado).toBe("terminado");
-    expect(siguientePaso(m)).toBe("Asignar a Barniz");
+    expect(siguientePaso(m)).toBe("Terminado");
+    expect(estadoMueble(m)).toBe("terminado");
   });
 
-  it("lo listo del paso siguiente es por parte: lo que esa parte ya verificó", () => {
+  it("el avance de las partes pondera cada parte y cada paso de su ruta", () => {
+    // Tabla (50 %): Armado completo y Barniz a la mitad = 75 %; herraje (50 %): 0.
     const m = conPartes([
-      asig("armado", 10, 10, { parte_id: "madera", verificado: 8 }),
-      asig("armado", 60, 18, { parte_id: "metal", verificado: 18 }),
+      asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+      asig("barniz", 30, 15, { parte_id: "tabla", paso_id: "t2" }),
     ]);
-    const b = avancePaso(m, 1);
-    expect(b.partes.madera).toMatchObject({ disponible: 10, listo: 8 });
-    expect(b.partes.metal).toMatchObject({ disponible: 60, listo: 18 });
-    // El mueble completo, lo de la más atrasada (18 de metal = 3 muebles).
-    expect(b).toMatchObject({ disponible: 10, listo: 3 });
-    expect(opcionesDePasos(m)[1].partes).toEqual([
-      { id: "madera", total: 10, disponible: 10, listo: 8 },
-      { id: "metal", total: 60, disponible: 60, listo: 18 },
-    ]);
+    expect(avancePartes(m)).toMatchObject({ estado: "en_proceso", pct: 38, completas: 0 });
   });
 
-  it("sin leer las partes, cuentan las que ya tienen asignaciones", () => {
-    const m = mueble([
-      asig("armado", 10, 10, { parte_id: "madera" }),
-      asig("armado", 10, 5, { parte_id: "metal" }),
-    ]);
-    expect(avancePaso(m, 0)).toMatchObject({ entregado: 5 });
-  });
-
-  describe("ruta por parte", () => {
-    // El metal no pasa por Barniz.
-    const sinBarniz: ParteMueble[] = [partes[0], { ...partes[1], procesosOmitidos: ["barniz"] }];
-
-    it("un paso que la parte no lleva no la espera", () => {
-      const m = conPartes(
+  it("una parte sin procesos no detiene al mueble", () => {
+    const m: MuebleFlujo = {
+      ...mueble(
         [
-          asig("armado", 10, 10, { parte_id: "madera" }),
-          asig("armado", 60, 60, { parte_id: "metal" }),
-          asig("barniz", 10, 10, { parte_id: "madera" }),
+          asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+          asig("barniz", 30, 30, { parte_id: "tabla", paso_id: "t2" }),
         ],
-        sinBarniz
-      );
-      const b = avancePaso(m, 1);
-      expect(Object.keys(b.partes)).toEqual(["madera"]);
-      expect(b.estado).toBe("terminado");
-      expect(siguientePaso(m)).toBe("Terminado");
-    });
+        []
+      ),
+      partes: [tabla, { ...herraje, ruta: [] }],
+    };
+    expect(partesCompletas(m)).toBe(10);
+    expect(siguientePaso(m)).toBe("Terminado");
+  });
 
-    it("si ninguna parte lleva el proceso, el paso no les aplica", () => {
-      const todasSinBarniz: ParteMueble[] = sinBarniz.map((p) => ({ ...p, procesosOmitidos: ["barniz"] }));
-      const m = conPartes([], todasSinBarniz);
-      expect(avancePaso(m, 1)).toMatchObject({ estado: "terminado", disponible: 0 });
-    });
+  it("lo que toca asignar: primero las partes, luego el mueble", () => {
+    const m = conPartes([asig("armado", 30, 0, { parte_id: "tabla", paso_id: "t1" })], rutaMueble);
+    const s = siguienteAsignable(m);
+    expect(s?.parte?.id).toBe("tabla");
+    expect(s?.paso.etiqueta).toBe("Barniz");
+    expect(opcionesAsignar(m).partes.map((x) => x.pasos.length)).toEqual([2, 1]);
+  });
 
-    it("parteLleva dice si la parte pasa por el proceso", () => {
-      expect(parteLleva(sinBarniz[1], "barniz")).toBe(false);
-      expect(parteLleva(sinBarniz[1], "armado")).toBe(true);
-      expect(parteLleva(partes[0], "barniz")).toBe(true);
-    });
+  it("los totales cuentan cada vez que las partes llevan el proceso, por la más atrasada, y el mueble aparte", () => {
+    const m = conPartes(
+      [
+        asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+        asig("armado", 5, 5, { parte_id: "herraje", paso_id: "h1" }),
+        asig("armado", 4, 0, { paso_id: "m1" }),
+      ],
+      rutaMueble
+    );
+    // Armado de las partes: 5 (el herraje); armado del mueble: 4 asignados.
+    expect(totalesProceso([m], "armado")).toEqual({ muebles: 1, piezas: 20, asignado: 9, entregado: 5 });
+    expect(procesosDe([m])).toEqual(new Set(["armado", "barniz"]));
+  });
+
+  it("rutasDelFlujo: el mueble con partes nace vacío y cada parte toma la sugerida hasta guardar la suya", () => {
+    const aplica = { armado: true, barniz: true, electrificacion: false, superficie_solida: false };
+    const despiece = [
+      { id: "tabla", descripcion: "Tabla", piezasPorMueble: 3, unidad: "PZA" },
+      { id: "herraje", descripcion: "Herraje", piezasPorMueble: 1, unidad: "JUEGO", rutaGuardada: true },
+    ];
+    const r = rutasDelFlujo(
+      { version: 3, pasos: [], partes: new Map([["herraje", [{ id: "h1", proceso: "armado" as const }]]]) },
+      aplica,
+      despiece
+    );
+    expect(r.ruta).toEqual([]);
+    expect(r.partes[0].ruta.map((p) => p.proceso)).toEqual(["armado", "barniz"]);
+    expect(r.partes[1].ruta).toEqual([{ id: "h1", proceso: "armado" }]);
+    expect(rutasDelFlujo(undefined, aplica, []).ruta.map((p) => p.proceso)).toEqual(["armado", "barniz"]);
   });
 });
 
@@ -296,50 +376,59 @@ describe("totalesProceso", () => {
 });
 
 describe("despiece con porcentaje", () => {
-  const partes = [
-    { id: "madera", descripcion: "Estructura de madera", piezasPorMueble: 1, unidad: "PZA", porcentaje: 70 },
-    { id: "metal", descripcion: "Base de metal", piezasPorMueble: 6, unidad: "PZA", porcentaje: 30 },
-  ];
-
-  it("el avance pondera cada parte por su %", () => {
+  it("sin % guardado las partes valen lo mismo", () => {
+    const partes = [
+      { id: "madera", descripcion: "Estructura de madera", piezasPorMueble: 1, unidad: "PZA", porcentaje: null },
+      { id: "metal", descripcion: "Base de metal", piezasPorMueble: 6, unidad: "PZA", porcentaje: null },
+    ];
+    expect(pesosPartes(partes)).toEqual(new Map([["madera", 50], ["metal", 50]]));
+  });
+  it("con % guardado, cada parte pesa el suyo", () => {
+    const partes: ParteMueble[] = [
+      { id: "madera", descripcion: "Madera", piezasPorMueble: 1, unidad: "PZA", porcentaje: 70, ruta: [{ id: "a", proceso: "armado" }] },
+      { id: "metal", descripcion: "Metal", piezasPorMueble: 6, unidad: "PZA", porcentaje: 30, ruta: [{ id: "b", proceso: "armado" }] },
+    ];
     const m: MuebleFlujo = {
-      ...mueble([asig("armado", 10, 10, { parte_id: "madera" }), asig("armado", 60, 30, { parte_id: "metal" })]),
+      ...mueble(
+        [asig("armado", 10, 10, { parte_id: "madera", paso_id: "a" }), asig("armado", 60, 30, { parte_id: "metal", paso_id: "b" })],
+        []
+      ),
       partes,
     };
     // 70 % entregado completo + 30 % a la mitad.
-    expect(avancePonderado(m, 0)).toBe(85);
-    expect(avancePonderado(m, 0, "asignado")).toBe(100);
-    expect(avancePonderado(m, 1)).toBe(0);
-  });
-  it("lo del mueble completo cuenta entero", () => {
-    const m: MuebleFlujo = { ...mueble([asig("armado", 5, 5)]), partes };
-    expect(avancePonderado(m, 0)).toBe(50);
-  });
-  it("sin % guardado las partes valen lo mismo", () => {
-    const sinPct = partes.map((p) => ({ ...p, porcentaje: null }));
-    expect(pesosPartes(sinPct)).toEqual(new Map([["madera", 50], ["metal", 50]]));
+    expect(avancePartes(m)?.pct).toBe(85);
   });
   it("con componentes y sin despiece no se asigna", () => {
     const m = mueble([]);
+    const una: ParteMueble = { id: "x", descripcion: "X", piezasPorMueble: 1, unidad: null, ruta: [] };
     expect(requiereDespiece({ ...m, conComponentes: true, partes: [] })).toBe(true);
-    expect(requiereDespiece({ ...m, conComponentes: true, partes })).toBe(false);
+    expect(requiereDespiece({ ...m, conComponentes: true, partes: [una] })).toBe(false);
     expect(requiereDespiece({ ...m, conComponentes: false, partes: [] })).toBe(false);
   });
 });
 
 describe("encuadreMueble", () => {
-  // PG-02: 23 muebles; tabla 3 por mueble (69), herraje 1 por mueble (23) y sin Barniz.
+  // PG-02: 23 muebles; tabla 3 por mueble (69) Armado → Barniz; herraje 1 por mueble, solo Armado.
   const partes: ParteMueble[] = [
-    { id: "tabla", descripcion: "Tabla MDF", piezasPorMueble: 3, unidad: "PZA" },
-    { id: "herraje", descripcion: "Herraje", piezasPorMueble: 1, unidad: "JUEGO", procesosOmitidos: ["barniz"] },
+    {
+      id: "tabla",
+      descripcion: "Tabla MDF",
+      piezasPorMueble: 3,
+      unidad: "PZA",
+      ruta: [
+        { id: "t1", proceso: "armado" },
+        { id: "t2", proceso: "barniz" },
+      ],
+    },
+    { id: "herraje", descripcion: "Herraje", piezasPorMueble: 1, unidad: "JUEGO", ruta: [{ id: "h1", proceso: "armado" }] },
   ];
-  const pg02 = (asignaciones: AsignacionResumen[]): MuebleFlujo => ({ ...mueble(asignaciones), cantidad: 23, partes });
+  const pg02 = (asignaciones: AsignacionResumen[]): MuebleFlujo => ({ ...mueble(asignaciones, []), cantidad: 23, partes });
 
   it("20 tablas terminadas y ningún herraje: 0 completos y faltan 6 herrajes para los 6 que cubre la tabla", () => {
     const e = encuadreMueble(
       pg02([
-        asig("armado", 20, 20, { parte_id: "tabla" }),
-        asig("barniz", 20, 20, { parte_id: "tabla" }),
+        asig("armado", 20, 20, { parte_id: "tabla", paso_id: "t1" }),
+        asig("barniz", 20, 20, { parte_id: "tabla", paso_id: "t2" }),
       ])
     );
     expect(e).toEqual({
@@ -352,12 +441,12 @@ describe("encuadreMueble", () => {
     });
   });
 
-  it("cada parte cuenta en su último paso: el herraje en Armado, la tabla en Barniz", () => {
+  it("cada parte cuenta en el último paso de su ruta: el herraje en Armado, la tabla en Barniz", () => {
     const e = encuadreMueble(
       pg02([
-        asig("armado", 30, 30, { parte_id: "tabla" }),
-        asig("barniz", 12, 12, { parte_id: "tabla" }),
-        asig("armado", 5, 5, { parte_id: "herraje" }),
+        asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+        asig("barniz", 12, 12, { parte_id: "tabla", paso_id: "t2" }),
+        asig("armado", 5, 5, { parte_id: "herraje", paso_id: "h1" }),
       ])
     );
     // Tabla: 12 en Barniz = 4 muebles; herraje: 5. Completos 4; a la tabla le faltan 3 para 5.

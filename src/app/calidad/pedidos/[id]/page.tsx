@@ -10,7 +10,8 @@ import { enTallerParaCalidad, evaluablesPorCalidad, grupoDelItem, listosParaCali
 import { revisionFinalActiva, verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
-import { etiquetaPaso } from "@/lib/produccion/ruta";
+import { cargarPartes } from "@/lib/produccion/partes-db";
+import { pasosDeTodasLasRutas } from "@/lib/produccion/ruta";
 import RevisionFinalSeccion, { type MuebleRevisionFinal } from "./revision-final";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
 import {
@@ -210,9 +211,10 @@ export default async function PedidoCalidadPage({
 
   // Revisión final (ajuste revision_final, hoy apagado): solo de la versión activa.
   const muebleIdsFinal = finalActiva && versionSeleccionada?.es_version_activa ? muebleIds : [];
-  const [revisionFinal, rutas] = await Promise.all([
+  const [revisionFinal, rutas, partesFinal] = await Promise.all([
     cargarRevisionFinal(supabase, muebleIdsFinal),
     cargarRutas(supabase, muebleIdsFinal),
+    cargarPartes(supabase, muebleIdsFinal),
   ]);
   const lotesPorMueble = new Map<string, LoteCalidad[]>();
   for (const l of (filasLotes ?? []).map(normalizarLote)) {
@@ -301,7 +303,7 @@ export default async function PedidoCalidadPage({
       const resumen = revisionFinal.resumen.get(i.id);
       const revisiones = revisionFinal.revisiones.get(i.id) ?? [];
       if (!resumen || (resumen.listas <= 0 && revisiones.length === 0)) return [];
-      const pasos = rutas.get(i.id)?.pasos ?? [];
+      const ruta = rutas.get(i.id);
       return [
         {
           id: i.id,
@@ -310,7 +312,11 @@ export default async function PedidoCalidadPage({
           unidad: i.unidad,
           resumen,
           revisiones,
-          pasos: pasos.flatMap((p, n) => (p.id ? [{ id: p.id, etiqueta: `${n + 1}. ${etiquetaPaso(pasos, n)}` }] : [])),
+          // Los guardados de cada parte y del mueble completo: a cualquiera puede regresar lo rechazado.
+          pasos: pasosDeTodasLasRutas(
+            ruta?.pasos ?? [],
+            (partesFinal.get(i.id) ?? []).map((p) => ({ descripcion: p.descripcion, ruta: ruta?.partes.get(p.id) ?? [] }))
+          ),
         },
       ];
     });

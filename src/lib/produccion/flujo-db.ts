@@ -5,9 +5,8 @@ import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import type { AsignacionResumen, Proceso } from "./asignaciones";
 import { admiteElectrificacion } from "./electrificacion";
 import { admiteSuperficieSolida } from "./superficie-solida";
-import type { MuebleFlujo } from "./flujo-mueble";
+import { rutasDelFlujo, type MuebleFlujo } from "./flujo-mueble";
 import { cargarPartes } from "./partes-db";
-import { rutaSugerida } from "./ruta";
 import { cargarRutas } from "./rutas-db";
 import { tandas } from "./tandas";
 
@@ -112,8 +111,8 @@ export async function cargarFlujoMuebles(
       electrificacion: admiteElectrificacion(m.descripcion, hijos),
       superficie_solida: admiteSuperficieSolida(m.descripcion, hijos),
     };
-    // La ruta guardada o, si aún no tiene, la sugerida.
-    const guardada = rutas.get(m.id);
+    // La ruta del mueble y la de cada parte: las guardadas o, si aún no tienen, las sugeridas.
+    const r = rutasDelFlujo(rutas.get(m.id), aplica, partes.get(m.id) ?? []);
     return {
       id: m.id,
       item_code: m.item_code,
@@ -121,11 +120,11 @@ export async function cargarFlujoMuebles(
       unidad: m.unidad,
       cantidad: Number(m.cantidad_total),
       aplica,
-      ruta: guardada && guardada.pasos.length > 0 ? guardada.pasos : rutaSugerida(aplica),
-      versionRuta: guardada?.version ?? 0,
+      ruta: r.ruta,
+      versionRuta: rutas.get(m.id)?.version ?? 0,
       asignaciones: porItem.get(m.id) ?? [],
       revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
-      partes: partes.get(m.id) ?? [],
+      partes: r.partes,
       conComponentes: conComponentes.has(m.id),
       despieceHref: m.pedido_id ? `/produccion/pedidos/${m.pedido_id}/despiece/${m.id}` : null,
     };
