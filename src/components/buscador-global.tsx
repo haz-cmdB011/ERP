@@ -208,7 +208,7 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
         title={`Buscar en toda el área: ${atajo} o la tecla /`}
         aria-keyshortcuts="Control+K Meta+K /"
       >
-        <IconoLupa className="h-[18px] w-[18px] transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-125" />
+        <IconoLupa className="h-[22px] w-[22px] transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-125" />
         <span className="hidden xl:inline">Buscar…</span>
         <kbd className="hidden rounded border border-nav-line bg-nav-hover px-1.5 font-sans text-xs text-on-nav-suave xl:inline">
           {atajo}

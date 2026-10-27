@@ -183,7 +183,7 @@ export default async function AreaNav({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4 shrink-0"
+                  className="h-6 w-6 shrink-0"
                   aria-hidden="true"
                 >
                   {a.icono}
