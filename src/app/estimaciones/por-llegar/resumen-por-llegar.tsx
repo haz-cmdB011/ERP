@@ -13,8 +13,9 @@ function TarjetaArea({ r }: { r: ResumenArea }) {
   const hay = r.renglones > 0;
   const calidad = r.enCalidad > 0 && (
     <span className="text-xs text-amber-700">
-      {plural(r.enCalidad, "mueble entregado", "muebles entregados")} a Calidad
-      {r.enRevision > 0 && ` · ${r.enRevision} en revisión`}
+      {r.enRevision > 0
+        ? `${plural(r.enRevision, "unidad espera", "unidades esperan")} la revisión de Calidad (${plural(r.enCalidad, "mueble", "muebles")})`
+        : `${plural(r.enCalidad, "mueble entregado", "muebles entregados")} a Calidad`}
     </span>
   );
   return (
@@ -23,30 +24,31 @@ function TarjetaArea({ r }: { r: ResumenArea }) {
       className="flex flex-col gap-1 rounded-lg border border-slate-200 p-3 transition-colors hover:border-brand-300"
     >
       <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {AREA_RECIBO_LABELS[r.area]}
+        Trabajo de {AREA_RECIBO_LABELS[r.area].toLowerCase()}
       </span>
       {hay ? (
         <>
+          <span className="text-xs text-slate-500">Aprobado por Calidad, listo para cobrar</span>
           <span className="text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
             {money(r.importe)}
             {r.sinPrecio > 0 && <span className="ml-1 text-sm font-normal text-slate-500">+ sin precio</span>}
           </span>
           <span className="text-sm text-slate-700">
-            {r.recibosMinimos === 1 ? "Al menos 1 recibo" : `Al menos ${r.recibosMinimos} recibos`} ·{" "}
             {plural(r.muebles, "mueble", "muebles")}
-            {r.componentes > 0 && ` y ${plural(r.componentes, "componente", "componentes")}`}
+            {r.componentes > 0 && ` y ${plural(r.componentes, "componente", "componentes")}`} ·{" "}
+            {r.recibosMinimos === 1 ? "falta al menos 1 recibo" : `faltan al menos ${r.recibosMinimos} recibos`}
           </span>
           <span className="truncate font-mono text-xs text-slate-500">O.T. {r.ots.join(", ")}</span>
           {r.sinPrecio > 0 && (
             <span className="text-xs text-amber-700">
-              {plural(r.sinPrecio, "modelo", "modelos")} sin precio pagado antes
+              {plural(r.sinPrecio, "modelo", "modelos")} sin precio de referencia: no se pudo estimar su importe
             </span>
           )}
           {calidad}
         </>
       ) : (
         <>
-          <span className="text-sm text-slate-500">Nada aprobado por cobrar</span>
+          <span className="text-sm text-slate-500">Todavía no hay trabajo aprobado por cobrar</span>
           {calidad}
         </>
       )}
@@ -70,11 +72,12 @@ export default async function ResumenPorLlegar() {
             Recibos por llegar
           </h2>
           <p className="text-xs text-slate-500">
-            Lo entregado a Calidad. Se cobra lo aprobado; importe estimado con el último precio pagado.
+            Trabajo de los equipos externos que Calidad ya aprobó y que todavía no tiene recibo. El importe es
+            aproximado: usa el último precio que se pagó por ese mueble.
           </p>
         </div>
         <Link href="/estimaciones/por-llegar" className="text-sm font-medium text-brand-700 hover:underline">
-          Ver detalle
+          Ver mueble por mueble
         </Link>
       </div>
       {error ? (
