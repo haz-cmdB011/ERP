@@ -142,8 +142,8 @@ export default async function PanelAsignacionPage({
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Panel de asignación</h1>
         <p className="mt-1 text-sm text-slate-600">
           Los muebles liberados a producción, por O.T. y PM: cuáles siguen por asignar y cuáles ya
-          están con un equipo. Cada mueble sigue su ruta; ábrelo para ver su avance y, si tiene
-          despiece, asignar cada parte desde su tabla.
+          están con un equipo. Ábrelo para ver su avance: si tiene despiece, cada parte tiene su
+          ruta y el mueble completo la suya.
         </p>
       </div>
 

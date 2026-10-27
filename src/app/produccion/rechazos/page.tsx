@@ -68,6 +68,10 @@ interface RechazoFinal {
   siguiente_proceso: Proceso | null;
   // De eso, lo que ya entregó el paso anterior (asignar más queda adelantado).
   listo_siguiente: number | string;
+  // Si ese paso es de una parte del despiece (cada parte tiene su ruta; migración
+  // rutas_por_parte): entonces va en piezas de la parte.
+  siguiente_parte?: string | null;
+  siguiente_parte_unidad?: string | null;
 }
 
 interface InformeComponente {
@@ -346,6 +350,7 @@ export default async function RechazosPage() {
               const orden = r.siguiente_paso_orden ?? r.paso_orden;
               const listo = Number(r.listo_siguiente);
               const desc = `${r.numero_pedido} · ${r.modelo ?? `ítem ${r.item_code}`}`;
+              const unidad = r.siguiente_parte ? (r.siguiente_parte_unidad ?? "pz") : (r.unidad ?? "pz");
               return (
                 <li key={r.revision_id} className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -365,9 +370,10 @@ export default async function RechazosPage() {
                       </p>
                       <p className="text-sm text-slate-600">
                         <strong className="text-rose-700">
-                          {pendiente} {r.unidad ?? "pz"}
+                          {pendiente} {unidad}
                         </strong>{" "}
-                        por reasignar en el paso {orden} ({PROCESO_LABELS[proceso]})
+                        {r.siguiente_parte ? `de "${r.siguiente_parte}" ` : ""}por reasignar en el paso {orden} (
+                        {PROCESO_LABELS[proceso]})
                         {orden !== r.paso_orden ? ` · Calidad lo regresó al paso ${r.paso_orden}` : ""}
                       </p>
                       {!r.paso_retirado && listo < pendiente && (
@@ -399,7 +405,7 @@ export default async function RechazosPage() {
                         proceso={proceso}
                         equipoOriginalId=""
                         porReasignar={pendiente}
-                        unidad={r.unidad}
+                        unidad={unidad}
                         equipos={equipos}
                         revisionFinal
                       />
