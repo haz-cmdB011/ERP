@@ -14,16 +14,18 @@ export default function AvanceOt({ avance }: { avance: AvancePlan }) {
   }
   const porcentaje = Math.round((liberados / vigentes) * 100);
   return (
-    <div className="flex min-w-24 flex-col gap-1.5">
-      <BarraAvance
+    <div className="flex min-w-24 flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <BarraAvance
         porcentaje={porcentaje}
         etiqueta={`${liberados} de ${vigentes} ítems liberados a Producción`}
         color={porcentaje === 100 ? "bg-emerald-500" : "bg-brand-500"}
         pendiente
-      />
-      <span className="text-xs text-slate-500">
-        {liberados} de {vigentes} liberados
-      </span>
+        />
+        <span className="shrink-0 text-xs tabular-nums text-slate-500" title={`${liberados} de ${vigentes} liberados`}>
+          {liberados}/{vigentes}
+        </span>
+      </div>
       {(enRevision > 0 || cancelados > 0) && (
         <div className="flex flex-wrap gap-1.5">
           {enRevision > 0 && <ChipEstado tono="alerta">{enRevision} en revisión</ChipEstado>}

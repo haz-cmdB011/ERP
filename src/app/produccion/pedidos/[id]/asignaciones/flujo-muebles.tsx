@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import {
   ESTADO_ASIGNACION_ESTILOS,
@@ -247,8 +248,12 @@ function porAsignar(
 
 // Enlace al despiece del mueble (o solo el texto si la pantalla no sabe dónde está).
 function EnlaceDespiece({ mueble: m, className, children }: { mueble: MuebleFlujo; className: string; children: ReactNode }) {
+  // Al guardar el despiece se regresa a esta misma pantalla (p. ej. el panel con sus ?ids=).
+  const pathname = usePathname();
+  const busqueda = useSearchParams().toString();
+  const volver = `${pathname}${busqueda ? `?${busqueda}` : ""}`;
   return m.despieceHref ? (
-    <Link href={m.despieceHref} className={className}>
+    <Link href={`${m.despieceHref}?volver=${encodeURIComponent(volver)}`} className={className}>
       {children}
     </Link>
   ) : (

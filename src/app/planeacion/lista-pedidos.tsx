@@ -1,5 +1,4 @@
 import EnlaceFila from "@/components/enlace-fila";
-import Chevron from "@/components/chevron";
 
 export interface FilaLista {
   clave: string;
@@ -33,7 +32,7 @@ export default function ListaPedidos({
       {filas.map((f) => (
         <li
           key={f.clave}
-          className="group relative flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 focus-within:bg-slate-50 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+          className="group relative flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 focus-within:bg-slate-50 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
         >
           <div className="min-w-0 sm:flex-1">
             <EnlaceFila
@@ -44,22 +43,15 @@ export default function ListaPedidos({
             >
               {f.titulo}
             </EnlaceFila>
-            <p className="truncate text-sm text-slate-700">{f.proyecto}</p>
-            {(f.cliente || f.pedidos > 1) && (
-              <p className="truncate text-xs text-slate-500">
-                {[f.cliente, f.pedidos > 1 ? `${f.pedidos} pedidos` : null].filter(Boolean).join(" · ")}
-              </p>
-            )}
+            <p className="truncate text-sm text-slate-700">
+              {[f.proyecto, f.cliente, f.pedidos > 1 ? `${f.pedidos} pedidos` : null].filter(Boolean).join(" · ")}
+            </p>
           </div>
           <div className="flex items-center gap-3 sm:shrink-0">
             <div className="min-w-0 flex-1 sm:w-52 sm:flex-none" role="group" aria-label={tituloAvance}>
               {f.avance}
             </div>
             {f.accion && <div className="relative z-10 shrink-0">{f.accion}</div>}
-            <Chevron
-              abierto={false}
-              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-700 sm:block"
-            />
           </div>
         </li>
       ))}

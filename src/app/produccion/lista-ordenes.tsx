@@ -1,7 +1,6 @@
 import Link from "next/link";
 import IconoMenu from "@/components/iconos-menu";
 import ChipEstado from "@/components/chip-estado";
-import Chevron from "@/components/chevron";
 import { estadoLiberacion, type AvancePedido } from "@/lib/resumen/avance-items";
 import type { FilaOrdenTrabajo, PedidoConOt } from "@/lib/planeacion/lista-ordenes-trabajo";
 
@@ -30,7 +29,7 @@ export default function ListaOrdenes({
         return (
           <li
             key={fila.ot ?? primero.id}
-            className="relative flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+            className="group relative flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
           >
             <Link
               href={href}
@@ -39,14 +38,14 @@ export default function ListaOrdenes({
             />
             <div className="min-w-0 sm:flex-1">
               <p className="font-mono text-base font-semibold text-slate-900">{titulo}</p>
-              <p className="truncate text-sm text-slate-700">{primero.proyectos?.nombre ?? "—"}</p>
-              {(primero.proyectos?.cliente || fila.pedidos.length > 1) && (
-                <p className="text-xs text-slate-500">
-                  {[primero.proyectos?.cliente, fila.pedidos.length > 1 ? `${fila.pedidos.length} pedidos` : null]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
+              <p className="truncate text-sm text-slate-700">
+                {[
+                  primero.proyectos?.nombre ?? "—",
+                  fila.pedidos.length > 1 ? `${fila.pedidos.length} pedidos` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
             </div>
             <div className="flex flex-col gap-1 sm:w-52 sm:shrink-0">
               {estado === "sin-items" ? (
@@ -83,10 +82,6 @@ export default function ListaOrdenes({
                 </>
               )}
             </div>
-            <Chevron
-              abierto={false}
-              className="pointer-events-none hidden h-4 w-4 shrink-0 text-slate-500 sm:block"
-            />
           </li>
         );
       })}
