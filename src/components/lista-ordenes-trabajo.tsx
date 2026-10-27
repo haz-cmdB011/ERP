@@ -14,17 +14,20 @@ export function FiltrosOrdenesTrabajo({
   anios,
   anio,
   clientes,
-  cliente,
+  cliente = "",
   q,
   entrega,
+  estado,
 }: {
   base: string;
   anios: number[];
   anio: number | null;
-  clientes: string[];
-  cliente: string;
+  // Sin clientes no se muestra el filtro por cliente (Planeación y Producción agrupan por cliente).
+  clientes?: string[];
+  cliente?: string;
   q?: string;
   entrega?: string;
+  estado?: string;
 }) {
   if (anios.length === 0) return null;
   const anioParam = anio ? String(anio) : undefined;
@@ -38,7 +41,7 @@ export function FiltrosOrdenesTrabajo({
           return (
             <Link
               key={a ?? "todos"}
-              href={hrefListaPedidos(base, { q, anio: a ? String(a) : undefined, cliente: clienteParam, entrega })}
+              href={hrefListaPedidos(base, { q, anio: a ? String(a) : undefined, cliente: clienteParam, entrega, estado })}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors pointer-coarse:py-2.5 ${
                 activo
                   ? "border-brand-600 bg-brand-500 text-on-brand"
@@ -50,7 +53,9 @@ export function FiltrosOrdenesTrabajo({
           );
         })}
       </div>
-      <FiltroCliente base={base} clientes={clientes} valor={cliente} q={q} anio={anioParam} entrega={entrega} />
+      {clientes && (
+        <FiltroCliente base={base} clientes={clientes} valor={cliente} q={q} anio={anioParam} entrega={entrega} estado={estado} />
+      )}
     </div>
   );
 }

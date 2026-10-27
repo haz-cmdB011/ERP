@@ -54,3 +54,4 @@ next-env.d.ts
 
 # Configuración personal de Claude Code
 .claude/settings.local.json
+/SKILL.md

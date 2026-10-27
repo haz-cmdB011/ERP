@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Chevron from "@/components/chevron";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -78,48 +79,35 @@ function TarjetaMueble({ m }: { m: MuebleEnCalidad }) {
           <div className="bg-emerald-500" style={{ width: `${pct(m.aprobados, m.porCobrar)}%` }} />
           <div className="bg-amber-400" style={{ width: `${pct(m.enRevision, m.porCobrar)}%` }} />
         </div>
-        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
-          <li className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
-            Aprobados <strong className="tabular-nums text-slate-900">{m.aprobados}</strong>
-          </li>
-          <li className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-amber-400" aria-hidden />
-            En revisión <strong className="tabular-nums text-slate-900">{m.enRevision}</strong>
-          </li>
-          {faltaEntregar > 0 && (
-            <li className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-slate-300" aria-hidden />
-              Sin entregar <strong className="tabular-nums text-slate-900">{faltaEntregar}</strong>
-            </li>
-          )}
-          <li className="ml-auto tabular-nums text-slate-500">
-            de {m.porCobrar} · cobrado {m.cobrado ?? "—"}
-          </li>
-        </ul>
+        <p className="text-xs text-slate-600">
+          <strong className={`tabular-nums ${m.aprobados > 0 ? "text-emerald-700" : "text-slate-900"}`}>
+            {m.aprobados} de {m.porCobrar}
+          </strong>{" "}
+          aprobados
+          {m.enRevision > 0 && ` · ${m.enRevision} en revisión`}
+          {faltaEntregar > 0 && ` · ${faltaEntregar} sin entregar`}
+          {!!m.cobrado && ` · cobrado ${m.cobrado}`}
+        </p>
       </div>
 
       {m.partes.length > 0 && (
-        <ul className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-          {m.partes.map((p) => (
-            <li key={p.parte} className="flex flex-col gap-1">
-              <div className="flex items-baseline justify-between gap-3 text-xs">
-                <span className="truncate text-slate-700" title={p.parte}>
-                  {p.parte}
-                </span>
+        <details className="group border-t border-slate-100 pt-3 text-xs">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-slate-600 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
+            <Chevron abierto={false} className="h-3.5 w-3.5 text-slate-500 group-open:rotate-90" />
+            {m.partes.length} {m.partes.length === 1 ? "parte" : "partes"}
+          </summary>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {m.partes.map((p) => (
+              <li key={p.parte} className="flex items-baseline justify-between gap-3">
+                <span className="text-slate-700">{p.parte}</span>
                 <span className="shrink-0 tabular-nums text-slate-500">
-                  <span className="font-medium text-emerald-700">{p.aprobadas}</span> aprob. ·{" "}
-                  {p.entregadas}/{p.total} entregadas
+                  <span className="font-medium text-emerald-700">{p.aprobadas}</span> aprob. · {p.entregadas}/{p.total}{" "}
+                  entregadas
                 </span>
-              </div>
-              {/* Entregadas de fondo, aprobadas encima. */}
-              <div className="relative h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div className="absolute inset-y-0 left-0 bg-amber-300" style={{ width: `${pct(p.entregadas, p.total)}%` }} />
-                <div className="absolute inset-y-0 left-0 bg-emerald-500" style={{ width: `${pct(p.aprobadas, p.total)}%` }} />
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       {m.porLlegar && <Precio r={m.porLlegar} />}

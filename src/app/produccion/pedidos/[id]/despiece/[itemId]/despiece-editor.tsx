@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { rutaInternaSegura } from "@/lib/seguridad/redireccion";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
 import { formatoFechaHora } from "@/lib/resumen/entrega";
@@ -174,6 +175,7 @@ export default function DespieceEditor({
   partesAsignadas?: string[];
 }) {
   const router = useRouter();
+  const volver = useSearchParams().get("volver");
   const [filas, setFilas] = useState<Fila[]>(() =>
     guardado ? filasDesde(guardado.lineas) : filasDesde(sugerencia.lineas, sugerencia.avisosPorLinea)
   );
@@ -379,7 +381,9 @@ export default function DespieceEditor({
         return;
       }
       avisar("Despiece guardado");
-      router.refresh();
+      // Si se llegó desde el panel de asignación (u otra pantalla), se regresa ahí.
+      if (volver) router.push(rutaInternaSegura(volver, "/produccion/panel"));
+      else router.refresh();
     } catch {
       setError("No se pudo guardar el despiece. Inténtalo de nuevo.");
     } finally {
