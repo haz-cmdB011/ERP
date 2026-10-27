@@ -220,39 +220,49 @@ export default async function FoliosCalidadPage({
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900 focus:border-slate-400 focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Desde
-          <input
-            type="date"
-            name="desde"
-            defaultValue={filtros.desde ?? ""}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Hasta
-          <input
-            type="date"
-            name="hasta"
-            defaultValue={filtros.hasta ?? ""}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Defecto
-          <select
-            name="categoria"
-            defaultValue={filtros.categoria ?? ""}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
-          >
-            <option value="">Todos</option>
-            {CATEGORIAS_DEFECTO.map((c) => (
-              <option key={c.valor} value={c.valor}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+        <details
+          open={!!(filtros.desde || filtros.hasta || filtros.categoria)}
+          className="basis-full rounded-lg border border-slate-200 bg-white px-3 py-2 [&[open]>summary]:mb-3"
+        >
+          <summary className="cursor-pointer text-sm font-medium text-slate-600 max-md:min-h-11 max-md:leading-[2.75rem]">
+            Más filtros (fechas y defecto)
+          </summary>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Desde
+              <input
+                type="date"
+                name="desde"
+                defaultValue={filtros.desde ?? ""}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Hasta
+              <input
+                type="date"
+                name="hasta"
+                defaultValue={filtros.hasta ?? ""}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Defecto
+              <select
+                name="categoria"
+                defaultValue={filtros.categoria ?? ""}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-900"
+              >
+                <option value="">Todos</option>
+                {CATEGORIAS_DEFECTO.map((c) => (
+                  <option key={c.valor} value={c.valor}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </details>
         <button
           type="submit"
           className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
@@ -316,121 +326,103 @@ export default async function FoliosCalidadPage({
       )}
 
       {visibles.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2.5">Folio</th>
-                <th className="px-3 py-2.5">Resultado</th>
-                <th className="px-3 py-2.5">Motivo</th>
-                <th className="px-3 py-2.5">Área de origen</th>
-                <th className="px-3 py-2.5">Estatus</th>
-                <th className="px-3 py-2.5">Pedido</th>
-                <th className="px-3 py-2.5">Ítem</th>
-                <th className="px-3 py-2.5">Elaboró</th>
-                <th className="px-3 py-2.5">Fecha</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {visibles.map(({ inf, item, situacion, estatus }) => {
-                const pedido = item?.pedido_versiones?.pedidos ?? null;
-                // Las páginas de pedido/informe de Calidad devuelven 404 para
-                // pedidos eliminados, así que ahí no se enlaza.
-                const enlazable = pedido && !pedido.eliminado_en;
-                return (
-                  <tr key={inf.id} className="align-top transition-colors hover:bg-slate-50">
-                    <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-900">
-                      {enlazable ? (
-                        <EnlaceFila
-                          href={`/calidad/pedidos/${pedido.id}/informe/${inf.id}`}
-                          className="hover:text-brand-700 hover:underline"
-                        >
-                          {inf.folio}
-                        </EnlaceFila>
-                      ) : (
-                        inf.folio
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`inline-flex items-center rounded border px-2.5 py-1 font-medium ${
-                          inf.aprobado ? TONOS.emerald : TONOS.rose
-                        }`}
+        <div className="grid gap-3 md:grid-cols-2">
+          {visibles.map(({ inf, item, situacion, estatus }) => {
+            const pedido = item?.pedido_versiones?.pedidos ?? null;
+            // Las páginas de pedido/informe de Calidad devuelven 404 para
+            // pedidos eliminados, así que ahí no se enlaza.
+            const enlazable = pedido && !pedido.eliminado_en;
+            const autor = (inf.elaborado_por && autorPorId.get(inf.elaborado_por)) || null;
+            return (
+              <article
+                key={inf.id}
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <header className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-base font-semibold text-slate-900">
+                    {enlazable ? (
+                      <EnlaceFila
+                        href={`/calidad/pedidos/${pedido.id}/informe/${inf.id}`}
+                        className="hover:text-brand-700 hover:underline"
                       >
-                        {inf.aprobado ? "Aprobado" : "No aprobado"}
-                      </span>
-                      {!inf.aprobado && nombreCategoria(inf.categoria) && (
-                        <p className="mt-1 text-xs font-medium text-rose-600">
-                          {nombreCategoria(inf.categoria)}
-                        </p>
-                      )}
-                      {situacion && (
-                        <p className="mt-1">
-                          <span
-                            className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${TONOS[situacion.tono]}`}
-                          >
-                            {situacion.etiqueta}
-                          </span>
-                        </p>
-                      )}
-                    </td>
-                    <td className="max-w-[220px] px-3 py-2 text-slate-700">
-                      {inf.motivo ? `${inf.motivo.codigo} · ${inf.motivo.nombre}` : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700">
-                      {inf.area_origen ?? "—"}
-                      {inf.responsable_origen && (
-                        <p className="text-xs text-slate-500">{inf.responsable_origen}</p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {estatus ? (
-                        <>
-                          <span
-                            className={`inline-flex items-center rounded border px-2.5 py-1 font-medium ${TONOS[TONO_ESTATUS[estatus.estatus]]}`}
-                          >
-                            {ESTATUS_LABELS[estatus.estatus]}
-                          </span>
-                          {estatus.fecha && (
-                            <p className="mt-1 text-xs text-slate-500">{formatoFechaDMA(estatus.fecha)}</p>
-                          )}
-                        </>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {enlazable ? (
-                        <EnlaceFila
-                          href={`/calidad/pedidos/${pedido.id}`}
-                          className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
-                        >
-                          {pedido.numero_pedido}
-                        </EnlaceFila>
-                      ) : (
-                        <span className="font-medium text-slate-900">
-                          {pedido?.numero_pedido ?? "—"}
-                        </span>
-                      )}
-                      <p className="text-xs text-slate-500">
-                        {pedido?.proyectos?.nombre ?? "—"} — {pedido?.proyectos?.cliente ?? "—"}
-                      </p>
-                    </td>
-                    <td className="px-3 py-2 text-slate-700">
-                      {item ? item.item_code : "—"}
-                      {item?.modelo ? ` — ${item.modelo}` : ""}
-                    </td>
-                    <td className="px-3 py-2 text-slate-700">
-                      {(inf.elaborado_por && autorPorId.get(inf.elaborado_por)) || "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-slate-500">
-                      {formatoFechaHora(inf.elaborado_en)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        {inf.folio}
+                      </EnlaceFila>
+                    ) : (
+                      inf.folio
+                    )}
+                  </span>
+                  <span
+                    className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${
+                      inf.aprobado ? TONOS.emerald : TONOS.rose
+                    }`}
+                  >
+                    {inf.aprobado ? "Aprobado" : "No aprobado"}
+                  </span>
+                  {estatus && (
+                    <span
+                      className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${TONOS[TONO_ESTATUS[estatus.estatus]]}`}
+                    >
+                      {ESTATUS_LABELS[estatus.estatus]}
+                    </span>
+                  )}
+                  {situacion && (
+                    <span
+                      className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${TONOS[situacion.tono]}`}
+                    >
+                      {situacion.etiqueta}
+                    </span>
+                  )}
+                  <span className="ml-auto whitespace-nowrap text-xs text-slate-500">
+                    {formatoFechaHora(inf.elaborado_en)}
+                  </span>
+                </header>
+
+                <div className="text-sm">
+                  {enlazable ? (
+                    <EnlaceFila
+                      href={`/calidad/pedidos/${pedido.id}`}
+                      className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
+                    >
+                      {pedido.numero_pedido}
+                    </EnlaceFila>
+                  ) : (
+                    <span className="font-medium text-slate-900">{pedido?.numero_pedido ?? "—"}</span>
+                  )}
+                  <span className="text-slate-600">
+                    {" · "}
+                    {item ? item.item_code : "—"}
+                    {item?.modelo ? ` — ${item.modelo}` : ""}
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    {pedido?.proyectos?.nombre ?? "—"} — {pedido?.proyectos?.cliente ?? "—"}
+                  </p>
+                </div>
+
+                {!inf.aprobado && (
+                  <details className="text-sm [&[open]>summary]:mb-2">
+                    <summary className="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700">
+                      Ver detalle del reporte
+                    </summary>
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                      {[
+                        ["Defecto", nombreCategoria(inf.categoria)],
+                        ["Motivo", inf.motivo ? `${inf.motivo.codigo} · ${inf.motivo.nombre}` : null],
+                        ["Área de origen", [inf.area_origen, inf.responsable_origen].filter(Boolean).join(" · ")],
+                        ["Estatus desde", estatus?.fecha ? formatoFechaDMA(estatus.fecha) : null],
+                        ["Elaboró", autor],
+                      ].map(([etiqueta, valor]) => (
+                        <div key={etiqueta} className="contents">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{etiqueta}</dt>
+                          <dd className="text-slate-700">{valor || "—"}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </details>
+                )}
+                {inf.aprobado && autor && <p className="text-xs text-slate-500">Elaboró {autor}</p>}
+              </article>
+            );
+          })}
         </div>
       )}
 
