@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import Chevron from "@/components/chevron";
 import { usePathname, useSearchParams } from "next/navigation";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import {
@@ -794,6 +795,56 @@ function DetallePaso({
   );
 }
 
+// Un paso de una parte que ya tiene trabajo: su título con lo entregado, lo que Calidad rechazó y sus
+// asignaciones. Sin desplegable propio: la parte se abre directo a esto.
+function PasoDeParte({
+  mueble: m,
+  parte,
+  indice,
+  detalles,
+}: {
+  mueble: MuebleFlujo;
+  parte: ParteMueble;
+  indice: number;
+  detalles: Record<string, ReactNode>;
+}) {
+  const a = avanceEnRuta(m, indice, parte);
+  const unidad = parte.unidad ?? "pz";
+  return (
+    <div className="flex flex-col gap-1.5 text-xs">
+      <p className="font-semibold text-slate-700">
+        {etiquetaPaso(parte.ruta, indice)}
+        <span className="ml-1 font-normal text-slate-500">
+          · {fmt(a.entregado)}/{fmt(a.total)} {unidad}
+        </span>
+      </p>
+      {a.porReasignar > 0 && (
+        <p className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
+          Calidad rechazó {fmt(a.porReasignar)} {unidad} que faltan por reasignar ·{" "}
+          <Link href="/produccion/rechazos" className="font-medium underline">
+            Rechazado por Calidad
+          </Link>
+        </p>
+      )}
+      <ListaAsignaciones lista={asignacionesDelPaso(m, indice, parte)} detalles={detalles} />
+    </div>
+  );
+}
+
+// ¿Este paso tiene algo que mostrar (asignaciones o piezas rechazadas por reasignar)? Los pasos sin
+// nada ya se ven, con su "+", en la tabla de rutas.
+function pasoConTrabajo(m: MuebleFlujo, indice: number, parte: ParteMueble | null): boolean {
+  return asignacionesDelPaso(m, indice, parte).length > 0 || avanceEnRuta(m, indice, parte).porReasignar > 0;
+}
+
+// Algo en marcha o rechazado: la sección se abre sola.
+function pasoEnMarcha(m: MuebleFlujo, indice: number, parte: ParteMueble | null): boolean {
+  return (
+    avanceEnRuta(m, indice, parte).porReasignar > 0 ||
+    asignacionesDelPaso(m, indice, parte).some((x) => x.estado === "en_proceso" || x.estado === "parcial")
+  );
+}
+
 function DetalleMueble({
   mueble: m,
   asignar,
@@ -804,44 +855,73 @@ function DetalleMueble({
   detalles: Record<string, ReactNode>;
 }) {
   const partes = (m.partes ?? []).filter((p) => p.ruta.length > 0);
+  // Solo las partes que ya tienen asignaciones, con los pasos que las tienen.
+  const partesConTrabajo = partes
+    .map((p) => ({ parte: p, pasos: p.ruta.map((_, i) => i).filter((i) => pasoConTrabajo(m, i, p)) }))
+    .filter((x) => x.pasos.length > 0);
+  const pasosMueble = m.ruta.map((_, i) => i).filter((i) => pasoConTrabajo(m, i, null));
+  const abrirPartes = partesConTrabajo.some((x) => x.pasos.some((i) => pasoEnMarcha(m, i, x.parte)));
   return (
     <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 p-3">
       <Rutas mueble={m} asignar={asignar} />
-      {partes.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-semibold text-slate-700">Asignaciones de las partes</p>
-          {partes.map((p) => (
-            <details key={p.id} className="group/parte rounded-lg border border-slate-200 bg-white/60 p-2 text-xs">
-              <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-slate-800 [&::-webkit-details-marker]:hidden">
-                <span aria-hidden className="text-slate-500 transition-transform group-open/parte:rotate-90">
-                  ▶
-                </span>
-                {p.descripcion}
-                <span className="font-normal text-slate-500">· {textoRuta(p.ruta)}</span>
-              </summary>
-              <div className="mt-2 grid gap-3 lg:grid-cols-2">
-                {p.ruta.map((paso, i) => (
-                  <DetallePaso
-                    key={paso.id ?? `${paso.proceso}-${i}`}
-                    mueble={m}
-                    parte={p}
-                    indice={i}
-                    asignar={asignar}
-                    detalles={detalles}
-                  />
-                ))}
-              </div>
-            </details>
-          ))}
-        </div>
-      )}
-      {m.ruta.length > 0 && (
+      {partes.length > 0 &&
+        (partesConTrabajo.length === 0 ? (
+          <p className="text-xs text-slate-500">Aún no hay asignaciones de partes.</p>
+        ) : (
+          <details open={abrirPartes} className="group/partes flex flex-col gap-2 text-xs">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
+              <Chevron abierto={false} className="h-3.5 w-3.5 text-slate-500 group-open/partes:rotate-90" />
+              Asignaciones de las partes
+              <span className="font-normal text-slate-500">
+                ({partesConTrabajo.length} de {partes.length})
+              </span>
+            </summary>
+            <div className="mt-2 flex flex-col gap-2">
+              {partesConTrabajo.map(({ parte: p, pasos }) => (
+                <details
+                  key={p.id}
+                  open={pasos.some((i) => pasoEnMarcha(m, i, p))}
+                  className="group/parte rounded-lg border border-slate-200 bg-white/60 p-2 text-xs"
+                >
+                  <summary className="flex cursor-pointer list-none items-start gap-1.5 font-medium text-slate-800 [&::-webkit-details-marker]:hidden">
+                    <Chevron abierto={false} className="mt-0.5 h-3.5 w-3.5 text-slate-500 group-open/parte:rotate-90" />
+                    <span className="min-w-0 flex-1">
+                    {p.descripcion}
+                    {/* Estado en una línea; la ruta completa está en la tabla de arriba. */}
+                    <span className="ml-1 font-normal text-slate-500">
+                      ·{" "}
+                      {pasos
+                        .map((i) => {
+                          const a = avanceEnRuta(m, i, p);
+                          return `${etiquetaPaso(p.ruta, i)} ${fmt(a.entregado)}/${fmt(a.total)}`;
+                        })
+                        .join(" · ")}
+                    </span>
+                    </span>
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-3">
+                    {pasos.map((i) => (
+                      <PasoDeParte
+                        key={p.ruta[i].id ?? `${p.ruta[i].proceso}-${i}`}
+                        mueble={m}
+                        parte={p}
+                        indice={i}
+                        detalles={detalles}
+                      />
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
+          </details>
+        ))}
+      {pasosMueble.length > 0 && (
         <div className="flex flex-col gap-2">
           {partes.length > 0 && <p className="text-xs font-semibold text-slate-700">Asignaciones del mueble completo</p>}
           <div className="grid gap-3 lg:grid-cols-2">
-            {m.ruta.map((p, i) => (
+            {pasosMueble.map((i) => (
               <DetallePaso
-                key={p.id ?? `${p.proceso}-${i}`}
+                key={m.ruta[i].id ?? `${m.ruta[i].proceso}-${i}`}
                 mueble={m}
                 parte={null}
                 indice={i}
