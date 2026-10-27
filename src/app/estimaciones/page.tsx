@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -13,6 +14,7 @@ import { contarPendientes, listarResumenDiscrepancias } from "@/lib/estimaciones
 import { type TarjetaResumen } from "@/components/resumen-inicio";
 import { ResumenEnMenu } from "@/components/resumen-menu";
 import Bienvenida from "@/components/bienvenida";
+import ResumenPorLlegar, { ResumenPorLlegarCargando } from "./por-llegar/resumen-por-llegar";
 
 const TARJETAS: {
   href: string;
@@ -98,6 +100,13 @@ export default async function EstimacionesPage() {
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Estimaciones</h1>
       </div>
+
+      {/* Lo que Calidad ya aprobó y está por cobrarse: se carga aparte para no frenar el panel. */}
+      {reviso && (
+        <Suspense fallback={<ResumenPorLlegarCargando />}>
+          <ResumenPorLlegar />
+        </Suspense>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {TARJETAS.map((t) => (

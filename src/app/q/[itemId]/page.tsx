@@ -27,8 +27,18 @@ import { enTaller } from "@/lib/produccion/atrasos";
 import { plazosDePedidos } from "@/lib/produccion/cargar-taller";
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
-import { avancePaso, indiceSiguiente, opcionesDePasos, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
-import { etiquetaPaso, rutaSugerida } from "@/lib/produccion/ruta";
+import {
+  avanceColumna,
+  columnasMueble,
+  partesConRuta,
+  requiereDespiece,
+  avancePaso,
+  opcionesAsignar,
+  rutasDelFlujo,
+  siguienteAsignable,
+  type MuebleFlujo,
+} from "@/lib/produccion/flujo-mueble";
+import { etiquetaPaso, pasosDeTodasLasRutas } from "@/lib/produccion/ruta";
 import { cargarPartes } from "@/lib/produccion/partes-db";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
@@ -223,7 +233,7 @@ export default async function FichaMuebleQrPage({
     electrificacion: admiteElectrificacion(item.descripcion, hijos),
     superficie_solida: admiteSuperficieSolida(item.descripcion, hijos),
   };
-  const guardada = rutas.get(item.id);
+  const rutasMueble = rutasDelFlujo(rutas.get(item.id), aplica, partes.get(item.id) ?? []);
   const resumenFinal = finalActiva ? (await cargarRevisionFinal(supabase, [item.id])).resumen.get(item.id) : null;
   const todas = asignaciones ?? [];
   const flujo: MuebleFlujo = {
@@ -233,11 +243,11 @@ export default async function FichaMuebleQrPage({
     unidad: item.unidad,
     cantidad: Number(item.cantidad_total),
     aplica,
-    ruta: guardada && guardada.pasos.length > 0 ? guardada.pasos : rutaSugerida(aplica),
-    versionRuta: guardada?.version ?? 0,
+    ruta: rutasMueble.ruta,
+    versionRuta: rutas.get(item.id)?.version ?? 0,
     asignaciones: todas,
     revisionFinal: finalActiva ? { aprobadas: resumenFinal?.aprobadas ?? 0 } : null,
-    partes: partes.get(item.id) ?? [],
+    partes: rutasMueble.partes,
     conComponentes: (componentes ?? []).some(
       (c) => !c.eliminacion_solicitada_en && c.estado_revision !== "cancelado"
     ),
@@ -264,23 +274,28 @@ export default async function FichaMuebleQrPage({
     !!pedido.cancelado_en || !!item.eliminacion_solicitada_en || item.estado_revision === "cancelado";
   const plazo = plazos.get(pedido.id);
   const unidad = item.unidad ?? "pz";
-  const siguiente = indiceSiguiente(flujo);
   const faltanEntregar =
     Math.round(todas.filter(enTaller).reduce((s, a) => s + Number(a.cantidad) - Number(a.entregado), 0) * 100) / 100;
-  // El paso que se ofrece al asignar: el que sigue en la ruta o, si ya está asignado completo,
-  // el primero que todavía tenga piezas por asignar.
-  const opciones = opcionesDePasos(flujo);
-  const sigue =
-    opciones.find((p) => p.indice === siguiente && p.disponible > 0) ?? opciones.find((p) => p.disponible > 0);
+  // Lo que se ofrece al asignar: lo que sigue (una parte o el mueble completo) o, si ya está
+  // asignado, lo primero que todavía tenga lugar.
+  const sigue = siguienteAsignable(flujo);
 
   const entradaRuta: EntradaRuta = {
     liberado,
     cantidad: flujo.cantidad,
     unidad,
-    pasos: flujo.ruta.map((_, i) => {
-      const a = avancePaso(flujo, i);
-      return { etiqueta: etiquetaPaso(flujo.ruta, i), estado: a.estado, entregado: a.entregado };
-    }),
+    // Con despiece, un tramo por proceso (todas sus partes y el mueble completo; lo entregado
+    // son los muebles completos que alcanza lo más atrasado); sin despiece, los pasos de su ruta.
+    pasos:
+      partesConRuta(flujo).length > 0
+        ? columnasMueble(flujo).map((c) => {
+            const a = avanceColumna(flujo, c);
+            return { etiqueta: c.etiqueta, estado: a.estado, entregado: a.muebles };
+          })
+        : flujo.ruta.map((_, i) => {
+            const a = avancePaso(flujo, i);
+            return { etiqueta: etiquetaPaso(flujo.ruta, i), estado: a.estado, entregado: a.entregado };
+          }),
     revisionFinal: resumenFinal
       ? {
           aprobadas: resumenFinal.aprobadas,
@@ -381,10 +396,9 @@ export default async function FichaMuebleQrPage({
         )
       : [];
   const calidad = panelCalidadQr(resumenFinal ?? null, puedeEvaluar);
-  // Pasos guardados de la ruta: con la sugerida (sin guardar) no hay a dónde regresar lo rechazado.
-  const pasosRegreso = flujo.ruta.flatMap((p, n) =>
-    p.id ? [{ id: p.id, etiqueta: `${n + 1}. ${etiquetaPaso(flujo.ruta, n)}` }] : []
-  );
+  // Pasos guardados de las rutas (de cada parte y del mueble): con la sugerida (sin guardar) no
+  // hay a dónde regresar lo rechazado.
+  const pasosRegreso = pasosDeTodasLasRutas(flujo.ruta, flujo.partes ?? []);
 
   const rechazos: RechazoQr[] = [
     ...(rechazosLote ?? []).map((r) => ({
@@ -421,7 +435,12 @@ export default async function FichaMuebleQrPage({
         produccion: {
           puedeAsignar: asignarAqui,
           porEntregar: faltanEntregar,
-          porAsignar: sigue ? { paso: sigue.etiqueta, cantidad: sigue.disponible } : null,
+          porAsignar: sigue
+            ? {
+                paso: sigue.parte ? `${sigue.parte.descripcion} · ${sigue.paso.etiqueta}` : sigue.paso.etiqueta,
+                cantidad: sigue.paso.disponible,
+              }
+            : null,
         },
         calidad: {
           revisionFinal: calidad.revisionFinal,
@@ -452,12 +471,11 @@ export default async function FichaMuebleQrPage({
             itemId={item.id}
             descripcion={descripcionMueble}
             unidad={item.unidad}
-            pasos={opciones}
+            rutas={opcionesAsignar(flujo)}
             equipos={equipos ?? []}
             encargados={encargados ?? []}
-            partes={flujo.partes}
-            conComponentes={flujo.conComponentes}
-            pasoInicial={sigue?.indice}
+            faltaDespiece={requiereDespiece(flujo)}
+            inicial={sigue ? { parte: sigue.parte?.id ?? null, paso: sigue.paso.indice } : undefined}
             className={clase}
           >
             {a.etiqueta}

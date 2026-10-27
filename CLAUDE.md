@@ -142,24 +142,36 @@ leerlo asume el flujo con verificación.
 Cada mueble padre liberado tiene una **ruta**: pasos en orden que se pueden repetir (Armado → Barniz →
 Armado). La sugerida es Armado → Superficie Sólida → Barniz → Electrificación (S.S. y Electrificación solo
 si el mueble o sus componentes las llevan); se crea con la primera asignación o al guardar la ruta
-(`guardar_ruta_produccion`, bloqueo optimista por versión). Migración `ruta_produccion`, lógica sin base en
-`src/lib/produccion/ruta.ts` y `flujo-mueble.ts`. **La ruta ya no se edita en pantalla** (oct 2026: se quitó
-"Editar ruta" del panel porque descuadraba lo demás): cada mueble usa la sugerida. `guardar_ruta_produccion`
-y el soporte de pasos repetidos siguen en la base, sin uso desde la app.
+(`guardar_ruta_produccion`, bloqueo optimista por versión, una versión por mueble). Migración `ruta_produccion`,
+lógica sin base en `src/lib/produccion/ruta.ts` y `flujo-mueble.ts`.
+
+**Rutas por parte** (migración `rutas_por_parte`, 26 oct 2026): la ruta del mueble es **solo del mueble
+completo** y cada parte del despiece tiene **la suya** (`pasos_ruta_produccion.parte_id`: null = mueble). Son
+independientes: agregar un paso al mueble no aparece en sus partes ni al revés (la Tabla: Armado → Barniz;
+el herraje: Armado). Primero van las partes y después el mueble: lo listo para su primer paso es lo que
+alcanza la parte más atrasada en el último paso de su ruta (`muebles_por_partes`; `partesCompletas`). Un
+mueble con partes nace con su ruta **vacía**; lo que se le hace ya armado lo agrega Producción. **No hay
+proceso Ensamble**: ensamblar es un Armado del mueble completo (la migración `ensamble_produccion`, del mismo
+día, quedó reemplazada). Una parte que nunca guardó su ruta (`partes_despiece.ruta_guardada_en` null) usa la
+sugerida y la base la crea al asignar o guardar (`asegurar_ruta_produccion`; `rutasDelFlujo` en pantalla).
+Cada ruta se edita aparte con "Ruta" al abrir el mueble en el panel (`editar-ruta.tsx`, `p_parte_id`).
+`procesos_omitidos` y `guardar_procesos_parte` ya no se usan. En los recibos, la idea acordada (aún no hecha)
+es que el Armado con solo el modelo es el del mueble completo (el ensamble) y con componente, la parte.
 
 - Cada asignación es de un paso (`asignaciones_produccion.paso_id`) y el tope es **por paso** (la cantidad
   del mueble), no por proceso. El retrabajo no cuenta y hereda el paso (`trg_paso_de_retrabajo`).
 - Asignar más de lo que el paso anterior entregó y verificó **no se bloquea**: se avisa y la asignación
   queda `adelantada`.
-- Un paso con asignaciones vigentes no se quita; los quitados quedan con `retirado_en`.
+- Un paso con asignaciones vigentes no se quita, y dos pasos con asignaciones no cambian de orden entre sí
+  (`puedeMover`; la base también lo rechaza); los quitados quedan con `retirado_en`.
 - Un paso no está terminado mientras Calidad tenga piezas rechazadas de sus lotes sin reasignar
   (`rechazado_por_reasignar` del resumen). Con un proceso repetido, el resumen y los lotes de Calidad dicen
   qué vez es (`vez_paso` de `veces_proceso`; en pantalla "Armado 2" con `etiquetaProceso`). La línea de
   tiempo de Planeación cuenta un proceso hasta terminar todas sus pasadas (migración
   `correcciones_ruta_produccion`).
 - Un proceso que la ruta repite **se cobra cada vez**: en Estimaciones lo esperado de un mueble padre en
-  Armado/Acabados es cantidad del PM × pasos de armado/barniz de su ruta (mínimo 1; `veces_proceso_ruta`,
-  migración `recibos_procesos_repetidos`). Componentes y Electrificación siguen 1×. Lo usan el control al
+  Armado/Acabados es cantidad del PM × (pasos de armado/barniz de la ruta del mueble + los de la parte que más
+  veces lo lleva) (mínimo 1; `veces_proceso_ruta`, migraciones `recibos_procesos_repetidos` y `rutas_por_parte`). Componentes y Electrificación siguen 1×. Lo usan el control al
   guardar el renglón, el campo Modelo de la captura y "PM contra cobrado" (`cantidad_pm_acabados/armado`).
 
 ## Carrito y panel de asignación
@@ -198,36 +210,38 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
   piezas y la asignación lleva la unidad de la parte. Tope por paso de una parte = piezas por mueble ×
   cantidad del mueble. Lo del mueble completo (muebles sin componentes o asignaciones viejas) sigue en
   muebles y cuenta para todas sus partes × sus piezas por mueble.
-- **Ruta por parte**: una parte se puede saltar procesos de la ruta del mueble
-  (`partes_despiece.procesos_omitidos`, `guardar_procesos_parte`; ej. el herraje no va a Barniz). No se le
-  asigna un proceso que omite y en ese paso no cuenta; si ninguna parte lleva el proceso, el paso cuenta como
-  terminado. El paso anterior de una parte (para "listo"/adelantada) es el último que la parte lleva.
-- **Un paso avanza lo de la parte más atrasada**: lo del mueble completo + el mínimo, entre las partes que
-  llevan el proceso, de sus piezas ÷ piezas por mueble (`cobertura_por_partes` con el proceso, en la base;
-  `avancePaso` en `flujo-mueble.ts`). La revisión final toma de cada parte su último paso. Con eso cuentan la revisión final (`piezas_listas_revision_final`) y el cobro
-  (`verificado_produccion_variante`, `aprobado_calidad_variante`): un mueble cuenta cuando todas sus
-  partes. Si un mueble se reparte entre planta y maquilador, lo liberado para cobrar queda en 0 hasta la
-  fase 3 (cobro por partes).
-- Asignar: en el panel, desde la **tabla del despiece** del mueble (al abrirlo): cada celda parte × paso
-  muestra entregadas/piezas y un "+" que abre `AsignarForm` con esa parte y ese paso; ahí mismo
-  "Quitar"/"+ Agregar" arma la ruta de la parte. Los círculos de cada paso solo muestran el avance
-  (ponderado). `AsignarForm` asigna una parte a la vez, en piezas (`crear_asignacion_produccion` con
-  `p_parte_id`; `crear_asignaciones_por_partes` ya no se usa). La parte sale en `etiquetaProceso`
+- **Cada parte tiene su ruta** (ver "Rutas por parte" arriba): una asignación de una parte va en un paso de su
+  ruta y la del mueble completo, en uno de la del mueble (la base rechaza cruzarlas). El paso anterior de una
+  parte (para "listo"/adelantada) es el anterior de su ruta; el primero del mueble, lo que alcanzan sus partes.
+- **Revisión final**: sin pasos del mueble, cuenta lo que alcanza la parte más atrasada en su último paso;
+  con pasos, lo del último paso del mueble (`piezas_listas_revision_final`). Lo rechazado puede regresar a un
+  paso de una parte: sigue el resto de su ruta en sus piezas (muebles × piezas por mueble) y después la del
+  mueble (`siguiente_paso_revision_final`, columnas `siguiente_parte*` de `rechazos_revision_final`).
+- **Cobro** (`verificado_produccion_variante`, `aprobado_calidad_variante`): un paso del mueble cuenta lo suyo;
+  los de las partes se juntan por proceso y vez (`vez_paso_ruta`) y cuentan la parte más atrasada entre las
+  que llevan ese proceso esa vez (`cobertura_partes_vez`). Si un mueble se reparte entre planta y maquilador,
+  lo liberado para cobrar queda en 0 hasta la fase 3 (cobro por partes).
+- Asignar: al abrir el mueble en el panel sale la **tabla del despiece**: una fila por parte y una del
+  "Mueble completo", una columna por proceso (`columnasMueble`; "—" si esa ruta no lo lleva), con lo
+  entregado de cada paso, su "+" y el botón "Ruta" de cada fila. En la fila del mueble, con despiece, hay
+  **un anillo por proceso** (`avanceColumna`: las partes que lo llevan, ponderadas por su %, y el mueble
+  completo si también lo lleva). El mueble completo de un mueble con partes **no lleva Barniz** hasta
+  demostrar lo contrario (solo pantalla: `editar-ruta.tsx` no lo ofrece; uno que ya lo tenga lo conserva). `AsignarForm` pregunta
+  "¿Qué se asigna?" (una parte o el mueble completo) y luego el paso de esa ruta; una parte va en piezas
+  (`crear_asignacion_produccion` con `p_parte_id`; `crear_asignaciones_por_partes` ya no se usa). La parte sale en `etiquetaProceso`
   ("Armado · Base de metal") y `textoAvanceAsignacion` da "5/39 PZA" con la unidad de la parte.
 - **Bloqueo** (`guardar_despiece_produccion`): una parte con asignaciones vigentes no se quita ni baja su
   cantidad por mueble; agregar partes o subir cantidades sí. Al volver a la sugerencia, la parte se
   reconoce por su componente del PM. El retrabajo hereda la parte (`trg_paso_de_retrabajo`).
 - **El despiece se usa para asignar** (migración `despiece_porcentaje_obligatorio`): un mueble con
   componentes vigentes en el PM no se asigna sin despiece guardado (`requiere_despiece`; en el panel sale
-  "Hacer despiece" en lugar del "+"); los muebles sin componentes se asignan completos. "Mueble completo" solo existe para muebles sin
-  componentes: uno con componentes se asigna únicamente por partes (`AsignarForm` sin selector;
-  `tiene_componentes` en `crear_asignacion_produccion`, migración `asignar_por_partes_con_componentes`). Cada parte vale un
+  "Hacer despiece" en lugar del "+"); los muebles sin componentes se asignan completos. Con despiece, el
+  mueble completo se asigna solo en los pasos de su propia ruta. Cada parte vale un
   **% del mueble** en partes iguales (`partes_despiece.porcentaje`): no se captura, el editor lo calcula
-  solo al guardar (`repartirPorcentajes`); la base acepta un % por línea que sume 100. Al abrir un mueble en el panel se ve su despiece con el avance
-  por parte, y el anillo de cada paso es el avance ponderado (`avancePonderado`). Solo es visual: el cobro
-  y la revisión final siguen contando un mueble cuando todas sus partes.
+  solo al guardar (`repartirPorcentajes`); la base acepta un % por línea que sume 100. Solo es visual (los
+  anillos por proceso): el cobro y la revisión final siguen contando un mueble cuando todas sus partes.
 - **Encuadre** (`encuadreMueble` en `flujo-mueble.ts`, solo pantalla): muebles completos = lo que alcanza la
-  parte más atrasada, con lo entregado en el último paso que cada parte lleva (piezas ÷ piezas por mueble,
+  parte más atrasada, con lo entregado en el último paso de la ruta de cada parte (piezas ÷ piezas por mueble,
   hacia abajo). También da, por parte, sus piezas terminadas, los muebles que alcanza y lo que le falta
   para llegar a la más adelantada (20 tablas de 3 = 6 muebles → al herraje le faltan 6). En pantalla solo
   sale "0/23 completos" junto a la cantidad del mueble en el panel; el resto queda como lógica.
@@ -284,6 +298,15 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   (`recibo_contra_calidad`, que trae lo aprobado y lo verificado; `src/app/estimaciones/calidad-recibo.tsx`): es
   un aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece al liberarse.
 - No cubre el doble cobro (el mueble y también sus componentes por el mismo trabajo): salen juntos en pantalla.
+- **Recibos por llegar** (panel de Estimaciones y `/estimaciones/por-llegar`, solo quien revisa recibos): lo que
+  **Calidad aprobó** y aún no se cobra, por área (Acabados, Armado), con base Calidad siempre (el maquilador solo
+  cobra lo aprobado), aunque `cobro_segun_produccion` esté encendido. "Calidad aprobó" incluye la revisión final
+  del mueble (sin pasar de lo que Producción verificó de equipos externos; migración `recibos_por_llegar`). Cuenta
+  muebles, al menos un recibo por O.T. y área (los equipos no están ligados al contratista) y un importe con el
+  último precio pagado del modelo. Cada área muestra una tarjeta por mueble **entregado a Calidad** aunque no
+  esté aprobado (`muebles_en_calidad`, migración `muebles_en_calidad`): aprobados, en revisión, sin entregar y,
+  por parte del despiece, piezas entregadas y aprobadas. Lógica en `src/lib/estimaciones/por-llegar.ts`,
+  lectura en `-db.ts`.
 
 ## QR del mueble
 

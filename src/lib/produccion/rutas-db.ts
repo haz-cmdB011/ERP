@@ -1,5 +1,6 @@
-// Lectura de las rutas guardadas de varios muebles (ver ruta.ts y la migración
-// ruta_produccion). Lanza ErrorLectura si una consulta falla.
+// Lectura de las rutas guardadas de varios muebles: la del mueble completo y la de cada
+// parte de su despiece (ver ruta.ts y las migraciones ruta_produccion y rutas_por_parte).
+// Lanza ErrorLectura si una consulta falla.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leer } from "@/lib/supabase/leer";
@@ -8,7 +9,10 @@ import type { PasoRuta } from "./ruta";
 
 export interface RutaGuardada {
   version: number;
+  // Pasos del mueble completo.
   pasos: PasoRuta[];
+  // Pasos de cada parte, por id de parte (solo las que tienen pasos guardados).
+  partes: Map<string, PasoRuta[]>;
 }
 
 // .in() con muchos ids rompe el largo de la URL; 50 muebles × 12 pasos como
@@ -41,11 +45,13 @@ export async function cargarRutas(
         leer(
           supabase
             .from("pasos_ruta_produccion")
-            .select("id, planeacion_item_id, orden, proceso")
+            .select("id, planeacion_item_id, parte_id, orden, proceso")
             .in("planeacion_item_id", lote)
             .is("retirado_en", null)
             .order("orden")
-            .returns<{ id: string; planeacion_item_id: string; orden: number; proceso: string }[]>(),
+            .returns<
+              { id: string; planeacion_item_id: string; parte_id: string | null; orden: number; proceso: string }[]
+            >(),
           "los pasos de las rutas"
         ),
       ])
@@ -53,10 +59,20 @@ export async function cargarRutas(
   );
 
   for (const [rutas, pasos] of lotes) {
-    for (const r of rutas ?? []) mapa.set(r.planeacion_item_id, { version: r.version, pasos: [] });
+    for (const r of rutas ?? []) {
+      mapa.set(r.planeacion_item_id, { version: r.version, pasos: [], partes: new Map() });
+    }
     for (const p of pasos ?? []) {
       const ruta = mapa.get(p.planeacion_item_id);
-      if (ruta && esProceso(p.proceso)) ruta.pasos.push({ id: p.id, proceso: p.proceso });
+      if (!ruta || !esProceso(p.proceso)) continue;
+      const paso = { id: p.id, proceso: p.proceso };
+      if (!p.parte_id) {
+        ruta.pasos.push(paso);
+        continue;
+      }
+      const deParte = ruta.partes.get(p.parte_id);
+      if (deParte) deParte.push(paso);
+      else ruta.partes.set(p.parte_id, [paso]);
     }
   }
   return mapa;

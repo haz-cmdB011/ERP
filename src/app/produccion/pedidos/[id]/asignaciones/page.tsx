@@ -24,8 +24,7 @@ import DetalleAsignacion, {
 
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
-import { disponibleDe, seAsignaCompleto, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
-import { rutaSugerida } from "@/lib/produccion/ruta";
+import { disponibleDe, rutasDelFlujo, seAsignaCompleto, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { cargarPartes } from "@/lib/produccion/partes-db";
 import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
@@ -208,10 +207,10 @@ export default async function AsignacionesPedidoPage({
     };
   };
 
-  // Cada mueble con su ruta: la guardada o, si aún no tiene, la sugerida.
+  // Cada mueble con su ruta y la de cada parte: las guardadas o, si aún no tienen, las sugeridas.
   const flujo: MuebleFlujo[] = liberados.map((m) => {
-    const guardada = rutas.get(m.id);
     const aplica = aplicaA(m);
+    const r = rutasDelFlujo(rutas.get(m.id), aplica, partes.get(m.id) ?? []);
     return {
       id: m.id,
       item_code: m.item_code,
@@ -219,11 +218,11 @@ export default async function AsignacionesPedidoPage({
       unidad: m.unidad,
       cantidad: Number(m.cantidad_total),
       aplica,
-      ruta: guardada && guardada.pasos.length > 0 ? guardada.pasos : rutaSugerida(aplica),
-      versionRuta: guardada?.version ?? 0,
+      ruta: r.ruta,
+      versionRuta: rutas.get(m.id)?.version ?? 0,
       asignaciones: porItem.get(m.id) ?? [],
       revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
-      partes: partes.get(m.id) ?? [],
+      partes: r.partes,
       conComponentes: conComponentes.has(m.id),
       despieceHref: `/produccion/pedidos/${id}/despiece/${m.id}`,
     };

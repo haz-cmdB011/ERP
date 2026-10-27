@@ -190,31 +190,60 @@ describe("armarLineaTiempo", () => {
 
 describe("armarLineaTiempo con partes en piezas", () => {
   const liberadoMueble = { estado_liberacion: "enviado_a_produccion" } as const;
-  it("cada parte cuenta sus piezas ÷ piezas por mueble y solo en los procesos que lleva", () => {
-    // 10 muebles: tabla 3 por mueble (30 piezas); herraje 1 por mueble y sin Barniz.
-    const partes = new Map([
+  // 10 muebles: tabla 3 por mueble (30 piezas) Armado → Barniz; herraje 1 por mueble, solo Armado.
+  const partes = new Map([
+    [
+      "m1",
+      [
+        { id: "tabla", piezasPorMueble: 3 },
+        { id: "herraje", piezasPorMueble: 1 },
+      ],
+    ],
+  ]);
+  const rutas = (mueble: { id: string; proceso: string }[] = []) =>
+    new Map([
       [
         "m1",
         [
-          { id: "tabla", piezasPorMueble: 3 },
-          { id: "herraje", piezasPorMueble: 1, procesosOmitidos: ["barniz"] },
+          { id: "t1", proceso: "armado", parteId: "tabla" },
+          { id: "t2", proceso: "barniz", parteId: "tabla" },
+          { id: "h1", proceso: "armado", parteId: "herraje" },
+          ...mueble,
         ],
       ],
     ]);
+
+  it("cada parte cuenta sus piezas ÷ piezas por mueble y solo en los procesos de su ruta", () => {
     const t = armarLineaTiempo(
       [item("m1", liberadoMueble)],
       [
-        asig("m1", "armado", 30, 30, { parte_id: "tabla" }),
-        asig("m1", "armado", 10, 10, { parte_id: "herraje" }),
-        asig("m1", "barniz", 30, 15, { parte_id: "tabla" }),
+        asig("m1", "armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+        asig("m1", "armado", 10, 10, { parte_id: "herraje", paso_id: "h1" }),
+        asig("m1", "barniz", 30, 15, { parte_id: "tabla", paso_id: "t2" }),
       ],
       new Set(),
-      new Map(),
+      rutas(),
       partes
     );
     expect(t.asignados.armado).toBe(1);
     expect(t.entregados.armado).toBe(1);
     expect(t.asignados.barniz).toBe(1);
     expect(t.entregados.barniz).toBe(0);
+  });
+
+  it("con un Armado del mueble completo (el ensamble), el armado espera también ese paso", () => {
+    const t = armarLineaTiempo(
+      [item("m1", liberadoMueble)],
+      [
+        asig("m1", "armado", 30, 30, { parte_id: "tabla", paso_id: "t1" }),
+        asig("m1", "armado", 10, 10, { parte_id: "herraje", paso_id: "h1" }),
+        asig("m1", "armado", 10, 4, { paso_id: "e1" }),
+      ],
+      new Set(),
+      rutas([{ id: "e1", proceso: "armado" }]),
+      partes
+    );
+    expect(t.asignados.armado).toBe(1);
+    expect(t.entregados.armado).toBe(0);
   });
 });
