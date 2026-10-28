@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     imagen = await sharp(original, { limitInputPixels: LIMITE_PIXELES })
       .rotate()
       .resize(LADO_AVATAR, LADO_AVATAR, { fit: "cover", position: "attention" })
-      .webp({ quality: 82 })
+      .webp({ quality: 82, effort: 6 })
       .toBuffer();
   } catch {
     return NextResponse.json({ error: "No se pudo leer la imagen. Prueba con otra." }, { status: 400 });
