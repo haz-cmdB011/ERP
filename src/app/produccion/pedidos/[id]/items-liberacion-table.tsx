@@ -51,6 +51,18 @@ type FiltroEstado = "todos" | "listos" | "incompletos";
 
 const MATERIALES = ["MADERA", "METAL", "TAPIZ", "HIBRIDO"] as const;
 
+// Cada material tiene su color: franja a la izquierda del mueble y pastilla en su columna.
+const ESTILO_MATERIAL: Record<string, { pastilla: string; franja: string }> = {
+  MADERA: { pastilla: "bg-amber-100 text-amber-800", franja: "border-l-amber-400" },
+  METAL: { pastilla: "bg-slate-200 text-slate-700", franja: "border-l-slate-400" },
+  TAPIZ: { pastilla: "bg-rose-100 text-rose-800", franja: "border-l-rose-400" },
+  HIBRIDO: { pastilla: "bg-violet-100 text-violet-800", franja: "border-l-violet-400" },
+};
+
+function estiloMaterial(material: string | null) {
+  return ESTILO_MATERIAL[material?.toUpperCase() ?? ""];
+}
+
 function esListo(item: ItemLiberacionRow): boolean {
   return (
     item.ingenieria === true &&
@@ -277,14 +289,14 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-emerald-700">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
           <IconoCheck />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-slate-500">
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-sm font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
         <IconoReloj />
         Pendiente
       </span>
@@ -326,7 +338,12 @@ export default function ItemsLiberacionTable({
           desplegable ? "cursor-pointer" : ""
         }`}
       >
-        <td className={`px-2 py-3 sm:px-3 lg:py-2 ${indentado ? "guia-hija" : ""}`} onClick={sinToggle}>
+        <td
+          className={`px-2 py-3 sm:px-3 lg:py-2 ${
+            indentado ? "guia-hija" : `border-l-4 ${estiloMaterial(item.tipo_material)?.franja ?? "border-l-transparent"}`
+          }`}
+          onClick={sinToggle}
+        >
           <input
             type="checkbox"
             checked={seleccionados.has(item.id)}
@@ -366,7 +383,13 @@ export default function ItemsLiberacionTable({
                 descripcion={`los ${grupo.totalHijos} componente${grupo.totalHijos === 1 ? "" : "s"} del ítem ${item.item_code}`}
               />
             )}
-            {item.item_code}
+            {indentado ? (
+              item.item_code
+            ) : (
+              <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-brand-100 px-2 text-brand-900">
+                {item.item_code}
+              </span>
+            )}
             {/* Tablet: el modelo va junto al número, como título de la ficha. */}
             {item.modelo && <span className="lg:hidden">· {item.modelo}</span>}
           </span>
@@ -388,7 +411,13 @@ export default function ItemsLiberacionTable({
               <span className="text-base font-semibold text-slate-900">
                 {item.cantidad_total} {item.unidad}
               </span>
-              {item.tipo_material && <span>{item.tipo_material}</span>}
+              {item.tipo_material && (
+                <span
+                  className={`rounded-full px-2 py-0.5 font-medium ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+                >
+                  {item.tipo_material}
+                </span>
+              )}
               {item.folio && <span className="font-mono text-slate-800">{item.folio}</span>}
             </p>
             <div>
@@ -409,7 +438,15 @@ export default function ItemsLiberacionTable({
             </span>
           )}
         </td>
-        <td className="hidden px-3 py-2 text-sm font-normal text-slate-600 lg:table-cell">{item.tipo_material}</td>
+        <td className="hidden px-3 py-2 text-sm font-normal text-slate-600 lg:table-cell">
+          {item.tipo_material && (
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+            >
+              {item.tipo_material}
+            </span>
+          )}
+        </td>
         <td className="hidden whitespace-nowrap px-3 py-2 text-base font-semibold lg:table-cell">
           {item.cantidad_total} {item.unidad}
         </td>
@@ -441,7 +478,7 @@ export default function ItemsLiberacionTable({
               href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
               title="Viajero"
               aria-label={`Viajero del ítem ${item.item_code}`}
-              className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
+              className="flex h-11 w-11 items-center justify-center rounded border border-sky-200 bg-sky-50 text-sky-700 transition-colors hover:border-sky-400 hover:bg-sky-100 lg:h-8 lg:w-8"
             >
               {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
               <svg
@@ -463,7 +500,7 @@ export default function ItemsLiberacionTable({
                 href={`/produccion/pedidos/${pedidoId}/despiece/${item.id}`}
                 title="Despiece"
                 aria-label={`Despiece del ítem ${item.item_code}`}
-                className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
+                className="flex h-11 w-11 items-center justify-center rounded border border-violet-200 bg-violet-50 text-violet-700 transition-colors hover:border-violet-400 hover:bg-violet-100 lg:h-8 lg:w-8"
               >
                 {/* Capas: el mueble desglosado en sus piezas. */}
                 <svg
@@ -490,7 +527,7 @@ export default function ItemsLiberacionTable({
               className={`flex h-11 w-11 items-center justify-center rounded border transition-colors lg:h-8 lg:w-8 ${
                 enCarrito
                   ? "border-brand-600 bg-brand-500 text-on-brand"
-                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100"
               }`}
             >
               <svg
@@ -633,7 +670,7 @@ export default function ItemsLiberacionTable({
           {/* Barra de acción masiva: sticky para no tener que subir hasta
               arriba en pedidos con muchos ítems después de seleccionar. La acción
               principal es agregar al carrito (ahí se libera y se asigna); lo demás va en "Más". */}
-          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-brand-200 bg-brand-50/90 p-3 text-sm shadow-sm backdrop-blur">
             <label className="flex min-h-11 items-center gap-2 text-base font-medium text-slate-900">
               <input
                 type="checkbox"
@@ -698,7 +735,7 @@ export default function ItemsLiberacionTable({
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table ref={tablaRef} className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
                     <th className="px-3 py-2"></th>
                     <th className="py-2 pr-1 lg:px-3">Imagen</th>
                     <th className="px-3 py-2">Item</th>
