@@ -290,14 +290,14 @@ export default function ItemsTabla({
           value={filtro}
           onChange={(e) => aplicarFiltros(e.target.value, material, estadoFiltro)}
           placeholder="Buscar modelo en este pedido..."
-          className="min-h-12 min-w-48 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base shadow-sm focus:border-brand-600 focus:outline-none"
+          className="min-w-48 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base shadow-sm focus:border-brand-600 focus:outline-none sm:py-2 sm:text-sm"
         />
         {hayFiltrosDisponibles && (
           <button
             type="button"
             onClick={() => setFiltrosAbiertos((a) => !a)}
             aria-expanded={filtrosAbiertos}
-            className={`min-h-12 rounded-lg border px-4 py-2.5 text-base shadow-sm ${
+            className={`rounded-lg border px-3 py-2.5 text-sm shadow-sm sm:py-2 ${
               filtrosActivos > 0
                 ? "border-brand-600 bg-brand-50 font-medium text-brand-800"
                 : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -310,7 +310,7 @@ export default function ItemsTabla({
           <button
             type="button"
             onClick={() => setExpandidos(expandidos.size > 0 ? new Set() : new Set(muebles.map((m) => m.id)))}
-            className="min-h-12 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-700 shadow-sm hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50 sm:py-2"
           >
             {expandidos.size > 0 ? "Ocultar componentes" : "Mostrar componentes"}
           </button>
