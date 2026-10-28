@@ -13,6 +13,7 @@ import BotonDesplegar from "@/components/boton-desplegar";
 import { useFlip } from "@/lib/ui/use-flip";
 import { agregarItems, useCarrito } from "@/lib/produccion/carrito-navegador";
 import type { ItemCarrito } from "@/lib/produccion/carrito";
+import { estiloMaterial } from "@/lib/ui/material";
 
 export interface ItemLiberacionRow {
   id: string;
@@ -50,18 +51,6 @@ interface GrupoMueble {
 type FiltroEstado = "todos" | "listos" | "incompletos";
 
 const MATERIALES = ["MADERA", "METAL", "TAPIZ", "HIBRIDO"] as const;
-
-// Cada material tiene su color: franja a la izquierda del mueble y pastilla en su columna.
-const ESTILO_MATERIAL: Record<string, { pastilla: string; franja: string }> = {
-  MADERA: { pastilla: "bg-amber-100 text-amber-800", franja: "border-l-amber-400" },
-  METAL: { pastilla: "bg-slate-200 text-slate-700", franja: "border-l-slate-400" },
-  TAPIZ: { pastilla: "bg-rose-100 text-rose-800", franja: "border-l-rose-400" },
-  HIBRIDO: { pastilla: "bg-violet-100 text-violet-800", franja: "border-l-violet-400" },
-};
-
-function estiloMaterial(material: string | null) {
-  return ESTILO_MATERIAL[material?.toUpperCase() ?? ""];
-}
 
 function esListo(item: ItemLiberacionRow): boolean {
   return (

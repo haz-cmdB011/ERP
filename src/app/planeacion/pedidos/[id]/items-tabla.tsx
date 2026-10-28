@@ -28,6 +28,7 @@ import Chevron from "@/components/chevron";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import type { ImagenItemUrls } from "@/lib/planeacion/imagenes";
 import { useFlip } from "@/lib/ui/use-flip";
+import { estiloMaterial } from "@/lib/ui/material";
 
 export interface ItemTabla {
   id: string;
@@ -456,7 +457,7 @@ export default function ItemsTabla({
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table ref={tablaRef} className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 <th className="w-6 py-2 pl-3"></th>
                 {puedeEditar && (
                   <th className="w-8 px-3 py-2">
@@ -489,7 +490,9 @@ export default function ItemsTabla({
                           seleccion.has(m.id) ? "bg-brand-50" : colorFilaEstadoRevision(m.estado_revision)
                         }`}
                       >
-                        <td className="py-2 pl-3 text-slate-500">
+                        <td
+                          className={`border-l-4 py-2 pl-3 text-slate-500 ${estiloMaterial(m.tipo_material)?.franja ?? "border-l-transparent"}`}
+                        >
                           {hijos.length > 0 && (
                             <BotonDesplegar
                               abierto={abierto}
@@ -516,9 +519,20 @@ export default function ItemsTabla({
                         <td className="px-3 py-2">
                           <ImagenesMueble imagenes={imagenesPorItem[m.id] ?? []} etiqueta={`Ítem ${m.item_code}`} className="h-20 w-20" />
                         </td>
-                        <td className="px-3 py-2 text-lg font-bold">{m.item_code}</td>
+                        <td className="px-3 py-2 text-lg font-bold">
+                          <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-brand-100 px-2 text-brand-900">
+                            {m.item_code}
+                          </span>
+                        </td>
                         <td className="px-3 py-2">
                           <span className="text-lg font-semibold">{m.modelo}</span>
+                          {m.tipo_material && (
+                            <span
+                              className={`ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold ${estiloMaterial(m.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+                            >
+                              {m.tipo_material}
+                            </span>
+                          )}
                           {m.descripcion && (
                             <span className="mt-0.5 line-clamp-2 block text-xs font-normal text-slate-500">
                               {m.descripcion.split("\n")[0]}
@@ -666,7 +680,7 @@ export default function ItemsTabla({
 function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: boolean }) {
   const liberado = item.estado_liberacion === LIBERADO;
   const chip = liberado ? (
-    <span className="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-emerald-700">
+    <span className="mt-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
       <span aria-hidden="true">✓</span> En Producción
     </span>
   ) : null;
@@ -724,7 +738,11 @@ function TarjetaItem({
   const descripcion = corto ? item.descripcion?.split("\n")[0] : item.descripcion;
   const fondo = seleccionado ? "bg-brand-50" : colorFilaEstadoRevision(item.estado_revision) || "bg-white";
   return (
-    <div className={`flex flex-col gap-3 rounded-xl border border-slate-200 p-3 shadow-sm ${fondo}`}>
+    <div
+      className={`flex flex-col gap-3 rounded-xl border border-slate-200 border-l-4 p-3 shadow-sm ${
+        estiloMaterial(item.tipo_material)?.franja ?? ""
+      } ${fondo}`}
+    >
       <div className="flex items-start gap-3">
         {puedeEditar && (
           <input
