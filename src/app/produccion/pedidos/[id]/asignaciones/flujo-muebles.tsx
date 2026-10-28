@@ -301,7 +301,7 @@ export function FilaMueble({
           contenido: <Paso mueble={m} indice={i} />,
         }));
   const estiloPildora =
-    "rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap";
+    "rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap";
   const estiloAsignar = `${estiloPildora} bg-amber-500 text-white shadow-sm transition-colors hover:bg-amber-600`;
 
   return (
@@ -316,18 +316,18 @@ export function FilaMueble({
         }}
         className="flex cursor-pointer flex-col gap-3 p-3 sm:flex-row sm:items-center"
       >
-        <div className={`flex min-w-0 items-center gap-2 ${imagen === undefined ? "sm:w-48" : "sm:w-60"}`}>
+        <div className={`flex min-w-0 items-center gap-2 ${imagen === undefined ? "sm:w-56" : "sm:w-72"}`}>
           {imagen ? (
             <ImagenAmpliable
               url={imagen.url}
               urlGrande={imagen.urlGrande}
               alt={`Ítem ${m.item_code}${m.modelo ? ` — ${m.modelo}` : ""}`}
-              className="h-11 w-11"
+              className="h-14 w-14"
             />
           ) : (
             imagen === null && (
               <span
-                className="block h-11 w-11 shrink-0 rounded border border-dashed border-slate-200"
+                className="block h-14 w-14 shrink-0 rounded border border-dashed border-slate-200"
                 title="Sin imagen"
               />
             )
@@ -390,11 +390,11 @@ export function FilaMueble({
               ▸
             </span>
             <span className="min-w-0">
-              <span className="block truncate font-semibold text-slate-900">
+              <span className="block truncate text-base font-semibold text-slate-900">
                 <span className="text-slate-500">{m.item_code} ·</span>{" "}
                 {m.modelo ?? "Sin modelo"}
               </span>
-              <span className="block text-xs text-slate-500">
+              <span className="block text-sm text-slate-500">
                 {m.cantidad} {m.unidad ?? ""}
                 {(m.partes?.length ?? 0) > 0 && (
                   <span
