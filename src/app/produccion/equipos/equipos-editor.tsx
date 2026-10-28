@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Chevron from "@/components/chevron";
 import { avisar } from "@/components/avisos";
 import {
   PROCESO_LABELS,
@@ -18,6 +19,14 @@ import Modal, {
   estiloCampo,
   estiloEtiqueta,
 } from "../asignaciones/modal";
+
+// Un punto de color por proceso: es lo único con color en la lista.
+const COLOR_PROCESO: Record<Proceso, string> = {
+  armado: "bg-amber-500",
+  barniz: "bg-sky-500",
+  electrificacion: "bg-violet-500",
+  superficie_solida: "bg-teal-600",
+};
 
 type Borrador = Omit<EquipoProduccion, "id"> & { id: string | null };
 
@@ -90,27 +99,74 @@ export default function EquiposEditor({
     router.refresh();
   }
 
-  const activos = equipos.filter((e) => e.activo).length;
-  const planta = equipos.filter((e) => e.es_planta).length;
-  const resumen = [
-    { valor: equipos.length, etiqueta: "Equipos" },
-    { valor: activos, etiqueta: "Activos" },
-    { valor: equipos.length - planta, etiqueta: "Maquiladores" },
-    { valor: planta, etiqueta: "Planta" },
-  ];
+  const vigentes = equipos.filter((e) => e.activo);
+  const inactivos = equipos.filter((e) => !e.activo);
+
+  // Una fila por equipo: el nombre manda y solo se escribe lo que es excepción (planta, inactivo,
+  // encargado cuando lo hay). El lápiz aparece al señalar la fila o al enfocarla con el teclado.
+  function Fila({ e }: { e: EquipoProduccion }) {
+    const encargadosTexto = [
+      ...(e.encargado ? [e.encargado] : []),
+      ...encargadosDeEquipo(encargados, e.id),
+    ].join(", ");
+    return (
+      <li key={e.id} className="group relative">
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-3 left-0 w-1 origin-top scale-y-0 rounded-full bg-brand-500 transition-transform duration-200 group-focus-within:scale-y-100 group-hover:scale-y-100"
+        />
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-slate-200 py-4 pl-5 pr-2 transition-colors group-hover:bg-slate-50">
+          <div className="min-w-40 flex-1">
+            <p className={`truncate text-xl font-semibold ${e.activo ? "text-slate-900" : "text-slate-500"}`}>
+              {e.nombre}
+              {e.es_planta && (
+                <span className="ml-3 rounded bg-slate-900 px-2 py-0.5 align-middle text-xs font-medium text-white">
+                  Planta
+                </span>
+              )}
+            </p>
+            {encargadosTexto && <p className="truncate text-sm text-slate-500">{encargadosTexto}</p>}
+          </div>
+          <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+            {e.procesos.map((p) => (
+              <span key={p} className="inline-flex items-center gap-1.5">
+                <span aria-hidden="true" className={`size-2 rounded-full ${COLOR_PROCESO[p]}`} />
+                {PROCESO_LABELS[p]}
+              </span>
+            ))}
+          </p>
+          {puedeEditar && (
+            <button
+              type="button"
+              onClick={() => editar(e)}
+              aria-label={`Editar ${e.nombre}`}
+              title="Editar"
+              className="grid size-10 shrink-0 place-items-center rounded-full text-slate-500 transition-all hover:bg-white hover:text-brand-800 hover:ring-1 hover:ring-slate-300 focus-visible:opacity-100 pointer-coarse:opacity-100 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </li>
+    );
+  }
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <dl className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
-          {resumen.map((r) => (
-            <div key={r.etiqueta} className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <dd className="text-3xl font-bold tabular-nums tracking-tight text-slate-900">{r.valor}</dd>
-              <dt className="text-sm text-slate-500">{r.etiqueta}</dt>
-            </div>
-          ))}
-        </dl>
-        {puedeEditar && (
+      {puedeEditar && (
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={() => editar(NUEVO)}
@@ -129,106 +185,24 @@ export default function EquiposEditor({
             </svg>
             Nuevo equipo
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      <ul className="lista-animada grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {equipos.map((e) => {
-          const nombresEncargados = [
-            ...(e.encargado ? [e.encargado] : []),
-            ...encargadosDeEquipo(encargados, e.id),
-          ].join(", ");
-          return (
-            <li
-              key={e.id}
-              className={`group flex flex-col gap-4 rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-                e.activo
-                  ? "border-slate-200 bg-white hover:border-brand-400"
-                  : "border-dashed border-slate-300 bg-slate-50"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`grid size-12 shrink-0 place-items-center rounded-full text-lg font-bold ${
-                    e.activo ? "bg-brand-100 text-brand-800" : "bg-slate-200 text-slate-500"
-                  }`}
-                  aria-hidden="true"
-                >
-                  {e.nombre.trim().charAt(0).toUpperCase() || "?"}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h2 className={`truncate text-lg font-bold ${e.activo ? "text-slate-900" : "text-slate-500"}`}>
-                    {e.nombre}
-                  </h2>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        e.es_planta ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {e.es_planta ? "Planta" : "Maquilador"}
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1.5 font-medium ${
-                        e.activo ? "text-emerald-700" : "text-slate-500"
-                      }`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`size-2 rounded-full ${e.activo ? "bg-emerald-500" : "bg-slate-400"}`}
-                      />
-                      {e.activo ? "Activo" : "Inactivo"}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5" aria-label="Procesos">
-                {e.procesos.map((p) => (
-                  <span
-                    key={p}
-                    className="rounded-lg bg-brand-50 px-2.5 py-1 text-sm font-semibold text-brand-800 ring-1 ring-inset ring-brand-200"
-                  >
-                    {PROCESO_LABELS[p]}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                <p className="min-w-0 truncate text-sm text-slate-600">
-                  <span className="text-slate-500">Encargado: </span>
-                  <span className={nombresEncargados ? "font-medium text-slate-800" : "text-slate-400"}>
-                    {nombresEncargados || "—"}
-                  </span>
-                </p>
-                {puedeEditar && (
-                  <button
-                    type="button"
-                    onClick={() => editar(e)}
-                    aria-label={`Editar ${e.nombre}`}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-800"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                    </svg>
-                    Editar
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
+      <ul className="border-t border-slate-200">
+        {vigentes.map((e) => Fila({ e }))}
       </ul>
+
+      {inactivos.length > 0 && (
+        <details className="group/inactivos">
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 [&::-webkit-details-marker]:hidden">
+            <Chevron abierto={false} className="h-3.5 w-3.5 group-open/inactivos:rotate-90" />
+            Inactivos ({inactivos.length})
+          </summary>
+          <ul className="mt-2 border-t border-slate-200">
+            {inactivos.map((e) => Fila({ e }))}
+          </ul>
+        </details>
+      )}
 
       {borrador && (
         <Modal
