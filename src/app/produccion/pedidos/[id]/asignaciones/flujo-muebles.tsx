@@ -563,15 +563,15 @@ function CeldaRuta({
             inicial={{ parte: parte?.id ?? null, paso: i }}
             asignar={asignar}
             titulo={`Asignar ${dueno} en ${c.etiqueta} (${fmt(a.disponible)} ${unidad} por asignar)`}
-            className="grid size-8 shrink-0 place-items-center rounded-md bg-brand-500 text-lg font-bold text-on-brand transition-colors hover:bg-brand-400"
+            className="grid size-7 shrink-0 place-items-center rounded-md bg-brand-500 text-base font-bold text-on-brand transition-colors hover:bg-brand-400"
           >
             +
           </BotonAsignar>
         ) : (
-          asignar && <span aria-hidden className="size-8 shrink-0" />
+          asignar && <span aria-hidden className="size-7 shrink-0" />
         )}
         <span
-          className="text-base font-medium text-slate-900"
+          className="text-sm font-medium text-slate-900"
           title={`Entregadas / total (${fmt(a.asignado)} asignadas)`}
         >
           {a.estado === "terminado" ? "✓ " : ""}
@@ -631,7 +631,7 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
   }
   const columnas = columnasMueble(m);
   return (
-    <div className="flex flex-col gap-1.5 text-sm">
+    <div className="flex flex-col gap-1.5 text-xs">
       <div className="flex items-center justify-between gap-2">
         <p className="font-semibold text-slate-700">
           Despiece ({partes.length} partes){" "}
