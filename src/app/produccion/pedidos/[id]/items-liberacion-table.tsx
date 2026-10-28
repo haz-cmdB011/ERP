@@ -277,14 +277,14 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-base font-semibold text-emerald-700">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-emerald-700">
           <IconoCheck />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-base font-semibold text-slate-500">
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-slate-500">
         <IconoReloj />
         Pendiente
       </span>
