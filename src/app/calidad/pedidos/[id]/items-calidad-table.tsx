@@ -686,18 +686,22 @@ export default function ItemsCalidadTable({
     return (
       <tr
         key={item.id}
-        className={`transition-colors hover:bg-slate-50 ${indentado ? "border-t border-slate-100" : "text-sm font-medium text-slate-900"}`}
+        className={`transition-colors hover:bg-slate-50 ${indentado ? "border-t border-slate-100" : "text-base font-medium text-slate-900"}`}
       >
         <td className={`border-l-4 py-2 pl-2 pr-1 ${franjaDe(item)}`}>
-          <Miniatura item={item} clase="h-8 w-8" />
+          <Miniatura item={item} clase={indentado ? "h-12 w-12" : "h-16 w-16"} />
         </td>
-        <td className="px-3 py-2 text-slate-700">{item.item_code}</td>
+        <td className={`px-3 py-2 text-slate-900 ${indentado ? "text-base font-semibold" : "text-lg font-bold"}`}>{item.item_code}</td>
         <td className="px-3 py-2 text-slate-700">
-          {item.modelo && <p className="font-medium text-slate-900">{item.modelo}</p>}
-          <p>{indentado ? item.descripcion?.split("\n")[0] : item.descripcion}</p>
+          {item.modelo && (
+            <p className={indentado ? "text-base font-medium text-slate-900" : "text-lg font-semibold text-slate-900"}>
+              {item.modelo}
+            </p>
+          )}
+          <p className="text-sm">{indentado ? item.descripcion?.split("\n")[0] : item.descripcion}</p>
           {item.tipo_material && <p className="text-xs font-normal text-slate-500">{item.tipo_material}</p>}
         </td>
-        <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+        <td className="whitespace-nowrap px-3 py-2 text-base font-semibold text-slate-900">
           {item.cantidad_total} {item.unidad}
         </td>
         <td className="px-3 py-2">
@@ -717,15 +721,17 @@ export default function ItemsCalidadTable({
         className={`flex flex-col gap-3 border-l-4 p-3 ${franjaDe(item)} ${indentado ? "ml-4 border-t border-slate-100" : ""}`}
       >
         <div className="flex items-start gap-3">
-          <Miniatura item={item} clase="h-12 w-12 shrink-0" />
+          <Miniatura item={item} clase="h-16 w-16 shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-base font-bold text-slate-900">
               Ítem {item.item_code}
               {item.modelo ? ` · ${item.modelo}` : ""}
             </p>
             <p className="line-clamp-2 text-xs text-slate-600">{item.descripcion?.split("\n")[0]}</p>
             <p className="mt-0.5 text-xs text-slate-500">
-              {item.cantidad_total} {item.unidad}
+              <span className="text-base font-semibold text-slate-900">
+                {item.cantidad_total} {item.unidad}
+              </span>
               {item.tipo_material ? ` · ${item.tipo_material}` : ""}
             </p>
           </div>
