@@ -346,7 +346,7 @@ export function FilaMueble({
           </span>
         ) : asignar && requiereDespiece(m) ? (
           <EnlaceDespiece mueble={m} className={estiloAsignar}>
-            Hacer despiece →
+            Falta despiece →
           </EnlaceDespiece>
         ) : asignar && toca?.tipo === "partes" && sigue ? (
           <BotonAsignar
@@ -592,10 +592,13 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
   if (requiereDespiece(m)) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        <p>Este mueble tiene componentes: guarda su despiece para asignarlo por partes.</p>
+        <p>
+          Este mueble tiene componentes y no tiene despiece (se hace en el carrito, antes de liberarlo).
+          Sin él no se asigna por partes.
+        </p>
         {asignar && (
           <EnlaceDespiece mueble={m} className="font-semibold underline">
-            Hacer despiece
+            Hacer despiece aquí
           </EnlaceDespiece>
         )}
       </div>
@@ -637,9 +640,12 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
           Despiece ({partes.length} partes){" "}
           <span className="font-normal text-slate-500">· cada parte con su ruta, en sus piezas; asigna con el +</span>
         </p>
-        <EnlaceDespiece mueble={m} className="font-medium text-sky-700 underline">
-          Ver o editar despiece
-        </EnlaceDespiece>
+        {/* El despiece se hace en el carrito; aquí solo se corrige si hace falta. */}
+        {asignar && (
+          <EnlaceDespiece mueble={m} className="font-medium text-sky-700 underline">
+            Editar despiece
+          </EnlaceDespiece>
+        )}
       </div>
       <div className="overflow-x-auto rounded-lg bg-white">
         <table className="w-full text-left tabular-nums">

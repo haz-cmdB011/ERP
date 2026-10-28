@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { avisar } from "@/components/avisos";
 import ConfirmDialog from "@/components/confirm-dialog";
-import { agruparCarrito, type ItemCarrito } from "@/lib/produccion/carrito";
+import { agruparCarrito, filasCarrito, type ItemCarrito } from "@/lib/produccion/carrito";
 import { quitarItems, useCarrito, vaciarCarrito } from "@/lib/produccion/carrito-navegador";
-import type { DatosCarrito, MuebleCarrito } from "@/lib/produccion/carrito-db";
+import type { DatosCarrito, DespieceCarrito, MuebleCarrito } from "@/lib/produccion/carrito-db";
 import {
   PROCESO_LABELS,
   PROCESOS,
@@ -16,6 +16,8 @@ import {
 } from "@/lib/produccion/asignaciones";
 import { MAX_IDS_PANEL } from "@/lib/produccion/panel";
 import AsignarLote from "../asignaciones/asignar-lote";
+import BotonDesplegar from "@/components/boton-desplegar";
+import DespieceEnLinea from "./despiece-en-linea";
 
 // Panel de asignación de esos muebles (todos los liberados si son demasiados para la dirección).
 function urlPanel(ids: string[]): string {
@@ -71,6 +73,20 @@ export default function CarritoVista() {
   }, [cargar]);
 
   const grupos = useMemo(() => agruparCarrito(items), [items]);
+  // Los componentes viajan con su mueble (se liberan con él) pero no salen como filas.
+  const componentesDe = useMemo(() => {
+    const mapa = new Map<string, string[]>();
+    for (const i of items) {
+      if (i.tipo !== "FU" || !i.padreId) continue;
+      mapa.set(i.padreId, [...(mapa.get(i.padreId) ?? []), i.id]);
+    }
+    return mapa;
+  }, [items]);
+  // Las filas que se ven: los muebles y algún componente suelto (sin su mueble en el carrito).
+  const idsVisibles = useMemo(() => new Set(filasCarrito(items).map((i) => i.id)), [items]);
+  const visible = (i: ItemCarrito) => idsVisibles.has(i.id);
+  // Un mueble con sus componentes.
+  const conComponentes = (ids: string[]) => ids.flatMap((id) => [id, ...(componentesDe.get(id) ?? [])]);
   const estadoDe = (id: string) => datos?.estados[id];
   const mueblePorId = useMemo(
     () => new Map((datos?.muebles ?? []).map((m) => [m.id, m])),
@@ -118,7 +134,7 @@ export default function CarritoVista() {
       <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
         <p>El carrito está vacío.</p>
         <p>
-          Entra a un PM, marca muebles o componentes y usa{" "}
+          Entra a un PM, marca muebles y usa{" "}
           <span className="font-medium text-slate-700">Agregar al carrito</span>.
         </p>
         <Link href="/produccion" className="font-medium text-brand-700 hover:underline">
@@ -132,28 +148,38 @@ export default function CarritoVista() {
   const puedeEditar = datos?.puedeEditar ?? false;
   const equipos = datos?.equipos ?? [];
   const encargados = datos?.encargados ?? [];
-  const pendientes = items.filter((i) => estadoDe(i.id)?.vigente && !estadoDe(i.id)?.liberado);
+  const despieces = datos?.despieces ?? {};
+  const porLiberar = (i: ItemCarrito) => !!estadoDe(i.id)?.vigente && !estadoDe(i.id)?.liberado;
+  // Lo que se libera de unas filas: ellas y sus componentes que sigan pendientes.
+  const idsALiberar = (filas: ItemCarrito[]) => {
+    const ids = new Set(conComponentes(filas.map((f) => f.id)));
+    return items.filter((i) => ids.has(i.id) && porLiberar(i)).map((i) => i.id);
+  };
+  const filas = items.filter(visible);
+  const pendientes = filas.filter(porLiberar);
+  // Muebles con componentes que todavía no tienen su despiece guardado.
+  const sinDespiece = filas.filter((i) => (despieces[i.id]?.componentes ?? 0) > 0 && !despieces[i.id]?.partes);
 
   return (
     <div className="flex flex-col gap-5">
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
         <span className="font-medium text-slate-900">
-          {items.length} ítem{items.length === 1 ? "" : "s"} · {grupos.length} O.T.
+          {filas.length} mueble{filas.length === 1 ? "" : "s"} · {grupos.length} O.T.
         </span>
         {pendientes.length > 0 && (
           <span className="text-amber-700">{pendientes.length} por liberar</span>
+        )}
+        {sinDespiece.length > 0 && (
+          <span className="text-amber-700">
+            {sinDespiece.length} sin despiece
+          </span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
           {puedeEditar && pendientes.length > 0 && (
             <button
               type="button"
               disabled={liberando !== null}
-              onClick={() =>
-                liberar(
-                  "todo",
-                  pendientes.map((i) => i.id)
-                )
-              }
+              onClick={() => liberar("todo", idsALiberar(pendientes))}
               className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
             >
               {liberando === "todo" ? "Liberando..." : `Liberar todo a producción (${pendientes.length})`}
@@ -209,15 +235,17 @@ export default function CarritoVista() {
               )}
             </h2>
             <span className="text-sm text-slate-500">
-              {g.total} ítem{g.total === 1 ? "" : "s"}
+              {(() => {
+                const n = g.pms.reduce((s, pm) => s + pm.items.filter(visible).length, 0);
+                return `${n} mueble${n === 1 ? "" : "s"}`;
+              })()}
             </span>
           </div>
 
           {g.pms.map((pm) => {
             const idsPm = pm.items.map((i) => i.id);
-            const porLiberar = pm.items.filter(
-              (i) => estadoDe(i.id)?.vigente && !estadoDe(i.id)?.liberado
-            );
+            const filasPm = pm.items.filter(visible);
+            const pendientesPm = filasPm.filter(porLiberar);
             const mueblesPm = asignables.filter((m) => idsPm.includes(m.id));
             return (
               <article
@@ -232,24 +260,19 @@ export default function CarritoVista() {
                     {pm.numeroPm}
                   </Link>
                   <span className="text-xs text-slate-500">
-                    {pm.items.length} ítem{pm.items.length === 1 ? "" : "s"}
+                    {filasPm.length} mueble{filasPm.length === 1 ? "" : "s"}
                   </span>
                   <div className="ml-auto flex flex-wrap gap-2">
-                    {puedeEditar && porLiberar.length > 0 && (
+                    {puedeEditar && pendientesPm.length > 0 && (
                       <button
                         type="button"
                         disabled={liberando !== null}
-                        onClick={() =>
-                          liberar(
-                            pm.pedidoId,
-                            porLiberar.map((i) => i.id)
-                          )
-                        }
+                        onClick={() => liberar(pm.pedidoId, idsALiberar(pendientesPm))}
                         className="rounded-lg border border-brand-600 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 transition-colors hover:bg-brand-500 hover:text-on-brand disabled:opacity-50"
                       >
                         {liberando === pm.pedidoId
                           ? "Liberando..."
-                          : `Liberar ${porLiberar.length} pendiente${porLiberar.length === 1 ? "" : "s"}`}
+                          : `Liberar ${pendientesPm.length} pendiente${pendientesPm.length === 1 ? "" : "s"}`}
                       </button>
                     )}
                     {puedeEditar && mueblesPm.length > 0 && (
@@ -280,7 +303,7 @@ export default function CarritoVista() {
                   </div>
                 </header>
                 <ul className="divide-y divide-slate-100">
-                  {pm.items.map((i) => (
+                  {filasPm.map((i) => (
                     <FilaCarrito
                       key={i.id}
                       item={i}
@@ -288,6 +311,9 @@ export default function CarritoVista() {
                       vigente={estadoDe(i.id)?.vigente}
                       liberado={estadoDe(i.id)?.liberado}
                       mueble={mueblePorId.get(i.id)}
+                      despiece={despieces[i.id]}
+                      alGuardarDespiece={() => void cargar()}
+                      alQuitar={() => quitarItems(conComponentes([i.id]))}
                     />
                   ))}
                 </ul>
@@ -319,17 +345,42 @@ function FilaCarrito({
   vigente,
   liberado,
   mueble,
+  despiece,
+  alGuardarDespiece,
+  alQuitar,
 }: {
   item: ItemCarrito;
   cargado: boolean;
   vigente: boolean | undefined;
   liberado: boolean | undefined;
   mueble: MuebleCarrito | undefined;
+  despiece: DespieceCarrito | undefined;
+  alGuardarDespiece: () => void;
+  alQuitar: () => void;
 }) {
+  const [abierto, setAbierto] = useState(false);
   const esHijo = item.tipo === "FU";
   const faltan = mueble ? PROCESOS.filter((p) => mueble.disponible[p] > 0) : [];
+  // Solo un mueble con componentes lleva despiece (los demás se asignan completos): tocar
+  // su fila despliega sus componentes como despiece, para hacerlo ahí mismo.
+  const conDespiece = !!despiece && despiece.componentes > 0;
+  const desplegable = conDespiece && !!vigente;
   return (
-    <li className={`flex items-start gap-3 px-4 py-3 text-sm ${esHijo ? "bg-slate-50/50 pl-10" : ""}`}>
+    <li className={`text-sm ${abierto && desplegable ? "bg-slate-50/60" : ""}`}>
+      <div
+        onClick={(e) => {
+          if (!desplegable || (e.target as HTMLElement).closest("a, button")) return;
+          setAbierto((v) => !v);
+        }}
+        className={`flex items-start gap-3 px-4 py-3 ${desplegable ? "cursor-pointer hover:bg-slate-50" : ""}`}
+      >
+      {desplegable && (
+        <BotonDesplegar
+          abierto={abierto}
+          alAlternar={() => setAbierto((v) => !v)}
+          descripcion={`los componentes y el despiece del ítem ${item.itemCode}`}
+        />
+      )}
       <div className="min-w-0 flex-1">
         <p className="font-medium text-slate-900">
           {item.itemCode}
@@ -348,17 +399,37 @@ function FilaCarrito({
               ? ` · por asignar: ${faltan.map((p) => `${PROCESO_LABELS[p]} ${mueble.disponible[p]}`).join(", ")}`
               : " · todo asignado")}
         </p>
+        {conDespiece && (
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-slate-500">
+              {despiece.componentes} componente{despiece.componentes === 1 ? "" : "s"} ·
+            </span>
+            {despiece.partes > 0 ? (
+              <span className="font-medium text-emerald-700">
+                Despiece listo ({despiece.partes} parte{despiece.partes === 1 ? "" : "s"})
+              </span>
+            ) : (
+              <span className="font-medium text-amber-700">Falta el despiece</span>
+            )}
+          </p>
+        )}
       </div>
       <Estado cargado={cargado} vigente={vigente} liberado={liberado} />
       <button
         type="button"
-        onClick={() => quitarItems([item.id])}
+        onClick={alQuitar}
         aria-label={`Quitar el ítem ${item.itemCode} del carrito`}
         title="Quitar del carrito"
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100"
       >
         ✕
       </button>
+      </div>
+      {abierto && desplegable && (
+        <div className="border-t border-slate-100 px-4 pb-4 pt-3 sm:pl-12">
+          <DespieceEnLinea itemId={item.id} alGuardar={alGuardarDespiece} />
+        </div>
+      )}
     </li>
   );
 }

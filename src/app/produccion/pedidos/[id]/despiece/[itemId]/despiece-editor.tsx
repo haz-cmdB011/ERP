@@ -153,6 +153,8 @@ export default function DespieceEditor({
   puedeEditar,
   motivoBloqueo,
   partesAsignadas = [],
+  alGuardar,
+  alRecargar,
 }: {
   itemId: string;
   // Versión guardada del despiece (0 = todavía no hay).
@@ -173,9 +175,14 @@ export default function DespieceEditor({
   // Partes con asignaciones vigentes: no se pueden quitar (la base tampoco deja bajar
   // su cantidad por mueble).
   partesAsignadas?: string[];
+  // Fuera de su página (la ventana del carrito): qué hacer al guardar y cómo traer la
+  // versión actual. Sin ellos se regresa a `?volver=` o se refresca la página.
+  alGuardar?: () => void;
+  alRecargar?: () => void;
 }) {
   const router = useRouter();
   const volver = useSearchParams().get("volver");
+  const recargar = alRecargar ?? (() => router.refresh());
   const [filas, setFilas] = useState<Fila[]>(() =>
     guardado ? filasDesde(guardado.lineas) : filasDesde(sugerencia.lineas, sugerencia.avisosPorLinea)
   );
@@ -382,7 +389,8 @@ export default function DespieceEditor({
       }
       avisar("Despiece guardado");
       // Si se llegó desde el panel de asignación (u otra pantalla), se regresa ahí.
-      if (volver) router.push(rutaInternaSegura(volver, "/produccion/panel"));
+      if (alGuardar) alGuardar();
+      else if (volver) router.push(rutaInternaSegura(volver, "/produccion/panel"));
       else router.refresh();
     } catch {
       setError("No se pudo guardar el despiece. Inténtalo de nuevo.");
@@ -425,7 +433,7 @@ export default function DespieceEditor({
             Si guardas ahora se rechazará. Tus cambios quedan como borrador en este aparato; carga la versión
             actual y recupéralos.
           </p>
-          <button type="button" onClick={() => router.refresh()} className={`${estiloBotonSecundario} mt-2`}>
+          <button type="button" onClick={recargar} className={`${estiloBotonSecundario} mt-2`}>
             Cargar la versión actual
           </button>
         </div>
@@ -653,7 +661,7 @@ export default function DespieceEditor({
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           <p>{error}</p>
           {conflicto && (
-            <button type="button" onClick={() => router.refresh()} className={`${estiloBotonSecundario} mt-2`}>
+            <button type="button" onClick={recargar} className={`${estiloBotonSecundario} mt-2`}>
               Cargar la versión actual
             </button>
           )}

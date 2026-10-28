@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agregarAlCarrito,
   agruparCarrito,
+  filasCarrito,
   leerCarrito,
   MAX_ITEMS_CARRITO,
   quitarDelCarrito,
@@ -53,6 +54,15 @@ describe("carrito de Producción", () => {
     expect(grupos[0].pms.map((p) => p.numeroPm)).toEqual(["PM-9", "PM-10"]);
     expect(grupos[0].pms[1].items.map((i) => i.id)).toEqual(["m1", "h1", "h2"]);
     expect(grupos[0].total).toBe(4);
+  });
+
+  it("muestra los muebles; un componente solo sale si su mueble no está", () => {
+    const filas = filasCarrito([
+      item("m"),
+      item("c1", { tipo: "FU", padreId: "m" }),
+      item("c2", { tipo: "FU", padreId: "otro" }),
+    ]);
+    expect(filas.map((i) => i.id)).toEqual(["m", "c2"]);
   });
 
   it("lee solo lo válido del almacenamiento", () => {

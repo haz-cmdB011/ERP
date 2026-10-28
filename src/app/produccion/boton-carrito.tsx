@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
+import { filasCarrito } from "@/lib/produccion/carrito";
 import { useCarrito } from "@/lib/produccion/carrito-navegador";
 
-// Acceso al carrito desde cualquier pantalla de Producción, con cuántos ítems lleva.
+// Acceso al carrito desde cualquier pantalla de Producción, con cuántos muebles lleva
+// (sus componentes viajan con ellos y no cuentan aparte).
 export default function BotonCarrito() {
-  const items = useCarrito();
+  const todos = useCarrito();
+  const items = useMemo(() => filasCarrito(todos), [todos]);
   if (items.length === 0) return null;
   return (
     <Link

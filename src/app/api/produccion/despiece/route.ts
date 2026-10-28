@@ -5,8 +5,39 @@ import { mensajeErrorRpc } from "@/lib/produccion/asignaciones";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { esRechazoDefinitivo, leerClaveEnvio } from "@/lib/produccion/envio-entrega";
 import { lineasDesdeJson, validarLineas } from "@/lib/produccion/despiece";
+import { cargarDespieceMueble, leerItemDespiece } from "@/lib/produccion/despiece-db";
 
 export const runtime = "nodejs";
+
+// Lo que necesita el editor del despiece de un mueble (lo mismo que su página). Lo usa el
+// carrito, que abre el despiece en una ventana. Solo lectura; RLS decide qué se ve.
+export async function GET(request: Request) {
+  const supabase = await createClient();
+  const perfil = await getPerfilActual(supabase);
+  if (!perfil) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
+  const itemId = new URL(request.url).searchParams.get("itemId");
+  if (!itemId || !esUuid(itemId)) {
+    return NextResponse.json({ error: "Ítem no válido." }, { status: 400 });
+  }
+  try {
+    const item = await leerItemDespiece(supabase, itemId);
+    if (!item || item.tipo_registro !== "MO" || item.pedido_versiones?.pedidos?.eliminado_en) {
+      return NextResponse.json({ error: "El mueble ya no existe." }, { status: 404 });
+    }
+    const datos = await cargarDespieceMueble(supabase, item);
+    return NextResponse.json({
+      ...datos,
+      puedeEditar: puedeEditarProduccion(perfil) && !datos.motivoBloqueo,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: `No se pudo leer el despiece: ${e instanceof Error ? e.message : "error desconocido"}` },
+      { status: 500 }
+    );
+  }
+}
 
 // Guarda el despiece de un mueble. Pasa por aquí (y no directo a la base desde el
 // navegador) para poder usar la cola de envíos sin conexión: el taller a veces pierde

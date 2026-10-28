@@ -9,8 +9,8 @@ export default function CarritoProduccionPage() {
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Carrito de producción</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Aquí se juntan los muebles y componentes que marcaste en cualquier PM u O.T. Desde aquí los
-          liberas a producción y los asignas a los equipos de maquila.
+          Aquí se juntan los muebles que marcaste en cualquier PM u O.T. (con sus componentes). Desde aquí
+          haces su despiece, los liberas a producción y los asignas a los equipos de maquila.
         </p>
       </div>
       <CarritoVista />

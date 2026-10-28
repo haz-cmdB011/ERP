@@ -183,6 +183,12 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
   mandan al carrito. Vive en el aparato (`localStorage`, `src/lib/produccion/carrito-navegador.ts`; lógica pura
   con pruebas en `carrito.ts`) y junta ítems de cualquier PM u O.T. `/produccion/carrito` los agrupa por
   O.T. → PM con su estado real (`/api/produccion/carrito`, `carrito-db.ts`).
+- El pedido de Producción **solo muestra muebles padre**; sus componentes viajan con el mueble al carrito
+  (se liberan con él) y ahí tampoco salen como filas (`filasCarrito`).
+- **Despiece en el carrito**: un mueble con componentes muestra si le falta o ya tiene su despiece y lo abre
+  al tocar su fila, que despliega sus componentes como el mismo editor (`despiece-en-linea.tsx`, datos de `GET /api/produccion/despiece`,
+  carga en `src/lib/produccion/despiece-db.ts`, que comparte la página del despiece). No bloquea liberar.
+  En el panel ya no se hace: solo "Editar despiece" si hace falta (o "Falta despiece" para los viejos).
 - **Liberar** se hace desde el carrito (por PM o todo). Lo liberado sale del carrito y se abre el panel de
   asignación con esos muebles (`/produccion/panel?ids=…`, máximo `MAX_IDS_PANEL`). Lo asignado desde el
   carrito (muebles que ya estaban liberados) también sale.
