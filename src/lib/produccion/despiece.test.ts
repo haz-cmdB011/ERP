@@ -11,7 +11,12 @@ import {
   limpiarLineas,
   mismasLineas,
   repartirPorcentajes,
+  despieceParaOtroMueble,
+  firmaComponentes,
+  mismoContenido,
+  mismoModelo,
   sugerirDespiece,
+  tipoMaterial,
   totalLinea,
   trasladarLineas,
   validarLineas,
@@ -374,5 +379,67 @@ describe("trasladarLineas", () => {
     );
     expect(r.map((l) => l.hijo_id)).toEqual(["nuevo1", null, null, null]);
     expect(r[0].descripcion).toBe("TABLERO");
+  });
+});
+
+describe("tipoMaterial", () => {
+  it("reconoce el material y la electrificación por la descripción", () => {
+    expect(tipoMaterial("Madera")).toBe("madera");
+    expect(tipoMaterial("METAL")).toBe("metal");
+    expect(tipoMaterial("S.S.")).toBe("superficie_solida");
+    expect(tipoMaterial("Híbrido")).toBe("hibrido");
+    expect(tipoMaterial("Tapiz")).toBe("tapiz");
+    expect(tipoMaterial("Metal", "MARCO Y CHAROLA ELECTRIFICACIÓN")).toBe("electrificacion");
+    expect(tipoMaterial("Cristal")).toBe("vidrio");
+    expect(tipoMaterial("")).toBe("otro");
+  });
+});
+
+describe("despiece por modelo", () => {
+  const origen = [
+    { id: "o1", descripcion: "MÓDULO D", cantidad_x_mueble: 1 },
+    { id: "o2", descripcion: "Capelo", cantidad_x_mueble: 2 },
+  ];
+  const destino = [
+    { id: "d2", descripcion: "CAPELO ", cantidad_x_mueble: "2" },
+    { id: "d1", descripcion: "modulo  d", cantidad_x_mueble: 1 },
+  ];
+  const linea = (descripcion: string, hijo_id: string | null, id: string | null = null) => ({
+    id,
+    descripcion,
+    material: "Madera",
+    unidad: "PZA",
+    piezas_por_mueble: 1,
+    hijo_id,
+  });
+
+  it("la firma no depende del orden, mayúsculas ni acentos, pero sí de la cantidad", () => {
+    expect(firmaComponentes(origen)).toBe(firmaComponentes(destino));
+    expect(firmaComponentes(origen)).not.toBe(firmaComponentes([origen[0], { ...origen[1], cantidad_x_mueble: 3 }]));
+  });
+
+  it("mismo modelo sin importar mayúsculas ni espacios; sin modelo, nunca", () => {
+    expect(mismoModelo(" m-cont-m", "M-CONT-M")).toBe(true);
+    expect(mismoModelo("M-CONT-M", "M-CHK")).toBe(false);
+    expect(mismoModelo(null, "")).toBe(false);
+  });
+
+  it("lleva cada línea al componente igual del otro mueble, con sus partes", () => {
+    const r = despieceParaOtroMueble(
+      [linea("Capelo", "o2", "p-origen"), linea("Tornillería", null), linea("Módulo D", "o1")],
+      origen,
+      destino,
+      ["p-destino", null, null]
+    );
+    expect(r.map((l) => [l.id, l.hijo_id])).toEqual([
+      ["p-destino", "d2"],
+      [null, null],
+      [null, "d1"],
+    ]);
+  });
+
+  it("reconoce la copia sin cambios por su contenido, sin mirar ids ni componentes", () => {
+    expect(mismoContenido([linea("Capelo", "o2", "x")], [linea(" Capelo", "d2")])).toBe(true);
+    expect(mismoContenido([linea("Capelo", "o2")], [{ ...linea("Capelo", "o2"), piezas_por_mueble: 2 }])).toBe(false);
   });
 });

@@ -174,6 +174,15 @@ es que el Armado con solo el modelo es el del mueble completo (el ensamble) y co
   veces lo lleva) (mínimo 1; `veces_proceso_ruta`, migraciones `recibos_procesos_repetidos` y `rutas_por_parte`). Componentes y Electrificación siguen 1×. Lo usan el control al
   guardar el renglón, el campo Modelo de la captura y "PM contra cobrado" (`cantidad_pm_acabados/armado`).
 
+## Inicio de Producción
+
+`/produccion` es el panel de inicio del área (la lista de O.T./PM pasó a `/produccion/pedidos`):
+**modelos en varias O.T./PM** (recuadros en un carrusel, `carrusel-modelos.tsx`, con anillos concéntricos por estado,
+sus O.T. de tres en tres y el nombre que abre el panel de asignación), lo que tiene cada equipo en taller y las O.T. con
+pendientes (5 a la vista, "Ver más" despliega el resto); lo más reciente (por fecha de subida del PM) primero. Cuenta
+muebles padre vigentes: los liberados con el estado del panel de asignación (`cargarMueblesDePanel`) y los por liberar.
+Lógica en `src/lib/produccion/inicio.ts`, lectura en `inicio-db.ts`.
+
 ## Carrito y panel de asignación
 
 Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T. ya no traen botones de
@@ -183,6 +192,19 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
   mandan al carrito. Vive en el aparato (`localStorage`, `src/lib/produccion/carrito-navegador.ts`; lógica pura
   con pruebas en `carrito.ts`) y junta ítems de cualquier PM u O.T. `/produccion/carrito` los agrupa por
   O.T. → PM con su estado real (`/api/produccion/carrito`, `carrito-db.ts`).
+- El pedido de Producción **solo muestra muebles padre**; sus componentes viajan con el mueble al carrito
+  (se liberan con él) y ahí tampoco salen como filas (`filasCarrito`).
+- **Despiece en el carrito**: un mueble con componentes muestra si le falta o ya tiene su despiece y lo abre
+  al tocar su fila, que despliega sus componentes como el mismo editor (`despiece-en-linea.tsx`, datos de `GET /api/produccion/despiece`,
+  carga en `src/lib/produccion/despiece-db.ts`, que comparte la página del despiece). Al guardar se pliega.
+  **Sin despiece no se libera** un mueble con componentes (botones del carrito y `/api/produccion/items/liberar`,
+  que también usa Planeación). En el panel ya no se hace: solo "Editar despiece" si hace falta (o "Falta
+  despiece" para los viejos). Cada parte del despiece se pinta del color de su material (`tipoMaterial`).
+- **Despiece por modelo** (`copiarDespieceAlModelo`, al guardar en `POST /api/produccion/despiece`): se copia a
+  los demás muebles vigentes del mismo modelo, de cualquier O.T./PM, **con los mismos componentes**
+  (`firmaComponentes`: descripción + cantidad por mueble) que no tienen despiece o siguen con la copia anterior
+  sin cambios. Uno editado a mano o con otros componentes no se toca. Cada copia pasa por
+  `guardar_despiece_produccion`; el aviso al guardar dice a cuántos llegó.
 - **Liberar** se hace desde el carrito (por PM o todo). Lo liberado sale del carrito y se abre el panel de
   asignación con esos muebles (`/produccion/panel?ids=…`, máximo `MAX_IDS_PANEL`). Lo asignado desde el
   carrito (muebles que ya estaban liberados) también sale.

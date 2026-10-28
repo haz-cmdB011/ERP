@@ -3,6 +3,7 @@ import { leer } from "@/lib/supabase/leer";
 import type { Proceso } from "./asignaciones";
 import { disponibleDe, seAsignaCompleto } from "./flujo-mueble";
 import { cargarFlujoMuebles } from "./flujo-db";
+import { tandas } from "./tandas";
 
 // Lo que el carrito necesita saber de la base sobre cada ítem que lleva.
 export interface EstadoItemCarrito {
@@ -23,9 +24,18 @@ export interface MuebleCarrito {
   listo: Record<Proceso, number>;
 }
 
+// El despiece de un mueble del carrito: cuántos componentes vigentes tiene en el PM y
+// cuántas partes tiene su despiece guardado (0 = aún no se hace).
+export interface DespieceCarrito {
+  componentes: number;
+  partes: number;
+}
+
 export interface DatosCarrito {
   estados: Record<string, EstadoItemCarrito>;
   muebles: MuebleCarrito[];
+  // Por mueble vigente del carrito (liberado o no).
+  despieces: Record<string, DespieceCarrito>;
 }
 
 interface ItemFila {
@@ -51,7 +61,7 @@ export async function cargarDatosCarrito(
   supabase: SupabaseClient,
   itemIds: string[]
 ): Promise<DatosCarrito> {
-  if (itemIds.length === 0) return { estados: {}, muebles: [] };
+  if (itemIds.length === 0) return { estados: {}, muebles: [], despieces: {} };
 
   const filas = await leer(
     supabase
@@ -66,6 +76,7 @@ export async function cargarDatosCarrito(
 
   const estados: Record<string, EstadoItemCarrito> = {};
   const asignables: ItemFila[] = [];
+  const mueblesVigentes: string[] = [];
   for (const f of filas ?? []) {
     const pedido = f.pedido_versiones?.pedidos;
     const vigente =
@@ -77,10 +88,14 @@ export async function cargarDatosCarrito(
       !pedido.eliminado_en;
     const liberado = f.estado_liberacion === "enviado_a_produccion";
     estados[f.id] = { vigente, liberado };
+    if (vigente && f.tipo_registro === "MO") mueblesVigentes.push(f.id);
     if (vigente && liberado && f.tipo_registro === "MO") asignables.push(f);
   }
 
-  const flujos = await cargarFlujoMuebles(supabase, asignables);
+  const [flujos, despieces] = await Promise.all([
+    cargarFlujoMuebles(supabase, asignables),
+    cargarDespieces(supabase, mueblesVigentes),
+  ]);
   // Uno que se asigna por partes sigue en la lista (para abrirlo en el panel) pero sin nada
   // que asignar completo: sus partes se asignan desde la tabla del despiece.
   const muebles = flujos.map((m) => {
@@ -95,5 +110,50 @@ export async function cargarDatosCarrito(
     };
   });
 
-  return { estados, muebles };
+  return { estados, muebles, despieces };
+}
+
+// Componentes vigentes de cada mueble (los que piden despiece) y las partes de su despiece guardado.
+async function cargarDespieces(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<Record<string, DespieceCarrito>> {
+  if (ids.length === 0) return {};
+  const [componentes, guardados] = await Promise.all([
+    Promise.all(
+      tandas(ids, 25).map((lote) =>
+        leer(
+          supabase
+            .from("planeacion_items")
+            .select("parent_item_id")
+            .in("parent_item_id", lote)
+            .eq("tipo_registro", "FU")
+            .is("eliminacion_solicitada_en", null)
+            .or("estado_revision.is.null,estado_revision.neq.cancelado")
+            .returns<{ parent_item_id: string }[]>(),
+          "los componentes"
+        )
+      )
+    ),
+    Promise.all(
+      tandas(ids).map((lote) =>
+        leer(
+          supabase
+            .from("despieces_produccion")
+            .select("planeacion_item_id, lineas")
+            .in("planeacion_item_id", lote)
+            .returns<{ planeacion_item_id: string; lineas: unknown }[]>(),
+          "despieces_produccion"
+        )
+      )
+    ),
+  ]);
+  const resultado: Record<string, DespieceCarrito> = Object.fromEntries(
+    ids.map((id) => [id, { componentes: 0, partes: 0 }])
+  );
+  for (const c of componentes.flatMap((l) => l ?? [])) resultado[c.parent_item_id].componentes += 1;
+  for (const d of guardados.flatMap((l) => l ?? [])) {
+    resultado[d.planeacion_item_id].partes = Array.isArray(d.lineas) ? d.lineas.length : 0;
+  }
+  return resultado;
 }

@@ -213,7 +213,7 @@ export default async function PanelAsignacionPage({
       {liberados.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           <p>Todavía no hay muebles liberados a producción.</p>
-          <Link href="/produccion" className="font-medium text-brand-700 hover:underline">
+          <Link href="/produccion/pedidos" className="font-medium text-brand-700 hover:underline">
             Elegir un pedido →
           </Link>
         </div>

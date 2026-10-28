@@ -8,12 +8,10 @@ import ImagenAmpliable from "@/components/imagen-ampliable";
 import {
   ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
-  PROCESO_LABELS,
   formatoFecha,
   type AsignacionResumen,
   type EncargadoEquipo,
   type EquipoProduccion,
-  type Proceso,
 } from "@/lib/produccion/asignaciones";
 import {
   asignacionesDelPaso,
@@ -31,19 +29,16 @@ import {
   partesConRuta,
   pasoConAsignaciones,
   pasoEnColumna,
-  porcentaje,
-  procesosDe,
   requiereDespiece,
   siguienteAsignable,
   siguientePaso,
-  totalesProceso,
   type ColumnaProceso,
   type EstadoMueble,
   type EstadoProceso,
   type MuebleFlujo,
   type ParteMueble,
 } from "@/lib/produccion/flujo-mueble";
-import { ORDEN_SUGERIDO, etiquetaPaso, textoRuta } from "@/lib/produccion/ruta";
+import { etiquetaPaso, textoRuta } from "@/lib/produccion/ruta";
 import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
 import EditarRuta from "./editar-ruta";
 
@@ -91,8 +86,6 @@ export default function FlujoMuebles({
   const [filtro, setFiltro] = useState<EstadoMueble | "todos">("todos");
   const [abierto, setAbierto] = useState<string | null>(null);
 
-  const conProceso = procesosDe(muebles);
-  const procesos = ORDEN_SUGERIDO.filter((p) => conProceso.has(p));
   const estados = new Map(muebles.map((m) => [m.id, estadoMueble(m)]));
   const cuenta = (f: EstadoMueble | "todos") =>
     f === "todos"
@@ -104,12 +97,6 @@ export default function FlujoMuebles({
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {procesos.map((p) => (
-          <ResumenProceso key={p} proceso={p} muebles={muebles} />
-        ))}
-      </div>
-
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           className="flex flex-wrap gap-2"
@@ -159,47 +146,6 @@ export default function FlujoMuebles({
         </ul>
       )}
     </section>
-  );
-}
-
-export function ResumenProceso({
-  proceso,
-  muebles,
-}: {
-  proceso: Proceso;
-  muebles: MuebleFlujo[];
-}) {
-  const t = totalesProceso(muebles, proceso);
-  const pctEntregado = porcentaje(t.entregado, t.piezas);
-  const pctAsignado = porcentaje(t.asignado, t.piezas);
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-800">
-          {PROCESO_LABELS[proceso]}
-        </p>
-        <p className="text-2xl font-bold tabular-nums text-slate-900">
-          {pctEntregado}%
-        </p>
-      </div>
-      <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-sky-200 transition-[width] duration-700"
-          style={{ width: `${pctAsignado}%` }}
-        />
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-emerald-500 transition-[width] duration-700"
-          style={{ width: `${pctEntregado}%` }}
-        />
-      </div>
-      <p className="mt-2 text-xs text-slate-500 tabular-nums">
-        {t.entregado}/{t.piezas} pzas entregadas · {t.asignado} asignadas
-      </p>
-      <p className="text-xs text-slate-500">
-        {t.muebles} mueble{t.muebles === 1 ? "" : "s"}
-      </p>
-    </div>
   );
 }
 
@@ -346,7 +292,7 @@ export function FilaMueble({
           </span>
         ) : asignar && requiereDespiece(m) ? (
           <EnlaceDespiece mueble={m} className={estiloAsignar}>
-            Hacer despiece →
+            Falta despiece →
           </EnlaceDespiece>
         ) : asignar && toca?.tipo === "partes" && sigue ? (
           <BotonAsignar
@@ -592,10 +538,13 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
   if (requiereDespiece(m)) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        <p>Este mueble tiene componentes: guarda su despiece para asignarlo por partes.</p>
+        <p>
+          Este mueble tiene componentes y no tiene despiece (se hace en el carrito, antes de liberarlo).
+          Sin él no se asigna por partes.
+        </p>
         {asignar && (
           <EnlaceDespiece mueble={m} className="font-semibold underline">
-            Hacer despiece
+            Hacer despiece aquí
           </EnlaceDespiece>
         )}
       </div>
@@ -637,9 +586,12 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
           Despiece ({partes.length} partes){" "}
           <span className="font-normal text-slate-500">· cada parte con su ruta, en sus piezas; asigna con el +</span>
         </p>
-        <EnlaceDespiece mueble={m} className="font-medium text-sky-700 underline">
-          Ver o editar despiece
-        </EnlaceDespiece>
+        {/* El despiece se hace en el carrito; aquí solo se corrige si hace falta. */}
+        {asignar && (
+          <EnlaceDespiece mueble={m} className="font-medium text-sky-700 underline">
+            Editar despiece
+          </EnlaceDespiece>
+        )}
       </div>
       <div className="overflow-x-auto rounded-lg bg-white">
         <table className="w-full text-left tabular-nums">

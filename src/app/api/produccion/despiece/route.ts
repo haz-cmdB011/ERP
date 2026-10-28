@@ -5,8 +5,44 @@ import { mensajeErrorRpc } from "@/lib/produccion/asignaciones";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { esRechazoDefinitivo, leerClaveEnvio } from "@/lib/produccion/envio-entrega";
 import { lineasDesdeJson, validarLineas } from "@/lib/produccion/despiece";
+import {
+  cargarDespieceMueble,
+  copiarDespieceAlModelo,
+  leerItemDespiece,
+  type CopiaModelo,
+} from "@/lib/produccion/despiece-db";
 
 export const runtime = "nodejs";
+
+// Lo que necesita el editor del despiece de un mueble (lo mismo que su página). Lo usa el
+// carrito, que abre el despiece en una ventana. Solo lectura; RLS decide qué se ve.
+export async function GET(request: Request) {
+  const supabase = await createClient();
+  const perfil = await getPerfilActual(supabase);
+  if (!perfil) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
+  const itemId = new URL(request.url).searchParams.get("itemId");
+  if (!itemId || !esUuid(itemId)) {
+    return NextResponse.json({ error: "Ítem no válido." }, { status: 400 });
+  }
+  try {
+    const item = await leerItemDespiece(supabase, itemId);
+    if (!item || item.tipo_registro !== "MO" || item.pedido_versiones?.pedidos?.eliminado_en) {
+      return NextResponse.json({ error: "El mueble ya no existe." }, { status: 404 });
+    }
+    const datos = await cargarDespieceMueble(supabase, item);
+    return NextResponse.json({
+      ...datos,
+      puedeEditar: puedeEditarProduccion(perfil) && !datos.motivoBloqueo,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: `No se pudo leer el despiece: ${e instanceof Error ? e.message : "error desconocido"}` },
+      { status: 500 }
+    );
+  }
+}
 
 // Guarda el despiece de un mueble. Pasa por aquí (y no directo a la base desde el
 // navegador) para poder usar la cola de envíos sin conexión: el taller a veces pierde
@@ -53,12 +89,21 @@ export async function POST(request: Request) {
   const problema = validarLineas(lineas);
   if (problema) return NextResponse.json({ error: problema }, { status: 400 });
 
+  // Lo que tenía antes: con eso se reconocen las copias sin cambios en los muebles del mismo modelo.
+  const { data: anterior } = await supabase
+    .from("despieces_produccion")
+    .select("lineas")
+    .eq("planeacion_item_id", itemId)
+    .maybeSingle<{ lineas: unknown }>();
+
+  const igualASugerencia = form.get("igualASugerencia") === "true";
+  const clave = leerClaveEnvio(form.get("claveEnvio"));
   const { data, error } = await supabase.rpc("guardar_despiece_produccion", {
     p_item_id: itemId,
     p_lineas: lineas,
     p_version_esperada: version,
-    p_igual_a_sugerencia: form.get("igualASugerencia") === "true",
-    p_clave_envio: leerClaveEnvio(form.get("claveEnvio")),
+    p_igual_a_sugerencia: igualASugerencia,
+    p_clave_envio: clave,
   });
 
   if (error) {
@@ -69,5 +114,31 @@ export async function POST(request: Request) {
       { status: conflicto ? 409 : esRechazoDefinitivo(error) ? 400 : 500 }
     );
   }
-  return NextResponse.json({ ok: true, version: data });
+
+  // El despiece es por modelo. Si copiarlo falla, lo de este mueble ya quedó guardado.
+  let aviso: string | undefined;
+  try {
+    const copia = await copiarDespieceAlModelo(
+      supabase,
+      itemId,
+      lineas,
+      anterior ? lineasDesdeJson(anterior.lineas) : null,
+      igualASugerencia,
+      clave
+    );
+    aviso = copia ? textoCopiaModelo(copia) : undefined;
+  } catch {
+    aviso = "No se pudo copiar a los demás muebles del mismo modelo.";
+  }
+  return NextResponse.json({ ok: true, version: data, aviso });
+}
+
+function textoCopiaModelo({ modelo, copiados, distintos, fallidos }: CopiaModelo): string | undefined {
+  const partes = [
+    copiados > 0 && `También quedó en ${copiados} mueble${copiados === 1 ? "" : "s"} ${modelo} más.`,
+    distintos > 0 &&
+      `${distintos} ${modelo} con otros componentes no se ${distintos === 1 ? "tocó" : "tocaron"}.`,
+    fallidos > 0 && `${fallidos} no se ${fallidos === 1 ? "pudo" : "pudieron"} guardar.`,
+  ].filter(Boolean);
+  return partes.length > 0 ? partes.join(" ") : undefined;
 }

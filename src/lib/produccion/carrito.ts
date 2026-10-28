@@ -54,6 +54,14 @@ export function quitarDelCarrito(actual: ItemCarrito[], ids: Iterable<string>): 
   return actual.filter((i) => !fuera.has(i.id));
 }
 
+// Lo que el carrito muestra como filas: los muebles. Sus componentes viajan con ellos (se
+// liberan juntos y con ellos se hace el despiece) y no salen aparte; solo se ve un
+// componente que esté sin su mueble (carritos de antes).
+export function filasCarrito(items: ItemCarrito[]): ItemCarrito[] {
+  const muebles = new Set(items.filter((i) => i.tipo === "MO").map((i) => i.id));
+  return items.filter((i) => i.tipo === "MO" || !(i.padreId && muebles.has(i.padreId)));
+}
+
 // O.T. -> PM -> ítems. Dentro de cada PM, cada mueble va seguido de sus
 // componentes (los componentes sin su mueble en el carrito van al final).
 // Orden: O.T. y PM con números en orden natural; las sin O.T. al final.

@@ -6,6 +6,8 @@
 // crear_asignacion_produccion); aquí solo lo que comparte la interfaz.
 
 import { PROCESO_LABELS, type Proceso } from "./asignaciones";
+import { descripcionIncluyeIluminacion, descripcionMencionaElectrificacion } from "./electrificacion";
+import { descripcionMencionaSuperficieSolida } from "./superficie-solida";
 
 // Orden ideal de los procesos. Espejo de ruta_sugerida_produccion en la base.
 export const ORDEN_SUGERIDO: readonly Proceso[] = [
@@ -46,13 +48,28 @@ export function rutaDelMueble(
   return tienePartes ? [] : rutaSugerida(aplica);
 }
 
-// La ruta de una parte: la guardada o, si nunca la guardó, la sugerida.
+// La sugerida de una parte sale de su propia descripción: la de electrificación (o
+// iluminación) solo lleva Electrificación; las demás, Armado (+ S.S. si la menciona) y
+// Barniz. Espejo de ruta_sugerida_parte en la base.
+export function rutaSugeridaParte(descripcion: string): PasoRuta[] {
+  if (descripcionIncluyeIluminacion(descripcion) || descripcionMencionaElectrificacion(descripcion)) {
+    return [{ id: null, proceso: "electrificacion" }];
+  }
+  return rutaSugerida({
+    armado: true,
+    barniz: true,
+    electrificacion: false,
+    superficie_solida: descripcionMencionaSuperficieSolida(descripcion),
+  });
+}
+
+// La ruta de una parte: la guardada o, si nunca la guardó, la sugerida por su descripción.
 export function rutaDeParte(
   guardada: PasoRuta[] | undefined,
   rutaGuardada: boolean,
-  aplica: Record<Proceso, boolean>
+  descripcion: string
 ): PasoRuta[] {
-  return rutaGuardada ? (guardada ?? []) : rutaSugerida(aplica);
+  return rutaGuardada ? (guardada ?? []) : rutaSugeridaParte(descripcion);
 }
 
 // "Armado" si el proceso va una sola vez en la ruta; "Armado 1", "Armado 2"
