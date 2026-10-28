@@ -27,5 +27,5 @@ export default function PestanasSeccion({ seccion }: { seccion: keyof typeof SEC
   const pathname = usePathname();
   const { etiqueta, items } = SECCIONES[seccion];
   const activa = items.find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))?.id ?? items[0].id;
-  return <BarraPestanas items={items} activa={activa} etiqueta={etiqueta} />;
+  return <BarraPestanas items={items} activa={activa} etiqueta={etiqueta} grande={seccion === "taller"} />;
 }

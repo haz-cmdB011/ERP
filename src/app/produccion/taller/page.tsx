@@ -32,22 +32,22 @@ export default async function TallerPage({
       <PestanasSeccion seccion="taller" />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Taller</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Taller</h1>
+          <p className="mt-1 text-base text-slate-500">
             {vista === "equipos" ? "Qué hay en cada equipo ahora y qué va atrasado." : "Cada asignación, con sus filtros y entregas."}
           </p>
         </div>
-        <nav aria-label="Vista del taller" className="flex w-fit gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
+        <nav aria-label="Vista del taller" className="flex w-fit gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 text-base">
           {VISTAS.map((v) => (
             <Link
               key={v.id}
               href={v.href}
               aria-current={v.id === vista ? "page" : undefined}
-              className={`inline-flex min-h-9 items-center rounded-md px-3.5 font-medium transition-colors pointer-coarse:min-h-11 ${
+              className={`inline-flex min-h-11 items-center rounded-md px-4 font-medium transition-colors pointer-coarse:min-h-11 ${
                 v.id === vista ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-slate-200/70"
               }`}
             >
-              <IconoMenu nombre={v.icono} className="mr-1.5 h-4 w-4 shrink-0" />
+              <IconoMenu nombre={v.icono} className="mr-1.5 h-5 w-5 shrink-0" />
               {v.etiqueta}
             </Link>
           ))}

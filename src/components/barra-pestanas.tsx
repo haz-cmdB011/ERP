@@ -16,11 +16,14 @@ export default function BarraPestanas({
   items,
   activa,
   etiqueta,
+  grande = false,
 }: {
   items: ItemPestana[];
   activa: string;
   // Nombre accesible del grupo ("Secciones del taller").
   etiqueta: string;
+  // Letra e iconos un punto más grandes (el menú del Taller).
+  grande?: boolean;
 }) {
   return (
     <nav
@@ -34,13 +37,15 @@ export default function BarraPestanas({
             key={p.id}
             href={p.href}
             aria-current={esActiva ? "page" : undefined}
-            className={`-mb-px inline-flex min-h-11 items-center rounded-t-lg border-b-2 px-4 text-sm font-medium transition-colors ${
+            className={`-mb-px inline-flex items-center rounded-t-lg border-b-2 px-4 font-medium transition-colors ${
+              grande ? "min-h-12 text-base" : "min-h-11 text-sm"
+            } ${
               esActiva
                 ? "pestana-activa border-brand-600 font-semibold text-slate-900"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
             }`}
           >
-            {p.icono && <IconoMenu nombre={p.icono} className="mr-2 h-4 w-4 shrink-0" />}
+            {p.icono && <IconoMenu nombre={p.icono} className={`mr-2 shrink-0 ${grande ? "h-5 w-5" : "h-4 w-4"}`} />}
             {p.etiqueta}
           </Link>
         );
