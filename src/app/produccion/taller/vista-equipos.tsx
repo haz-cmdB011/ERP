@@ -72,6 +72,26 @@ export default async function VistaEquipos() {
             detalle: "sin trabajo en taller",
           },
         ]}
+        despliegues={
+          libres.length > 0
+            ? {
+                "Equipos libres": (
+                  <ul className="flex flex-wrap gap-2">
+                    {libres.map((e) => (
+                      <li
+                        key={e.id}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700"
+                        title={e.procesos.map((p) => PROCESO_LABELS[p]).join(" y ")}
+                      >
+                        {e.nombre}
+                        {e.es_planta ? " (planta)" : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ),
+              }
+            : undefined
+        }
       />
 
       {resumen.atrasadas.length > 0 && (
@@ -143,23 +163,6 @@ export default async function VistaEquipos() {
         </section>
       )}
 
-      {libres.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-slate-700">Equipos libres</h2>
-          <ul className="flex flex-wrap gap-2">
-            {libres.map((e) => (
-              <li
-                key={e.id}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700"
-                title={e.procesos.map((p) => PROCESO_LABELS[p]).join(" y ")}
-              >
-                {e.nombre}
-                {e.es_planta ? " (planta)" : ""}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }
