@@ -8,12 +8,10 @@ import ImagenAmpliable from "@/components/imagen-ampliable";
 import {
   ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
-  PROCESO_LABELS,
   formatoFecha,
   type AsignacionResumen,
   type EncargadoEquipo,
   type EquipoProduccion,
-  type Proceso,
 } from "@/lib/produccion/asignaciones";
 import {
   asignacionesDelPaso,
@@ -31,19 +29,16 @@ import {
   partesConRuta,
   pasoConAsignaciones,
   pasoEnColumna,
-  porcentaje,
-  procesosDe,
   requiereDespiece,
   siguienteAsignable,
   siguientePaso,
-  totalesProceso,
   type ColumnaProceso,
   type EstadoMueble,
   type EstadoProceso,
   type MuebleFlujo,
   type ParteMueble,
 } from "@/lib/produccion/flujo-mueble";
-import { ORDEN_SUGERIDO, etiquetaPaso, textoRuta } from "@/lib/produccion/ruta";
+import { etiquetaPaso, textoRuta } from "@/lib/produccion/ruta";
 import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
 import EditarRuta from "./editar-ruta";
 
@@ -91,8 +86,6 @@ export default function FlujoMuebles({
   const [filtro, setFiltro] = useState<EstadoMueble | "todos">("todos");
   const [abierto, setAbierto] = useState<string | null>(null);
 
-  const conProceso = procesosDe(muebles);
-  const procesos = ORDEN_SUGERIDO.filter((p) => conProceso.has(p));
   const estados = new Map(muebles.map((m) => [m.id, estadoMueble(m)]));
   const cuenta = (f: EstadoMueble | "todos") =>
     f === "todos"
@@ -104,12 +97,6 @@ export default function FlujoMuebles({
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {procesos.map((p) => (
-          <ResumenProceso key={p} proceso={p} muebles={muebles} />
-        ))}
-      </div>
-
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           className="flex flex-wrap gap-2"
@@ -159,47 +146,6 @@ export default function FlujoMuebles({
         </ul>
       )}
     </section>
-  );
-}
-
-export function ResumenProceso({
-  proceso,
-  muebles,
-}: {
-  proceso: Proceso;
-  muebles: MuebleFlujo[];
-}) {
-  const t = totalesProceso(muebles, proceso);
-  const pctEntregado = porcentaje(t.entregado, t.piezas);
-  const pctAsignado = porcentaje(t.asignado, t.piezas);
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-800">
-          {PROCESO_LABELS[proceso]}
-        </p>
-        <p className="text-2xl font-bold tabular-nums text-slate-900">
-          {pctEntregado}%
-        </p>
-      </div>
-      <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-sky-200 transition-[width] duration-700"
-          style={{ width: `${pctAsignado}%` }}
-        />
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-emerald-500 transition-[width] duration-700"
-          style={{ width: `${pctEntregado}%` }}
-        />
-      </div>
-      <p className="mt-2 text-xs text-slate-500 tabular-nums">
-        {t.entregado}/{t.piezas} pzas entregadas · {t.asignado} asignadas
-      </p>
-      <p className="text-xs text-slate-500">
-        {t.muebles} mueble{t.muebles === 1 ? "" : "s"}
-      </p>
-    </div>
   );
 }
 

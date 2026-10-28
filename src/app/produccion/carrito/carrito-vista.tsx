@@ -19,6 +19,8 @@ import AsignarLote from "../asignaciones/asignar-lote";
 import BotonDesplegar from "@/components/boton-desplegar";
 import DespieceEnLinea from "./despiece-en-linea";
 
+const AVISO_SIN_DESPIECE = "Falta el despiece de algún mueble: despliégalo y guarda su despiece para poder liberar.";
+
 // Panel de asignación de esos muebles (todos los liberados si son demasiados para la dirección).
 function urlPanel(ids: string[]): string {
   return ids.length > 0 && ids.length <= MAX_IDS_PANEL
@@ -137,7 +139,7 @@ export default function CarritoVista() {
           Entra a un PM, marca muebles y usa{" "}
           <span className="font-medium text-slate-700">Agregar al carrito</span>.
         </p>
-        <Link href="/produccion" className="font-medium text-brand-700 hover:underline">
+        <Link href="/produccion/pedidos" className="font-medium text-brand-700 hover:underline">
           Ir a Pedidos →
         </Link>
       </div>
@@ -159,6 +161,8 @@ export default function CarritoVista() {
   const pendientes = filas.filter(porLiberar);
   // Muebles con componentes que todavía no tienen su despiece guardado.
   const sinDespiece = filas.filter((i) => (despieces[i.id]?.componentes ?? 0) > 0 && !despieces[i.id]?.partes);
+  // No se libera nada mientras un mueble de lo que se libera no tenga su despiece (la base también lo exige).
+  const faltaDespiece = (lista: ItemCarrito[]) => lista.some((i) => sinDespiece.includes(i));
 
   return (
     <div className="flex flex-col gap-5">
@@ -171,14 +175,15 @@ export default function CarritoVista() {
         )}
         {sinDespiece.length > 0 && (
           <span className="text-amber-700">
-            {sinDespiece.length} sin despiece
+            {sinDespiece.length} sin despiece: haz su despiece para poder liberar
           </span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
           {puedeEditar && pendientes.length > 0 && (
             <button
               type="button"
-              disabled={liberando !== null}
+              disabled={liberando !== null || faltaDespiece(pendientes)}
+              title={faltaDespiece(pendientes) ? AVISO_SIN_DESPIECE : undefined}
               onClick={() => liberar("todo", idsALiberar(pendientes))}
               className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
             >
@@ -266,7 +271,8 @@ export default function CarritoVista() {
                     {puedeEditar && pendientesPm.length > 0 && (
                       <button
                         type="button"
-                        disabled={liberando !== null}
+                        disabled={liberando !== null || faltaDespiece(pendientesPm)}
+                        title={faltaDespiece(pendientesPm) ? AVISO_SIN_DESPIECE : undefined}
                         onClick={() => liberar(pm.pedidoId, idsALiberar(pendientesPm))}
                         className="rounded-lg border border-brand-600 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 transition-colors hover:bg-brand-500 hover:text-on-brand disabled:opacity-50"
                       >
@@ -427,7 +433,13 @@ function FilaCarrito({
       </div>
       {abierto && desplegable && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3 sm:pl-12">
-          <DespieceEnLinea itemId={item.id} alGuardar={alGuardarDespiece} />
+          <DespieceEnLinea
+            itemId={item.id}
+            alGuardar={() => {
+              setAbierto(false);
+              alGuardarDespiece();
+            }}
+          />
         </div>
       )}
     </li>

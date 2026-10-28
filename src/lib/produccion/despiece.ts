@@ -10,6 +10,8 @@
 // Cada línea dice cuántas piezas lleva UN mueble; para varios muebles se
 // multiplica por la cantidad del padre (totalLinea).
 
+import { descripcionIncluyeIluminacion, descripcionMencionaElectrificacion } from "./electrificacion";
+
 export interface PadreDespiece {
   id: string;
   item_code: number;
@@ -127,6 +129,37 @@ export function etiquetaMaterial(crudo: string | null | undefined): string | nul
   if (conocido) return conocido;
   const t = texto.slice(0, MAX_MATERIAL);
   return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+}
+
+// Tipo de material de una línea, para pintarla con su color. La de electrificación (o
+// iluminación) se reconoce por su descripción, aunque su material diga otra cosa.
+export type TipoMaterial =
+  | "madera"
+  | "metal"
+  | "superficie_solida"
+  | "hibrido"
+  | "tapiz"
+  | "electrificacion"
+  | "vidrio"
+  | "espejo"
+  | "piedra"
+  | "otro";
+
+export function tipoMaterial(material: string | null | undefined, descripcion?: string | null): TipoMaterial {
+  if (descripcionIncluyeIluminacion(descripcion) || descripcionMencionaElectrificacion(descripcion)) {
+    return "electrificacion";
+  }
+  const m = sinAcentos((material ?? "").toLowerCase());
+  if (/madera|mdf|triplay|aglomerado|chapa/.test(m)) return "madera";
+  if (/metal|acero|aluminio|herraje|fierro|hierro/.test(m)) return "metal";
+  if (/superficie solida|^s\.?s\.?$|corian|krion|solid surface/.test(m)) return "superficie_solida";
+  if (/hibrido/.test(m)) return "hibrido";
+  if (/tapiz|tela|piel|vinil/.test(m)) return "tapiz";
+  if (/electri|ilumina|led/.test(m)) return "electrificacion";
+  if (/vidrio|cristal|acrilico/.test(m)) return "vidrio";
+  if (/espejo/.test(m)) return "espejo";
+  if (/piedra|marmol|granito|cuarzo/.test(m)) return "piedra";
+  return "otro";
 }
 
 function materialEscrito(crudo: string | null | undefined): string | null {
@@ -491,6 +524,81 @@ export function trasladarLineas(
       }
     }
     return { ...l, hijo_id: hijo };
+  });
+}
+
+// --- Mismo modelo en otras O.T./PM ----------------------------------------------
+//
+// El despiece se guarda por modelo: al guardarlo en un mueble se copia a los demás del
+// mismo modelo que tienen los mismos componentes (ver copiarDespieceAlModelo).
+
+export interface ComponenteFirma {
+  id: string;
+  descripcion: string | null;
+  cantidad_x_mueble: number | string | null;
+}
+
+function claveComponente(h: ComponenteFirma): string {
+  const texto = sinAcentos(h.descripcion ?? "").toUpperCase().replace(/\s+/g, " ").trim();
+  return `${texto}|${Number(h.cantidad_x_mueble) || 0}`;
+}
+
+// Lo que deben compartir dos muebles para que el despiece de uno le sirva al otro: sus
+// componentes vigentes (descripción y cantidad por mueble), sin importar el orden.
+export function firmaComponentes(hijos: ComponenteFirma[]): string {
+  return hijos.map(claveComponente).sort().join("\n");
+}
+
+// Mismo modelo aunque cambien mayúsculas o espacios ("m-cont-m " = "M-CONT-M").
+export function mismoModelo(a: string | null | undefined, b: string | null | undefined): boolean {
+  const n = (t: string | null | undefined) => (t ?? "").replace(/\s+/g, " ").trim().toUpperCase();
+  return n(a) !== "" && n(a) === n(b);
+}
+
+// Mismo contenido (descripción, material, unidad y piezas, en orden), sin mirar ids ni
+// componentes: así se reconoce la copia de otro mueble que nadie ha cambiado.
+export function mismoContenido(a: LineaDespiece[], b: LineaDespiece[]): boolean {
+  const x = limpiarLineas(a);
+  const y = limpiarLineas(b);
+  return (
+    x.length === y.length &&
+    x.every(
+      (l, i) =>
+        l.descripcion === y[i].descripcion &&
+        l.material === y[i].material &&
+        l.unidad === y[i].unidad &&
+        l.piezas_por_mueble === y[i].piezas_por_mueble
+    )
+  );
+}
+
+// El despiece de un mueble llevado a otro con los mismos componentes: cada línea pasa al
+// componente del destino con la misma descripción y cantidad (si se repite, el del mismo
+// lugar). `partes`: la parte del destino de cada línea (null = parte nueva).
+export function despieceParaOtroMueble(
+  lineas: LineaDespiece[],
+  hijosOrigen: ComponenteFirma[],
+  hijosDestino: ComponenteFirma[],
+  partes: (string | null)[] = []
+): LineaDespiece[] {
+  const lugar = new Map<string, number>();
+  const vistos = new Map<string, number>();
+  for (const h of hijosOrigen) {
+    const clave = claveComponente(h);
+    const n = vistos.get(clave) ?? 0;
+    lugar.set(h.id, n);
+    vistos.set(clave, n + 1);
+  }
+  const destinoPorClave = new Map<string, string[]>();
+  for (const h of hijosDestino) {
+    const clave = claveComponente(h);
+    destinoPorClave.set(clave, [...(destinoPorClave.get(clave) ?? []), h.id]);
+  }
+  const claveOrigen = new Map(hijosOrigen.map((h) => [h.id, claveComponente(h)]));
+  return lineas.map((l, i) => {
+    const clave = l.hijo_id ? claveOrigen.get(l.hijo_id) : undefined;
+    const hijo = clave === undefined ? null : (destinoPorClave.get(clave)?.[lugar.get(l.hijo_id!) ?? 0] ?? null);
+    return { ...l, id: partes[i] ?? null, hijo_id: hijo };
   });
 }
 

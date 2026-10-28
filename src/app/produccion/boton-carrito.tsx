@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { filasCarrito } from "@/lib/produccion/carrito";
 import { useCarrito } from "@/lib/produccion/carrito-navegador";
@@ -10,7 +11,9 @@ import { useCarrito } from "@/lib/produccion/carrito-navegador";
 export default function BotonCarrito() {
   const todos = useCarrito();
   const items = useMemo(() => filasCarrito(todos), [todos]);
-  if (items.length === 0) return null;
+  // Dentro del carrito sobra: ya estás ahí.
+  const enElCarrito = usePathname() === "/produccion/carrito";
+  if (items.length === 0 || enElCarrito) return null;
   return (
     <Link
       href="/produccion/carrito"

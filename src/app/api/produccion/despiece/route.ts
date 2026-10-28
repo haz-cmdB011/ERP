@@ -5,7 +5,12 @@ import { mensajeErrorRpc } from "@/lib/produccion/asignaciones";
 import { esUuid } from "@/lib/produccion/qr-viajero";
 import { esRechazoDefinitivo, leerClaveEnvio } from "@/lib/produccion/envio-entrega";
 import { lineasDesdeJson, validarLineas } from "@/lib/produccion/despiece";
-import { cargarDespieceMueble, leerItemDespiece } from "@/lib/produccion/despiece-db";
+import {
+  cargarDespieceMueble,
+  copiarDespieceAlModelo,
+  leerItemDespiece,
+  type CopiaModelo,
+} from "@/lib/produccion/despiece-db";
 
 export const runtime = "nodejs";
 
@@ -84,12 +89,21 @@ export async function POST(request: Request) {
   const problema = validarLineas(lineas);
   if (problema) return NextResponse.json({ error: problema }, { status: 400 });
 
+  // Lo que tenía antes: con eso se reconocen las copias sin cambios en los muebles del mismo modelo.
+  const { data: anterior } = await supabase
+    .from("despieces_produccion")
+    .select("lineas")
+    .eq("planeacion_item_id", itemId)
+    .maybeSingle<{ lineas: unknown }>();
+
+  const igualASugerencia = form.get("igualASugerencia") === "true";
+  const clave = leerClaveEnvio(form.get("claveEnvio"));
   const { data, error } = await supabase.rpc("guardar_despiece_produccion", {
     p_item_id: itemId,
     p_lineas: lineas,
     p_version_esperada: version,
-    p_igual_a_sugerencia: form.get("igualASugerencia") === "true",
-    p_clave_envio: leerClaveEnvio(form.get("claveEnvio")),
+    p_igual_a_sugerencia: igualASugerencia,
+    p_clave_envio: clave,
   });
 
   if (error) {
@@ -100,5 +114,31 @@ export async function POST(request: Request) {
       { status: conflicto ? 409 : esRechazoDefinitivo(error) ? 400 : 500 }
     );
   }
-  return NextResponse.json({ ok: true, version: data });
+
+  // El despiece es por modelo. Si copiarlo falla, lo de este mueble ya quedó guardado.
+  let aviso: string | undefined;
+  try {
+    const copia = await copiarDespieceAlModelo(
+      supabase,
+      itemId,
+      lineas,
+      anterior ? lineasDesdeJson(anterior.lineas) : null,
+      igualASugerencia,
+      clave
+    );
+    aviso = copia ? textoCopiaModelo(copia) : undefined;
+  } catch {
+    aviso = "No se pudo copiar a los demás muebles del mismo modelo.";
+  }
+  return NextResponse.json({ ok: true, version: data, aviso });
+}
+
+function textoCopiaModelo({ modelo, copiados, distintos, fallidos }: CopiaModelo): string | undefined {
+  const partes = [
+    copiados > 0 && `También quedó en ${copiados} mueble${copiados === 1 ? "" : "s"} ${modelo} más.`,
+    distintos > 0 &&
+      `${distintos} ${modelo} con otros componentes no se ${distintos === 1 ? "tocó" : "tocaron"}.`,
+    fallidos > 0 && `${fallidos} no se ${fallidos === 1 ? "pudo" : "pudieron"} guardar.`,
+  ].filter(Boolean);
+  return partes.length > 0 ? partes.join(" ") : undefined;
 }

@@ -104,7 +104,7 @@ export default function BuscadorOt({
     <form
       ref={formulario}
       method="get"
-      action="/produccion"
+      action="/produccion/pedidos"
       className="flex flex-wrap items-center gap-2"
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAbierto(false);

@@ -14,8 +14,10 @@ import {
   limpiarLineas,
   mismasLineas,
   repartirPorcentajes,
+  tipoMaterial,
   totalLinea,
   validarLineas,
+  type TipoMaterial,
   type LineaDespiece,
   type SugerenciaDespiece,
   type VersionHistorial,
@@ -79,7 +81,44 @@ function numero(n: number): string {
   return n.toLocaleString("es-MX", { maximumFractionDigits: 2 });
 }
 
-const GRID = "sm:grid-cols-[minmax(0,1fr)_6rem_6rem_5.5rem_7rem_2.5rem]";
+const GRID = "sm:grid-cols-[minmax(0,1fr)_6rem_6rem_7rem_2.5rem]";
+
+// Color de cada material: la tarjeta de la línea se ilumina con él. Colores fijos (no del
+// tema) para que se reconozcan igual en claro y oscuro; el híbrido mezcla madera y metal.
+const COLORES_MATERIAL: Record<TipoMaterial, { etiqueta: string; colores: string[] }> = {
+  madera: { etiqueta: "Madera", colores: ["#16a34a"] },
+  metal: { etiqueta: "Metal", colores: ["#2563eb"] },
+  superficie_solida: { etiqueta: "Superficie sólida", colores: ["#ffffff"] },
+  hibrido: { etiqueta: "Híbrido", colores: ["#16a34a", "#2563eb"] },
+  tapiz: { etiqueta: "Tapiz", colores: ["#dc2626"] },
+  electrificacion: { etiqueta: "Electrificación", colores: ["#facc15"] },
+  vidrio: { etiqueta: "Vidrio / cristal", colores: ["#22d3ee"] },
+  espejo: { etiqueta: "Espejo", colores: ["#94a3b8"] },
+  piedra: { etiqueta: "Piedra", colores: ["#a16207"] },
+  otro: { etiqueta: "Sin material", colores: ["#64748b"] },
+};
+
+// La tarjeta "encendida": borde, resplandor y un tinte del color (hex + transparencia).
+function luzMaterial(tipo: TipoMaterial): React.CSSProperties {
+  const [a, b = a] = COLORES_MATERIAL[tipo].colores;
+  return {
+    borderColor: `${a}cc`,
+    boxShadow: `0 0 14px 1px ${a}55, 0 0 14px 1px ${b}40`,
+    background: `linear-gradient(135deg, ${a}29, ${b}14)`,
+  };
+}
+
+function MuestraColor({ tipo }: { tipo: TipoMaterial }) {
+  const [a, b = a] = COLORES_MATERIAL[tipo].colores;
+  // El borde deja ver el blanco de la superficie sólida sobre fondo claro.
+  return (
+    <span
+      className="inline-block h-3 w-3 shrink-0 rounded-full border border-slate-300"
+      style={{ background: `linear-gradient(135deg, ${a} 50%, ${b} 50%)` }}
+      aria-hidden="true"
+    />
+  );
+}
 
 function claveBorrador(itemId: string): string {
   return `despiece-borrador-${itemId}`;
@@ -206,6 +245,8 @@ export default function DespieceEditor({
   const cambiado = !mismasLineas(actuales, base);
   const distintoDeLaSugerencia = !mismasLineas(actuales, sugerencia.lineas);
   const pendientesDeRevisar = filas.filter((f) => f.aviso && !revisadas.has(f.clave));
+  // Los materiales que hay en el despiece, para la leyenda de colores.
+  const tiposUsados = [...new Set(filas.map((f) => tipoMaterial(f.material, f.descripcion)))];
 
   // Borrador de un trabajo anterior sin guardar.
   useEffect(() => {
@@ -387,7 +428,8 @@ export default function DespieceEditor({
         avisar("Sin conexión: el despiece quedó guardado en este aparato y se enviará solo.", "info");
         return;
       }
-      avisar("Despiece guardado");
+      // El servidor dice si también quedó en otros muebles del mismo modelo.
+      avisar(resultado.aviso ? `Despiece guardado. ${resultado.aviso}` : "Despiece guardado");
       // Si se llegó desde el panel de asignación (u otra pantalla), se regresa ahí.
       if (alGuardar) alGuardar();
       else if (volver) router.push(rutaInternaSegura(volver, "/produccion/panel"));
@@ -526,20 +568,37 @@ export default function DespieceEditor({
         </p>
       )}
 
+      {tiposUsados.length > 0 && (
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600" aria-label="Colores por material">
+          {tiposUsados.map((t) => (
+            <li key={t} className="flex items-center gap-1.5">
+              <MuestraColor tipo={t} />
+              {COLORES_MATERIAL[t].etiqueta}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="flex flex-col gap-3">
         {filas.map((f, i) => {
           const piezas = leerCantidad(f.piezas);
           const caido = !!f.hijoId && idsCaidos.has(f.hijoId);
           const asignada = !!f.parteId && partesAsignadas.includes(f.parteId);
+          const tipo = tipoMaterial(f.material, f.descripcion);
           return (
             <div
               key={f.clave}
-              className={`grid grid-cols-2 items-end gap-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0 ${GRID}`}
+              // La tarjeta se ilumina con el color de su material.
+              className="rounded-xl border p-3 transition-shadow"
+              style={luzMaterial(tipo)}
+              title={COLORES_MATERIAL[tipo].etiqueta}
             >
-              <Campo
-                etiqueta={`Línea ${i + 1} · Descripción${asignada ? " · asignada a un equipo" : ""}`}
-                className="col-span-full"
-              >
+            <div className={`grid grid-cols-2 items-end gap-2 ${GRID}`}>
+              <div className="col-span-full flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-slate-500">Parte {i + 1}</span>
+                {asignada && <span className="text-slate-500">· asignada a un equipo</span>}
+              </div>
+              <Campo etiqueta="Descripción" className="col-span-full">
                 <input
                   value={f.descripcion}
                   onChange={(e) => cambiar(f.clave, "descripcion", e.target.value)}
@@ -577,12 +636,6 @@ export default function DespieceEditor({
                   className={`${estiloCampo} tabular-nums`}
                 />
               </Campo>
-              <div className="flex min-w-0 flex-col gap-1" title="Cada parte del despiece vale lo mismo">
-                <span className="text-xs font-medium text-slate-500">% del mueble</span>
-                <span className="py-2.5 text-base tabular-nums text-slate-900 sm:py-2 sm:text-sm">
-                  {numero(actuales[i]?.porcentaje ?? 0)} %
-                </span>
-              </div>
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="text-xs font-medium text-slate-500">Para {numero(muebles)}</span>
                 <span className="py-2.5 text-base tabular-nums text-slate-900 sm:py-2 sm:text-sm">
@@ -642,6 +695,7 @@ export default function DespieceEditor({
                   )}
                 </div>
               )}
+            </div>
             </div>
           );
         })}

@@ -1,11 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leer } from "@/lib/supabase/leer";
 import { ErrorLectura } from "@/lib/supabase/paginar";
+import { tandas } from "./tandas";
 import {
   basePmDesdeJson,
+  despieceParaOtroMueble,
   diferenciasConPm,
+  firmaComponentes,
   lineasConComponenteCaido,
   lineasDesdeJson,
+  mismoContenido,
+  mismoModelo,
   sugerirDespiece,
   trasladarLineas,
   type HijoDespiece,
@@ -221,4 +226,154 @@ export async function cargarDespieceMueble(supabase: SupabaseClient, item: ItemD
     motivoBloqueo,
     partesAsignadas,
   };
+}
+
+export interface CopiaModelo {
+  modelo: string;
+  // Muebles a los que se copió el despiece.
+  copiados: number;
+  // Del mismo modelo pero con otros componentes: no se tocaron.
+  distintos: number;
+  // La base no los aceptó (p. ej. una parte asignada que se quitaría).
+  fallidos: number;
+}
+
+interface MuebleModelo {
+  id: string;
+  modelo: string | null;
+}
+
+interface ComponenteModelo {
+  id: string;
+  parent_item_id: string;
+  descripcion: string | null;
+  cantidad_x_mueble: number | null;
+}
+
+// Tope de muebles del mismo modelo que se tocan en un guardado.
+const MAX_MUEBLES_MODELO = 100;
+
+// El despiece es por modelo: recién guardado en un mueble, se copia a los demás muebles
+// vigentes del mismo modelo (de cualquier O.T. o PM) que tienen los mismos componentes y
+// que no tienen despiece o siguen con la copia anterior sin cambios (`previas`: lo que tenía
+// este mueble antes de guardar). Uno que alguien cambió a mano no se toca. Cada copia pasa
+// por guardar_despiece_produccion, con sus mismas reglas, y repetir el mismo envío no la
+// duplica (misma clave por mueble). null si el mueble no tiene modelo.
+export async function copiarDespieceAlModelo(
+  supabase: SupabaseClient,
+  itemId: string,
+  lineas: LineaDespiece[],
+  previas: LineaDespiece[] | null,
+  igualASugerencia: boolean,
+  clave: string
+): Promise<CopiaModelo | null> {
+  const origen = await leer(
+    supabase.from("planeacion_items").select("id, modelo").eq("id", itemId).maybeSingle<MuebleModelo>(),
+    "planeacion_items"
+  );
+  const modelo = origen?.modelo?.replace(/\s+/g, " ").trim();
+  if (!modelo) return null;
+
+  const patron = `%${modelo.replace(/[\%_]/g, "\$&")}%`;
+  const candidatos = (
+    (await leer(
+      supabase
+        .from("planeacion_items")
+        .select("id, modelo, pedido_versiones!inner ( es_version_activa, pedidos!inner ( cancelado_en, eliminado_en ) )")
+        .eq("tipo_registro", "MO")
+        .ilike("modelo", patron)
+        .neq("id", itemId)
+        .is("eliminacion_solicitada_en", null)
+        .or("estado_revision.is.null,estado_revision.neq.cancelado")
+        .eq("pedido_versiones.es_version_activa", true)
+        .is("pedido_versiones.pedidos.cancelado_en", null)
+        .is("pedido_versiones.pedidos.eliminado_en", null)
+        .limit(MAX_MUEBLES_MODELO)
+        .returns<MuebleModelo[]>(),
+      "planeacion_items"
+    )) ?? []
+  ).filter((m) => mismoModelo(m.modelo, modelo));
+  if (candidatos.length === 0) return { modelo, copiados: 0, distintos: 0, fallidos: 0 };
+
+  const ids = [itemId, ...candidatos.map((m) => m.id)];
+  const [componentes, despieces] = await Promise.all([
+    Promise.all(
+      tandas(ids, 25).map((lote) =>
+        leer(
+          supabase
+            .from("planeacion_items")
+            .select("id, parent_item_id, descripcion, cantidad_x_mueble")
+            .in("parent_item_id", lote)
+            .eq("tipo_registro", "FU")
+            .is("eliminacion_solicitada_en", null)
+            .or("estado_revision.is.null,estado_revision.neq.cancelado")
+            .order("item_code")
+            .order("fila_excel_origen")
+            .returns<ComponenteModelo[]>(),
+          "los componentes"
+        )
+      )
+    ),
+    Promise.all(
+      tandas(ids).map((lote) =>
+        leer(
+          supabase
+            .from("despieces_produccion")
+            .select("planeacion_item_id, version, lineas")
+            .in("planeacion_item_id", lote)
+            .returns<{ planeacion_item_id: string; version: number; lineas: unknown }[]>(),
+          "despieces_produccion"
+        )
+      )
+    ),
+  ]);
+  const hijosDe = new Map<string, ComponenteModelo[]>();
+  for (const c of componentes.flatMap((l) => l ?? [])) {
+    hijosDe.set(c.parent_item_id, [...(hijosDe.get(c.parent_item_id) ?? []), c]);
+  }
+  const despieceDe = new Map(despieces.flatMap((l) => l ?? []).map((d) => [d.planeacion_item_id, d]));
+  const hijosOrigen = hijosDe.get(itemId) ?? [];
+  const firma = firmaComponentes(hijosOrigen);
+
+  let distintos = 0;
+  const copias: { id: string; lineas: LineaDespiece[]; version: number }[] = [];
+  for (const m of candidatos) {
+    const hijos = hijosDe.get(m.id) ?? [];
+    if (firmaComponentes(hijos) !== firma) {
+      distintos += 1;
+      continue;
+    }
+    const actual = despieceDe.get(m.id);
+    if (!actual) {
+      copias.push({ id: m.id, lineas: despieceParaOtroMueble(lineas, hijosOrigen, hijos), version: 0 });
+      continue;
+    }
+    // Ya tiene despiece: solo se actualiza si sigue siendo la copia de lo que tenía este mueble.
+    const suyas = lineasDesdeJson(actual.lineas);
+    if (!previas || !mismoContenido(suyas, previas) || mismoContenido(suyas, lineas)) continue;
+    // Cada línea conserva la parte que ya tenía en ese mueble (y con ella sus asignaciones).
+    const partes = lineas.map((l) => {
+      const j = l.id ? previas.findIndex((p) => p.id === l.id) : -1;
+      return j >= 0 ? (suyas[j]?.id ?? null) : null;
+    });
+    copias.push({
+      id: m.id,
+      lineas: despieceParaOtroMueble(lineas, hijosOrigen, hijos, partes),
+      version: actual.version,
+    });
+  }
+
+  const resultados = await Promise.all(
+    copias.map((c) =>
+      supabase.rpc("guardar_despiece_produccion", {
+        p_item_id: c.id,
+        p_lineas: c.lineas,
+        p_version_esperada: c.version,
+        p_igual_a_sugerencia: igualASugerencia,
+        p_clave_envio: clave,
+      })
+    )
+  );
+  const fallidos = resultados.filter((r) => r.error).length;
+  return { modelo, copiados: copias.length - fallidos, distintos, fallidos };
 }

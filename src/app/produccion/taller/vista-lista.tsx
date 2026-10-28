@@ -226,7 +226,7 @@ export default async function VistaLista({
           }
           accion={
             sinFiltros
-              ? { href: "/produccion", etiqueta: "Elegir un pedido" }
+              ? { href: "/produccion/pedidos", etiqueta: "Elegir un pedido" }
               : { href: `${BASE}?vista=lista&estado=todas`, etiqueta: "Ver todas" }
           }
         />

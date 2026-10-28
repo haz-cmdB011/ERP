@@ -8,7 +8,7 @@ type Datos = DatosDespiece & { puedeEditar: boolean };
 
 // El despiece de un mueble del carrito, desplegado debajo de su fila: el mismo editor de
 // su página (arranca con los componentes del PM como sugerencia), con los datos pedidos a
-// /api/produccion/despiece. Al guardar vuelve a leerse y avisa al carrito.
+// /api/produccion/despiece. Al guardar avisa al carrito, que lo pliega.
 export default function DespieceEnLinea({
   itemId,
   alGuardar,
@@ -50,10 +50,7 @@ export default function DespieceEnLinea({
         // Al traer otra versión guardada se arma de nuevo.
         key={datos.version}
         {...datos}
-        alGuardar={() => {
-          void cargar();
-          alGuardar();
-        }}
+        alGuardar={alGuardar}
         alRecargar={() => void cargar()}
       />
     </Suspense>

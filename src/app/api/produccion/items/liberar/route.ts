@@ -33,6 +33,38 @@ export async function POST(request: Request) {
     );
   }
 
+  // Un mueble con componentes no se libera sin su despiece guardado (se hace en el carrito).
+  const { data: conHijos, error: errorHijos } = await supabase
+    .from("planeacion_items")
+    .select("parent_item_id, padre:parent_item_id ( item_code )")
+    .in("parent_item_id", itemIds)
+    .eq("tipo_registro", "FU")
+    .is("eliminacion_solicitada_en", null)
+    .or("estado_revision.is.null,estado_revision.neq.cancelado")
+    .returns<{ parent_item_id: string; padre: { item_code: number } | null }[]>();
+  const idsConHijos = [...new Set((conHijos ?? []).map((h) => h.parent_item_id))];
+  const { data: conDespiece, error: errorDespiece } = idsConHijos.length
+    ? await supabase.from("despieces_produccion").select("planeacion_item_id").in("planeacion_item_id", idsConHijos)
+    : { data: [], error: null };
+  if (errorHijos || errorDespiece) {
+    return NextResponse.json(
+      { error: `No se pudo revisar el despiece: ${(errorHijos ?? errorDespiece)?.message}` },
+      { status: 500 }
+    );
+  }
+  const hechos = new Set((conDespiece ?? []).map((d) => d.planeacion_item_id));
+  const sinDespiece = [
+    ...new Set((conHijos ?? []).filter((h) => !hechos.has(h.parent_item_id)).map((h) => h.padre?.item_code)),
+  ];
+  if (sinDespiece.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Falta el despiece de ${sinDespiece.length === 1 ? "el mueble" : "los muebles"} ${sinDespiece.join(", ")}. Hazlo en el carrito antes de liberar.`,
+      },
+      { status: 409 }
+    );
+  }
+
   const { data, error } = await supabase
     .from("planeacion_items")
     .update({

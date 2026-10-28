@@ -62,13 +62,15 @@ export function transporteXhr(onProgreso?: (porcentaje: number) => void): Transp
       }
       xhr.onload = () => {
         let error: string | undefined;
+        let aviso: string | undefined;
         try {
-          const json = JSON.parse(xhr.responseText) as { error?: unknown };
+          const json = JSON.parse(xhr.responseText) as { error?: unknown; aviso?: unknown };
           if (typeof json.error === "string") error = json.error;
+          if (typeof json.aviso === "string") aviso = json.aviso;
         } catch {
           // Respuesta sin JSON (p. ej. una página de error del proveedor): sin mensaje.
         }
-        resolver({ status: xhr.status, error });
+        resolver({ status: xhr.status, error, aviso });
       };
       xhr.onerror = () => rechazar(new Error("red"));
       xhr.ontimeout = () => rechazar(new Error("tiempo"));
