@@ -3,6 +3,7 @@
 import { useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Chevron from "@/components/chevron";
+import Colapsable from "@/components/colapsable";
 
 export interface TarjetaResumen {
   valor: number;
@@ -29,7 +30,20 @@ export default function ResumenInicio({
   despliegues?: Record<string, ReactNode>;
 }) {
   const [abierta, setAbierta] = useState<string | null>(null);
+  // La última tarjeta abierta sigue montada mientras el panel se pliega, para que cierre con animación;
+  // `veces` reinicia las animaciones de entrada del contenido en cada apertura.
+  const [ultima, setUltima] = useState<string | null>(null);
+  const [veces, setVeces] = useState(0);
   const idPanel = useId();
+  function alternar(etiqueta: string) {
+    if (abierta === etiqueta) {
+      setAbierta(null);
+      return;
+    }
+    setAbierta(etiqueta);
+    setUltima(etiqueta);
+    setVeces((v) => v + 1);
+  }
   if (tarjetas.length === 0) return null;
   return (
     <section aria-label="Resumen" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -61,7 +75,7 @@ export default function ResumenInicio({
         const tarjeta = despliegue ? (
           <button
             type="button"
-            onClick={() => setAbierta(estaAbierta ? null : t.etiqueta)}
+            onClick={() => alternar(t.etiqueta)}
             aria-expanded={estaAbierta}
             aria-controls={idPanel}
             className={`${base} group w-full text-left transition-colors hover:border-brand-400 ${
@@ -85,10 +99,19 @@ export default function ResumenInicio({
         );
         return <div key={t.etiqueta}>{tarjeta}</div>;
       })}
-      {abierta && despliegues[abierta] && (
-        <div id={idPanel} className="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2 lg:col-span-4">
-          {despliegues[abierta]}
-        </div>
+      {ultima && despliegues[ultima] && (
+        <Colapsable
+          abierto={abierta !== null}
+          className={`transition-[margin] duration-300 sm:col-span-2 lg:col-span-4 ${abierta ? "" : "-mt-3"}`}
+        >
+          <div
+            id={idPanel}
+            key={veces}
+            className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-white p-4 shadow-sm"
+          >
+            {despliegues[ultima]}
+          </div>
+        </Colapsable>
       )}
     </section>
   );

@@ -3,6 +3,7 @@ import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import ChipEstado from "@/components/chip-estado";
 import ResumenInicio from "@/components/resumen-inicio";
+import IconoMenu from "@/components/iconos-menu";
 import {
   PROCESO_LABELS,
   hoyMexico,
@@ -76,18 +77,48 @@ export default async function VistaEquipos() {
           libres.length > 0
             ? {
                 "Equipos libres": (
-                  <ul className="flex flex-wrap gap-2">
-                    {libres.map((e) => (
-                      <li
-                        key={e.id}
-                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700"
-                        title={e.procesos.map((p) => PROCESO_LABELS[p]).join(" y ")}
-                      >
-                        {e.nombre}
-                        {e.es_planta ? " (planta)" : ""}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="flex flex-col gap-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <span className="relative flex size-2.5">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                        <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+                      </span>
+                      Disponibles para asignar
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                        {libres.length}
+                      </span>
+                    </p>
+                    <ul className="lista-animada grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {libres.map((e) => (
+                        <li
+                          key={e.id}
+                          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-md"
+                        >
+                          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-100 text-brand-700">
+                            <IconoMenu nombre="equipos" className="h-5 w-5" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-base font-semibold text-slate-900">{e.nombre}</span>
+                            <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                              {e.es_planta && (
+                                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-medium text-white">
+                                  Planta
+                                </span>
+                              )}
+                              {e.procesos.map((p) => (
+                                <span
+                                  key={p}
+                                  className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                                >
+                                  {PROCESO_LABELS[p]}
+                                </span>
+                              ))}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ),
               }
             : undefined
