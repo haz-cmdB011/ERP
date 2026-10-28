@@ -441,7 +441,7 @@ export default function ItemsLiberacionTable({
               href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
               title="Viajero"
               aria-label={`Viajero del ítem ${item.item_code}`}
-              className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
+              className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
             >
               {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
               <svg
@@ -451,7 +451,7 @@ export default function ItemsLiberacionTable({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-6 w-6"
+                className="h-4 w-4"
                 aria-hidden="true"
               >
                 <path d="M22 2 11 13" />
@@ -463,7 +463,7 @@ export default function ItemsLiberacionTable({
                 href={`/produccion/pedidos/${pedidoId}/despiece/${item.id}`}
                 title="Despiece"
                 aria-label={`Despiece del ítem ${item.item_code}`}
-                className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
+                className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
               >
                 {/* Capas: el mueble desglosado en sus piezas. */}
                 <svg
@@ -473,7 +473,7 @@ export default function ItemsLiberacionTable({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-6 w-6"
+                  className="h-4 w-4"
                   aria-hidden="true"
                 >
                   <path d="m12 3 9 5-9 5-9-5 9-5Z" />
@@ -487,7 +487,7 @@ export default function ItemsLiberacionTable({
               onClick={() => agregarFilasAlCarrito(grupo ? [item, ...grupo.hijos] : [item])}
               title={enCarrito ? "Ya está en el carrito" : "Agregar al carrito"}
               aria-label={`Agregar el ítem ${item.item_code} al carrito`}
-              className={`flex h-12 w-12 items-center justify-center rounded-lg border transition-colors ${
+              className={`flex h-11 w-11 items-center justify-center rounded border transition-colors lg:h-8 lg:w-8 ${
                 enCarrito
                   ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
@@ -500,7 +500,7 @@ export default function ItemsLiberacionTable({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-6 w-6"
+                className="h-4 w-4"
                 aria-hidden="true"
               >
                 <circle cx="9" cy="20" r="1.5" />
@@ -527,7 +527,7 @@ export default function ItemsLiberacionTable({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
                 aria-hidden="true"
               >
                 <circle cx="11" cy="11" r="7" />

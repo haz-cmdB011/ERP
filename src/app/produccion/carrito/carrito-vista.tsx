@@ -357,7 +357,7 @@ function FilaCarrito({
         onClick={() => quitarItems([item.id])}
         aria-label={`Quitar el ítem ${item.itemCode} del carrito`}
         title="Quitar del carrito"
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-lg text-slate-500 transition-colors hover:bg-slate-100"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100"
       >
         ✕
       </button>
