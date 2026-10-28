@@ -679,7 +679,7 @@ export default function ItemsLiberacionTable({
                 onClick={agregarSeleccionAlCarrito}
                 disabled={seleccionados.size === 0}
                 title="Junta estos ítems con los de otros PM u O.T. para liberarlos y asignarlos a equipos"
-                className="min-h-12 rounded-lg bg-brand-500 px-6 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+                className="min-h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
               >
                 Agregar al carrito{seleccionados.size > 0 ? ` (${seleccionados.size})` : ""}
               </button>
