@@ -29,11 +29,11 @@ export default async function EquiposPage() {
   );
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Equipos</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Equipos</h1>
+          <p className="mt-1 text-base text-slate-500">
             Los equipos del taller y quién los encabeza. Se eligen al asignar un mueble.
           </p>
         </div>
