@@ -137,11 +137,11 @@ export default function CarritoVista() {
   return (
     <div className="flex flex-col gap-5">
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
-        <span className="font-medium text-slate-900">
+        <span className="text-base font-semibold text-slate-900">
           {items.length} ítem{items.length === 1 ? "" : "s"} · {grupos.length} O.T.
         </span>
         {pendientes.length > 0 && (
-          <span className="text-amber-700">{pendientes.length} por liberar</span>
+          <span className="text-base font-semibold text-amber-700">{pendientes.length} por liberar</span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
           {puedeEditar && pendientes.length > 0 && (
@@ -154,7 +154,7 @@ export default function CarritoVista() {
                   pendientes.map((i) => i.id)
                 )
               }
-              className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+              className="min-h-12 rounded-lg bg-brand-500 px-5 py-2 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
             >
               {liberando === "todo" ? "Liberando..." : `Liberar todo a producción (${pendientes.length})`}
             </button>
@@ -199,7 +199,7 @@ export default function CarritoVista() {
       {grupos.map((g) => (
         <section key={g.ot ?? "sin-ot"} className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-xl font-bold text-slate-900">
               {g.ot ? (
                 <Link href={`/produccion/ot/${g.ot}`} className="hover:underline">
                   O.T. {g.ot}
@@ -227,7 +227,7 @@ export default function CarritoVista() {
                 <header className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
                   <Link
                     href={`/produccion/pedidos/${pm.pedidoId}`}
-                    className="font-semibold text-slate-900 hover:underline"
+                    className="text-lg font-bold text-slate-900 hover:underline"
                   >
                     {pm.numeroPm}
                   </Link>
@@ -245,7 +245,7 @@ export default function CarritoVista() {
                             porLiberar.map((i) => i.id)
                           )
                         }
-                        className="rounded-lg border border-brand-600 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 transition-colors hover:bg-brand-500 hover:text-on-brand disabled:opacity-50"
+                        className="min-h-12 rounded-lg border-2 border-brand-600 bg-white px-5 py-2 text-base font-semibold text-slate-900 transition-colors hover:bg-brand-500 hover:text-on-brand disabled:opacity-50"
                       >
                         {liberando === pm.pedidoId
                           ? "Liberando..."
@@ -329,9 +329,9 @@ function FilaCarrito({
   const esHijo = item.tipo === "FU";
   const faltan = mueble ? PROCESOS.filter((p) => mueble.disponible[p] > 0) : [];
   return (
-    <li className={`flex items-start gap-3 px-4 py-3 text-sm ${esHijo ? "bg-slate-50/50 pl-10" : ""}`}>
+    <li className={`flex items-start gap-3 px-4 py-4 text-sm ${esHijo ? "bg-slate-50/50 pl-10" : ""}`}>
       <div className="min-w-0 flex-1">
-        <p className="font-medium text-slate-900">
+        <p className={esHijo ? "text-base font-medium text-slate-900" : "text-lg font-semibold text-slate-900"}>
           {item.itemCode}
           {item.modelo ? ` · ${item.modelo}` : ""}
           <span className="ml-2 text-xs font-normal text-slate-500">
@@ -341,8 +341,10 @@ function FilaCarrito({
         {item.descripcion && (
           <p className="line-clamp-2 text-xs text-slate-600">{item.descripcion.split("\n")[0]}</p>
         )}
-        <p className="mt-0.5 text-xs text-slate-500">
-          {item.cantidad} {item.unidad ?? ""}
+        <p className="mt-0.5 text-sm text-slate-600">
+          <span className="text-base font-semibold text-slate-900">
+            {item.cantidad} {item.unidad ?? ""}
+          </span>
           {mueble &&
             (faltan.length > 0
               ? ` · por asignar: ${faltan.map((p) => `${PROCESO_LABELS[p]} ${mueble.disponible[p]}`).join(", ")}`
@@ -355,7 +357,7 @@ function FilaCarrito({
         onClick={() => quitarItems([item.id])}
         aria-label={`Quitar el ítem ${item.itemCode} del carrito`}
         title="Quitar del carrito"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-lg text-slate-500 transition-colors hover:bg-slate-100"
       >
         ✕
       </button>
@@ -372,14 +374,14 @@ function Estado({
   vigente: boolean | undefined;
   liberado: boolean | undefined;
 }) {
-  if (!cargado) return <span className="text-xs text-slate-500">…</span>;
+  if (!cargado) return <span className="text-sm text-slate-500">…</span>;
   if (vigente === undefined) {
-    return <span className="whitespace-nowrap text-xs font-medium text-rose-700">Ya no existe</span>;
+    return <span className="whitespace-nowrap text-sm font-semibold text-rose-700">Ya no existe</span>;
   }
   if (!vigente) {
     return (
       <span
-        className="whitespace-nowrap text-xs font-medium text-rose-700"
+        className="whitespace-nowrap text-sm font-semibold text-rose-700"
         title="Está en la papelera o cancelado, es de una versión anterior o el PM se canceló"
       >
         No disponible
@@ -387,8 +389,8 @@ function Estado({
     );
   }
   return liberado ? (
-    <span className="whitespace-nowrap text-xs font-medium text-emerald-700">Enviado a Producción</span>
+    <span className="whitespace-nowrap text-base font-semibold text-emerald-700">Enviado a Producción</span>
   ) : (
-    <span className="whitespace-nowrap text-xs font-medium text-slate-500">Pendiente</span>
+    <span className="whitespace-nowrap text-base font-semibold text-slate-500">Pendiente</span>
   );
 }

@@ -277,14 +277,14 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-emerald-700">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-base font-semibold text-emerald-700">
           <IconoCheck />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-slate-500">
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-base font-semibold text-slate-500">
         <IconoReloj />
         Pendiente
       </span>
@@ -322,7 +322,7 @@ export default function ItemsLiberacionTable({
           seleccionado
             ? "bg-brand-50"
             : colorFilaEstadoRevision(item.estado_revision) || "hover:bg-slate-50"
-        } ${indentado ? "text-slate-700" : "text-sm text-slate-900"} ${
+        } ${indentado ? "text-sm text-slate-700" : "text-base text-slate-900"} ${
           desplegable ? "cursor-pointer" : ""
         }`}
       >
@@ -332,6 +332,7 @@ export default function ItemsLiberacionTable({
             checked={seleccionados.has(item.id)}
             onChange={() => (grupo ? alternarGrupo(grupo) : alternarSeleccion(item.id))}
             aria-label={`Seleccionar ítem ${item.item_code}`}
+            className="h-5 w-5 cursor-pointer"
           />
         </td>
         <td className="py-3 pr-1 lg:px-3 lg:py-2">
@@ -340,12 +341,12 @@ export default function ItemsLiberacionTable({
               url={item.imagenUrl}
               urlGrande={item.imagenGrandeUrl}
               alt={`Ítem ${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`}
-              className={indentado ? "h-12 w-12 lg:h-9 lg:w-9" : "h-16 w-16 lg:h-11 lg:w-11"}
+              className={indentado ? "h-12 w-12 lg:h-14 lg:w-14" : "h-16 w-16 lg:h-20 lg:w-20"}
             />
           ) : (
             <span
               className={`flex items-center justify-center rounded bg-slate-100 text-center text-[9px] font-medium leading-tight text-slate-500 ${
-                indentado ? "h-12 w-12 lg:h-9 lg:w-9" : "h-16 w-16 lg:h-11 lg:w-11"
+                indentado ? "h-12 w-12 lg:h-14 lg:w-14" : "h-16 w-16 lg:h-20 lg:w-20"
               }`}
             >
               Sin imagen
@@ -353,7 +354,11 @@ export default function ItemsLiberacionTable({
           )}
         </td>
         <td className="px-2 py-3 sm:px-3 lg:py-2">
-          <span className="inline-flex items-center gap-1.5">
+          <span
+            className={`inline-flex items-center gap-1.5 ${
+              indentado ? "text-base font-semibold" : "text-lg font-bold"
+            }`}
+          >
             {desplegable && grupo && (
               <BotonDesplegar
                 abierto={abierto}
@@ -380,7 +385,7 @@ export default function ItemsLiberacionTable({
               </p>
             )}
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-              <span className="font-medium text-slate-700">
+              <span className="text-base font-semibold text-slate-900">
                 {item.cantidad_total} {item.unidad}
               </span>
               {item.tipo_material && <span>{item.tipo_material}</span>}
@@ -397,15 +402,15 @@ export default function ItemsLiberacionTable({
           </div>
         </td>
         <td className="hidden px-3 py-2 lg:table-cell">
-          <span className={indentado ? "" : "font-medium"}>{item.modelo}</span>
+          <span className={indentado ? "text-base font-medium" : "text-lg font-semibold"}>{item.modelo}</span>
           {item.descripcion && (
             <span className="mt-0.5 line-clamp-2 block text-xs font-normal text-slate-500">
               {item.descripcion.split("\n")[0]}
             </span>
           )}
         </td>
-        <td className="hidden px-3 py-2 lg:table-cell">{item.tipo_material}</td>
-        <td className="hidden px-3 py-2 lg:table-cell">
+        <td className="hidden px-3 py-2 text-sm font-normal text-slate-600 lg:table-cell">{item.tipo_material}</td>
+        <td className="hidden whitespace-nowrap px-3 py-2 text-base font-semibold lg:table-cell">
           {item.cantidad_total} {item.unidad}
         </td>
         <td className="hidden px-3 py-2 lg:table-cell">
@@ -436,7 +441,7 @@ export default function ItemsLiberacionTable({
               href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
               title="Viajero"
               aria-label={`Viajero del ítem ${item.item_code}`}
-              className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
+              className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
             >
               {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
               <svg
@@ -446,7 +451,7 @@ export default function ItemsLiberacionTable({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-4 w-4"
+                className="h-6 w-6"
                 aria-hidden="true"
               >
                 <path d="M22 2 11 13" />
@@ -458,7 +463,7 @@ export default function ItemsLiberacionTable({
                 href={`/produccion/pedidos/${pedidoId}/despiece/${item.id}`}
                 title="Despiece"
                 aria-label={`Despiece del ítem ${item.item_code}`}
-                className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
+                className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100"
               >
                 {/* Capas: el mueble desglosado en sus piezas. */}
                 <svg
@@ -468,7 +473,7 @@ export default function ItemsLiberacionTable({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4"
+                  className="h-6 w-6"
                   aria-hidden="true"
                 >
                   <path d="m12 3 9 5-9 5-9-5 9-5Z" />
@@ -482,7 +487,7 @@ export default function ItemsLiberacionTable({
               onClick={() => agregarFilasAlCarrito(grupo ? [item, ...grupo.hijos] : [item])}
               title={enCarrito ? "Ya está en el carrito" : "Agregar al carrito"}
               aria-label={`Agregar el ítem ${item.item_code} al carrito`}
-              className={`flex h-11 w-11 items-center justify-center rounded border transition-colors lg:h-8 lg:w-8 ${
+              className={`flex h-12 w-12 items-center justify-center rounded-lg border transition-colors ${
                 enCarrito
                   ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
@@ -495,7 +500,7 @@ export default function ItemsLiberacionTable({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-4 w-4"
+                className="h-6 w-6"
                 aria-hidden="true"
               >
                 <circle cx="9" cy="20" r="1.5" />
@@ -522,7 +527,7 @@ export default function ItemsLiberacionTable({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+                className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500"
                 aria-hidden="true"
               >
                 <circle cx="11" cy="11" r="7" />
@@ -534,14 +539,14 @@ export default function ItemsLiberacionTable({
                 onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar mueble, modelo o folio"
                 autoComplete="off"
-                className="min-h-10 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+                className="min-h-12 w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-base text-slate-900 focus:border-slate-400 focus:outline-none"
               />
             </div>
             <button
               type="button"
               onClick={() => setFiltrosAbiertos((v) => !v)}
               aria-expanded={filtrosAbiertos}
-              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              className="min-h-12 rounded-lg border border-slate-300 bg-white px-4 text-base font-medium text-slate-700 transition-colors hover:bg-slate-50"
             >
               Filtros{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
             </button>
@@ -629,12 +634,13 @@ export default function ItemsLiberacionTable({
               arriba en pedidos con muchos ítems después de seleccionar. La acción
               principal es agregar al carrito (ahí se libera y se asigna); lo demás va en "Más". */}
           <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
-            <label className="flex min-h-9 items-center gap-2">
+            <label className="flex min-h-11 items-center gap-2 text-base font-medium text-slate-900">
               <input
                 type="checkbox"
                 checked={todosFiltradosSeleccionados}
                 onChange={alternarSeleccionTodos}
                 disabled={idsFiltrados.length === 0}
+                className="h-5 w-5 cursor-pointer"
               />
               Seleccionar todos ({idsFiltrados.length})
             </label>
@@ -673,7 +679,7 @@ export default function ItemsLiberacionTable({
                 onClick={agregarSeleccionAlCarrito}
                 disabled={seleccionados.size === 0}
                 title="Junta estos ítems con los de otros PM u O.T. para liberarlos y asignarlos a equipos"
-                className="min-h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+                className="min-h-12 rounded-lg bg-brand-500 px-6 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
               >
                 Agregar al carrito{seleccionados.size > 0 ? ` (${seleccionados.size})` : ""}
               </button>
