@@ -17,17 +17,17 @@ export default function SelectorPeriodo({
   hrefDe: (vista: Vista, dia: string) => string;
 }) {
   const flecha =
-    "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50";
+    "inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-lg text-slate-600 shadow-sm transition-colors hover:border-brand-400 hover:bg-brand-50";
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <nav aria-label="Periodo" className="flex overflow-hidden rounded-lg border border-slate-300 bg-white text-sm">
+      <nav aria-label="Periodo" className="flex overflow-hidden rounded-xl border border-slate-300 bg-white text-sm shadow-sm">
         {VISTAS.map((v) => (
           <Link
             key={v}
             href={hrefDe(v, dia)}
             aria-current={v === periodo.vista ? "page" : undefined}
-            className={`px-4 py-1.5 font-medium transition-colors ${
-              v === periodo.vista ? "bg-brand-500 text-on-brand" : "text-slate-600 hover:bg-slate-50"
+            className={`px-4 py-2 font-semibold transition-colors ${
+              v === periodo.vista ? "bg-brand-500 text-on-brand" : "text-slate-600 hover:bg-brand-50"
             }`}
           >
             {NOMBRE_VISTA[v]}
@@ -38,7 +38,7 @@ export default function SelectorPeriodo({
         <Link href={hrefDe(periodo.vista, periodo.anterior)} aria-label="Periodo anterior" className={flecha}>
           ‹
         </Link>
-        <span className="min-w-[14rem] text-center text-sm font-semibold capitalize text-slate-900">
+        <span className="min-w-[14rem] text-center text-base font-bold capitalize text-slate-900">
           {etiquetaPeriodo(periodo)}
         </span>
         <Link href={hrefDe(periodo.vista, periodo.siguiente)} aria-label="Periodo siguiente" className={flecha}>
