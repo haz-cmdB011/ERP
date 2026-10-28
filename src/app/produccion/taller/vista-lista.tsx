@@ -255,7 +255,7 @@ export default async function VistaLista({
                 <li key={a.id} className={plazo?.tipo === "vencido" ? "bg-rose-50/60" : ""}>
                   <div className={`flex flex-col gap-1.5 px-3 py-3 text-sm xl:grid xl:items-start xl:gap-x-3 xl:py-2 ${COLUMNAS}`}>
                     <div className="flex items-center justify-between gap-2 xl:block">
-                      <span className="font-semibold text-slate-900">
+                      <span className="text-lg font-bold text-slate-900">
                         {a.pedido_id ? (
                           <EnlaceFila
                             href={`/produccion/pedidos/${a.pedido_id}/asignaciones`}
@@ -272,13 +272,13 @@ export default async function VistaLista({
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <span className="font-medium text-slate-900">{a.modelo ?? "—"}</span>
+                      <span className="text-base font-semibold text-slate-900">{a.modelo ?? "—"}</span>
                       <span className="block truncate text-xs text-slate-500" title={a.descripcion ?? ""}>
                         {a.descripcion?.split("\n")[0]}
                       </span>
                     </div>
                     <div className="text-slate-700 xl:text-right">
-                      <span className="font-medium text-slate-900">{Number(a.cantidad)} pza</span>
+                      <span className="text-base font-bold text-slate-900">{Number(a.cantidad)} pza</span>
                       <span className="text-xs text-slate-500"> · entregadas {Number(a.entregado)}</span>
                       {Number(a.por_verificar) > 0 && (
                         <span className="block text-xs font-medium text-amber-700">
@@ -287,7 +287,7 @@ export default async function VistaLista({
                       )}
                     </div>
                     <div>
-                      <span className="font-medium text-slate-900">{a.equipo}</span>
+                      <span className="text-base font-semibold text-slate-900">{a.equipo}</span>
                       <span className="block text-xs text-slate-500">
                         {etiquetaProceso(a)}
                         {encargado ? ` · ${encargado}` : ""}
@@ -298,11 +298,11 @@ export default async function VistaLista({
                         </span>
                       )}
                     </div>
-                    <div className="text-slate-700">
+                    <div className="text-xs text-slate-600 xl:text-sm xl:text-slate-700">
                       <span className="text-xs text-slate-500 xl:hidden">Asignada: </span>
                       {formatoFecha(a.fecha_asignacion)}
                     </div>
-                    <div className="text-slate-700">
+                    <div className="text-xs text-slate-600 xl:text-sm xl:text-slate-700">
                       <span className="text-xs text-slate-500 xl:hidden">Entrega: </span>
                       {a.estado === "entregada" ? formatoFecha(a.ultima_entrega) : "—"}
                       {plazo && (
@@ -311,7 +311,7 @@ export default async function VistaLista({
                         </span>
                       )}
                     </div>
-                    <div className="text-slate-700 xl:text-right">
+                    <div className="text-xs text-slate-600 xl:text-right xl:text-sm xl:text-slate-700">
                       <span className="text-xs text-slate-500 xl:hidden">Días en taller: </span>
                       {dias ?? "—"}
                     </div>
