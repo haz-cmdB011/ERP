@@ -67,10 +67,10 @@ export default function CrearUsuarioForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-3 rounded border border-gray-200 p-4"
+      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-gradient-to-b from-brand-50 to-white p-5"
     >
-      <h2 className="text-sm font-medium">Crear nuevo usuario</h2>
-      <p className="text-xs text-gray-500">
+      <h2 className="text-lg font-bold text-slate-900">Crear nuevo usuario</h2>
+      <p className="text-sm text-slate-600">
         Se crea directamente con email y contraseña — no se envía ningún
         correo. Los links de Supabase quedan reservados solo para que el
         usuario restablezca su contraseña por su cuenta.
@@ -80,7 +80,7 @@ export default function CrearUsuarioForm() {
         placeholder={mostrarContratista ? "Nombre del contratista" : "Nombre completo"}
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
-        className="rounded border border-gray-300 px-3 py-2 text-sm"
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-200"
       />
       <input
         type="email"
@@ -88,7 +88,7 @@ export default function CrearUsuarioForm() {
         placeholder="correo@empresa.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="rounded border border-gray-300 px-3 py-2 text-sm"
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-200"
       />
       <input
         type="password"
@@ -97,13 +97,13 @@ export default function CrearUsuarioForm() {
         placeholder="Contraseña inicial (mín. 8 caracteres)"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="rounded border border-gray-300 px-3 py-2 text-sm"
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-200"
       />
       <div className="flex gap-3">
         <select
           value={rol}
           onChange={(e) => setRol(e.target.value as RolValido)}
-          className="rounded border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-200"
         >
           {ROLES_VALIDOS.map((r) => (
             <option key={r} value={r}>
@@ -115,7 +115,7 @@ export default function CrearUsuarioForm() {
           <select
             value={area}
             onChange={(e) => setArea(e.target.value as AreaValida)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-200"
           >
             {AREAS_VALIDAS.map((a) => (
               <option key={a} value={a}>
@@ -139,7 +139,7 @@ export default function CrearUsuarioForm() {
       <button
         type="submit"
         disabled={enviando || (mostrarContratista && areasMaquila.length === 0)}
-        className="w-fit rounded bg-brand-500 px-3 py-2 text-sm font-medium text-on-brand disabled:opacity-50"
+        className="min-h-11 w-fit rounded-lg bg-brand-500 px-6 text-base font-semibold text-on-brand transition-colors hover:bg-brand-400 disabled:opacity-50"
       >
         {enviando ? "Creando..." : "Crear usuario"}
       </button>
