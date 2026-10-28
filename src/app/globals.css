@@ -2,6 +2,7 @@
 @import "./tema-oscuro.css";
 @import "./vidrio.css";
 @import "./marca-clasica.css";
+@import "./acentos.css";
 
 :root {
   --background: #ffffff;

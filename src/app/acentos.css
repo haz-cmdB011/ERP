@@ -1,0 +1,36 @@
+/* ---------------------------------------------------------------------------
+   Acentos de color para todas las pantallas. Usan la escala de la marca
+   (--color-brand-*), así que siguen el acento elegido en "Personalizar apariencia"
+   y el modo oscuro; van en @layer components para que cualquier clase de Tailwind
+   puesta a mano los pueda sobrescribir.
+
+   El verde de la marca (#7cfc00) se usa solo como acento pequeño (barras, bordes,
+   fondos suaves): el texto sigue en tinta oscura y los demás colores (ámbar, azul,
+   violeta, rojo) se reservan para señalar estados, para no restarle contraste.
+   --------------------------------------------------------------------------- */
+@layer components {
+  /* Título de cada pantalla: una barra de la marca antes del texto. La pantalla de
+     entrada (auth-shell) lo evita con data-sin-acento. */
+  main:not([data-sin-acento]) h1::before {
+    content: "";
+    display: inline-block;
+    width: 0.3em;
+    height: 0.95em;
+    margin-right: 0.45em;
+    border-radius: 9999px;
+    background: var(--color-brand-500);
+    vertical-align: -0.1em;
+  }
+
+  /* Pestaña activa: un velo de la marca que sube desde su línea. */
+  .pestana-activa {
+    background-image: linear-gradient(to top, var(--color-brand-100), transparent 75%);
+  }
+
+  /* Filas de las tablas: al señalarlas, una barra de la marca a la izquierda. Las filas
+     que ya traen su propia franja de color (border-l-*) no la llevan. */
+  :where(main) tbody > tr:hover > td:first-child:not([class*="border-l-"]) {
+    box-shadow: inset 3px 0 0 var(--color-brand-500);
+  }
+
+}
