@@ -197,7 +197,7 @@ export default async function OrdenTrabajoCalidadPage({
           <div className="overflow-x-auto rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-gradient-to-b from-brand-50 to-slate-50 text-xs font-semibold text-slate-600">
+                <tr className="bg-slate-50 text-xs font-semibold text-slate-600">
                   <th className="px-2 py-3">Pedido</th>
                   <th className="px-2 py-3">Proyecto</th>
                   <th className="px-2 py-3">Entrega</th>

@@ -59,10 +59,10 @@ function descripcionFiltros(f: FiltrosIncidencias): string {
 
 // Cada número del resumen lleva su color: una franja arriba y un fondo suave que se aclara hacia abajo.
 const TONO_NUMERO: Record<string, string> = {
-  Reportes: "border-t-brand-500 from-brand-50",
-  Abiertos: "border-t-amber-400 from-amber-50",
-  Cerrados: "border-t-emerald-400 from-emerald-50",
-  "Abiertos de +30 días": "border-t-rose-400 from-rose-50",
+  Reportes: "border-t-brand-500",
+  Abiertos: "border-t-amber-400",
+  Cerrados: "border-t-emerald-400",
+  "Abiertos de +30 días": "border-t-rose-400",
 };
 
 // Con qué se compara el periodo que se mira (el inmediato anterior).
@@ -209,7 +209,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                           return (
                             <div
                               key={String(etiqueta)}
-                              className={`rounded-xl border border-slate-200 border-t-4 bg-gradient-to-b to-white p-4 shadow-sm ${TONO_NUMERO[String(etiqueta)] ?? ""}`}
+                              className={`rounded-xl border border-slate-200 border-t-4 bg-white p-4 shadow-sm ${TONO_NUMERO[String(etiqueta)] ?? ""}`}
                             >
                               <p className={`text-4xl font-bold tabular-nums ${color}`}>{valor}</p>
                               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{etiqueta}</p>

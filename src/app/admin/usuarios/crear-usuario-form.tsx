@@ -67,7 +67,7 @@ export default function CrearUsuarioForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-gradient-to-b from-brand-50 to-white p-5"
+      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white p-5"
     >
       <h2 className="text-lg font-bold text-slate-900">Crear nuevo usuario</h2>
       <p className="text-sm text-slate-600">

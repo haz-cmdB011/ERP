@@ -635,11 +635,7 @@ html.transicion-tema *::after {
 }
 /* Padre desplegado: se distingue del resto de filas. */
 .fila-padre-abierta {
-  background-image: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--color-brand-500) 14%, transparent),
-    transparent 70%
-  );
+  background-color: color-mix(in oklab, var(--color-brand-500) 8%, transparent);
 }
 
 /* ---------------------------------------------------------------------------
