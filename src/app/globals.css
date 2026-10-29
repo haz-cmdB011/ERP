@@ -71,6 +71,17 @@
   --radius-xl: 0.5rem;
   --radius-2xl: 0.625rem;
 
+  /* Letra un poco más grande en toda la app (alrededor de un 7 % sobre la escala de Tailwind):
+     solo cambia el tamaño del texto, no los espacios ni los anchos. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.3125rem;
+  --text-2xl: 1.5625rem;
+  --text-3xl: 1.9375rem;
+  --text-4xl: 2.3125rem;
+
   --shadow-xs: none;
   --shadow-sm: none;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04);
