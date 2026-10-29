@@ -150,7 +150,7 @@ export default function EquiposEditor({
               <div className="flex items-center gap-2.5">
                 <span
                   className={`grid size-9 shrink-0 place-items-center rounded-full text-sm font-bold ${
-                    e.activo ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-500"
+                    e.activo ? "bg-brand-100 text-brand-800" : "bg-slate-200 text-slate-500"
                   }`}
                   aria-hidden="true"
                 >
@@ -187,7 +187,7 @@ export default function EquiposEditor({
                 {e.procesos.map((p) => (
                   <span
                     key={p}
-                    className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200"
+                    className="rounded-md bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-800 ring-1 ring-inset ring-brand-200"
                   >
                     {PROCESO_LABELS[p]}
                   </span>

@@ -11,12 +11,12 @@ function plural(n: number, uno: string, varios: string): string {
 
 // Cada área tiene su color (borde superior y velo) para distinguirlas de un vistazo.
 const TONO_AREA: Record<string, { tarjeta: string; etiqueta: string }> = {
-  acabados: { tarjeta: "border-t-emerald-500", etiqueta: "text-emerald-800" },
-  armado: { tarjeta: "border-t-emerald-500", etiqueta: "text-emerald-800" },
+  acabados: { tarjeta: "border-t-brand-500", etiqueta: "text-brand-800" },
+  armado: { tarjeta: "border-t-brand-500", etiqueta: "text-brand-800" },
 };
 
 function TarjetaArea({ r }: { r: ResumenArea }) {
-  const tono = TONO_AREA[r.area] ?? { tarjeta: "border-t-emerald-500", etiqueta: "text-slate-600" };
+  const tono = TONO_AREA[r.area] ?? { tarjeta: "border-t-brand-500", etiqueta: "text-slate-600" };
   const hay = r.renglones > 0;
   const calidad = r.enCalidad > 0 && (
     <span className="text-xs text-amber-700">
@@ -71,7 +71,7 @@ export default async function ResumenPorLlegar() {
   return (
     <section
       aria-labelledby="por-llegar-titulo"
-      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-emerald-500 bg-white p-5 shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white p-5 shadow-sm"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -83,7 +83,7 @@ export default async function ResumenPorLlegar() {
             aproximado: usa el último precio que se pagó por ese mueble.
           </p>
         </div>
-        <Link href="/estimaciones/por-llegar" className="rounded-lg bg-emerald-100 px-3 py-1.5 text-sm font-semibold text-emerald-900 transition-colors hover:bg-emerald-200">
+        <Link href="/estimaciones/por-llegar" className="rounded-lg bg-brand-100 px-3 py-1.5 text-sm font-semibold text-brand-900 transition-colors hover:bg-brand-200">
           Ver mueble por mueble
         </Link>
       </div>

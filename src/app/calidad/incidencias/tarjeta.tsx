@@ -34,7 +34,7 @@ export default function Tarjeta({
       );
     }
     return (
-      <section className="flex flex-col gap-3 rounded-xl border border-slate-200 border-t-4 border-t-emerald-500 bg-white p-4 shadow-sm">
+      <section className="flex flex-col gap-3 rounded-xl border border-slate-200 border-t-4 border-t-brand-400 bg-white p-4 shadow-sm">
         {cabecera}
         {children}
       </section>

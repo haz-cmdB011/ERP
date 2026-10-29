@@ -29,8 +29,8 @@ const TARJETAS: {
     titulo: "Generador de Recibos",
     detalle: "Captura un recibo y compáralo contra el precio sugerido",
     tono: {
-      tarjeta: "border-t-emerald-500",
-      icono: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
+      tarjeta: "border-t-brand-500",
+      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     },
     icono: (
       <>
@@ -44,8 +44,8 @@ const TARJETAS: {
     titulo: "Registro de recibos",
     detalle: "Revisa, aprueba y marca como pagados",
     tono: {
-      tarjeta: "border-t-emerald-500",
-      icono: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
+      tarjeta: "border-t-brand-500",
+      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     },
     icono: <path d="M4 6h16M4 12h16M4 18h10" />,
   },
@@ -54,8 +54,8 @@ const TARJETAS: {
     titulo: "Análisis de pagos",
     detalle: "Gráficas y cierres por semana",
     tono: {
-      tarjeta: "border-t-emerald-500",
-      icono: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
+      tarjeta: "border-t-brand-500",
+      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     },
     icono: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   },

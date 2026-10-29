@@ -518,7 +518,7 @@ export default function ItemsTabla({
                           <ImagenesMueble imagenes={imagenesPorItem[m.id] ?? []} etiqueta={`Ítem ${m.item_code}`} className="h-20 w-20" />
                         </td>
                         <td className="px-3 py-2 text-lg font-bold">
-                          <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-emerald-100 px-2 text-emerald-900">
+                          <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-brand-100 px-2 text-brand-900">
                             {m.item_code}
                           </span>
                         </td>

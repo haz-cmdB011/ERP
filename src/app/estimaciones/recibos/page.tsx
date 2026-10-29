@@ -11,8 +11,8 @@ const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string; tono: str
     tipo: "acabados",
     titulo: "Acabados",
     icono: <path d="M18 3l3 3-9 9-3-3zM9 12c-2.5 0-4 1.5-4 4 0 1.5-1 2.5-2 3 3 1 7 .5 8-3 .3-1-.5-2.5-2-4z" />,
-    tono: "border-t-emerald-500",
-    letra: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
+    tono: "border-t-brand-500",
+    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     descripcion:
       "Maquila de acabados: captura lo que propone el maquilador y compáralo contra el precio sugerido.",
   },
@@ -20,8 +20,8 @@ const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string; tono: str
     tipo: "armado",
     titulo: "Armado",
     icono: <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z" />,
-    tono: "border-t-emerald-500",
-    letra: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
+    tono: "border-t-brand-500",
+    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     descripcion:
       "Maquila de armado (natural, laminado o colocación de herrajes): mismo control de precios que Acabados.",
   },
@@ -29,8 +29,8 @@ const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string; tono: str
     tipo: "electrificacion",
     titulo: "Electrificación",
     icono: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
-    tono: "border-t-emerald-500",
-    letra: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
+    tono: "border-t-brand-500",
+    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     descripcion:
       "Maquila de electrificación: modelo, metros de LED y kit de charolas, comparado contra el precio sugerido.",
   },

@@ -59,7 +59,7 @@ function descripcionFiltros(f: FiltrosIncidencias): string {
 
 // Cada número del resumen lleva su color: una franja arriba y un fondo suave que se aclara hacia abajo.
 const TONO_NUMERO: Record<string, string> = {
-  Reportes: "border-t-emerald-500 from-emerald-50",
+  Reportes: "border-t-brand-500 from-brand-50",
   Abiertos: "border-t-amber-400 from-amber-50",
   Cerrados: "border-t-emerald-400 from-emerald-50",
   "Abiertos de +30 días": "border-t-rose-400 from-rose-50",

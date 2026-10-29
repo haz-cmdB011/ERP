@@ -696,7 +696,7 @@ export default function ItemsCalidadTable({
           {indentado ? (
             item.item_code
           ) : (
-            <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-emerald-100 px-2 text-emerald-900">
+            <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-brand-100 px-2 text-brand-900">
               {item.item_code}
             </span>
           )}
