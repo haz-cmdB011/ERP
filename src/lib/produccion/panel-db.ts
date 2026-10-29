@@ -11,6 +11,7 @@ interface FilaPanel {
   descripcion: string | null;
   cantidad_total: number;
   unidad: string | null;
+  liberado_en: string | null;
   pedido_versiones: {
     pedido_id: string;
     pedidos: {
@@ -33,7 +34,7 @@ export async function cargarMueblesDePanel(
       const base = supabase
         .from("planeacion_items")
         .select(
-          "id, item_code, modelo, descripcion, cantidad_total, unidad, pedido_versiones!inner ( pedido_id, pedidos!inner ( numero_pedido, orden_trabajo, proyectos ( nombre, cliente ) ) )"
+          "id, item_code, modelo, descripcion, cantidad_total, unidad, liberado_en, pedido_versiones!inner ( pedido_id, pedidos!inner ( numero_pedido, orden_trabajo, proyectos ( nombre, cliente ) ) )"
         )
         .eq("tipo_registro", "MO")
         .eq("estado_liberacion", "enviado_a_produccion")
@@ -64,6 +65,7 @@ export async function cargarMueblesDePanel(
     flujo: flujos[i],
     estado: estadoMueble(flujos[i]),
     descripcion: fila.descripcion,
+    liberadoEn: fila.liberado_en,
     pedidoId: fila.pedido_versiones?.pedido_id ?? "",
     numeroPm: pedido.numero_pedido,
     ot: pedido.orden_trabajo,

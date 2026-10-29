@@ -23,6 +23,8 @@ export interface MuebleDePanel {
   flujo: MuebleFlujo;
   estado: EstadoMueble;
   descripcion: string | null;
+  // Cuándo se liberó a producción (ISO); los viejos pueden no tenerlo.
+  liberadoEn?: string | null;
   pedidoId: string;
   numeroPm: string;
   ot: string | null;

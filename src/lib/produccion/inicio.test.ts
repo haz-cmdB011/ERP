@@ -37,6 +37,15 @@ describe("inicio de Producción", () => {
     expect(r[0].conteos).toEqual({ por_liberar: 1, por_asignar: 0, en_proceso: 1, terminado: 1 });
   });
 
+  it("un modelo de un PM viejo con movimiento reciente sale primero", () => {
+    const r = modelosRecientes([
+      ...muebles,
+      mueble("f", { modelo: "TABLE C-3", pedidoId: "p9", creadoEn: "2026-10-01T10:00:00Z", actividad: "2026-10-29T09:00:00Z" }),
+    ]);
+    expect(r[0].modelo).toBe("TABLE C-3");
+    expect(r[0].reciente).toBe("2026-10-29T09:00:00Z");
+  });
+
   it("lista solo las O.T. con algo pendiente, la más reciente primero", () => {
     const r = otsConPendientes(muebles);
     expect(r.map((o) => [o.ot, o.pms])).toEqual([

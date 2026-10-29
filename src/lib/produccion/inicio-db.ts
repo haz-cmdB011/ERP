@@ -74,15 +74,24 @@ export async function cargarMueblesInicio(supabase: SupabaseClient): Promise<Mue
           ]
         : []
     ),
-    ...liberados.map((m) => ({
-      id: m.flujo.id,
-      modelo: m.flujo.modelo,
-      descripcion: m.descripcion,
-      estado: m.estado,
-      pedidoId: m.pedidoId,
-      numeroPm: m.numeroPm,
-      ot: m.ot,
-      creadoEn: creadoEn.get(m.pedidoId) ?? "",
-    })),
+    ...liberados.map((m) => {
+      const subido = creadoEn.get(m.pedidoId) ?? "";
+      return {
+        id: m.flujo.id,
+        modelo: m.flujo.modelo,
+        descripcion: m.descripcion,
+        estado: m.estado,
+        pedidoId: m.pedidoId,
+        numeroPm: m.numeroPm,
+        ot: m.ot,
+        creadoEn: subido,
+        // Lo último que le pasó: liberarlo, asignarlo o entregar algo de él.
+        actividad: [
+          subido,
+          m.liberadoEn,
+          ...m.flujo.asignaciones.flatMap((a) => [a.creado_en, a.ultima_entrega]),
+        ].reduce<string>((max, f) => (f && f > max ? f : max), ""),
+      };
+    }),
   ];
 }

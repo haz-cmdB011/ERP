@@ -24,6 +24,10 @@ export interface MuebleInicio {
   ot: string | null;
   // Cuándo se subió su PM (ISO): lo más reciente sale primero.
   creadoEn: string;
+  // Lo último que le pasó al mueble (ISO): subida del PM, liberación, asignación o entrega. Ordena
+  // "Muebles recientes", para que un mueble con movimiento suba aunque su PM sea viejo. Sin
+  // dato, cuenta la subida del PM.
+  actividad?: string;
 }
 
 export type Conteos = Record<EstadoInicio, number>;
@@ -52,7 +56,7 @@ export interface ModeloReciente {
   muebles: number;
   pms: PmDeModelo[];
   conteos: Conteos;
-  // El PM más reciente que lo tiene.
+  // Lo último que le pasó a alguno de sus muebles (ver MuebleInicio.actividad).
   reciente: string;
 }
 
@@ -61,7 +65,8 @@ const natural = (a: string, b: string) => a.localeCompare(b, "es", { numeric: tr
 const masReciente = (a: string, b: string) => (b > a ? b : a);
 
 // Cada modelo con todos sus PM (estén en uno o en varios) y cuántos muebles hay en cada estado.
-// Primero los de los PM más recientes; dentro de cada modelo, sus PM del más reciente al más viejo.
+// Primero los que tuvieron movimiento más reciente; dentro de cada modelo, sus PM del más
+// reciente al más viejo.
 export function modelosRecientes(muebles: MuebleInicio[]): ModeloReciente[] {
   const porModelo = new Map<string, ModeloReciente & { idsPm: Set<string> }>();
   for (const m of muebles) {
@@ -75,14 +80,14 @@ export function modelosRecientes(muebles: MuebleInicio[]): ModeloReciente[] {
         muebles: 0,
         pms: [],
         conteos: vacio(),
-        reciente: m.creadoEn,
+        reciente: m.actividad ?? m.creadoEn,
         idsPm: new Set(),
       };
       porModelo.set(clave, g);
     }
     g.muebles += 1;
     g.conteos[m.estado] += 1;
-    g.reciente = masReciente(g.reciente, m.creadoEn);
+    g.reciente = masReciente(g.reciente, m.actividad ?? m.creadoEn);
     if (!g.idsPm.has(m.pedidoId)) {
       g.idsPm.add(m.pedidoId);
       g.pms.push({ pedidoId: m.pedidoId, numeroPm: m.numeroPm, ot: m.ot, creadoEn: m.creadoEn });
