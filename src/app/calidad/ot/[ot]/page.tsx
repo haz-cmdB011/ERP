@@ -170,11 +170,11 @@ export default async function OrdenTrabajoCalidadPage({
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Migas items={[{ etiqueta: "Pedidos", href: "/calidad" }, { etiqueta: `O.T. ${ot}` }]} />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
           O.T. <span className="font-mono">{ot}</span>
         </h1>
         {primero && (
-          <p className="text-sm text-slate-600">
+          <p className="mt-1 text-base text-slate-600">
             {primero.proyectos?.nombre} — {primero.proyectos?.cliente}
           </p>
         )}
@@ -188,13 +188,16 @@ export default async function OrdenTrabajoCalidadPage({
 
       {pmsVisibles.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-slate-600">
-            {pmsVisibles.length} PM con muebles en producción
+          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-700">
+            <span className="rounded-full bg-brand-100 px-3 py-0.5 text-sm font-bold text-brand-900">
+              {pmsVisibles.length}
+            </span>
+            PM con muebles en producción
           </h2>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr className="bg-gradient-to-b from-brand-50 to-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
                   <th className="px-4 py-3">Pedido</th>
                   <th className="px-4 py-3">Proyecto</th>
                   <th className="px-4 py-3">Entrega</th>
@@ -213,44 +216,64 @@ export default async function OrdenTrabajoCalidadPage({
                   const activa = versionActiva.get(p.id);
                   const a = activa ? avancePorVersion.get(activa.id) : undefined;
                   const sinEvaluar = a ? a.enviados - a.aprobados - a.rechazados : 0;
+                  // Avance de la revisión: lo aprobado sobre lo que ya está en Calidad.
+                  const pctAprobado = a && a.enviados > 0 ? Math.round((a.aprobados / a.enviados) * 100) : 0;
                   return (
-                    <tr key={p.id} className="relative align-top transition-colors focus-within:bg-slate-50 hover:bg-slate-50">
-                      <td className="px-4 py-3">
+                    <tr
+                      key={p.id}
+                      className="relative align-top transition-all duration-200 focus-within:bg-brand-50 hover:bg-brand-50 hover:shadow-md"
+                    >
+                      <td className="px-4 py-4">
                         {/* El enlace se extiende sobre toda la fila (after:inset-0): tocar cualquier parte abre el pedido. */}
                         <EnlaceFila
                           href={`/calidad/pedidos/${p.id}`}
-                          className="group inline-flex items-center gap-2 whitespace-nowrap font-medium text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
+                          className="group inline-flex items-center gap-2 whitespace-nowrap text-base font-bold text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
                         >
                           {p.numero_pedido}
                         </EnlaceFila>
+                        {a && a.enviados > 0 && (
+                          <div
+                            className="mt-2 flex items-center gap-2"
+                            title={`${a.aprobados} de ${a.enviados} aprobados`}
+                          >
+                            <div className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-200">
+                              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pctAprobado}%` }} />
+                            </div>
+                            <span className="text-xs font-medium tabular-nums text-slate-500">{pctAprobado}%</span>
+                          </div>
+                        )}
                         {p.cancelado_en && (
                           <span className="ml-2 rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
                             Cancelado
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{p.proyectos?.nombre ?? "—"}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{p.fecha_entrega ?? "—"}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-4 text-slate-600">{p.proyectos?.nombre ?? "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-slate-700">{p.fecha_entrega ?? "—"}</td>
+                      <td className="px-4 py-4">
                         {activa ? (
-                          <span className="rounded bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                          <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-bold text-brand-900">
                             #{activa.numero_version}
                           </span>
                         ) : (
                           <span className="text-slate-500">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-slate-700">{a?.enviados ?? 0}</td>
-                      <td className="px-4 py-3 text-right font-medium text-emerald-700">
-                        {a?.aprobados || "—"}
+                      <td className="px-4 py-4 text-right">
+                        <Cifra valor={a?.enviados ?? 0} tono="bg-sky-100 text-sky-900" />
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-rose-700">
-                        {a?.rechazados || "—"}
+                      <td className="px-4 py-4 text-right">
+                        <Cifra valor={a?.aprobados ?? 0} tono="bg-emerald-100 text-emerald-800" />
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-amber-700">
-                        {sinEvaluar || "—"}
+                      <td className="px-4 py-4 text-right">
+                        <Cifra valor={a?.rechazados ?? 0} tono="bg-rose-100 text-rose-800" />
                       </td>
-                      <td className="px-4 py-3 text-right text-slate-500">{a?.enTaller || "—"}</td>
+                      <td className="px-4 py-4 text-right">
+                        <Cifra valor={sinEvaluar} tono="bg-amber-100 text-amber-800" />
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <Cifra valor={a?.enTaller ?? 0} tono="bg-slate-100 text-slate-700" />
+                      </td>
                     </tr>
                   );
                 })}
@@ -260,5 +283,17 @@ export default async function OrdenTrabajoCalidadPage({
         </div>
       )}
     </main>
+  );
+}
+
+// Cifra de la tabla: en pastilla de color si hay algo, y un guion tenue si no.
+function Cifra({ valor, tono }: { valor: number; tono: string }) {
+  if (!valor) return <span className="text-slate-300">—</span>;
+  return (
+    <span
+      className={`inline-flex min-w-9 justify-center rounded-full px-2.5 py-1 text-base font-bold tabular-nums ${tono}`}
+    >
+      {valor}
+    </span>
   );
 }
