@@ -69,12 +69,12 @@ export default function ResumenInicio({
         );
         // La franja de arriba dice de qué se trata: ámbar si algo espera, rojo si pide atención,
         // y el verde de la marca para lo demás.
-        const base = `flex h-full items-center gap-4 rounded-xl border border-t-4 bg-gradient-to-b to-white p-4 ${
+        const base = `flex h-full items-center gap-4 rounded-xl border border-t-4 p-4 ${
           t.alerta
-            ? "border-amber-300 border-t-amber-400 from-amber-50 ring-1 ring-amber-200"
+            ? "border-amber-300 border-t-amber-400 bg-amber-50 ring-1 ring-amber-200"
             : activa
-              ? "border-rose-200 border-t-rose-400 from-rose-50 ring-1 ring-rose-100"
-              : "border-slate-200 border-t-brand-500 from-brand-50"
+              ? "border-rose-200 border-t-rose-400 bg-rose-50 ring-1 ring-rose-100"
+              : "border-slate-200 border-t-brand-500 bg-white"
         }`;
         const despliegue = despliegues[t.etiqueta];
         const estaAbierta = abierta === t.etiqueta;
@@ -113,7 +113,7 @@ export default function ResumenInicio({
           <div
             id={idPanel}
             key={veces}
-            className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-white p-4 shadow-sm"
+            className="rounded-xl border border-brand-200 bg-white p-4 shadow-sm"
           >
             {despliegues[ultima]}
           </div>
