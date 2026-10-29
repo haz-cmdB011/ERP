@@ -189,15 +189,15 @@ export default async function OrdenTrabajoCalidadPage({
       {pmsVisibles.length > 0 && (
         <div className="flex flex-col gap-3">
           <h2 className="flex items-center gap-2 text-base font-semibold text-slate-700">
-            <span className="rounded-full bg-brand-100 px-3 py-0.5 text-sm font-bold text-brand-900">
+            <span className="rounded-full bg-emerald-100 px-3 py-0.5 text-sm font-bold text-emerald-900">
               {pmsVisibles.length}
             </span>
             PM con muebles en producción
           </h2>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 border-t-4 border-t-emerald-500 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-gradient-to-b from-brand-50 to-slate-50 text-[11px] font-semibold uppercase tracking-tight text-slate-600">
+                <tr className="bg-gradient-to-b from-emerald-50 to-slate-50 text-[11px] font-semibold uppercase tracking-tight text-slate-600">
                   <th className="px-2 py-3">Pedido</th>
                   <th className="px-2 py-3">Proyecto</th>
                   <th className="px-2 py-3">Entrega</th>
@@ -252,7 +252,7 @@ export default async function OrdenTrabajoCalidadPage({
                       <td className="px-2 py-4 text-slate-700">{p.fecha_entrega ?? "—"}</td>
                       <td className="px-2 py-4">
                         {activa ? (
-                          <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-bold text-brand-900">
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-900">
                             #{activa.numero_version}
                           </span>
                         ) : (

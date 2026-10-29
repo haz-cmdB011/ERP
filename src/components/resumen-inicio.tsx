@@ -74,7 +74,7 @@ export default function ResumenInicio({
             ? "border-amber-300 border-t-amber-400 from-amber-50 ring-1 ring-amber-200"
             : activa
               ? "border-rose-200 border-t-rose-400 from-rose-50 ring-1 ring-rose-100"
-              : "border-slate-200 border-t-brand-500 from-brand-50"
+              : "border-slate-200 border-t-emerald-500 from-emerald-50"
         }`;
         const despliegue = despliegues[t.etiqueta];
         const estaAbierta = abierta === t.etiqueta;
@@ -113,7 +113,7 @@ export default function ResumenInicio({
           <div
             id={idPanel}
             key={veces}
-            className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-white p-4 shadow-sm"
+            className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white p-4 shadow-sm"
           >
             {despliegues[ultima]}
           </div>

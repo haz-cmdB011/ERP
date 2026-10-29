@@ -22,12 +22,12 @@ export default function AccesosRapidos({ accesos }: { accesos: Acceso[] }) {
           className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-brand-500 ${
             a.principal
               ? "border-brand-600 bg-brand-500 text-on-brand hover:bg-brand-400"
-              : "border-slate-200 border-l-4 border-l-brand-500 bg-white text-slate-900 hover:bg-brand-50"
+              : "border-slate-200 border-l-4 border-l-emerald-500 bg-white text-slate-900 hover:bg-brand-50"
           }`}
         >
           <span
             className={`acceso-icono flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-              a.principal ? "bg-white/20" : "bg-brand-100 text-brand-800 group-hover:bg-brand-200"
+              a.principal ? "bg-white/20" : "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-200"
             }`}
           >
             <IconoMenu nombre={a.icono} className="h-5 w-5" />

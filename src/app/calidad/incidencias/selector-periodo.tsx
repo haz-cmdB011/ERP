@@ -46,7 +46,7 @@ export default function SelectorPeriodo({
         </Link>
       </div>
       {!(hoy >= periodo.inicio && hoy <= periodo.fin) && (
-        <Link href={hrefDe(periodo.vista, hoy)} className="rounded-full bg-brand-100 px-3 py-1 text-sm font-medium text-brand-900 hover:bg-brand-200">
+        <Link href={hrefDe(periodo.vista, hoy)} className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-900 hover:bg-emerald-200">
           Ir a hoy
         </Link>
       )}

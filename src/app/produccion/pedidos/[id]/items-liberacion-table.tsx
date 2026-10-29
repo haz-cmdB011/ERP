@@ -370,7 +370,7 @@ export default function ItemsLiberacionTable({
             {indentado ? (
               item.item_code
             ) : (
-              <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-brand-100 px-2 text-brand-900">
+              <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-emerald-100 px-2 text-emerald-900">
                 {item.item_code}
               </span>
             )}
@@ -654,7 +654,7 @@ export default function ItemsLiberacionTable({
           {/* Barra de acción masiva: sticky para no tener que subir hasta
               arriba en pedidos con muchos ítems después de seleccionar. La acción
               principal es agregar al carrito (ahí se libera y se asigna); lo demás va en "Más". */}
-          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-brand-200 bg-brand-50/90 p-3 text-sm shadow-sm backdrop-blur">
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-sm shadow-sm backdrop-blur">
             <label className="flex min-h-11 items-center gap-2 text-base font-medium text-slate-900">
               <input
                 type="checkbox"

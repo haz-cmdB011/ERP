@@ -176,7 +176,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
       <td className="py-3 pr-4 text-slate-700">
         {usuario.email}
         {esYo && (
-          <span className="ml-2 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-900">tú</span>
+          <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">tú</span>
         )}
       </td>
       <td className="py-3 pr-4">
