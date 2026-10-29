@@ -197,16 +197,16 @@ export default async function OrdenTrabajoCalidadPage({
           <div className="overflow-x-auto rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-gradient-to-b from-brand-50 to-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  <th className="px-4 py-3">Pedido</th>
-                  <th className="px-4 py-3">Proyecto</th>
-                  <th className="px-4 py-3">Entrega</th>
-                  <th className="px-4 py-3">Versión activa</th>
-                  <th className="px-4 py-3 text-right">En Calidad</th>
-                  <th className="px-4 py-3 text-right">Aprobados</th>
-                  <th className="px-4 py-3 text-right">Rechazados</th>
-                  <th className="px-4 py-3 text-right">Sin evaluar</th>
-                  <th className="px-4 py-3 text-right" title="Producción todavía no los preaprueba">
+                <tr className="bg-gradient-to-b from-brand-50 to-slate-50 text-[11px] font-semibold uppercase tracking-tight text-slate-600">
+                  <th className="px-2 py-3">Pedido</th>
+                  <th className="px-2 py-3">Proyecto</th>
+                  <th className="px-2 py-3">Entrega</th>
+                  <th className="px-2 py-3">Versión activa</th>
+                  <th className="px-2 py-3 text-right">En Calidad</th>
+                  <th className="px-2 py-3 text-right">Aprobados</th>
+                  <th className="px-2 py-3 text-right">Rechazados</th>
+                  <th className="px-2 py-3 text-right">Sin evaluar</th>
+                  <th className="px-2 py-3 text-right" title="Producción todavía no los preaprueba">
                     En taller
                   </th>
                 </tr>
@@ -223,11 +223,11 @@ export default async function OrdenTrabajoCalidadPage({
                       key={p.id}
                       className="relative align-top transition-all duration-200 focus-within:bg-brand-50 hover:bg-brand-50 hover:shadow-md"
                     >
-                      <td className="px-4 py-4">
+                      <td className="px-2 py-4">
                         {/* El enlace se extiende sobre toda la fila (after:inset-0): tocar cualquier parte abre el pedido. */}
                         <EnlaceFila
                           href={`/calidad/pedidos/${p.id}`}
-                          className="group inline-flex items-center gap-2 whitespace-nowrap text-base font-bold text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
+                          className="group inline-flex items-center gap-2 text-base font-bold text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
                         >
                           {p.numero_pedido}
                         </EnlaceFila>
@@ -236,7 +236,7 @@ export default async function OrdenTrabajoCalidadPage({
                             className="mt-2 flex items-center gap-2"
                             title={`${a.aprobados} de ${a.enviados} aprobados`}
                           >
-                            <div className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-200">
+                            <div className="h-1.5 w-full max-w-28 overflow-hidden rounded-full bg-slate-200">
                               <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pctAprobado}%` }} />
                             </div>
                             <span className="text-xs font-medium tabular-nums text-slate-500">{pctAprobado}%</span>
@@ -248,9 +248,9 @@ export default async function OrdenTrabajoCalidadPage({
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-slate-600">{p.proyectos?.nombre ?? "—"}</td>
-                      <td className="whitespace-nowrap px-4 py-4 text-slate-700">{p.fecha_entrega ?? "—"}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-2 py-4 text-slate-600">{p.proyectos?.nombre ?? "—"}</td>
+                      <td className="px-2 py-4 text-slate-700">{p.fecha_entrega ?? "—"}</td>
+                      <td className="px-2 py-4">
                         {activa ? (
                           <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-bold text-brand-900">
                             #{activa.numero_version}
@@ -259,19 +259,19 @@ export default async function OrdenTrabajoCalidadPage({
                           <span className="text-slate-500">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-2 py-4 text-right">
                         <Cifra valor={a?.enviados ?? 0} tono="bg-sky-100 text-sky-900" />
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-2 py-4 text-right">
                         <Cifra valor={a?.aprobados ?? 0} tono="bg-emerald-100 text-emerald-800" />
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-2 py-4 text-right">
                         <Cifra valor={a?.rechazados ?? 0} tono="bg-rose-100 text-rose-800" />
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-2 py-4 text-right">
                         <Cifra valor={sinEvaluar} tono="bg-amber-100 text-amber-800" />
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-2 py-4 text-right">
                         <Cifra valor={a?.enTaller ?? 0} tono="bg-slate-100 text-slate-700" />
                       </td>
                     </tr>
@@ -291,7 +291,7 @@ function Cifra({ valor, tono }: { valor: number; tono: string }) {
   if (!valor) return <span className="text-slate-300">—</span>;
   return (
     <span
-      className={`inline-flex min-w-9 justify-center rounded-full px-2.5 py-1 text-base font-bold tabular-nums ${tono}`}
+      className={`inline-flex min-w-8 justify-center rounded-full px-2 py-0.5 text-base font-bold tabular-nums ${tono}`}
     >
       {valor}
     </span>
