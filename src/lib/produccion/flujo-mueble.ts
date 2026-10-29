@@ -70,7 +70,7 @@ export function rutasDelFlujo(
     ruta: rutaDelMueble(guardada?.pasos, aplica, partes.length > 0),
     partes: partes.map((p) => ({
       ...p,
-      ruta: rutaDeParte(guardada?.partes.get(p.id), !!p.rutaGuardada, aplica),
+      ruta: rutaDeParte(guardada?.partes.get(p.id), !!p.rutaGuardada, p.descripcion),
     })),
   };
 }

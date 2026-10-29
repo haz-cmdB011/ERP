@@ -14,7 +14,6 @@ import {
   hrefListaPedidos,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
-import Bienvenida from "@/components/bienvenida";
 import { cargarResumenCalidad, type ResumenCalidadConTaller } from "@/lib/calidad/resumen-db";
 import { estadoCalidad, type AvancePedido } from "@/lib/resumen/avance-items";
 import { paginarTodo } from "@/lib/supabase/paginar";
@@ -116,7 +115,6 @@ export default async function CalidadListPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida />
       {sinResumen && (
         <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           No se pudieron calcular los números del panel. Recarga la página para reintentar; la lista de

@@ -141,7 +141,7 @@ export default async function PanelAsignacionPage({
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Panel de asignación</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Los muebles liberados a producción, por O.T. y PM: cuáles siguen por asignar y cuáles ya
+          Los muebles liberados a producción, por cliente, O.T. y PM: cuáles siguen por asignar y cuáles ya
           están con un equipo. Ábrelo para ver su avance: si tiene despiece, cada parte tiene su
           ruta y el mueble completo la suya.
         </p>
@@ -182,7 +182,7 @@ export default async function PanelAsignacionPage({
             type="search"
             name="q"
             defaultValue={q}
-            placeholder="PM, modelo, descripción o proyecto"
+            placeholder="PM, modelo, descripción, proyecto o cliente"
             className={estiloCampo}
           />
         </label>
@@ -213,7 +213,7 @@ export default async function PanelAsignacionPage({
       {liberados.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           <p>Todavía no hay muebles liberados a producción.</p>
-          <Link href="/produccion" className="font-medium text-brand-700 hover:underline">
+          <Link href="/produccion/pedidos" className="font-medium text-brand-700 hover:underline">
             Elegir un pedido →
           </Link>
         </div>

@@ -182,11 +182,6 @@ export function FilasEsqueleto({ filas = 6, avatar = false }: { filas?: number; 
   );
 }
 
-// "Hola, nombre · fecha" al inicio de cada área.
-export function SaludoEsqueleto() {
-  return <Bloque className="h-4 w-72 max-w-full" />;
-}
-
 // Una fila de píldoras (filtros de año, estados, apartados).
 export function ChipsEsqueleto({ n = 3, ancho = "w-24", alto = "h-9" }: { n?: number; ancho?: string; alto?: string }) {
   return (

@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import Link from "next/link";
 import BotonDesplegar from "@/components/boton-desplegar";
+import { agruparPorCliente } from "@/lib/planeacion/vista-lista";
 import {
   PROCESOS,
   type EncargadoEquipo,
   type EquipoProduccion,
 } from "@/lib/produccion/asignaciones";
 import { disponibleDe, seAsignaCompleto, type EstadoMueble, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
-import { resumenOt, resumenPm, type GrupoOtPanel } from "@/lib/produccion/panel";
+import { contarEstados, resumenOt, resumenPm, type GrupoOtPanel } from "@/lib/produccion/panel";
 import AsignarLote, { type MuebleParaLote } from "@/app/produccion/asignaciones/asignar-lote";
 import { FilaMueble } from "@/app/produccion/pedidos/[id]/asignaciones/flujo-muebles";
 
@@ -32,7 +32,7 @@ const tieneTrabajo = (m: MuebleParaLote) => PROCESOS.some((p) => m.disponible[p]
 // Los controles de un encabezado no deben desplegar/contraer su bloque.
 const sinToggle = (e: React.MouseEvent) => e.stopPropagation();
 
-// Cuántos muebles van por asignar, en proceso y terminados (encabezado de una O.T. o un PM).
+// Cuántos muebles van por asignar, en proceso y terminados (encabezado de un cliente, una O.T. o un PM).
 function Estados({ resumen }: { resumen: Record<EstadoMueble, number> }) {
   return (
     <span className="flex flex-wrap gap-x-3 text-xs font-medium">
@@ -49,9 +49,9 @@ function Estados({ resumen }: { resumen: Record<EstadoMueble, number> }) {
 
 // Los muebles liberados de varios PM y O.T. en el formato del flujo de un PM: por cada mueble,
 // su ruta con el avance de cada paso (tocar un paso con "+" lo asigna a un equipo) y, al abrirlo,
-// las asignaciones con sus entregas. Va agrupado por O.T. y PM, y cada nivel se despliega como
-// un mueble con sus componentes: cerrada, una O.T. muestra solo su resumen; abierta, sus PM; y
-// abierto un PM, sus muebles.
+// las asignaciones con sus entregas. Va agrupado por cliente (como la lista de Pedidos), O.T. y
+// PM, y cada nivel se despliega ahí mismo, sin cambiar de pantalla: cerrado, un cliente muestra
+// solo su resumen; abierto, sus O.T.; abierta una O.T., sus PM; y abierto un PM, sus muebles.
 export default function PanelAsignacion({
   grupos,
   equipos,
@@ -69,19 +69,24 @@ export default function PanelAsignacion({
   detalles: Record<string, ReactNode>;
   // Miniatura de cada mueble (por id), cuando tiene imagen.
   imagenes: Record<string, { url: string; urlGrande: string | null }>;
-  // Cómo se ve cada O.T. y PM mientras nadie los haya abierto o cerrado a mano.
+  // Cómo se ve cada cliente, O.T. y PM mientras nadie los haya abierto o cerrado a mano.
   abrirTodo: boolean;
 }) {
   const [abierto, setAbierto] = useState<string | null>(null);
-  // O.T. y PM abiertos o cerrados a mano (true/false); sin entrada, rige `abrirTodo`.
+  // Clientes, O.T. y PM abiertos o cerrados a mano (true/false); sin entrada, rige `abrirTodo`.
+  const [clientesAbiertos, setClientesAbiertos] = useState<Record<string, boolean>>({});
   const [otsAbiertas, setOtsAbiertas] = useState<Record<string, boolean>>({});
   const [pmsAbiertos, setPmsAbiertos] = useState<Record<string, boolean>>({});
 
+  const clientes = agruparPorCliente(grupos, (g) => g.cliente);
   const claveOt = (g: GrupoOtPanel) => g.ot ?? "sin-ot";
+  // Con un solo cliente no hay nada que esconder: se abre solo.
+  const clienteAbierto = (c: string) => clientesAbiertos[c] ?? (abrirTodo || clientes.length === 1);
   const otAbierta = (g: GrupoOtPanel) => otsAbiertas[claveOt(g)] ?? abrirTodo;
   const pmAbierto = (id: string) => pmsAbiertos[id] ?? abrirTodo;
 
   function desplegarTodo(abrir: boolean) {
+    setClientesAbiertos(Object.fromEntries(clientes.map((c) => [c.cliente, abrir])));
     setOtsAbiertas(Object.fromEntries(grupos.map((g) => [claveOt(g), abrir])));
     setPmsAbiertos(Object.fromEntries(grupos.flatMap((g) => g.pms.map((pm) => [pm.pedidoId, abrir]))));
   }
@@ -125,114 +130,143 @@ export default function PanelAsignacion({
         )}
       </div>
 
-      {grupos.map((g) => {
-        const abierta = otAbierta(g);
-        const alternarOt = () => setOtsAbiertas((prev) => ({ ...prev, [claveOt(g)]: !abierta }));
-        const nombreOt = g.ot ? `la O.T. ${g.ot}` : "los PM sin O.T.";
+      {clientes.map((c) => {
+        const abiertoCliente = clienteAbierto(c.cliente);
+        const alternarCliente = () => setClientesAbiertos((prev) => ({ ...prev, [c.cliente]: !abiertoCliente }));
+        const muebles = c.filas.flatMap((g) => g.pms.flatMap((pm) => pm.muebles));
         return (
-          <section
-            key={claveOt(g)}
-            className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-          >
+          <section key={c.cliente} className="overflow-hidden rounded-xl border border-slate-200 bg-white/50">
             <div
-              onClick={alternarOt}
+              onClick={alternarCliente}
               className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-slate-50"
             >
               <BotonDesplegar
-                abierto={abierta}
-                alAlternar={alternarOt}
-                descripcion={`los ${g.pms.length} PM de ${nombreOt}`}
+                abierto={abiertoCliente}
+                alAlternar={alternarCliente}
+                descripcion={`las ${c.filas.length} O.T. de ${c.cliente}`}
                 className="h-4 w-4"
               />
-              <h2 className="text-lg font-semibold text-slate-900">
-                {g.ot ? (
-                  <Link
-                    href={`/produccion/ot/${g.ot}`}
-                    onClick={sinToggle}
-                    className="hover:text-brand-700 hover:underline"
-                  >
-                    O.T. {g.ot}
-                  </Link>
-                ) : (
-                  "Sin O.T."
-                )}
-              </h2>
+              <h2 className="text-lg font-semibold text-slate-900">{c.cliente}</h2>
               <span className="text-sm text-slate-500">
-                {g.pms.length} PM · {g.total} mueble{g.total === 1 ? "" : "s"}
+                {c.filas.length} O.T. · {muebles.length} mueble{muebles.length === 1 ? "" : "s"}
               </span>
-              <Estados resumen={resumenOt(g)} />
+              <Estados resumen={contarEstados(muebles)} />
             </div>
 
-            {abierta && (
-              <div className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 py-3 pr-3 pl-6">
-                {g.pms.map((pm) => {
-                  const pmAbierta = pmAbierto(pm.pedidoId);
-                  const alternarPm = () =>
-                    setPmsAbiertos((prev) => ({ ...prev, [pm.pedidoId]: !pmAbierta }));
-                  const lote = pm.muebles.map((m) => paraLote(m.flujo)).filter(tieneTrabajo);
-                  const asignar = puedeEditar
-                    ? { equipos, encargados, numeroPedido: pm.numeroPm }
-                    : null;
-                  return (
-                    <article
-                      key={pm.pedidoId}
-                      className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-                    >
-                      <div
-                        onClick={alternarPm}
-                        className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 transition-colors hover:bg-slate-50"
-                      >
-                        <BotonDesplegar
-                          abierto={pmAbierta}
-                          alAlternar={alternarPm}
-                          descripcion={`los ${pm.muebles.length} muebles del ${pm.numeroPm}`}
-                        />
-                        <Link
-                          href={`/produccion/pedidos/${pm.pedidoId}`}
-                          onClick={sinToggle}
-                          className="font-semibold text-slate-900 hover:text-brand-700 hover:underline"
+            {abiertoCliente && (
+              <div className="anim-desplegar flex flex-col gap-3 border-t border-slate-100 p-3">
+                {c.filas.map((g) => (
+                  <GrupoOt
+                    key={claveOt(g)}
+                    g={g}
+                    abierta={otAbierta(g)}
+                    alternar={() => setOtsAbiertas((prev) => ({ ...prev, [claveOt(g)]: !otAbierta(g) }))}
+                  >
+                    {g.pms.map((pm) => {
+                      const pmAbierta = pmAbierto(pm.pedidoId);
+                      const alternarPm = () =>
+                        setPmsAbiertos((prev) => ({ ...prev, [pm.pedidoId]: !pmAbierta }));
+                      const lote = pm.muebles.map((m) => paraLote(m.flujo)).filter(tieneTrabajo);
+                      const asignar = puedeEditar
+                        ? { equipos, encargados, numeroPedido: pm.numeroPm }
+                        : null;
+                      return (
+                        <article
+                          key={pm.pedidoId}
+                          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
                         >
-                          {pm.numeroPm}
-                        </Link>
-                        {pm.proyecto && <span className="text-sm text-slate-500">{pm.proyecto}</span>}
-                        <span className="text-xs text-slate-500">
-                          {pm.muebles.length} mueble{pm.muebles.length === 1 ? "" : "s"}
-                        </span>
-                        <Estados resumen={resumenPm(pm)} />
-                        {puedeEditar && lote.length > 1 && (
-                          <div className="ml-auto" onClick={sinToggle}>
-                            <AsignarLote
-                              muebles={lote}
-                              equipos={equipos}
-                              encargados={encargados}
-                              etiqueta={`Asignar ${lote.length} a un equipo`}
+                          <div
+                            onClick={alternarPm}
+                            className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 transition-colors hover:bg-slate-50"
+                          >
+                            <BotonDesplegar
+                              abierto={pmAbierta}
+                              alAlternar={alternarPm}
+                              descripcion={`los ${pm.muebles.length} muebles del ${pm.numeroPm}`}
                             />
+                            <span className="font-semibold text-slate-900">{pm.numeroPm}</span>
+                            {pm.proyecto && <span className="text-sm text-slate-500">{pm.proyecto}</span>}
+                            <span className="text-xs text-slate-500">
+                              {pm.muebles.length} mueble{pm.muebles.length === 1 ? "" : "s"}
+                            </span>
+                            <Estados resumen={resumenPm(pm)} />
+                            {puedeEditar && lote.length > 1 && (
+                              <div className="ml-auto" onClick={sinToggle}>
+                                <AsignarLote
+                                  muebles={lote}
+                                  equipos={equipos}
+                                  encargados={encargados}
+                                  etiqueta={`Asignar ${lote.length} a un equipo`}
+                                />
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      {pmAbierta && (
-                        <ul className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 p-3">
-                          {pm.muebles.map((m) => (
-                            <FilaMueble
-                              key={m.flujo.id}
-                              mueble={m.flujo}
-                              asignar={asignar}
-                              detalles={detalles}
-                              imagen={imagenes[m.flujo.id] ?? null}
-                              abierto={abierto === m.flujo.id}
-                              onAlternar={() => setAbierto(abierto === m.flujo.id ? null : m.flujo.id)}
-                            />
-                          ))}
-                        </ul>
-                      )}
-                    </article>
-                  );
-                })}
+                          {pmAbierta && (
+                            <ul className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 p-3">
+                              {pm.muebles.map((m) => (
+                                <FilaMueble
+                                  key={m.flujo.id}
+                                  mueble={m.flujo}
+                                  asignar={asignar}
+                                  detalles={detalles}
+                                  imagen={imagenes[m.flujo.id] ?? null}
+                                  abierto={abierto === m.flujo.id}
+                                  onAlternar={() => setAbierto(abierto === m.flujo.id ? null : m.flujo.id)}
+                                />
+                              ))}
+                            </ul>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </GrupoOt>
+                ))}
               </div>
             )}
           </section>
         );
       })}
+    </section>
+  );
+}
+
+// Una O.T. dentro de su cliente: cerrada, solo su resumen; abierta, sus PM.
+function GrupoOt({
+  g,
+  abierta,
+  alternar,
+  children,
+}: {
+  g: GrupoOtPanel;
+  abierta: boolean;
+  alternar: () => void;
+  children: ReactNode;
+}) {
+  const nombreOt = g.ot ? `la O.T. ${g.ot}` : "los PM sin O.T.";
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div
+        onClick={alternar}
+        className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-slate-50"
+      >
+        <BotonDesplegar
+          abierto={abierta}
+          alAlternar={alternar}
+          descripcion={`los ${g.pms.length} PM de ${nombreOt}`}
+          className="h-4 w-4"
+        />
+        <h3 className="text-base font-semibold text-slate-900">{g.ot ? `O.T. ${g.ot}` : "Sin O.T."}</h3>
+        <span className="text-sm text-slate-500">
+          {g.pms.length} PM · {g.total} mueble{g.total === 1 ? "" : "s"}
+        </span>
+        <Estados resumen={resumenOt(g)} />
+      </div>
+
+      {abierta && (
+        <div className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 py-3 pr-3 pl-6">
+          {children}
+        </div>
+      )}
     </section>
   );
 }

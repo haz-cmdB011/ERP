@@ -43,9 +43,16 @@ describe("ruta del mueble y de cada parte", () => {
   });
 
   it("una parte usa la suya (aunque esté vacía) o, si nunca la guardó, la sugerida", () => {
-    expect(rutaDeParte(guardada, true, aplica(false, false))).toBe(guardada);
-    expect(rutaDeParte(undefined, true, aplica(false, false))).toEqual([]);
-    expect(rutaDeParte(undefined, false, aplica(false, false)).map((p) => p.proceso)).toEqual(["armado", "barniz"]);
+    expect(rutaDeParte(guardada, true, "Tabla")).toBe(guardada);
+    expect(rutaDeParte(undefined, true, "Tabla")).toEqual([]);
+    expect(rutaDeParte(undefined, false, "Tabla").map((p) => p.proceso)).toEqual(["armado", "barniz"]);
+  });
+
+  it("la sugerida de una parte sale de su descripción", () => {
+    const procesos = (d: string) => rutaDeParte(undefined, false, d).map((p) => p.proceso);
+    expect(procesos("MARCO METALICO, SOPORTE ENTREPAÑO Y CHAROLA ELECTRIFICACIÓN")).toEqual(["electrificacion"]);
+    expect(procesos("MODULO D:")).toEqual(["armado", "barniz"]);
+    expect(procesos("CUBIERTA DE CORIAN")).toEqual(["armado", "superficie_solida", "barniz"]);
   });
 });
 

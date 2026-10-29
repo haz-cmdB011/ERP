@@ -105,7 +105,7 @@ const ATAJOS_INTERNOS: Atajo[] = [
   {
     titulo: "Pedidos",
     detalle: "Producción",
-    href: "/produccion",
+    href: "/produccion/pedidos",
     claves: "taller liberacion",
   },
   {

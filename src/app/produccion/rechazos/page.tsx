@@ -17,7 +17,6 @@ import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import { DIAS_SIN_REASIGNAR, diasEsperando } from "@/lib/produccion/detenidos";
 import EstadoVacio from "@/components/estado-vacio";
 import ReasignarRetrabajo from "./reasignar-retrabajo";
-import PestanasSeccion from "@/app/produccion/pestanas-seccion";
 
 export const metadata: Metadata = { title: "Rechazos de Calidad" };
 
@@ -248,7 +247,6 @@ export default async function RechazosPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <PestanasSeccion seccion="taller" />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Rechazos de Calidad</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -260,7 +258,7 @@ export default async function RechazosPage() {
         <EstadoVacio
           titulo="Calidad no tiene rechazos pendientes"
           descripcion="Cuando Calidad rechace piezas de una entrega aparecerán aquí para reasignarlas."
-          accion={{ href: "/produccion/taller?vista=lista", etiqueta: "Ir al taller" }}
+          accion={{ href: "/produccion/panel", etiqueta: "Ir al panel de asignación" }}
         />
       )}
 

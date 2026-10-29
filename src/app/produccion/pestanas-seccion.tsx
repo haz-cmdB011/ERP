@@ -7,13 +7,6 @@ import BarraPestanas, { type ItemPestana } from "@/components/barra-pestanas";
 // propia dirección (los enlaces de otras partes siguen sirviendo); aquí solo se muestran juntas.
 // Cada pestaña lleva su icono (los nombres salen de components/iconos-menu.tsx).
 const SECCIONES = {
-  taller: {
-    etiqueta: "Secciones del taller",
-    items: [
-      { id: "taller", etiqueta: "Taller", icono: "panel", href: "/produccion/taller" },
-      { id: "rechazos", etiqueta: "Rechazos de Calidad", icono: "retrabajo", href: "/produccion/rechazos" },
-    ],
-  },
   archivo: {
     etiqueta: "Secciones del archivo",
     items: [
@@ -27,5 +20,5 @@ export default function PestanasSeccion({ seccion }: { seccion: keyof typeof SEC
   const pathname = usePathname();
   const { etiqueta, items } = SECCIONES[seccion];
   const activa = items.find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))?.id ?? items[0].id;
-  return <BarraPestanas items={items} activa={activa} etiqueta={etiqueta} grande={seccion === "taller"} />;
+  return <BarraPestanas items={items} activa={activa} etiqueta={etiqueta} />;
 }

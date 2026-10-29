@@ -62,14 +62,17 @@ export default async function ProduccionLayout({
         esDesarrollador={perfil?.rol === "desarrollador"}
         porRevisar={porRevisar}
       >
-        <SubnavLink href="/produccion" icono="pedidos" tambien={["/produccion/pedidos", "/produccion/ot"]}>
+        <SubnavLink href="/produccion" icono="reporte">
+          Inicio
+        </SubnavLink>
+        <SubnavLink href="/produccion/pedidos" icono="pedidos" tambien={["/produccion/ot"]}>
           Pedidos
         </SubnavLink>
         <SubnavLink href="/produccion/panel" icono="flujo">
           Panel de asignación
         </SubnavLink>
-        <SubnavLink href="/produccion/taller" tambien={["/produccion/rechazos"]} icono="panel">
-          Taller
+        <SubnavLink href="/produccion/rechazos" icono="retrabajo">
+          Rechazos de Calidad
         </SubnavLink>
         <SubnavLink href="/produccion/equipos" icono="equipos">
           Equipos

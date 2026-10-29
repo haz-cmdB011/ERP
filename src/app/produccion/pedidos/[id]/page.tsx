@@ -131,7 +131,7 @@ export default async function PedidoProduccionPage({
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <Migas
         items={[
-          { etiqueta: "Pedidos", href: "/produccion" },
+          { etiqueta: "Pedidos", href: "/produccion/pedidos" },
           ...(pedido.orden_trabajo
             ? [{ etiqueta: `O.T. ${pedido.orden_trabajo}`, href: `/produccion/ot/${encodeURIComponent(pedido.orden_trabajo)}` }]
             : []),

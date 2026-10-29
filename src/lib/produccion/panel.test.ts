@@ -26,6 +26,7 @@ function mueble(
     numeroPm: "PM-1",
     ot: "102-24",
     proyecto: null,
+    cliente: null,
     ...resto,
   };
 }
@@ -97,6 +98,16 @@ describe("agrupación del panel de asignación", () => {
 
   it("resume los estados de toda la O.T.", () => {
     expect(resumenOt(agruparPanel(lista)[0])).toEqual({ por_asignar: 1, en_proceso: 1, terminado: 1 });
+  });
+
+  it("cada O.T. lleva el cliente de su primer PM y se puede buscar por él", () => {
+    const conCliente = [
+      mueble("a", "por_asignar", { pedidoId: "p2", numeroPm: "PM2", ot: "9-24", cliente: "HOTEL B" }),
+      mueble("b", "por_asignar", { pedidoId: "p1", numeroPm: "PM1", ot: "9-24", cliente: "HOTEL A" }),
+      mueble("c", "por_asignar", { pedidoId: "p3", numeroPm: "PM3", ot: "10-24" }),
+    ];
+    expect(agruparPanel(conCliente).map((g) => g.cliente)).toEqual(["HOTEL A", null]);
+    expect(filtrarPanel(conCliente, { filtro: "todos", ot: null, q: "hotel b" }).map((m) => m.flujo.id)).toEqual(["a"]);
   });
 
   it("lista las O.T. presentes sin repetir", () => {
