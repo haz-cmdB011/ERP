@@ -143,7 +143,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">No conformidades</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">No conformidades</h1>
         <NuevoReporte opciones={opciones} hoy={hoy} sugerido={leerReporteSugerido(parametros)} />
       </div>
 
