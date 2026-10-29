@@ -70,7 +70,7 @@ export default async function RegistroRecibosPage({
           </h1>
         </div>
         {pagina.total > 0 && (
-          <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-900">
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-900">
             {pagina.total} recibo{pagina.total === 1 ? "" : "s"}
           </span>
         )}
