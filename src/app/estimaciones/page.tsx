@@ -29,7 +29,7 @@ const TARJETAS: {
     titulo: "Generador de Recibos",
     detalle: "Captura un recibo y compáralo contra el precio sugerido",
     tono: {
-      tarjeta: "border-t-emerald-500 from-emerald-50",
+      tarjeta: "border-t-emerald-500",
       icono: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
     },
     icono: (
@@ -44,7 +44,7 @@ const TARJETAS: {
     titulo: "Registro de recibos",
     detalle: "Revisa, aprueba y marca como pagados",
     tono: {
-      tarjeta: "border-t-emerald-500 from-emerald-50",
+      tarjeta: "border-t-emerald-500",
       icono: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
     },
     icono: <path d="M4 6h16M4 12h16M4 18h10" />,
@@ -54,7 +54,7 @@ const TARJETAS: {
     titulo: "Análisis de pagos",
     detalle: "Gráficas y cierres por semana",
     tono: {
-      tarjeta: "border-t-emerald-500 from-emerald-50",
+      tarjeta: "border-t-emerald-500",
       icono: "bg-emerald-100 text-emerald-800 group-hover:bg-emerald-500 group-hover:text-white",
     },
     icono: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
@@ -131,7 +131,7 @@ export default async function EstimacionesPage() {
           <Link
             key={t.href}
             href={t.href}
-            className={`group flex h-full items-center gap-4 rounded-xl border border-slate-200 border-t-4 bg-gradient-to-b to-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.tono.tarjeta}`}
+            className={`group flex h-full items-center gap-4 rounded-xl border border-slate-200 border-t-4 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.tono.tarjeta}`}
           >
             <span
               className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.tono.icono}`}
