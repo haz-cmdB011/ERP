@@ -28,7 +28,7 @@ export default function Secciones({
             onClick={() => setActiva(s.id)}
             className={`-mb-px inline-flex min-h-11 items-center gap-2 rounded-t-lg border-b-2 px-4 text-base font-medium transition-colors ${
               activa === s.id
-                ? "pestana-activa border-brand-600 font-semibold text-slate-900"
+                ? "border-brand-600 font-semibold text-slate-900"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
             }`}
           >
