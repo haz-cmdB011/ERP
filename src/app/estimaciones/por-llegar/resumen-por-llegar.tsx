@@ -9,7 +9,14 @@ function plural(n: number, uno: string, varios: string): string {
   return `${n.toLocaleString("es-MX")} ${n === 1 ? uno : varios}`;
 }
 
+// Cada área tiene su color (borde superior y velo) para distinguirlas de un vistazo.
+const TONO_AREA: Record<string, { tarjeta: string; etiqueta: string }> = {
+  acabados: { tarjeta: "border-t-sky-400 from-sky-50", etiqueta: "text-sky-800" },
+  armado: { tarjeta: "border-t-violet-400 from-violet-50", etiqueta: "text-violet-800" },
+};
+
 function TarjetaArea({ r }: { r: ResumenArea }) {
+  const tono = TONO_AREA[r.area] ?? { tarjeta: "border-t-brand-400 from-brand-50", etiqueta: "text-slate-600" };
   const hay = r.renglones > 0;
   const calidad = r.enCalidad > 0 && (
     <span className="text-xs text-amber-700">
@@ -21,15 +28,15 @@ function TarjetaArea({ r }: { r: ResumenArea }) {
   return (
     <Link
       href={`/estimaciones/por-llegar#${r.area}`}
-      className="flex flex-col gap-1 rounded-lg border border-slate-200 p-3 transition-colors hover:border-brand-300"
+      className={`flex flex-col gap-1 rounded-xl border border-slate-200 border-t-4 bg-gradient-to-b to-white p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${tono.tarjeta}`}
     >
-      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span className={`text-base font-bold ${tono.etiqueta}`}>
         Trabajo de {AREA_RECIBO_LABELS[r.area].toLowerCase()}
       </span>
       {hay ? (
         <>
           <span className="text-xs text-slate-500">Aprobado por Calidad, listo para cobrar</span>
-          <span className="text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
+          <span className="text-3xl font-bold tabular-nums tracking-tight text-slate-900">
             {money(r.importe)}
             {r.sinPrecio > 0 && <span className="ml-1 text-sm font-normal text-slate-500">+ sin precio</span>}
           </span>
@@ -64,11 +71,11 @@ export default async function ResumenPorLlegar() {
   return (
     <section
       aria-labelledby="por-llegar-titulo"
-      className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-gradient-to-b from-brand-50/60 to-white p-5 shadow-sm"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="por-llegar-titulo" className="text-base font-semibold text-slate-900">
+          <h2 id="por-llegar-titulo" className="text-xl font-bold text-slate-900">
             Recibos por llegar
           </h2>
           <p className="text-xs text-slate-500">
@@ -76,7 +83,7 @@ export default async function ResumenPorLlegar() {
             aproximado: usa el último precio que se pagó por ese mueble.
           </p>
         </div>
-        <Link href="/estimaciones/por-llegar" className="text-sm font-medium text-brand-700 hover:underline">
+        <Link href="/estimaciones/por-llegar" className="rounded-lg bg-brand-100 px-3 py-1.5 text-sm font-semibold text-brand-900 transition-colors hover:bg-brand-200">
           Ver mueble por mueble
         </Link>
       </div>

@@ -65,12 +65,12 @@ export default async function RegistroRecibosPage({
     <main className="mx-auto flex max-w-7xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             {filtros.estado === "pendiente" ? "Por revisar" : "Registro de recibos"}
           </h1>
         </div>
         {pagina.total > 0 && (
-          <span className="rounded bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-900">
             {pagina.total} recibo{pagina.total === 1 ? "" : "s"}
           </span>
         )}
@@ -148,6 +148,7 @@ export default async function RegistroRecibosPage({
             href={conEstado(e)}
             activo={filtros.estado === e}
             etiqueta={`${ESTADO_NOMBRE[e]} (${conteo[e]})`}
+            punto={PUNTO_ESTADO[e]}
           />
         ))}
       </nav>
@@ -199,16 +200,25 @@ export default async function RegistroRecibosPage({
   );
 }
 
-function Filtro({ href, activo, etiqueta }: { href: string; activo: boolean; etiqueta: string }) {
+// Color de cada estado (el mismo de sus pastillas en la tabla).
+const PUNTO_ESTADO: Record<string, string> = {
+  pendiente: "bg-amber-400",
+  revisado: "bg-sky-400",
+  pagado: "bg-emerald-500",
+  cancelado: "bg-slate-400",
+};
+
+function Filtro({ href, activo, etiqueta, punto }: { href: string; activo: boolean; etiqueta: string; punto?: string }) {
   return (
     <Link
       href={href}
-      className={`rounded px-3 py-1 font-medium ring-1 ${
+      className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-medium ring-1 transition-colors ${
         activo
           ? "bg-brand-500 text-on-brand ring-brand-600"
-          : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+          : "bg-white text-slate-600 ring-slate-200 hover:bg-brand-50"
       }`}
     >
+      {punto && <span className={`size-2 rounded-full ${punto}`} aria-hidden="true" />}
       {etiqueta}
     </Link>
   );

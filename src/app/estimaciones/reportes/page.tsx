@@ -205,7 +205,7 @@ export default async function ReportePage({
     <main className="graficas mx-auto flex max-w-7xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Análisis de pagos</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Análisis de pagos</h1>
           <p className="mt-1 text-sm text-slate-500">
             Pagado del {formatoFechaDMA(pago.desde)} al {formatoFechaDMA(pago.hasta)}
           </p>
