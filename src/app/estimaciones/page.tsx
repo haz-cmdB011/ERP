@@ -18,11 +18,19 @@ import ResumenPorLlegar, { ResumenPorLlegarCargando } from "./por-llegar/resumen
 const TARJETAS: {
   href: string;
   titulo: string;
+  detalle: string;
+  // Color propio de cada acceso (borde superior, velo y icono), sin perder el verde de la marca.
+  tono: { tarjeta: string; icono: string };
   icono: React.ReactNode;
 }[] = [
   {
     href: "/estimaciones/recibos",
     titulo: "Generador de Recibos",
+    detalle: "Captura un recibo y compáralo contra el precio sugerido",
+    tono: {
+      tarjeta: "border-t-brand-500",
+      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
+    },
     icono: (
       <>
         <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
@@ -33,11 +41,21 @@ const TARJETAS: {
   {
     href: "/estimaciones/registro",
     titulo: "Registro de recibos",
+    detalle: "Revisa, aprueba y marca como pagados",
+    tono: {
+      tarjeta: "border-t-brand-500",
+      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
+    },
     icono: <path d="M4 6h16M4 12h16M4 18h10" />,
   },
   {
     href: "/estimaciones/reportes",
     titulo: "Análisis de pagos",
+    detalle: "Gráficas y cierres por semana",
+    tono: {
+      tarjeta: "border-t-brand-500",
+      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
+    },
     icono: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   },
 ];
@@ -111,9 +129,11 @@ export default async function EstimacionesPage() {
           <Link
             key={t.href}
             href={t.href}
-            className="group flex h-full items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-brand-300"
+            className={`group flex h-full items-center gap-4 rounded-xl border border-slate-200 border-t-4 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.tono.tarjeta}`}
           >
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-800 transition-colors group-hover:bg-brand-500 group-hover:text-on-brand">
+            <span
+              className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.tono.icono}`}
+            >
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -121,16 +141,15 @@ export default async function EstimacionesPage() {
                 strokeWidth={1.75}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-5 w-5"
+                className="h-6 w-6"
                 aria-hidden="true"
               >
                 {t.icono}
               </svg>
             </span>
             <span className="min-w-0">
-              <h2 className="text-base font-semibold text-slate-900 group-hover:text-brand-700">
-                {t.titulo}
-              </h2>
+              <h2 className="text-base font-semibold text-slate-900">{t.titulo}</h2>
+              <p className="text-sm text-slate-500">{t.detalle}</p>
             </span>
           </Link>
         ))}

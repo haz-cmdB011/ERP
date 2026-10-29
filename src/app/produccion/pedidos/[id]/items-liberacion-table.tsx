@@ -10,6 +10,7 @@ import EnlaceFila from "@/components/enlace-fila";
 import MenuMas from "@/components/menu-mas";
 import { agregarItems, useCarrito } from "@/lib/produccion/carrito-navegador";
 import type { ItemCarrito } from "@/lib/produccion/carrito";
+import { estiloMaterial } from "@/lib/ui/material";
 
 export interface ItemLiberacionRow {
   id: string;
@@ -204,14 +205,14 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-emerald-700">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
           <IconoCheck />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-slate-500">
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-sm font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
         <IconoReloj />
         Pendiente
       </span>
@@ -238,6 +239,7 @@ export default function ItemsLiberacionTable({
             checked={seleccionado}
             onChange={() => alternarSeleccion(item.id)}
             aria-label={`Seleccionar ítem ${item.item_code}`}
+            className="h-4 w-4 cursor-pointer"
           />
         </td>
         <td className="py-3 pr-1 lg:px-3 lg:py-2">
@@ -246,17 +248,19 @@ export default function ItemsLiberacionTable({
               url={item.imagenUrl}
               urlGrande={item.imagenGrandeUrl}
               alt={`Ítem ${item.item_code}${item.modelo ? ` — ${item.modelo}` : ""}`}
-              className="h-16 w-16 lg:h-11 lg:w-11"
+              className="h-16 w-16 lg:h-20 lg:w-20"
             />
           ) : (
-            <span className="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-center text-[9px] font-medium leading-tight text-slate-500 lg:h-11 lg:w-11">
+            <span className="flex h-16 w-16 items-center justify-center rounded bg-slate-100 text-center text-[9px] font-medium leading-tight text-slate-500 lg:h-20 lg:w-20">
               Sin imagen
             </span>
           )}
         </td>
         <td className="px-2 py-3 sm:px-3 lg:py-2">
-          <span className="inline-flex items-center gap-1.5">
-            {item.item_code}
+          <span className="inline-flex items-center gap-1.5 text-lg font-bold">
+            <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-brand-100 px-2 text-brand-900">
+              {item.item_code}
+            </span>
             {/* Tablet: el modelo va junto al número, como título de la ficha. */}
             {item.modelo && <span className="lg:hidden">· {item.modelo}</span>}
           </span>
@@ -273,10 +277,16 @@ export default function ItemsLiberacionTable({
           <div className="mt-1 flex flex-col gap-1 text-sm font-normal text-slate-700 lg:hidden">
             {item.descripcion && <p className="line-clamp-3">{item.descripcion}</p>}
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-              <span className="font-medium text-slate-700">
+              <span className="text-base font-semibold text-slate-900">
                 {item.cantidad_total} {item.unidad}
               </span>
-              {item.tipo_material && <span>{item.tipo_material}</span>}
+              {item.tipo_material && (
+                <span
+                  className={`rounded-full px-2 py-0.5 font-medium ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+                >
+                  {item.tipo_material}
+                </span>
+              )}
               {item.folio && <span className="font-mono text-slate-800">{item.folio}</span>}
             </p>
             <div>
@@ -290,15 +300,23 @@ export default function ItemsLiberacionTable({
           </div>
         </td>
         <td className="hidden px-3 py-2 lg:table-cell">
-          <span className="font-medium">{item.modelo}</span>
+          <span className="text-lg font-semibold">{item.modelo}</span>
           {item.descripcion && (
             <span className="mt-0.5 line-clamp-2 block text-xs font-normal text-slate-500">
               {item.descripcion.split("\n")[0]}
             </span>
           )}
         </td>
-        <td className="hidden px-3 py-2 lg:table-cell">{item.tipo_material}</td>
-        <td className="hidden px-3 py-2 lg:table-cell">
+        <td className="hidden px-3 py-2 text-sm font-normal text-slate-600 lg:table-cell">
+          {item.tipo_material && (
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+            >
+              {item.tipo_material}
+            </span>
+          )}
+        </td>
+        <td className="hidden whitespace-nowrap px-3 py-2 text-base font-semibold lg:table-cell">
           {item.cantidad_total} {item.unidad}
         </td>
         <td className="hidden px-3 py-2 lg:table-cell">
@@ -329,7 +347,7 @@ export default function ItemsLiberacionTable({
               href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
               title="Viajero"
               aria-label={`Viajero del ítem ${item.item_code}`}
-              className="flex h-11 w-11 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 lg:h-8 lg:w-8"
+              className="flex h-11 w-11 items-center justify-center rounded border border-sky-200 bg-sky-50 text-sky-700 transition-colors hover:border-sky-400 hover:bg-sky-100 lg:h-8 lg:w-8"
             >
               {/* Avión de papel: el viajero es la hoja que acompaña al ítem. */}
               <svg
@@ -354,7 +372,7 @@ export default function ItemsLiberacionTable({
               className={`flex h-11 w-11 items-center justify-center rounded border transition-colors lg:h-8 lg:w-8 ${
                 enCarrito
                   ? "border-brand-600 bg-brand-500 text-on-brand"
-                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100"
               }`}
             >
               <svg
@@ -391,7 +409,7 @@ export default function ItemsLiberacionTable({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500"
                 aria-hidden="true"
               >
                 <circle cx="11" cy="11" r="7" />
@@ -410,7 +428,7 @@ export default function ItemsLiberacionTable({
               type="button"
               onClick={() => setFiltrosAbiertos((v) => !v)}
               aria-expanded={filtrosAbiertos}
-              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
             >
               Filtros{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
             </button>
@@ -476,13 +494,14 @@ export default function ItemsLiberacionTable({
           {/* Barra de acción masiva: sticky para no tener que subir hasta
               arriba en pedidos con muchos ítems después de seleccionar. La acción
               principal es agregar al carrito (ahí se libera y se asigna); lo demás va en "Más". */}
-          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
-            <label className="flex min-h-9 items-center gap-2">
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-brand-200 bg-brand-50/90 px-3 py-2 text-xs shadow-sm backdrop-blur">
+            <label className="flex min-h-9 items-center gap-2 text-sm font-medium text-slate-900">
               <input
                 type="checkbox"
                 checked={todosFiltradosSeleccionados}
                 onChange={alternarSeleccionTodos}
                 disabled={idsFiltrados.length === 0}
+                className="h-4 w-4 cursor-pointer"
               />
               Seleccionar todos ({idsFiltrados.length})
             </label>
@@ -493,13 +512,14 @@ export default function ItemsLiberacionTable({
               <button
                 type="button"
                 onClick={() => setSeleccionados(new Set())}
-                className="text-sm text-slate-500 underline hover:text-slate-700"
+                className="text-xs text-slate-500 underline hover:text-slate-700"
               >
                 Quitar selección
               </button>
             )}
             <div className="ml-auto flex items-center gap-2">
               <MenuMas
+                compacto
                 opciones={[
                   {
                     etiqueta: `Marcar los listos (${idsListosPorLiberar.length})`,
@@ -521,7 +541,7 @@ export default function ItemsLiberacionTable({
                 onClick={agregarSeleccionAlCarrito}
                 disabled={seleccionados.size === 0}
                 title="Junta estos ítems con los de otros PM u O.T. para liberarlos y asignarlos a equipos"
-                className="min-h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+                className="min-h-9 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
               >
                 Agregar al carrito{seleccionados.size > 0 ? ` (${seleccionados.size})` : ""}
               </button>
@@ -540,7 +560,7 @@ export default function ItemsLiberacionTable({
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
                     <th className="px-3 py-2"></th>
                     <th className="py-2 pr-1 lg:px-3">Imagen</th>
                     <th className="px-3 py-2">Item</th>

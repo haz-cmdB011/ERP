@@ -41,7 +41,7 @@ export default function AuthShell({
   sinAvisoPrivacidad?: boolean;
 }) {
   return (
-    <main className="grid min-h-dvh grid-rows-[auto_1fr]">
+    <main data-sin-acento className="grid min-h-dvh grid-rows-[auto_1fr]">
       <header className="border-b border-nav-line bg-nav px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-on-nav sm:px-10">
         <Marca sobreOscuro className="h-10 sm:h-11" />
       </header>

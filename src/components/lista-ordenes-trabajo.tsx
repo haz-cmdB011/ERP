@@ -35,14 +35,14 @@ export function FiltrosOrdenesTrabajo({
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Año</span>
+        <span className="text-sm font-semibold uppercase tracking-wide text-slate-500">Año</span>
         {[null, ...anios].map((a) => {
           const activo = a === anio;
           return (
             <Link
               key={a ?? "todos"}
               href={hrefListaPedidos(base, { q, anio: a ? String(a) : undefined, cliente: clienteParam, entrega, estado })}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors pointer-coarse:py-2.5 ${
+              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors pointer-coarse:py-2.5 ${
                 activo
                   ? "border-brand-600 bg-brand-500 text-on-brand"
                   : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"

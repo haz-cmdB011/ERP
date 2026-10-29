@@ -17,28 +17,28 @@ export default function SelectorPeriodo({
   hrefDe: (vista: Vista, dia: string) => string;
 }) {
   const flecha =
-    "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50";
+    "inline-flex h-10 w-10 items-center justify-center text-lg text-slate-600 transition-colors hover:bg-brand-50";
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <nav aria-label="Periodo" className="flex overflow-hidden rounded-lg border border-slate-300 bg-white text-sm">
+      <nav aria-label="Periodo" className="flex overflow-hidden rounded-xl border border-slate-300 bg-white text-sm shadow-sm">
         {VISTAS.map((v) => (
           <Link
             key={v}
             href={hrefDe(v, dia)}
             aria-current={v === periodo.vista ? "page" : undefined}
-            className={`px-4 py-1.5 font-medium transition-colors ${
-              v === periodo.vista ? "bg-brand-500 text-on-brand" : "text-slate-600 hover:bg-slate-50"
+            className={`px-4 py-2 font-semibold transition-colors ${
+              v === periodo.vista ? "bg-brand-500 text-on-brand" : "text-slate-600 hover:bg-brand-50"
             }`}
           >
             {NOMBRE_VISTA[v]}
           </Link>
         ))}
       </nav>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center divide-x divide-slate-200 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
         <Link href={hrefDe(periodo.vista, periodo.anterior)} aria-label="Periodo anterior" className={flecha}>
           ‹
         </Link>
-        <span className="min-w-[14rem] text-center text-sm font-semibold capitalize text-slate-900">
+        <span className="min-w-[15rem] px-3 text-center text-base font-bold capitalize text-slate-900">
           {etiquetaPeriodo(periodo)}
         </span>
         <Link href={hrefDe(periodo.vista, periodo.siguiente)} aria-label="Periodo siguiente" className={flecha}>
@@ -46,7 +46,7 @@ export default function SelectorPeriodo({
         </Link>
       </div>
       {!(hoy >= periodo.inicio && hoy <= periodo.fin) && (
-        <Link href={hrefDe(periodo.vista, hoy)} className="text-sm text-slate-500 underline hover:text-slate-700">
+        <Link href={hrefDe(periodo.vista, hoy)} className="rounded-full bg-brand-100 px-3 py-1 text-sm font-medium text-brand-900 hover:bg-brand-200">
           Ir a hoy
         </Link>
       )}

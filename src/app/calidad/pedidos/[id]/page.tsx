@@ -329,10 +329,10 @@ export default async function PedidoCalidadPage({
   }`;
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <MigasPedido pedidoId={id} />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           {pedido.numero_pedido}
         </h1>
         <p className="text-sm text-slate-600">

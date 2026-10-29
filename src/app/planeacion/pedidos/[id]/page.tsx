@@ -261,7 +261,7 @@ export default async function PedidoDetailPage({
   );
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <Migas
         items={[
           { etiqueta: "Pedidos", href: "/planeacion" },
@@ -272,7 +272,7 @@ export default async function PedidoDetailPage({
         ]}
       />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{pedido.numero_pedido}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{pedido.numero_pedido}</h1>
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
