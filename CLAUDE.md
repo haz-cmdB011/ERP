@@ -208,7 +208,8 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
 - **Liberar** se hace desde el carrito (por PM o todo). Lo liberado sale del carrito y se abre el panel de
   asignación con esos muebles (`/produccion/panel?ids=…`, máximo `MAX_IDS_PANEL`). Lo asignado desde el
   carrito (muebles que ya estaban liberados) también sale.
-- **Panel de asignación** (menú de Producción, `/produccion/panel`): todos los muebles liberados, por O.T. → PM,
+- **Panel de asignación** (menú de Producción, `/produccion/panel`): todos los muebles liberados, por cliente →
+  O.T. → PM (el cliente, como en Pedidos: el del primer PM de la O.T.; todo se despliega ahí mismo, sin enlaces a otra pantalla),
   en el formato visual del flujo del PM (`FilaMueble` de
   `pedidos/[id]/asignaciones/flujo-muebles.tsx`; sin las tarjetas de avance por proceso): un "+" en un paso lo asigna, y al abrir un mueble se ven sus
   asignaciones y entregas. Cada O.T. y cada PM se despliegan como un mueble con sus componentes: cerrada,

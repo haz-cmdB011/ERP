@@ -27,6 +27,7 @@ export interface MuebleDePanel {
   numeroPm: string;
   ot: string | null;
   proyecto: string | null;
+  cliente: string | null;
 }
 
 export interface GrupoPmPanel {
@@ -38,6 +39,7 @@ export interface GrupoPmPanel {
 
 export interface GrupoOtPanel {
   ot: string | null;
+  cliente: string | null; // el de su primer PM, como en Pedidos
   pms: GrupoPmPanel[];
   total: number;
 }
@@ -77,7 +79,7 @@ export function coincideBusqueda(m: MuebleDePanel, q: string): boolean {
   const buscado = normalizar(q);
   if (!buscado) return true;
   return normalizar(
-    [m.numeroPm, m.ot, m.proyecto, m.flujo.modelo, m.descripcion, m.flujo.item_code]
+    [m.numeroPm, m.ot, m.proyecto, m.cliente, m.flujo.modelo, m.descripcion, m.flujo.item_code]
       .filter((v) => v !== null && v !== undefined)
       .join(" ")
   ).includes(buscado);
@@ -126,6 +128,7 @@ export function agruparPanel(muebles: MuebleDePanel[]): GrupoOtPanel[] {
         }));
       return {
         ot: ot === "" ? null : ot,
+        cliente: lista[0]?.muebles[0]?.cliente ?? null,
         pms: lista,
         total: lista.reduce((n, pm) => n + pm.muebles.length, 0),
       };
