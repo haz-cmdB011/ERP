@@ -7,8 +7,9 @@ import { AnillosConcentricos } from "./anillo-estados";
 
 const esOt = (ot: string | null): ot is string => !!ot && /^\d+-\d{2}$/.test(ot);
 
-// Los modelos que se repiten en varias O.T./PM, cada uno en un recuadro, en una tira que se
-// recorre con los botones, el dedo, el trackpad o las flechas del teclado. Cada recuadro
+// Los modelos que se repiten en varias O.T./PM, cada uno en un recuadro, en una tira con tres a
+// la vista que se recorre de tres en tres con los botones, o con el dedo, el trackpad o las flechas
+// del teclado. Cada recuadro
 // lista todas sus O.T., tres a la vista y las demás deslizando de lado.
 export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido[] }) {
   const tira = useRef<HTMLUListElement>(null);
@@ -26,12 +27,16 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
     return () => window.removeEventListener("resize", medir);
   }, [medir]);
 
-  // Avanza casi una pantalla de recuadros; sin animación si la persona la pidió reducida.
+  // Avanza los recuadros que caben a la vista (3; 1 en el teléfono), midiendo el primero con su
+  // separación; sin animación si la persona la pidió reducida.
   function mover(sentido: 1 | -1) {
     const el = tira.current;
-    if (!el) return;
+    const primero = el?.firstElementChild as HTMLElement | null;
+    if (!el || !primero) return;
+    const paso = primero.offsetWidth + parseFloat(getComputedStyle(el).columnGap || "0");
+    const porVista = Math.max(1, Math.round(el.clientWidth / paso));
     const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollBy({ left: sentido * el.clientWidth * 0.85, behavior: quieto ? "auto" : "smooth" });
+    el.scrollBy({ left: sentido * paso * porVista, behavior: quieto ? "auto" : "smooth" });
   }
 
   const boton =
@@ -75,7 +80,8 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
           {modelos.map((m) => (
             <li
               key={m.modelo}
-              className="flex aspect-square w-56 shrink-0 snap-start flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 sm:w-60"
+              // Tres a la vista (uno en el teléfono): el ancho reparte la tira menos sus dos separaciones.
+              className="flex min-h-56 w-full shrink-0 snap-start flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 sm:w-[calc((100%-1.5rem)/3)]"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
