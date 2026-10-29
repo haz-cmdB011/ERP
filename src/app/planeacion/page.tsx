@@ -20,7 +20,6 @@ import {
   hrefListaPedidos,
   type PedidoConOt,
 } from "@/lib/planeacion/lista-ordenes-trabajo";
-import Bienvenida from "@/components/bienvenida";
 import { ResumenEnMenu } from "@/components/resumen-menu";
 import EstadoVacio from "@/components/estado-vacio";
 import FiltroRecordado from "@/components/filtro-recordado";
@@ -113,7 +112,6 @@ export default async function PlaneacionListPage({
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida />
       {pedidos && pedidos.length > 0 && (
         <ResumenEnMenu
           tarjetas={[

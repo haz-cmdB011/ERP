@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esMaquilador, getPerfilActual, puedeCapturarTipo } from "@/lib/auth/get-perfil";
 import type { AreaMaquila } from "@/lib/auth/roles";
-import Bienvenida from "@/components/bienvenida";
 import EstadoVacio from "@/components/estado-vacio";
 
 const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string }[] = [
@@ -40,7 +39,6 @@ export default async function GeneradorRecibosPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Generador de Recibos

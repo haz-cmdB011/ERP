@@ -13,7 +13,6 @@ import { detallePendientes, resumirPendientes } from "@/lib/estimaciones/resumen
 import { contarPendientes, listarResumenDiscrepancias } from "@/lib/estimaciones/discrepancias-resumen";
 import { type TarjetaResumen } from "@/components/resumen-inicio";
 import { ResumenEnMenu } from "@/components/resumen-menu";
-import Bienvenida from "@/components/bienvenida";
 import ResumenPorLlegar, { ResumenPorLlegarCargando } from "./por-llegar/resumen-por-llegar";
 
 const TARJETAS: {
@@ -95,7 +94,6 @@ export default async function EstimacionesPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida />
       <ResumenEnMenu tarjetas={tarjetasResumen} />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Estimaciones</h1>

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Bienvenida from "@/components/bienvenida";
 import { createClient } from "@/lib/supabase/server";
 import { PROCESO_LABELS, hoyMexico, type EquipoProduccion } from "@/lib/produccion/asignaciones";
 import { esAlerta, resumirTaller, type ResumenEquipo } from "@/lib/produccion/atrasos";
@@ -49,7 +48,6 @@ export default async function ProduccionInicioPage() {
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Producción</h1>
