@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ModeloCompartido } from "@/lib/produccion/inicio";
+import type { ModeloReciente } from "@/lib/produccion/inicio";
 import { AnillosConcentricos } from "./anillo-estados";
 
 const esOt = (ot: string | null): ot is string => !!ot && /^\d+-\d{2}$/.test(ot);
 
-// Los modelos que se repiten en varias O.T./PM, cada uno en un recuadro, en una tira con tres a
+// Los modelos vigentes, del PM más reciente al más viejo, cada uno en un recuadro, en una tira con tres a
 // la vista que se recorre de tres en tres con los botones, o con el dedo, el trackpad o las flechas
 // del teclado. Cada recuadro
 // lista todas sus O.T., tres a la vista y las demás deslizando de lado.
-export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido[] }) {
+export default function CarruselModelos({ modelos }: { modelos: ModeloReciente[] }) {
   const tira = useRef<HTMLUListElement>(null);
   const [extremos, setExtremos] = useState({ inicio: true, fin: false });
 
@@ -67,7 +67,7 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
       </header>
 
       {modelos.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-slate-500">Ningún modelo se repite entre pedidos.</p>
+        <p className="px-4 py-6 text-center text-sm text-slate-500">Todavía no hay muebles en producción.</p>
       ) : (
         <ul
           ref={tira}
@@ -99,7 +99,7 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
                 <AnillosConcentricos conteos={m.conteos} />
               </div>
               <p className="text-xs text-slate-600">
-                <span className="font-semibold tabular-nums text-slate-900">{m.muebles}</span> muebles en{" "}
+                <span className="font-semibold tabular-nums text-slate-900">{m.muebles}</span> mueble{m.muebles === 1 ? "" : "s"} en{" "}
                 <span className="font-semibold tabular-nums text-slate-900">{m.pms.length}</span> PM
               </p>
               {/* Tres O.T. a la vista; las demás se deslizan de lado. */}

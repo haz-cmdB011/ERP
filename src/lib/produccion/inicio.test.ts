@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contarInicio, modelosCompartidos, otsConPendientes, type MuebleInicio } from "./inicio";
+import { contarInicio, modelosRecientes, otsConPendientes, type MuebleInicio } from "./inicio";
 
 function mueble(id: string, extra: Partial<MuebleInicio> = {}): MuebleInicio {
   return {
@@ -28,9 +28,10 @@ describe("inicio de Producción", () => {
     expect(contarInicio(muebles)).toEqual({ por_liberar: 2, por_asignar: 1, en_proceso: 1, terminado: 1 });
   });
 
-  it("junta los modelos de varios PM (sin importar mayúsculas ni espacios), con el PM más reciente primero", () => {
-    const r = modelosCompartidos(muebles);
-    expect(r.map((m) => m.modelo)).toEqual(["M-CONT-M"]);
+  it("junta cada modelo de todos sus PM (sin importar mayúsculas ni espacios), el más reciente primero", () => {
+    const r = modelosRecientes(muebles);
+    // SIGN HOLDER está en un solo PM y también sale: un mueble nuevo no espera a repetirse.
+    expect(r.map((m) => m.modelo)).toEqual(["M-CONT-M", "SIGN HOLDER"]);
     expect(r[0].pms.map((p) => p.numeroPm)).toEqual(["PM154-26", "PM149-26", "PM10-26"]);
     expect(r[0].reciente).toBe("2026-10-25T10:00:00Z");
     expect(r[0].conteos).toEqual({ por_liberar: 1, por_asignar: 0, en_proceso: 1, terminado: 1 });

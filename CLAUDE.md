@@ -177,7 +177,8 @@ es que el Armado con solo el modelo es el del mueble completo (el ensamble) y co
 ## Inicio de Producción
 
 `/produccion` es el panel de inicio del área (la lista de O.T./PM pasó a `/produccion/pedidos`):
-**modelos en varias O.T./PM** (recuadros en un carrusel, `carrusel-modelos.tsx`, con anillos concéntricos por estado,
+**muebles recientes** (un recuadro por modelo, esté en uno o en varios PM, en un carrusel de tres en tres,
+`carrusel-modelos.tsx`, con anillos concéntricos por estado,
 sus O.T. de tres en tres y el nombre que abre el panel de asignación), lo que tiene cada equipo en taller y las O.T. con
 pendientes (5 a la vista, "Ver más" despliega el resto); lo más reciente (por fecha de subida del PM) primero. Cuenta
 muebles padre vigentes: los liberados con el estado del panel de asignación (`cargarMueblesDePanel`) y los por liberar.

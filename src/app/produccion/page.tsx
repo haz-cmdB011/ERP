@@ -6,23 +6,25 @@ import { cargarTaller } from "@/lib/produccion/cargar-taller";
 import {
   ESTADOS_INICIO,
   contarInicio,
-  modelosCompartidos,
+  modelosRecientes,
   otsConPendientes,
   type OtPendiente,
 } from "@/lib/produccion/inicio";
 import { cargarMueblesInicio } from "@/lib/produccion/inicio-db";
-import AnilloEstados, { COLOR_ESTADO } from "./anillo-estados";
+import AnilloEstados, { MuestraAnillo } from "./anillo-estados";
 import CarruselModelos from "./carrusel-modelos";
 import ChipPlazo from "./chip-plazo";
 
 // Filas por sección: lo demás está a un clic en su pantalla.
 const MAX_FILAS = 8;
+// Modelos en "Muebles recientes": los de los PM más recientes; los demás están en el panel.
+const MAX_MODELOS = 30;
 // Asignaciones a la vista por equipo (las más atrasadas); el resto, en el taller.
 const ASIGNACIONES_POR_EQUIPO = 3;
 // O.T. con pendientes a la vista (las más recientes); las demás se despliegan.
 const OTS_A_LA_VISTA = 5;
 
-// Inicio de Producción: los modelos que comparten varias O.T./PM, qué
+// Inicio de Producción: los muebles más recientes por modelo, qué
 // tiene cada equipo y qué O.T. tienen pendientes. Cada bloque lleva a su pantalla.
 export default async function ProduccionInicioPage() {
   const supabase = await createClient();
@@ -43,7 +45,7 @@ export default async function ProduccionInicioPage() {
   const taller = resumirTaller(asignaciones, plazos, hoy);
   const ocupados = new Set(taller.equipos.map((e) => e.equipoId));
   const libres = (equiposActivos ?? []).filter((e) => !ocupados.has(e.id));
-  const modelos = modelosCompartidos(muebles);
+  const modelos = modelosRecientes(muebles).slice(0, MAX_MODELOS);
   const ots = otsConPendientes(muebles);
 
   return (
@@ -247,7 +249,7 @@ function Leyenda() {
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600" aria-label="Colores de los anillos">
       {ESTADOS_INICIO.map((e) => (
         <li key={e.valor} className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: COLOR_ESTADO[e.valor] }} aria-hidden="true" />
+          <MuestraAnillo estado={e.valor} />
           {e.etiqueta}
         </li>
       ))}
