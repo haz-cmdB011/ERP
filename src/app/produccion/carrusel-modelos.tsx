@@ -39,16 +39,15 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
 
   return (
     <section
-      aria-label="Modelos en varias O.T./PM"
+      aria-label="Muebles recientes"
       className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white"
     >
       <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-slate-900">
-            Modelos en varias O.T./PM
+            Muebles recientes
             {modelos.length > 0 && <span className="ml-1.5 font-normal text-slate-500">({modelos.length})</span>}
           </h2>
-          <p className="text-xs text-slate-500">El mismo mueble en distintos pedidos: su despiece se comparte.</p>
         </div>
         {modelos.length > 0 && (
           <div className="flex shrink-0 gap-2">
