@@ -116,10 +116,10 @@ export function CuadriculaEsqueleto({
 }
 
 // Buscador con su botón de filtros (y, opcionalmente, otro botón).
-export function BuscadorEsqueleto({ botones = 1 }: { botones?: number }) {
+export function BuscadorEsqueleto({ botones = 1, completo = false }: { botones?: number; completo?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Bloque className="h-10 w-full max-w-md flex-1" />
+      <Bloque className={`h-10 w-full flex-1 ${completo ? "" : "max-w-md"}`} />
       {Array.from({ length: botones }).map((_, i) => (
         <Bloque key={i} className="h-10 w-24" />
       ))}
@@ -178,6 +178,143 @@ export function FilasEsqueleto({ filas = 6, avatar = false }: { filas?: number; 
           <Bloque className="hidden h-8 w-24 md:block" />
         </div>
       ))}
+    </div>
+  );
+}
+
+// "Hola, nombre · fecha" al inicio de cada área.
+export function SaludoEsqueleto() {
+  return <Bloque className="h-4 w-72 max-w-full" />;
+}
+
+// Una fila de píldoras (filtros de año, estados, apartados).
+export function ChipsEsqueleto({ n = 3, ancho = "w-24", alto = "h-9" }: { n?: number; ancho?: string; alto?: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {Array.from({ length: n }).map((_, i) => (
+        <Bloque key={i} className={`${alto} ${ancho} rounded-full`} />
+      ))}
+    </div>
+  );
+}
+
+// Lista de pedidos por cliente: cada cliente es una fila plegada con su recuento.
+export function ClientesEsqueleto({ n = 5 }: { n?: number }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: n }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4">
+          <Bloque className="h-4 w-4" />
+          <Bloque className="h-5 w-44 max-w-full" />
+          <Bloque className="h-4 w-14" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Tarjetas de acceso con ícono, título y una línea (inicio de Estimaciones, generador de recibos).
+export function AccesosEsqueleto({ n = 4 }: { n?: number }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {Array.from({ length: n }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
+          <Bloque className="h-10 w-10 shrink-0" />
+          <div className="flex flex-1 flex-col gap-2">
+            <Bloque className="h-5 w-40 max-w-full" />
+            <Bloque className="h-3 w-3/4" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Tarjetas de PM de una O.T.: número, proyecto y barra de avance.
+export function TarjetasPmEsqueleto({ n = 4 }: { n?: number }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: n }).map((_, i) => (
+        <div
+          key={i}
+          className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 sm:min-h-[5.875rem] sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+        >
+          <div className="flex flex-1 flex-col gap-2">
+            <Bloque className="h-5 w-28" />
+            <Bloque className="h-4 w-2/3 max-w-sm" />
+            <Bloque className="h-3 w-24" />
+          </div>
+          <div className="flex flex-col gap-2 sm:w-52">
+            <Bloque className="h-2 w-full rounded-full" />
+            <Bloque className="h-3 w-28" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Tabla con su encabezado: tantas columnas como se pidan (la primera más angosta, la segunda ancha).
+export function TablaEsqueleto({ columnas = 5, filas = 6 }: { columnas?: number; filas?: number }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="flex h-11 items-center gap-6 border-b border-slate-200 bg-slate-50 px-4">
+        {Array.from({ length: columnas }).map((_, i) => (
+          <Bloque key={i} className={`h-3 ${i === 1 ? "flex-1" : "w-16"}`} />
+        ))}
+      </div>
+      {Array.from({ length: filas }).map((_, i) => (
+        <div key={i} className="flex items-center gap-6 border-b border-slate-100 px-4 py-4 last:border-0">
+          {Array.from({ length: columnas }).map((_, j) => (
+            <Bloque key={j} className={`h-4 ${j === 1 ? "flex-1" : "w-16"}`} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Lista de tarjetas con un título corto y dos líneas (rechazos, entregas, cancelados).
+export function TarjetasListaEsqueleto({
+  n = 4,
+  columnas = "",
+}: {
+  n?: number;
+  // Clases de cuadrícula (p. ej. "md:grid-cols-2"); vacío = una por renglón.
+  columnas?: string;
+}) {
+  return (
+    <div className={`grid gap-3 ${columnas}`}>
+      {Array.from({ length: n }).map((_, i) => (
+        <div key={i} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <Bloque className="h-5 w-48 max-w-full" />
+            <Bloque className="h-6 w-20 rounded-full" />
+          </div>
+          <Bloque className="h-4 w-2/3" />
+          <Bloque className="h-3 w-1/3" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Hoja o ficha grande (informe, recibo, viajero): título y una hoja en blanco.
+export function HojaEsqueleto({ alto = "h-[30rem]" }: { alto?: string }) {
+  return <Bloque className={`${alto} rounded-xl`} />;
+}
+
+// Formulario: un recuadro con campos apilados y su botón.
+export function FormularioEsqueleto({ campos = 5 }: { campos?: number }) {
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5">
+      {Array.from({ length: campos }).map((_, i) => (
+        <div key={i} className="flex flex-col gap-2">
+          <Bloque className="h-3 w-28" />
+          <Bloque className="h-10 w-full" />
+        </div>
+      ))}
+      <Bloque className="h-11 w-36" />
     </div>
   );
 }

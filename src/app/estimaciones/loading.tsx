@@ -1,5 +1,13 @@
-import Cargando from "@/components/cargando";
+import { AccesosEsqueleto, Bloque, PaginaEsqueleto, SaludoEsqueleto, TituloEsqueleto } from "@/components/esqueleto";
 
+// Esqueleto del inicio de Estimaciones: saludo, título, "Recibos por llegar" y los accesos.
 export default function Loading() {
-  return <Cargando />;
+  return (
+    <PaginaEsqueleto ancho="max-w-5xl">
+      <SaludoEsqueleto />
+      <TituloEsqueleto ayuda={false} ancho="w-48" />
+      <Bloque className="h-52 rounded-xl" />
+      <AccesosEsqueleto n={3} />
+    </PaginaEsqueleto>
+  );
 }

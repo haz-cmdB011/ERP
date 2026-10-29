@@ -1,5 +1,15 @@
-import Cargando from "@/components/cargando";
+import { BuscadorEsqueleto, ChipsEsqueleto, ClientesEsqueleto, PaginaEsqueleto, SaludoEsqueleto, TituloEsqueleto } from "@/components/esqueleto";
 
+// Esqueleto de Pedidos en Calidad: saludo, título, buscador, año, estados y clientes.
 export default function Loading() {
-  return <Cargando />;
+  return (
+    <PaginaEsqueleto ancho="max-w-5xl">
+      <SaludoEsqueleto />
+      <TituloEsqueleto ayuda={false} ancho="w-64" />
+      <BuscadorEsqueleto completo />
+      <ChipsEsqueleto n={3} ancho="w-20" alto="h-8" />
+      <ChipsEsqueleto n={3} ancho="w-28" />
+      <ClientesEsqueleto />
+    </PaginaEsqueleto>
+  );
 }
