@@ -16,7 +16,7 @@ export default function Secciones({
   return (
     <div className="flex flex-col gap-4">
       <div
-        className="flex w-fit max-w-full flex-wrap gap-1 rounded-2xl bg-slate-100 p-1"
+        className="flex flex-wrap gap-1 border-b border-slate-200"
         role="group"
         aria-label="Apartados de estadísticas"
       >
@@ -26,13 +26,13 @@ export default function Secciones({
             type="button"
             aria-pressed={activa === s.id}
             onClick={() => setActiva(s.id)}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all max-md:min-h-11 ${
+            className={`-mb-px inline-flex min-h-11 items-center gap-2 rounded-t-lg border-b-2 px-4 text-base font-medium transition-colors ${
               activa === s.id
-                ? "bg-brand-500 text-on-brand shadow-sm"
-                : "text-slate-600 hover:bg-white hover:text-slate-900"
+                ? "pestana-activa border-brand-600 font-semibold text-slate-900"
+                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
             }`}
           >
-            {s.icono && <IconoMenu nombre={s.icono} className="h-4 w-4 shrink-0" />}
+            {s.icono && <IconoMenu nombre={s.icono} className={`h-4 w-4 shrink-0 ${activa === s.id ? "text-brand-700" : ""}`} />}
             {s.titulo}
           </button>
         ))}
