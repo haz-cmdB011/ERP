@@ -219,7 +219,9 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                                     bueno ? "text-emerald-700" : malo ? "text-rose-700" : "text-slate-500"
                                   }`}
                                 >
-                                  {cambio === 0 ? "Igual" : `${cambio > 0 ? "+" : "−"}${Math.abs(cambio)}`} vs. {VS_ANTERIOR[vista]}
+                                  {cambio === 0
+                                    ? `Igual que ${VS_ANTERIOR[vista]}`
+                                    : `${Math.abs(cambio)} ${cambio > 0 ? "más" : "menos"} que ${VS_ANTERIOR[vista]}`}
                                 </p>
                               )}
                             </div>
