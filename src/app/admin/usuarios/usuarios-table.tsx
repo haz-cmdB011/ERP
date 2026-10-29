@@ -156,7 +156,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
 
   return (
     <tr className="border-t border-slate-100 align-top transition-colors hover:bg-slate-50">
-      <td className={`border-l-4 py-3 pl-3 pr-4 ${ESTILO_ROL[rol].franja}`}>
+      <td className="py-3 pl-4 pr-4">
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"

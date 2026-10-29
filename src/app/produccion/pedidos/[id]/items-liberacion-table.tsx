@@ -327,12 +327,7 @@ export default function ItemsLiberacionTable({
           desplegable ? "cursor-pointer" : ""
         }`}
       >
-        <td
-          className={`px-2 py-3 sm:px-3 lg:py-2 ${
-            indentado ? "guia-hija" : `border-l-4 ${estiloMaterial(item.tipo_material)?.franja ?? "border-l-transparent"}`
-          }`}
-          onClick={sinToggle}
-        >
+        <td className={`px-2 py-3 sm:px-3 lg:py-2 ${indentado ? "guia-hija" : ""}`} onClick={sinToggle}>
           <input
             type="checkbox"
             checked={seleccionados.has(item.id)}

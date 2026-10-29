@@ -490,9 +490,7 @@ export default function ItemsTabla({
                           seleccion.has(m.id) ? "bg-brand-50" : colorFilaEstadoRevision(m.estado_revision)
                         }`}
                       >
-                        <td
-                          className={`border-l-4 py-2 pl-3 text-slate-500 ${estiloMaterial(m.tipo_material)?.franja ?? "border-l-transparent"}`}
-                        >
+                        <td className="py-2 pl-3 text-slate-500">
                           {hijos.length > 0 && (
                             <BotonDesplegar
                               abierto={abierto}
@@ -738,11 +736,7 @@ function TarjetaItem({
   const descripcion = corto ? item.descripcion?.split("\n")[0] : item.descripcion;
   const fondo = seleccionado ? "bg-brand-50" : colorFilaEstadoRevision(item.estado_revision) || "bg-white";
   return (
-    <div
-      className={`flex flex-col gap-3 rounded-xl border border-slate-200 border-l-4 p-3 shadow-sm ${
-        estiloMaterial(item.tipo_material)?.franja ?? ""
-      } ${fondo}`}
-    >
+    <div className={`flex flex-col gap-3 rounded-xl border border-slate-200 p-3 shadow-sm ${fondo}`}>
       <div className="flex items-start gap-3">
         {puedeEditar && (
           <input
