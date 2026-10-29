@@ -68,7 +68,7 @@ export default async function ProduccionInicioPage() {
           detalle="Lo que tiene cada equipo, lo atrasado primero."
           vacio="No hay nada en taller ahora."
           total={taller.equipos.length}
-          verTodo={{ href: "/produccion/taller", etiqueta: "Taller" }}
+          verTodo={{ href: "/produccion/panel", etiqueta: "Panel de asignación" }}
           pie={
             libres.length > 0 && (
               <p className="border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">
@@ -145,14 +145,11 @@ function FilaOt({ o }: { o: OtPendiente }) {
 // Un equipo con sus asignaciones en taller: las más atrasadas a la vista, cada una con su
 // avance (entregado de lo asignado) y su plazo; tocarla abre las asignaciones del PM.
 function EquipoEnTaller({ e }: { e: ResumenEquipo }) {
-  const hrefEquipo = `/produccion/taller?vista=lista&equipo=${e.equipoId}`;
   const visibles = e.filas.slice(0, ASIGNACIONES_POR_EQUIPO);
   return (
     <li className="px-4 py-3 text-sm">
       <div className="flex items-baseline justify-between gap-3">
-        <Link href={hrefEquipo} className="min-w-0 truncate font-semibold text-slate-900 hover:text-brand-700 hover:underline">
-          {e.equipo}
-        </Link>
+        <span className="min-w-0 truncate font-semibold text-slate-900">{e.equipo}</span>
         <span className="shrink-0 text-xs text-slate-500 tabular-nums">
           {e.atrasadas > 0 && <span className="mr-2 font-semibold text-rose-700">{e.atrasadas} atrasada{e.atrasadas === 1 ? "" : "s"}</span>}
           {e.filas.length} asignaci{e.filas.length === 1 ? "ón" : "ones"}
@@ -200,9 +197,7 @@ function EquipoEnTaller({ e }: { e: ResumenEquipo }) {
         })}
       </ul>
       {e.filas.length > visibles.length && (
-        <Link href={hrefEquipo} className="mt-1 inline-block text-xs font-medium text-brand-700 hover:underline">
-          Ver las {e.filas.length}
-        </Link>
+        <p className="mt-1 text-xs text-slate-500">y {e.filas.length - visibles.length} más</p>
       )}
     </li>
   );

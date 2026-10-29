@@ -116,7 +116,7 @@ export default async function CalidadPorEquipoPage({
         <EstadoVacio
           titulo="Sin entregas en este periodo"
           descripcion="Cuando los equipos entreguen y se revise lo entregado, aquí aparecerán sus números."
-          accion={{ href: "/produccion/taller?vista=lista", etiqueta: "Ir al taller" }}
+          accion={{ href: "/produccion/panel", etiqueta: "Ir al panel de asignación" }}
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
