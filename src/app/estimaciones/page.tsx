@@ -116,7 +116,7 @@ export default async function EstimacionesPage() {
       <Bienvenida />
       <ResumenEnMenu tarjetas={tarjetasResumen} />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Estimaciones</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Estimaciones</h1>
       </div>
 
       {/* Lo que Calidad ya aprobó y está por cobrarse: se carga aparte para no frenar el panel. */}
@@ -150,7 +150,7 @@ export default async function EstimacionesPage() {
               </svg>
             </span>
             <span className="min-w-0">
-              <h2 className="text-lg font-bold text-slate-900">{t.titulo}</h2>
+              <h2 className="text-base font-semibold text-slate-900">{t.titulo}</h2>
               <p className="text-sm text-slate-500">{t.detalle}</p>
             </span>
           </Link>

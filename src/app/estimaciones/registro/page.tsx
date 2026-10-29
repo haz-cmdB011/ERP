@@ -65,12 +65,12 @@ export default async function RegistroRecibosPage({
     <main className="mx-auto flex max-w-7xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             {filtros.estado === "pendiente" ? "Por revisar" : "Registro de recibos"}
           </h1>
         </div>
         {pagina.total > 0 && (
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-900">
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900">
             {pagina.total} recibo{pagina.total === 1 ? "" : "s"}
           </span>
         )}
@@ -212,7 +212,7 @@ function Filtro({ href, activo, etiqueta, punto }: { href: string; activo: boole
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-medium ring-1 transition-colors ${
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-medium ring-1 transition-colors ${
         activo
           ? "bg-brand-500 text-on-brand ring-brand-600"
           : "bg-white text-slate-600 ring-slate-200 hover:bg-brand-50"

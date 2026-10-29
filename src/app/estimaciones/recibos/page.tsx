@@ -51,7 +51,7 @@ export default async function GeneradorRecibosPage() {
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <Bienvenida />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Generador de Recibos
         </h1>
       </div>
@@ -86,7 +86,7 @@ export default async function GeneradorRecibosPage() {
                 </svg>
               </span>
               <span className="min-w-0">
-                <h2 className="text-lg font-bold text-slate-900">{t.titulo}</h2>
+                <h2 className="text-base font-semibold text-slate-900">{t.titulo}</h2>
                 <p className="mt-1 text-sm text-slate-500">{t.descripcion}</p>
               </span>
             </Link>

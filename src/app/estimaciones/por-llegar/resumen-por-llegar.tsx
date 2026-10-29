@@ -30,13 +30,13 @@ function TarjetaArea({ r }: { r: ResumenArea }) {
       href={`/estimaciones/por-llegar#${r.area}`}
       className={`flex flex-col gap-1 rounded-xl border border-slate-200 border-t-4 bg-gradient-to-b to-white p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${tono.tarjeta}`}
     >
-      <span className={`text-base font-bold ${tono.etiqueta}`}>
+      <span className={`text-sm font-semibold ${tono.etiqueta}`}>
         Trabajo de {AREA_RECIBO_LABELS[r.area].toLowerCase()}
       </span>
       {hay ? (
         <>
           <span className="text-xs text-slate-500">Aprobado por Calidad, listo para cobrar</span>
-          <span className="text-3xl font-bold tabular-nums tracking-tight text-slate-900">
+          <span className="text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
             {money(r.importe)}
             {r.sinPrecio > 0 && <span className="ml-1 text-sm font-normal text-slate-500">+ sin precio</span>}
           </span>
@@ -75,7 +75,7 @@ export default async function ResumenPorLlegar() {
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="por-llegar-titulo" className="text-xl font-bold text-slate-900">
+          <h2 id="por-llegar-titulo" className="text-lg font-semibold text-slate-900">
             Recibos por llegar
           </h2>
           <p className="text-xs text-slate-500">
