@@ -47,6 +47,18 @@ export default function AnilloEstados({
   );
 }
 
+// Muestra de la leyenda: solo el anillo de ese estado, a la distancia del centro que tiene en los
+// anillos concéntricos, para que a simple vista se vea cuál es (por liberar el más grande, afuera;
+// terminados un punto, al centro).
+export function MuestraAnillo({ estado }: { estado: keyof Conteos }) {
+  const i = ESTADOS_INICIO.findIndex((e) => e.valor === estado);
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true" className="size-5 shrink-0">
+      <circle cx="32" cy="32" r={Math.max(6, 26 - i * 7)} fill="none" stroke={COLOR_ESTADO[estado]} strokeWidth={8} />
+    </svg>
+  );
+}
+
 // Anillos concéntricos, uno por estado (por liberar afuera, terminados al centro): cada arco,
 // con puntas redondas, mide la parte de los muebles que está en ese estado. Arrancan en
 // ángulos distintos para que se lean como una espiral y no como un reloj.

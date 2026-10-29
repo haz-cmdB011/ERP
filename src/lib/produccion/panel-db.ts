@@ -11,12 +11,13 @@ interface FilaPanel {
   descripcion: string | null;
   cantidad_total: number;
   unidad: string | null;
+  liberado_en: string | null;
   pedido_versiones: {
     pedido_id: string;
     pedidos: {
       numero_pedido: string;
       orden_trabajo: string | null;
-      proyectos: { nombre: string } | null;
+      proyectos: { nombre: string; cliente: string | null } | null;
     } | null;
   } | null;
 }
@@ -33,7 +34,7 @@ export async function cargarMueblesDePanel(
       const base = supabase
         .from("planeacion_items")
         .select(
-          "id, item_code, modelo, descripcion, cantidad_total, unidad, pedido_versiones!inner ( pedido_id, pedidos!inner ( numero_pedido, orden_trabajo, proyectos ( nombre ) ) )"
+          "id, item_code, modelo, descripcion, cantidad_total, unidad, liberado_en, pedido_versiones!inner ( pedido_id, pedidos!inner ( numero_pedido, orden_trabajo, proyectos ( nombre, cliente ) ) )"
         )
         .eq("tipo_registro", "MO")
         .eq("estado_liberacion", "enviado_a_produccion")
@@ -64,9 +65,12 @@ export async function cargarMueblesDePanel(
     flujo: flujos[i],
     estado: estadoMueble(flujos[i]),
     descripcion: fila.descripcion,
+    liberadoEn: fila.liberado_en,
     pedidoId: fila.pedido_versiones?.pedido_id ?? "",
     numeroPm: pedido.numero_pedido,
     ot: pedido.orden_trabajo,
     proyecto: pedido.proyectos?.nombre ?? null,
+    // Como en Pedidos (clienteDe): sin espacios de más y en mayúsculas, para que no se parta el grupo.
+    cliente: pedido.proyectos?.cliente?.replace(/\s+/g, " ").trim().toUpperCase() || null,
   }));
 }

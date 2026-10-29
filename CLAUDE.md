@@ -177,9 +177,11 @@ es que el Armado con solo el modelo es el del mueble completo (el ensamble) y co
 ## Inicio de Producción
 
 `/produccion` es el panel de inicio del área (la lista de O.T./PM pasó a `/produccion/pedidos`):
-**modelos en varias O.T./PM** (recuadros en un carrusel, `carrusel-modelos.tsx`, con anillos concéntricos por estado,
+**muebles recientes** (un recuadro por modelo, esté en uno o en varios PM, en un carrusel de tres en tres,
+`carrusel-modelos.tsx`, con anillos concéntricos por estado,
 sus O.T. de tres en tres y el nombre que abre el panel de asignación), lo que tiene cada equipo en taller y las O.T. con
-pendientes (5 a la vista, "Ver más" despliega el resto); lo más reciente (por fecha de subida del PM) primero. Cuenta
+pendientes (5 a la vista, "Ver más" despliega el resto); lo más reciente primero (las O.T., por fecha de subida del PM; los muebles recientes, los 30 con el
+último movimiento: subida del PM, liberación, asignación o entrega). Cuenta
 muebles padre vigentes: los liberados con el estado del panel de asignación (`cargarMueblesDePanel`) y los por liberar.
 Lógica en `src/lib/produccion/inicio.ts`, lectura en `inicio-db.ts`.
 
@@ -208,7 +210,8 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
 - **Liberar** se hace desde el carrito (por PM o todo). Lo liberado sale del carrito y se abre el panel de
   asignación con esos muebles (`/produccion/panel?ids=…`, máximo `MAX_IDS_PANEL`). Lo asignado desde el
   carrito (muebles que ya estaban liberados) también sale.
-- **Panel de asignación** (menú de Producción, `/produccion/panel`): todos los muebles liberados, por O.T. → PM,
+- **Panel de asignación** (menú de Producción, `/produccion/panel`): todos los muebles liberados, por cliente →
+  O.T. → PM (el cliente, como en Pedidos: el del primer PM de la O.T.; todo se despliega ahí mismo, sin enlaces a otra pantalla),
   en el formato visual del flujo del PM (`FilaMueble` de
   `pedidos/[id]/asignaciones/flujo-muebles.tsx`; sin las tarjetas de avance por proceso): un "+" en un paso lo asigna, y al abrir un mueble se ven sus
   asignaciones y entregas. Cada O.T. y cada PM se despliegan como un mueble con sus componentes: cerrada,

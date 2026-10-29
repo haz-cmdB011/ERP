@@ -1,5 +1,5 @@
 // Inicio de Producción: un vistazo a todos los muebles padre vigentes (por liberar, por
-// asignar, en el taller, terminados), qué modelos se repiten en varias O.T./PM y qué O.T.
+// asignar, en el taller, terminados), los modelos más recientes y qué O.T.
 // tienen trabajo pendiente. Sin base de datos ni navegador, para poder probarlo; la lectura
 // vive en inicio-db.ts.
 
@@ -24,6 +24,10 @@ export interface MuebleInicio {
   ot: string | null;
   // Cuándo se subió su PM (ISO): lo más reciente sale primero.
   creadoEn: string;
+  // Lo último que le pasó al mueble (ISO): subida del PM, liberación, asignación o entrega. Ordena
+  // "Muebles recientes", para que un mueble con movimiento suba aunque su PM sea viejo. Sin
+  // dato, cuenta la subida del PM.
+  actividad?: string;
 }
 
 export type Conteos = Record<EstadoInicio, number>;
@@ -46,13 +50,13 @@ export interface PmDeModelo {
   creadoEn: string;
 }
 
-export interface ModeloCompartido {
+export interface ModeloReciente {
   modelo: string;
   descripcion: string | null;
   muebles: number;
   pms: PmDeModelo[];
   conteos: Conteos;
-  // El PM más reciente que lo tiene.
+  // Lo último que le pasó a alguno de sus muebles (ver MuebleInicio.actividad).
   reciente: string;
 }
 
@@ -60,10 +64,11 @@ const claveModelo = (m: string | null) => (m ?? "").replace(/\s+/g, " ").trim().
 const natural = (a: string, b: string) => a.localeCompare(b, "es", { numeric: true });
 const masReciente = (a: string, b: string) => (b > a ? b : a);
 
-// Modelos que aparecen en más de un PM, con cuántos muebles hay en cada estado. Primero los
-// de los PM más recientes; dentro de cada modelo, sus PM del más reciente al más viejo.
-export function modelosCompartidos(muebles: MuebleInicio[]): ModeloCompartido[] {
-  const porModelo = new Map<string, ModeloCompartido & { idsPm: Set<string> }>();
+// Cada modelo con todos sus PM (estén en uno o en varios) y cuántos muebles hay en cada estado.
+// Primero los que tuvieron movimiento más reciente; dentro de cada modelo, sus PM del más
+// reciente al más viejo.
+export function modelosRecientes(muebles: MuebleInicio[]): ModeloReciente[] {
+  const porModelo = new Map<string, ModeloReciente & { idsPm: Set<string> }>();
   for (const m of muebles) {
     const clave = claveModelo(m.modelo);
     if (!clave) continue;
@@ -75,21 +80,20 @@ export function modelosCompartidos(muebles: MuebleInicio[]): ModeloCompartido[] 
         muebles: 0,
         pms: [],
         conteos: vacio(),
-        reciente: m.creadoEn,
+        reciente: m.actividad ?? m.creadoEn,
         idsPm: new Set(),
       };
       porModelo.set(clave, g);
     }
     g.muebles += 1;
     g.conteos[m.estado] += 1;
-    g.reciente = masReciente(g.reciente, m.creadoEn);
+    g.reciente = masReciente(g.reciente, m.actividad ?? m.creadoEn);
     if (!g.idsPm.has(m.pedidoId)) {
       g.idsPm.add(m.pedidoId);
       g.pms.push({ pedidoId: m.pedidoId, numeroPm: m.numeroPm, ot: m.ot, creadoEn: m.creadoEn });
     }
   }
   return [...porModelo.values()]
-    .filter((g) => g.pms.length > 1)
     .map((g) => ({
       modelo: g.modelo,
       descripcion: g.descripcion,

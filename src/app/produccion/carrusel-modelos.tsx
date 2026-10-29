@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ModeloCompartido } from "@/lib/produccion/inicio";
+import type { ModeloReciente } from "@/lib/produccion/inicio";
 import { AnillosConcentricos } from "./anillo-estados";
 
 const esOt = (ot: string | null): ot is string => !!ot && /^\d+-\d{2}$/.test(ot);
 
-// Los modelos que se repiten en varias O.T./PM, cada uno en un recuadro, en una tira que se
-// recorre con los botones, el dedo, el trackpad o las flechas del teclado. Cada recuadro
+// Los modelos vigentes, del PM más reciente al más viejo, cada uno en un recuadro, en una tira con tres a
+// la vista que se recorre de tres en tres con los botones, o con el dedo, el trackpad o las flechas
+// del teclado. Cada recuadro
 // lista todas sus O.T., tres a la vista y las demás deslizando de lado.
-export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido[] }) {
+export default function CarruselModelos({ modelos }: { modelos: ModeloReciente[] }) {
   const tira = useRef<HTMLUListElement>(null);
   const [extremos, setExtremos] = useState({ inicio: true, fin: false });
 
@@ -26,12 +27,16 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
     return () => window.removeEventListener("resize", medir);
   }, [medir]);
 
-  // Avanza casi una pantalla de recuadros; sin animación si la persona la pidió reducida.
+  // Avanza los recuadros que caben a la vista (3; 1 en el teléfono), midiendo el primero con su
+  // separación; sin animación si la persona la pidió reducida.
   function mover(sentido: 1 | -1) {
     const el = tira.current;
-    if (!el) return;
+    const primero = el?.firstElementChild as HTMLElement | null;
+    if (!el || !primero) return;
+    const paso = primero.offsetWidth + parseFloat(getComputedStyle(el).columnGap || "0");
+    const porVista = Math.max(1, Math.round(el.clientWidth / paso));
     const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollBy({ left: sentido * el.clientWidth * 0.85, behavior: quieto ? "auto" : "smooth" });
+    el.scrollBy({ left: sentido * paso * porVista, behavior: quieto ? "auto" : "smooth" });
   }
 
   const boton =
@@ -39,16 +44,15 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
 
   return (
     <section
-      aria-label="Modelos en varias O.T./PM"
+      aria-label="Muebles recientes"
       className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white"
     >
       <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-slate-900">
-            Modelos en varias O.T./PM
+            Muebles recientes
             {modelos.length > 0 && <span className="ml-1.5 font-normal text-slate-500">({modelos.length})</span>}
           </h2>
-          <p className="text-xs text-slate-500">El mismo mueble en distintos pedidos: su despiece se comparte.</p>
         </div>
         {modelos.length > 0 && (
           <div className="flex shrink-0 gap-2">
@@ -63,7 +67,7 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
       </header>
 
       {modelos.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-slate-500">Ningún modelo se repite entre pedidos.</p>
+        <p className="px-4 py-6 text-center text-sm text-slate-500">Todavía no hay muebles en producción.</p>
       ) : (
         <ul
           ref={tira}
@@ -76,7 +80,8 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
           {modelos.map((m) => (
             <li
               key={m.modelo}
-              className="flex aspect-square w-56 shrink-0 snap-start flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 sm:w-60"
+              // Tres a la vista (uno en el teléfono): el ancho reparte la tira menos sus dos separaciones.
+              className="flex min-h-56 w-full shrink-0 snap-start flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 sm:w-[calc((100%-1.5rem)/3)]"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -94,7 +99,7 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloCompartido
                 <AnillosConcentricos conteos={m.conteos} />
               </div>
               <p className="text-xs text-slate-600">
-                <span className="font-semibold tabular-nums text-slate-900">{m.muebles}</span> muebles en{" "}
+                <span className="font-semibold tabular-nums text-slate-900">{m.muebles}</span> mueble{m.muebles === 1 ? "" : "s"} en{" "}
                 <span className="font-semibold tabular-nums text-slate-900">{m.pms.length}</span> PM
               </p>
               {/* Tres O.T. a la vista; las demás se deslizan de lado. */}
