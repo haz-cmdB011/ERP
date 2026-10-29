@@ -227,7 +227,7 @@ export default async function OrdenTrabajoCalidadPage({
                         {/* El enlace se extiende sobre toda la fila (after:inset-0): tocar cualquier parte abre el pedido. */}
                         <EnlaceFila
                           href={`/calidad/pedidos/${p.id}`}
-                          className="group inline-flex items-center gap-2 text-base font-bold text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
+                          className="group inline-flex items-center gap-2 text-base font-bold text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
                         >
                           {p.numero_pedido}
                         </EnlaceFila>
