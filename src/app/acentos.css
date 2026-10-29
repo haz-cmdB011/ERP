@@ -22,11 +22,6 @@
     vertical-align: -0.1em;
   }
 
-  /* Pestaña activa: un velo de la marca que sube desde su línea. */
-  .pestana-activa {
-    background-image: linear-gradient(to top, var(--color-brand-100), transparent 75%);
-  }
-
   /* Filas de las tablas: al señalarlas, una barra de la marca a la izquierda. Las filas
      que ya traen su propia franja de color (border-l-*) no la llevan. */
   :where(main) tbody > tr:hover > td:first-child:not([class*="border-l-"]) {
