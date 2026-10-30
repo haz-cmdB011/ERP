@@ -138,7 +138,7 @@ export default function PanelAsignacion({
           <section key={c.cliente} className="overflow-hidden rounded-xl border border-slate-200 bg-white/50">
             <div
               onClick={alternarCliente}
-              className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-slate-50"
+              className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-slate-50 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3"
             >
               <BotonDesplegar
                 abierto={abiertoCliente}
@@ -146,15 +146,15 @@ export default function PanelAsignacion({
                 descripcion={`las ${c.filas.length} O.T. de ${c.cliente}`}
                 className="h-4 w-4"
               />
-              <h2 className="text-lg font-semibold text-slate-900">{c.cliente}</h2>
-              <span className="text-sm text-slate-500">
+              <h2 className="text-base font-semibold text-slate-900 sm:text-lg">{c.cliente}</h2>
+              <span className="text-xs text-slate-500 sm:text-sm">
                 {c.filas.length} O.T. · {muebles.length} mueble{muebles.length === 1 ? "" : "s"}
               </span>
               <Estados resumen={contarEstados(muebles)} />
             </div>
 
             {abiertoCliente && (
-              <div className="anim-desplegar flex flex-col gap-3 border-t border-slate-100 p-3">
+              <div className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 p-1.5 sm:gap-3 sm:p-3">
                 {c.filas.map((g) => (
                   <GrupoOt
                     key={claveOt(g)}
@@ -177,15 +177,15 @@ export default function PanelAsignacion({
                         >
                           <div
                             onClick={alternarPm}
-                            className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 transition-colors hover:bg-slate-50"
+                            className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-2.5 py-2 transition-colors hover:bg-slate-50 sm:gap-x-3 sm:gap-y-1 sm:px-3 sm:py-2.5"
                           >
                             <BotonDesplegar
                               abierto={pmAbierta}
                               alAlternar={alternarPm}
                               descripcion={`los ${pm.muebles.length} muebles del ${pm.numeroPm}`}
                             />
-                            <span className="font-semibold text-slate-900">{pm.numeroPm}</span>
-                            {pm.proyecto && <span className="text-sm text-slate-500">{pm.proyecto}</span>}
+                            <span className="text-sm font-semibold text-slate-900 sm:text-base">{pm.numeroPm}</span>
+                            {pm.proyecto && <span className="text-xs text-slate-500 sm:text-sm">{pm.proyecto}</span>}
                             <span className="text-xs text-slate-500">
                               {pm.muebles.length} mueble{pm.muebles.length === 1 ? "" : "s"}
                             </span>
@@ -202,7 +202,7 @@ export default function PanelAsignacion({
                             )}
                           </div>
                           {pmAbierta && (
-                            <ul className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 p-3">
+                            <ul className="anim-desplegar flex flex-col gap-1.5 border-t border-slate-100 bg-slate-50/60 p-1.5 sm:gap-2 sm:p-3">
                               {pm.muebles.map((m) => (
                                 <FilaMueble
                                   key={m.flujo.id}
@@ -247,7 +247,7 @@ function GrupoOt({
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div
         onClick={alternar}
-        className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-slate-50"
+        className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-slate-50 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3"
       >
         <BotonDesplegar
           abierto={abierta}
@@ -255,15 +255,15 @@ function GrupoOt({
           descripcion={`los ${g.pms.length} PM de ${nombreOt}`}
           className="h-4 w-4"
         />
-        <h3 className="text-base font-semibold text-slate-900">{g.ot ? `O.T. ${g.ot}` : "Sin O.T."}</h3>
-        <span className="text-sm text-slate-500">
+        <h3 className="text-sm font-semibold text-slate-900 sm:text-base">{g.ot ? `O.T. ${g.ot}` : "Sin O.T."}</h3>
+        <span className="text-xs text-slate-500 sm:text-sm">
           {g.pms.length} PM · {g.total} mueble{g.total === 1 ? "" : "s"}
         </span>
         <Estados resumen={resumenOt(g)} />
       </div>
 
       {abierta && (
-        <div className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 py-3 pr-3 pl-6">
+        <div className="anim-desplegar flex flex-col gap-1.5 border-t border-slate-100 bg-slate-50/60 py-1.5 pr-1.5 pl-1.5 sm:gap-2 sm:py-3 sm:pr-3 sm:pl-6">
           {children}
         </div>
       )}

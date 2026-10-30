@@ -247,7 +247,7 @@ export function FilaMueble({
           contenido: <Paso mueble={m} indice={i} />,
         }));
   const estiloPildora =
-    "rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap";
+    "rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap sm:px-3 sm:text-sm";
   const estiloAsignar = `${estiloPildora} bg-amber-500 text-white shadow-sm transition-colors hover:bg-amber-600`;
 
   return (
@@ -260,7 +260,7 @@ export function FilaMueble({
           if (!e.currentTarget.contains(t) || t.closest("a, button, input, select, textarea")) return;
           onAlternar();
         }}
-        className="flex cursor-pointer flex-col gap-3 p-3 sm:flex-row sm:items-center"
+        className="flex cursor-pointer flex-col gap-2 p-2 sm:gap-3 sm:flex-row sm:items-center sm:p-3"
       >
         <div className={`flex min-w-0 items-center gap-2 ${imagen === undefined ? "sm:w-56" : "sm:w-72"}`}>
           {imagen ? (
@@ -268,12 +268,12 @@ export function FilaMueble({
               url={imagen.url}
               urlGrande={imagen.urlGrande}
               alt={`Ítem ${m.item_code}${m.modelo ? ` — ${m.modelo}` : ""}`}
-              className="h-14 w-14"
+              className="h-11 w-11 sm:h-14 sm:w-14"
             />
           ) : (
             imagen === null && (
               <span
-                className="block h-14 w-14 shrink-0 rounded border border-dashed border-slate-200"
+                className="block h-11 w-11 shrink-0 rounded border border-dashed border-slate-200 sm:h-14 sm:w-14"
                 title="Sin imagen"
               />
             )
@@ -336,11 +336,11 @@ export function FilaMueble({
               ▸
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-base font-semibold text-slate-900">
+              <span className="block truncate text-sm font-semibold text-slate-900 sm:text-base">
                 <span className="text-slate-500">{m.item_code} ·</span>{" "}
                 {m.modelo ?? "Sin modelo"}
               </span>
-              <span className="block text-sm text-slate-500">
+              <span className="block text-xs text-slate-500 sm:text-sm">
                 {m.cantidad} {m.unidad ?? ""}
                 {(m.partes?.length ?? 0) > 0 && (
                   <span
@@ -372,7 +372,7 @@ export function FilaMueble({
                 // menos la mitad del grosor), no del paso con su etiqueta.
                 <span
                   aria-hidden
-                  className="mx-1 mt-[35px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
+                  className="mx-0.5 mt-[27px] h-0.5 min-w-2 flex-1 rounded-full transition-colors sm:mx-1 sm:mt-[35px]"
                   style={{
                     background: a.estado === "terminado" ? COLOR.terminado : "var(--color-slate-200)",
                   }}
@@ -412,7 +412,7 @@ function Anillo({
   return (
     <span className="flex flex-col items-center gap-1.5" title={titulo}>
       <span
-        className="relative grid size-16 place-items-center rounded-full transition-[background] duration-300"
+        className="relative grid size-12 place-items-center rounded-full transition-[background] duration-300 sm:size-16"
         style={{
           background:
             estado === "sin_asignar"
@@ -422,7 +422,7 @@ function Anillo({
         }}
       >
         <span
-          className="grid size-[3.25rem] place-items-center rounded-full bg-white text-sm font-bold tabular-nums"
+          className="grid size-9 place-items-center rounded-full bg-white text-xs font-bold tabular-nums sm:size-[3.25rem] sm:text-sm"
           style={{ color }}
         >
           {estado === "terminado" ? "✓" : `${pct}%`}
@@ -433,7 +433,7 @@ function Anillo({
           </span>
         )}
       </span>
-      <span className="text-xs font-medium leading-tight whitespace-nowrap text-slate-700">{etiqueta}</span>
+      <span className="text-[11px] font-medium leading-tight whitespace-nowrap text-slate-700 sm:text-xs">{etiqueta}</span>
     </span>
   );
 }

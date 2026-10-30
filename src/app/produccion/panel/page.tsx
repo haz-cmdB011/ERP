@@ -137,7 +137,7 @@ export default async function PanelAsignacionPage({
   const hayFiltros = !!ot || !!q;
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 pb-24 sm:p-6 sm:pb-24">
+    <main className="mx-auto flex max-w-6xl flex-col gap-4 p-2.5 pb-24 sm:gap-5 sm:p-6 sm:pb-24">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Panel de asignación</h1>
         <p className="mt-1 text-sm text-slate-600">
