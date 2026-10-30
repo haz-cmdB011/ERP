@@ -19,14 +19,14 @@ export default function SelectorPeriodo({
   const flecha =
     "inline-flex h-10 w-10 items-center justify-center text-lg text-slate-600 transition-colors hover:bg-brand-50";
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <nav aria-label="Periodo" className="flex overflow-hidden rounded-xl border border-slate-300 bg-white text-sm shadow-sm">
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <nav aria-label="Periodo" className="flex w-full overflow-hidden sm:w-auto rounded-xl border border-slate-300 bg-white text-sm shadow-sm">
         {VISTAS.map((v) => (
           <Link
             key={v}
             href={hrefDe(v, dia)}
             aria-current={v === periodo.vista ? "page" : undefined}
-            className={`px-4 py-2 font-semibold transition-colors ${
+            className={`flex-1 px-4 py-2 text-center font-semibold transition-colors sm:flex-none sm:text-left ${
               v === periodo.vista ? "bg-brand-500 text-on-brand" : "text-slate-600 hover:bg-brand-50"
             }`}
           >
@@ -34,11 +34,11 @@ export default function SelectorPeriodo({
           </Link>
         ))}
       </nav>
-      <div className="flex items-center divide-x divide-slate-200 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+      <div className="flex w-full items-center divide-x divide-slate-200 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm sm:w-auto">
         <Link href={hrefDe(periodo.vista, periodo.anterior)} aria-label="Periodo anterior" className={flecha}>
           ‹
         </Link>
-        <span className="min-w-[15rem] px-3 text-center text-base font-bold capitalize text-slate-900">
+        <span className="min-w-0 flex-1 px-1 text-center text-xs font-bold capitalize text-slate-900 sm:min-w-[15rem] sm:flex-none sm:px-3 sm:text-base">
           {etiquetaPeriodo(periodo)}
         </span>
         <Link href={hrefDe(periodo.vista, periodo.siguiente)} aria-label="Periodo siguiente" className={flecha}>
