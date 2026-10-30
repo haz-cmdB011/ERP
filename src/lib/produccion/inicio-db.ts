@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import type { MuebleInicio } from "./inicio";
 import { cargarMueblesDePanel } from "./panel-db";
+import type { MuebleDePanel } from "./panel";
 
 interface FilaPedido {
   id: string;
@@ -22,7 +23,7 @@ interface FilaPorLiberar {
 // (lo mismo que el panel de asignación) y los que siguen por liberar. Lee con la sesión de
 // quien consulta: RLS decide qué ve.
 export async function cargarMueblesInicio(supabase: SupabaseClient): Promise<MuebleInicio[]> {
-  const [liberados, porLiberar, pedidos] = await Promise.all([
+  const [liberados, porLiberar, creadoEn] = await Promise.all([
     cargarMueblesDePanel(supabase, null),
     paginarTodo<FilaPorLiberar>(
       (desde, hasta) =>
@@ -42,20 +43,8 @@ export async function cargarMueblesInicio(supabase: SupabaseClient): Promise<Mue
           .returns<FilaPorLiberar[]>(),
       { contexto: "los muebles por liberar" }
     ),
-    // Cuándo se subió cada PM: el inicio muestra primero lo más reciente.
-    paginarTodo<FilaPedido>(
-      (desde, hasta) =>
-        supabase
-          .from("pedidos")
-          .select("id, created_at")
-          .is("eliminado_en", null)
-          .order("id")
-          .range(desde, hasta)
-          .returns<FilaPedido[]>(),
-      { contexto: "los pedidos" }
-    ),
+    cargarFechasDePedidos(supabase),
   ]);
-  const creadoEn = new Map(pedidos.map((p) => [p.id, p.created_at]));
 
   return [
     ...porLiberar.flatMap((f) =>
@@ -74,24 +63,43 @@ export async function cargarMueblesInicio(supabase: SupabaseClient): Promise<Mue
           ]
         : []
     ),
-    ...liberados.map((m) => {
-      const subido = creadoEn.get(m.pedidoId) ?? "";
-      return {
-        id: m.flujo.id,
-        modelo: m.flujo.modelo,
-        descripcion: m.descripcion,
-        estado: m.estado,
-        pedidoId: m.pedidoId,
-        numeroPm: m.numeroPm,
-        ot: m.ot,
-        creadoEn: subido,
-        // Lo último que le pasó: liberarlo, asignarlo o entregar algo de él.
-        actividad: [
-          subido,
-          m.liberadoEn,
-          ...m.flujo.asignaciones.flatMap((a) => [a.creado_en, a.ultima_entrega]),
-        ].reduce<string>((max, f) => (f && f > max ? f : max), ""),
-      };
-    }),
+    ...liberados.map((m) => muebleInicioDeLiberado(m, creadoEn)),
   ];
+}
+
+// Cuándo se subió cada PM (por id): el inicio y el panel muestran primero lo más reciente.
+export async function cargarFechasDePedidos(supabase: SupabaseClient): Promise<Map<string, string>> {
+  const pedidos = await paginarTodo<FilaPedido>(
+    (desde, hasta) =>
+      supabase
+        .from("pedidos")
+        .select("id, created_at")
+        .is("eliminado_en", null)
+        .order("id")
+        .range(desde, hasta)
+        .returns<FilaPedido[]>(),
+    { contexto: "los pedidos" }
+  );
+  return new Map(pedidos.map((p) => [p.id, p.created_at]));
+}
+
+// Un mueble liberado como lo cuenta el inicio, con lo último que le pasó: liberarlo, asignarlo
+// o entregar algo de él.
+export function muebleInicioDeLiberado(m: MuebleDePanel, creadoEn: Map<string, string>): MuebleInicio {
+  const subido = creadoEn.get(m.pedidoId) ?? "";
+  return {
+    id: m.flujo.id,
+    modelo: m.flujo.modelo,
+    descripcion: m.descripcion,
+    estado: m.estado,
+    pedidoId: m.pedidoId,
+    numeroPm: m.numeroPm,
+    ot: m.ot,
+    creadoEn: subido,
+    actividad: [
+      subido,
+      m.liberadoEn,
+      ...m.flujo.asignaciones.flatMap((a) => [a.creado_en, a.ultima_entrega]),
+    ].reduce<string>((max, f) => (f && f > max ? f : max), ""),
+  };
 }

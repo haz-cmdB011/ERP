@@ -122,9 +122,6 @@ export default async function PlaneacionListPage({
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Pedidos</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Toca una O.T. para abrir su pedido.
-          </p>
         </div>
       </div>
 

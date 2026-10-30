@@ -60,7 +60,10 @@ export interface ModeloReciente {
   reciente: string;
 }
 
-const claveModelo = (m: string | null) => (m ?? "").replace(/\s+/g, " ").trim().toUpperCase();
+// Modelos en "Muebles recientes" (inicio y panel de asignación): los de los PM más recientes.
+export const MAX_MODELOS_RECIENTES = 30;
+
+const claveModelo =(m: string | null) => (m ?? "").replace(/\s+/g, " ").trim().toUpperCase();
 const natural = (a: string, b: string) => a.localeCompare(b, "es", { numeric: true });
 const masReciente = (a: string, b: string) => (b > a ? b : a);
 
@@ -114,7 +117,8 @@ export interface OtPendiente {
   reciente: string;
 }
 
-// O.T. con algo pendiente (por liberar, por asignar o en el taller), la más reciente primero.
+// O.T. con algo pendiente (por liberar, por asignar o en el taller), primero la de movimiento más
+// reciente (subida del PM, liberación, asignación o entrega de cualquiera de sus muebles).
 export function otsConPendientes(muebles: MuebleInicio[]): OtPendiente[] {
   const porOt = new Map<string, OtPendiente & { idsPm: Set<string> }>();
   for (const m of muebles) {
@@ -125,7 +129,7 @@ export function otsConPendientes(muebles: MuebleInicio[]): OtPendiente[] {
       porOt.set(ot, g);
     }
     g.conteos[m.estado] += 1;
-    g.reciente = masReciente(g.reciente, m.creadoEn);
+    g.reciente = masReciente(g.reciente, m.actividad ?? m.creadoEn);
     g.idsPm.add(m.pedidoId);
   }
   return [...porOt.values()]

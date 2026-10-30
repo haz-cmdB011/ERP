@@ -155,7 +155,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
     (esMaquila && areasMaquila.join(",") !== (usuario.areas_maquila ?? []).join(","));
 
   return (
-    <tr className="border-t border-slate-100 align-top transition-colors hover:bg-slate-50">
+    <tr className={`border-t border-slate-100 align-top transition-colors ${ESTILO_ROL[rol].fila}`}>
       <td className="py-3 pl-4 pr-4">
         <div className="flex items-center gap-3">
           <span
@@ -324,7 +324,7 @@ export default function UsuariosTable({
             <th className="py-3 pr-4">Contraseña</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody data-sin-barra>
           {visibles.map((u) => (
             <FilaUsuario key={u.id} usuario={u} esYo={u.id === miId} />
           ))}

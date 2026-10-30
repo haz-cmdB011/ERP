@@ -93,9 +93,6 @@ export default async function ProduccionListPage({
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Pedidos</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Abre una O.T. para liberar sus muebles y asignarlos a equipos.
-        </p>
       </div>
 
       <BuscadorOt
