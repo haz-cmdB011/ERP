@@ -5,6 +5,7 @@ import BuscadorGlobal from "./buscador-global";
 import SelectorTema from "./selector-tema";
 import PersonalizarApariencia from "./personalizar-apariencia";
 import MenuArea from "./menu-area";
+import DesplazarAlActivo from "./desplazar-al-activo";
 import Marca from "./marca";
 import Avatar from "./avatar";
 import { urlAvatar } from "@/lib/cuenta/avatar";
@@ -165,6 +166,7 @@ export default async function AreaNav({
           </div>
 
           <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5">
+            <DesplazarAlActivo />
             {visibles.map((a) => (
               <Link
                 key={a.area}
