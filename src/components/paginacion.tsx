@@ -22,7 +22,7 @@ export default function Paginacion({
   const desde = (pagina - 1) * tamano + 1;
   const hasta = Math.min(pagina * tamano, total);
   const estiloEnlace =
-    "rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition-colors hover:bg-slate-50";
+    "rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 transition-colors hover:bg-brand-50";
   const estiloInactivo =
     "rounded-lg border border-slate-100 px-3 py-1.5 font-medium text-slate-300";
 

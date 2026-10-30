@@ -165,7 +165,7 @@ export default async function PanelAsignacionPage({
             className={`rounded-full border px-3 py-1.5 transition-colors ${
               filtro === f.valor
                 ? "border-slate-900 bg-slate-900 font-medium text-white"
-                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                : "border-slate-300 bg-white text-slate-600 hover:bg-brand-50"
             }`}
           >
             {f.etiqueta} <span className="opacity-70">{conteos[f.valor]}</span>

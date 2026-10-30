@@ -161,7 +161,7 @@ export default function MfaForm() {
             <button type="submit" disabled={trabajando} className={`${boton} bg-brand-500 text-on-brand shadow-sm hover:bg-brand-400`}>
               {trabajando ? "Verificando..." : "Activar"}
             </button>
-            <button type="button" onClick={cancelarAlta} disabled={trabajando} className={`${boton} border border-slate-300 text-slate-700 hover:bg-slate-50`}>
+            <button type="button" onClick={cancelarAlta} disabled={trabajando} className={`${boton} border border-slate-300 text-slate-700 hover:bg-brand-50`}>
               Cancelar
             </button>
           </div>
@@ -183,7 +183,7 @@ export default function MfaForm() {
               </button>
             </div>
           ) : (
-            <button type="button" onClick={() => setConfirmandoBaja(true)} className={`${boton} w-fit border border-slate-300 text-slate-700 hover:bg-slate-50`}>
+            <button type="button" onClick={() => setConfirmandoBaja(true)} className={`${boton} w-fit border border-slate-300 text-slate-700 hover:bg-brand-50`}>
               Desactivar
             </button>
           )}

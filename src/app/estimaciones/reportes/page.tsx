@@ -89,7 +89,7 @@ const claseSelect = "rounded-lg border border-slate-200 bg-white px-2 py-1.5 tex
 const claseBotonPrimario =
   "rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-on-brand hover:bg-brand-400";
 const claseBotonFlecha =
-  "inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50";
+  "inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-brand-50";
 
 // Dashboard del análisis de pagos (sustituye "Estimaciones SEM nn" y "FORMATO
 // MAQUILA"): recibos PAGADOS de las tres áreas, por semana, mes o año. En la
@@ -649,7 +649,7 @@ export default async function ReportePage({
                       <CambiosDivergentes filas={cambiosMaquilador.slice(0, 8)} />
                       {cambiosMaquilador.length > 8 && (
                         <details className="group rounded-lg border border-slate-200">
-                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-brand-50">
                             Ver los {comparativa.porMaquilador.length} maquiladores
                             <span aria-hidden="true" className="text-slate-500 transition-transform group-open:rotate-180">
                               ▾

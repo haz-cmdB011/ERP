@@ -280,7 +280,7 @@ export default async function FoliosCalidadPage({
         {total > 0 && (
           <a
             href={hrefExcel}
-            className="ml-auto rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            className="ml-auto rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-brand-50"
           >
             Descargar Excel ({total})
           </a>
@@ -295,7 +295,7 @@ export default async function FoliosCalidadPage({
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-brand-50"
             }`}
           >
             {etiqueta} ({conteo[valor]})

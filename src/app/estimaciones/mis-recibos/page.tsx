@@ -152,7 +152,7 @@ export default async function MisRecibosPage() {
               {recibos.map((r) => {
                 const sinRevisar = r.numPendientes === r.numRenglones;
                 return (
-                  <tr key={r.id} className="transition-colors hover:bg-slate-50">
+                  <tr key={r.id} className="transition-colors hover:bg-brand-50">
                     <td className="px-4 py-3">
                       <EnlaceFila
                         href={`/estimaciones/recibos/${r.tipo}/recibo/${encodeURIComponent(r.folio)}`}

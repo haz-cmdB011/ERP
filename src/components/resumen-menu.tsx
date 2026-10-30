@@ -102,7 +102,7 @@ export function AccionesDelMenu({ alElegir }: { alElegir: () => void }) {
                 a.alHacer();
               }}
               className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                a.peligro ? "text-rose-700 hover:bg-rose-50" : "text-slate-800 hover:bg-slate-100"
+                a.peligro ? "text-rose-700 hover:bg-rose-50" : "text-slate-800 hover:bg-brand-100"
               }`}
             >
               {a.icono && (
@@ -165,7 +165,7 @@ export function ResumenDelMenu({ alElegir }: { alElegir: () => void }) {
           return (
             <li key={t.etiqueta}>
               {t.href ? (
-                <Link href={t.href} onClick={alElegir} className={`${clase} transition-colors hover:bg-slate-100`}>
+                <Link href={t.href} onClick={alElegir} className={`${clase} transition-colors hover:bg-brand-100`}>
                   {cuerpo}
                 </Link>
               ) : (

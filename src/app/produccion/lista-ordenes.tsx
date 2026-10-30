@@ -29,7 +29,7 @@ export default function ListaOrdenes({
         return (
           <li
             key={fila.ot ?? primero.id}
-            className="group relative flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+            className="group relative flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
           >
             <Link
               href={href}

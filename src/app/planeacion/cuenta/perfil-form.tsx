@@ -175,7 +175,7 @@ export default function PerfilForm({
                     type="button"
                     onClick={descartarPrevia}
                     disabled={procesando}
-                    className={`${boton} border border-slate-300 text-slate-700 hover:bg-slate-50`}
+                    className={`${boton} border border-slate-300 text-slate-700 hover:bg-brand-50`}
                   >
                     Cancelar
                   </button>
@@ -200,7 +200,7 @@ export default function PerfilForm({
                       type="button"
                       onClick={quitarFoto}
                       disabled={procesando}
-                      className={`${boton} border border-slate-300 text-slate-700 hover:bg-slate-50`}
+                      className={`${boton} border border-slate-300 text-slate-700 hover:bg-brand-50`}
                     >
                       Quitar foto
                     </button>

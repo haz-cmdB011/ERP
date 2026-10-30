@@ -104,14 +104,14 @@ export default function PanelAsignacion({
         <button
           type="button"
           onClick={() => desplegarTodo(true)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-brand-50"
         >
           Desplegar todo
         </button>
         <button
           type="button"
           onClick={() => desplegarTodo(false)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-brand-50"
         >
           Contraer todo
         </button>
@@ -138,7 +138,7 @@ export default function PanelAsignacion({
           <section key={c.cliente} className="overflow-hidden rounded-xl border border-slate-200 bg-white/50">
             <div
               onClick={alternarCliente}
-              className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-slate-50 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3"
+              className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-brand-50 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3"
             >
               <BotonDesplegar
                 abierto={abiertoCliente}
@@ -177,7 +177,7 @@ export default function PanelAsignacion({
                         >
                           <div
                             onClick={alternarPm}
-                            className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-2.5 py-2 transition-colors hover:bg-slate-50 sm:gap-x-3 sm:gap-y-1 sm:px-3 sm:py-2.5"
+                            className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-2.5 py-2 transition-colors hover:bg-brand-50 sm:gap-x-3 sm:gap-y-1 sm:px-3 sm:py-2.5"
                           >
                             <BotonDesplegar
                               abierto={pmAbierta}
@@ -247,7 +247,7 @@ function GrupoOt({
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div
         onClick={alternar}
-        className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-slate-50 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3"
+        className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-brand-50 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3"
       >
         <BotonDesplegar
           abierto={abierta}

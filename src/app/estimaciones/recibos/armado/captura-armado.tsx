@@ -755,7 +755,7 @@ export default function CapturaArmado({
                     alternarColapso(r.id);
                   }
                 }}
-                className="flex cursor-pointer select-none items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2 hover:bg-slate-100"
+                className="flex cursor-pointer select-none items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2 hover:bg-brand-100"
               >
                 <svg
                   viewBox="0 0 20 20"
@@ -992,7 +992,7 @@ export default function CapturaArmado({
                               tocadoAceptado: true,
                             })
                           }
-                          className="mb-0.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+                          className="mb-0.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-600 hover:bg-brand-100"
                         >
                           →
                         </button>
@@ -1063,7 +1063,7 @@ export default function CapturaArmado({
             setRenglones((prev) => [...prev, nuevoRenglon()]);
             setResultado(null);
           }}
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-brand-50"
         >
           + Agregar renglón
         </button>
@@ -1186,7 +1186,7 @@ export default function CapturaArmado({
                 <button
                   type="button"
                   onClick={agregarTarifaProyecto}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-brand-50"
                 >
                   Fijar para esta OT
                 </button>

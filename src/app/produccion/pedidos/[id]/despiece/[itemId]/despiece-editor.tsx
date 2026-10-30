@@ -650,7 +650,7 @@ export default function DespieceEditor({
                   disabled={filas.length <= 1 || asignada}
                   aria-label={`Quitar la línea ${i + 1}`}
                   title={asignada ? "Ya está asignada a un equipo: no se puede quitar" : "Quitar la línea"}
-                  className="flex h-11 w-11 items-center justify-center justify-self-end rounded-lg border border-slate-300 text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 sm:h-10 sm:w-10"
+                  className="flex h-11 w-11 items-center justify-center justify-self-end rounded-lg border border-slate-300 text-slate-600 transition-colors hover:bg-brand-50 disabled:opacity-40 sm:h-10 sm:w-10"
                 >
                   <svg
                     viewBox="0 0 24 24"

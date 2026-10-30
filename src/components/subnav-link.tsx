@@ -54,7 +54,7 @@ export default function SubnavLink({
       className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
         activo
           ? "bg-brand-100 font-semibold text-slate-900 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-brand-500"
-          : "font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          : "font-medium text-slate-600 hover:bg-brand-100 hover:text-slate-900"
       }`}
     >
       <IconoMenu

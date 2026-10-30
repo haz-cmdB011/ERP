@@ -277,7 +277,7 @@ function PedidoCancelado({
         {puedeRevertir && <RevertirPedidoBoton pedidoId={pedido.id} etiqueta={etiquetaRevertir} />}
       </div>
       <details className="group">
-        <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 max-md:min-h-11">
+        <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-slate-600 hover:bg-brand-50 max-md:min-h-11">
           Ver {pedido.items.length} {pedido.items.length === 1 ? "ítem cancelado" : "ítems cancelados"}
         </summary>
         <table className="w-full text-left text-xs">

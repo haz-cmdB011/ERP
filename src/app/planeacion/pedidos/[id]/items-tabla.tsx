@@ -83,7 +83,7 @@ const MUEBLES_POR_PAGINA = 100;
 const CHIP_BASE =
   "rounded border px-3 py-1 text-sm font-medium transition-colors pointer-coarse:py-2";
 const CHIP_ACTIVO = "border-brand-600 bg-brand-500 text-on-brand";
-const CHIP_INACTIVO = "border-slate-200 text-slate-600 hover:bg-slate-50";
+const CHIP_INACTIVO = "border-slate-200 text-slate-600 hover:bg-brand-50";
 
 // Solo se muestran los muebles (ítem entero); al tocar uno se despliegan sus componentes (ítem
 // decimal). En escritorio es una tabla; en celular y tablet vertical, una lista de tarjetas con lo
@@ -301,7 +301,7 @@ export default function ItemsTabla({
             className={`rounded-lg border px-3 py-2.5 text-sm shadow-sm sm:py-2 ${
               filtrosActivos > 0
                 ? "border-brand-600 bg-brand-50 font-medium text-brand-800"
-                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-brand-50"
             }`}
           >
             Filtrar{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
@@ -311,7 +311,7 @@ export default function ItemsTabla({
           <button
             type="button"
             onClick={() => setExpandidos(expandidos.size > 0 ? new Set() : new Set(muebles.map((m) => m.id)))}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50 sm:py-2"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm hover:bg-brand-50 sm:py-2"
           >
             {expandidos.size > 0 ? "Ocultar componentes" : "Mostrar componentes"}
           </button>
@@ -444,7 +444,7 @@ export default function ItemsTabla({
             <button
               type="button"
               onClick={() => aplicarFiltros("", null, "todos")}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-brand-50"
             >
               Quitar filtros
             </button>
@@ -486,7 +486,7 @@ export default function ItemsTabla({
                       <tr
                         data-flip={m.id}
                         onClick={() => alternar(m.id)}
-                        className={`cursor-pointer border-t border-slate-100 align-top text-base text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${
+                        className={`cursor-pointer border-t border-slate-100 align-top text-base text-slate-900 transition-colors hover:bg-brand-50 ${abierto ? "fila-padre-abierta" : ""} ${
                           seleccion.has(m.id) ? "bg-brand-50" : colorFilaEstadoRevision(m.estado_revision)
                         }`}
                       >
@@ -551,7 +551,7 @@ export default function ItemsTabla({
                             key={f.id}
                             data-flip={f.id}
                             style={{ "--i": i } as React.CSSProperties}
-                            className={`fila-hija border-t border-slate-100 align-top text-sm text-slate-700 transition-colors hover:bg-slate-50 ${
+                            className={`fila-hija border-t border-slate-100 align-top text-sm text-slate-700 transition-colors hover:bg-brand-50 ${
                               seleccion.has(f.id) ? "bg-brand-50" : colorFilaEstadoRevision(f.estado_revision)
                             }`}
                           >

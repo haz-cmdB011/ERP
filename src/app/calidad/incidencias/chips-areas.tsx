@@ -41,7 +41,7 @@ export default function ChipsAreas({
                 type="button"
                 onClick={() => onCambio(valores.filter((x) => x !== v))}
                 aria-label={`Quitar ${v}`}
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-500 hover:bg-brand-100"
               >
                 ×
               </button>
@@ -68,7 +68,7 @@ export default function ChipsAreas({
         <button
           type="button"
           onClick={agregar}
-          className="shrink-0 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 hover:bg-slate-50"
+          className="shrink-0 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 hover:bg-brand-50"
         >
           Agregar
         </button>

@@ -97,7 +97,7 @@ export default async function ProduccionInicioPage() {
         {ots.length > OTS_A_LA_VISTA && (
           <li>
             <details className="group">
-              <summary className="flex cursor-pointer list-none items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-brand-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
                 <span className="group-open:hidden">Ver más</span>
                 <span className="hidden group-open:inline">Ver menos</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">
@@ -123,7 +123,7 @@ function FilaOt({ o }: { o: OtPendiente }) {
     <li>
       <Link
         href={/^\d+-\d{2}$/.test(o.ot) ? `/produccion/ot/${o.ot}` : `/produccion/pedidos/${o.pedidoId}`}
-        className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-slate-50"
+        className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-brand-50"
       >
         <AnilloEstados conteos={o.conteos} />
         <span className="min-w-0 flex-1">
@@ -186,7 +186,7 @@ function EquipoEnTaller({ e }: { e: ResumenEquipo }) {
           return (
             <li key={f.id}>
               {f.pedido_id ? (
-                <Link href={`/produccion/pedidos/${f.pedido_id}/asignaciones`} className={`${clase} transition-colors hover:bg-slate-50`}>
+                <Link href={`/produccion/pedidos/${f.pedido_id}/asignaciones`} className={`${clase} transition-colors hover:bg-brand-50`}>
                   {contenido}
                 </Link>
               ) : (

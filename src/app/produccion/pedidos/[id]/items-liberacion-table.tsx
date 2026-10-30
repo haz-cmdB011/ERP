@@ -230,7 +230,7 @@ export default function ItemsLiberacionTable({
         className={`align-top text-sm text-slate-900 transition-colors ${
           seleccionado
             ? "bg-brand-50"
-            : colorFilaEstadoRevision(item.estado_revision) || "hover:bg-slate-50"
+            : colorFilaEstadoRevision(item.estado_revision) || "hover:bg-brand-50"
         }`}
       >
         <td className="px-2 py-3 sm:px-3 lg:py-2">
@@ -428,7 +428,7 @@ export default function ItemsLiberacionTable({
               type="button"
               onClick={() => setFiltrosAbiertos((v) => !v)}
               aria-expanded={filtrosAbiertos}
-              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-brand-50"
             >
               Filtros{filtrosActivos > 0 ? ` (${filtrosActivos})` : ""}
             </button>
@@ -454,7 +454,7 @@ export default function ItemsLiberacionTable({
                 className={`rounded-lg border px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
                   filtroEstado === valor
                     ? "border-brand-600 bg-brand-500 text-on-brand"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-brand-50"
                 }`}
               >
                 {etiqueta}
@@ -476,7 +476,7 @@ export default function ItemsLiberacionTable({
                 className={`rounded-lg border px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
                   filtroMaterial === mat
                     ? "border-brand-600 bg-brand-500 text-on-brand"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-brand-50"
                 }`}
               >
                 {mat ?? "Todos"}

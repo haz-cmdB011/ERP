@@ -102,7 +102,7 @@ export default function EstadoRevisionSelect({
             ? "border-orange-300 bg-orange-50 text-orange-800 hover:bg-orange-100"
             : estadoActual === "cancelado"
               ? "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100"
-              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              : "border-slate-300 bg-white text-slate-700 hover:bg-brand-50"
         }`}
       >
         <option value="">Normal</option>

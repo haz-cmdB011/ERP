@@ -155,7 +155,7 @@ function FilaUsuario({ usuario, esYo }: { usuario: PerfilRow; esYo: boolean }) {
     (esMaquila && areasMaquila.join(",") !== (usuario.areas_maquila ?? []).join(","));
 
   return (
-    <tr className="border-t border-slate-100 align-top transition-colors hover:bg-slate-50">
+    <tr className="border-t border-slate-100 align-top transition-colors hover:bg-brand-50">
       <td className="py-3 pl-4 pr-4">
         <div className="flex items-center gap-3">
           <span

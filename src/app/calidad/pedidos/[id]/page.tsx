@@ -363,7 +363,7 @@ export default async function PedidoCalidadPage({
               className={`rounded px-3 py-1 font-medium transition-colors ${
                 versionSeleccionada?.id === v.id
                   ? "bg-brand-500 text-on-brand shadow-sm"
-                  : "text-slate-600 hover:bg-slate-200/70"
+                  : "text-slate-600 hover:bg-brand-100"
               }`}
             >
               v{v.numero_version}

@@ -118,7 +118,7 @@ export default function PanelPmCobrado({
               className={`rounded border px-3 py-1 text-sm font-medium pointer-coarse:py-2 ${
                 filtro === "todos"
                   ? "border-brand-600 bg-brand-500 text-on-brand"
-                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  : "border-slate-200 text-slate-600 hover:bg-brand-50"
               }`}
             >
               Todos ({resumenes.length})

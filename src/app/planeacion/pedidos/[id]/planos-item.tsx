@@ -56,7 +56,7 @@ function PanelPlanos({ planos, onCerrar }: { planos: PlanoLink[]; onCerrar: () =
           <button
             type="button"
             onClick={onCerrar}
-            className="rounded px-2 py-1 text-slate-500 hover:bg-slate-100"
+            className="rounded px-2 py-1 text-slate-500 hover:bg-brand-100"
             aria-label="Cerrar"
           >
             ✕

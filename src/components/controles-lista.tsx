@@ -58,7 +58,7 @@ export function DesplegableCliente({
 }) {
   return (
     <details open={abierto} className="group/cliente rounded-xl border border-slate-200 bg-white/50">
-      <summary className="flex cursor-pointer select-none list-none items-center gap-2 rounded-xl px-4 py-3 transition-colors hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-2 rounded-xl px-4 py-3 transition-colors hover:bg-brand-50 [&::-webkit-details-marker]:hidden">
         <Chevron abierto={false} className="h-4 w-4 text-slate-500 group-open/cliente:rotate-90" />
         <span className="font-semibold text-slate-900">{cliente}</span>
         <span className="text-xs text-slate-500">

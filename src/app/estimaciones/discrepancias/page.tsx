@@ -125,7 +125,7 @@ export default async function DiscrepanciasPage({
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-brand-50"
             }`}
           >
             {etiqueta}
@@ -139,7 +139,7 @@ export default async function DiscrepanciasPage({
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               area === a
                 ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-brand-50"
             }`}
           >
             {a ? AREA_RECIBO_LABELS[a] : "Todas"}
@@ -182,7 +182,7 @@ export default async function DiscrepanciasPage({
               {filas.map((f) => {
                 const folio = f.recibos?.folio ?? f.recibos_electrificacion?.folio ?? null;
                 return (
-                <tr key={f.id} className="align-top transition-colors hover:bg-slate-50">
+                <tr key={f.id} className="align-top transition-colors hover:bg-brand-50">
                   <td className="whitespace-nowrap px-3 py-2 text-slate-500">
                     {new Date(f.creado_en).toLocaleString("es-MX", {
                       dateStyle: "short",

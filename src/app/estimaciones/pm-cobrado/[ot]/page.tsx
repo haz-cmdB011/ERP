@@ -191,7 +191,7 @@ export default async function PmCobradoDetallePage({
             className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
               filtro === valor
                 ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-brand-50"
             }`}
           >
             {etiqueta}
@@ -230,7 +230,7 @@ export default async function PmCobradoDetallePage({
               {visibles.map((f, i) => (
                 <tr
                   key={`${f.esComponente ? "c" : "m"}|${f.modelo}|${f.descripcion ?? ""}|${i}`}
-                  className={`align-top transition-colors hover:bg-slate-50 ${f.esComponente ? "bg-slate-50/60" : ""}`}
+                  className={`align-top transition-colors hover:bg-brand-50 ${f.esComponente ? "bg-slate-50/60" : ""}`}
                 >
                   <td className="px-3 py-2">
                     {f.esComponente ? (

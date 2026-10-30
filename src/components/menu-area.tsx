@@ -101,7 +101,7 @@ export default function MenuArea({
                   cerrar();
                   boton.current?.focus();
                 }}
-                className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-brand-100 hover:text-slate-800"
                 aria-label="Cerrar menú"
               >
                 ✕

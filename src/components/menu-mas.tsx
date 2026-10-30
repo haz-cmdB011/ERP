@@ -75,7 +75,7 @@ export default function MenuMas({
         ? "cursor-not-allowed text-slate-300"
         : peligro
           ? "text-rose-700 hover:bg-rose-50"
-          : "text-slate-700 hover:bg-slate-50"
+          : "text-slate-700 hover:bg-brand-50"
     }`;
 
   return (
@@ -87,7 +87,7 @@ export default function MenuMas({
         aria-haspopup="menu"
         aria-expanded={abierto}
         aria-label={etiquetaAccesible}
-        className={`inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white font-medium text-slate-700 transition-colors hover:bg-slate-50 ${
+        className={`inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white font-medium text-slate-700 transition-colors hover:bg-brand-50 ${
           compacto ? "min-h-9 px-2 text-xs pointer-coarse:min-h-11 sm:px-2.5" : "min-h-10 px-3 text-sm"
         }`}
       >

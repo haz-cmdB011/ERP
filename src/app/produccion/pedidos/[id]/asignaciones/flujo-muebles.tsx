@@ -363,7 +363,7 @@ export function FilaMueble({
               <button
                 type="button"
                 onClick={onAlternar}
-                className="rounded-lg p-1 transition-colors hover:bg-slate-50"
+                className="rounded-lg p-1 transition-colors hover:bg-brand-50"
               >
                 {a.contenido}
               </button>
