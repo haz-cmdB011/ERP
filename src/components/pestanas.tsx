@@ -35,8 +35,8 @@ export default function Pestanas({
 }) {
   return (
     <div role="tablist" aria-label={etiqueta} className="relative flex gap-1 border-b border-slate-200">
-      {/* La raya de la pestaña activa se desliza a la elegida. */}
-      <IndicadorDeslizante activa={activa} forma="linea" className="h-0.5 rounded-full bg-brand-600" />
+      {/* En el estilo Mobiliarium la raya de la pestaña activa se desliza a la elegida. */}
+      <IndicadorDeslizante activa={activa} forma="linea" className="hidden h-0.5 rounded-full bg-brand-600 mob:block" />
       {items.map((p) => {
         const esActiva = p.id === activa;
         return (
@@ -50,7 +50,7 @@ export default function Pestanas({
             scroll={false}
             className={`-mb-px inline-flex min-h-11 items-center rounded-t-lg border-b-2 px-4 text-sm font-medium transition-colors ${
               esActiva
-                ? "border-transparent text-slate-900"
+                ? "pestana-activa border-brand-600 text-slate-900 mob:border-transparent"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
             }`}
           >

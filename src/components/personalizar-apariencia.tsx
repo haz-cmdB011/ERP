@@ -23,8 +23,9 @@ import {
 } from "@/lib/apariencia";
 
 const ESTILOS: { id: Estilo; nombre: string; descripcion: string }[] = [
-  { id: "clasico", nombre: "Clásico", descripcion: "Verde Mobiliarium, fondos sólidos" },
-  { id: "vidrio", nombre: "Vidrio", descripcion: "Paneles translúcidos sobre planos" },
+  { id: "clasico", nombre: "Clásico", descripcion: "Fondos sólidos" },
+  { id: "vidrio", nombre: "Vidrio", descripcion: "Paneles translúcidos" },
+  { id: "mobiliarium", nombre: "Mobiliarium", descripcion: "Serif fina, formas suaves" },
 ];
 
 function leerEstilo(): Estilo {
@@ -85,8 +86,8 @@ const CAMPOS_COLOR: { clave: "marca" | "fondo1" | "fondo2" | "fondo3"; etiqueta:
   { clave: "fondo3", etiqueta: "Cotas y medidas" },
 ];
 
-// Botón de la barra (paleta) que abre un panel para elegir el estilo (clásico
-// o vidrio) y los colores: en el clásico el acento, en el de vidrio también el fondo y la
+// Botón de la barra (paleta) que abre un panel para elegir el estilo (clásico,
+// vidrio o Mobiliarium) y los colores: en clásico y Mobiliarium el acento, en el de vidrio también el fondo y la
 // intensidad. Los cambios se ven al momento y se guardan en este navegador; otras pestañas abiertas se actualizan solas.
 export default function PersonalizarApariencia() {
   const [abierto, setAbierto] = useState(false);
@@ -233,7 +234,7 @@ export default function PersonalizarApariencia() {
               <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Estilo
               </legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 {ESTILOS.map((e) => (
                   <button
                     key={e.id}
@@ -253,7 +254,7 @@ export default function PersonalizarApariencia() {
               </div>
             </fieldset>
 
-            {estilo === "clasico" && (
+            {estilo !== "vidrio" && (
               <>
                 <fieldset className="mt-5">
                   <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500">

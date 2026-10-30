@@ -127,14 +127,12 @@ export default async function AreaNav({
 
   return (
     <div className="print:hidden">
-      {/* Tablero flotante: separado del borde de la ventana, con esquinas
-          suaves (debajo de la muesca del iPhone si la hay). */}
-      <header className="vt-cabecera mx-2 mt-[max(0.5rem,env(safe-area-inset-top))] rounded-2xl border border-nav-line bg-nav text-on-nav shadow-lg sm:mx-4 sm:mt-[max(0.75rem,env(safe-area-inset-top))]">
-        {/* En pantallas anchas (xl) va todo en una fila: marca, áreas y sesión,
-            esta solo con íconos (los textos "Buscar…", el correo y "Cerrar
-            sesión" vuelven en 2xl). En las angostas, las áreas bajan a una
-            segunda fila. */}
-        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 text-sm sm:px-5 xl:flex-nowrap xl:gap-x-5">
+      {/* En el estilo Mobiliarium (mob:) la barra es un tablero flotante,
+          separado del borde de la ventana, y en pantallas anchas (xl) va todo
+          en una fila: marca, áreas y sesión, esta solo con íconos (los textos
+          "Buscar…", el correo y "Cerrar sesión" vuelven en 2xl). */}
+      <header className="vt-cabecera border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav mob:mx-2 mob:mt-[max(0.5rem,env(safe-area-inset-top))] mob:rounded-2xl mob:border mob:pt-0 mob:shadow-lg mob:sm:mx-4 mob:sm:mt-[max(0.75rem,env(safe-area-inset-top))]">
+        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6 mob:py-2 mob:sm:px-5 mob:xl:flex-nowrap mob:xl:gap-x-5">
           {/* Paneles del área (Pedidos, Cargar Excel...): menú lateral que se
               abre con las tres rayas. */}
           {children && (
@@ -147,11 +145,11 @@ export default async function AreaNav({
             className="shrink-0 rounded-lg focus-visible:outline-brand-500"
             aria-label="Mobiliarium, ir al inicio"
           >
-            <Marca sobreOscuro className="h-7 sm:h-9" />
+            <Marca sobreOscuro className="h-8 sm:h-12 xl:h-14 mob:h-7 mob:sm:h-9 mob:xl:h-9" />
           </Link>
 
           {/* Acciones de sesión: a la derecha de la marca. */}
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5 xl:order-3">
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5 mob:xl:order-3">
             <BuscadorGlobal area={area} />
             <PersonalizarApariencia />
             <SelectorTema />
@@ -165,22 +163,21 @@ export default async function AreaNav({
                 inicial={inicial}
                 tamano="h-7 w-7 sm:h-8 sm:w-8"
               />
-              <span className="sr-only 2xl:not-sr-only 2xl:max-w-44 2xl:truncate">{email}</span>
+              <span className="sr-only xl:not-sr-only xl:max-w-44 xl:truncate mob:xl:sr-only mob:2xl:not-sr-only">{email}</span>
             </Link>
             <LogoutButton />
           </div>
 
-          <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5 xl:order-2 xl:mx-0 xl:basis-auto xl:flex-1">
+          <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5 mob:xl:order-2 mob:xl:mx-0 mob:xl:basis-auto mob:xl:flex-1">
             {visibles.map((a) => (
               <Link
                 key={a.area}
                 href={a.href}
                 aria-current={area === a.area ? "page" : undefined}
-                // Área activa: fondo apenas más claro y el ícono en verde limón
-                // (el limón es acento, no relleno).
-                className={`group inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-medium transition-colors focus-visible:outline-brand-500 ${
+                className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 mob:rounded-full mob:px-3.5 mob:py-1.5 mob:font-medium ${
                   area === a.area
-                    ? "bg-nav-hover text-on-nav [&>svg]:text-brand-500"
+                    ? // En Mobiliarium, fondo apenas más claro y el ícono en limón (acento, no relleno).
+                      "bg-brand-500 text-on-brand mob:bg-nav-hover mob:text-on-nav mob:[&>svg]:text-brand-500"
                     : "text-on-nav-suave hover:bg-nav-hover hover:text-on-nav"
                 }`}
               >
@@ -188,10 +185,10 @@ export default async function AreaNav({
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth={1.6}
+                  strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-5 w-5 shrink-0"
+                  className="h-6 w-6 shrink-0 mob:h-5 mob:w-5"
                   aria-hidden="true"
                 >
                   {a.icono}

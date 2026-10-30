@@ -711,7 +711,7 @@ export default function ItemsCalidadTable({
           {item.tipo_material && (
             <p className="mt-1">
               <span
-                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${estiloMaterial(item.tipo_material)?.pastilla ?? "text-slate-600 ring-1 ring-inset ring-slate-300"}`}
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600 mob:bg-transparent mob:ring-1 mob:ring-inset mob:ring-slate-300"}`}
               >
                 {item.tipo_material}
               </span>

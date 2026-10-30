@@ -251,7 +251,7 @@
 .fondo-mobiliario .txt {
   fill: var(--fondo-cota);
   fill-opacity: var(--fondo-op-cota);
-  font-family: var(--font-codigo), ui-monospace, monospace;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 11px;
   letter-spacing: 0.06em;
 }

@@ -9,7 +9,14 @@ function plural(n: number, uno: string, varios: string): string {
   return `${n.toLocaleString("es-MX")} ${n === 1 ? uno : varios}`;
 }
 
+// Cada área tiene su color (borde superior y velo) para distinguirlas de un vistazo.
+const TONO_AREA: Record<string, { tarjeta: string; etiqueta: string }> = {
+  acabados: { tarjeta: "border-t-brand-500", etiqueta: "text-brand-800" },
+  armado: { tarjeta: "border-t-brand-500", etiqueta: "text-brand-800" },
+};
+
 function TarjetaArea({ r }: { r: ResumenArea }) {
+  const tono = TONO_AREA[r.area] ?? { tarjeta: "border-t-brand-500", etiqueta: "text-slate-600" };
   const hay = r.renglones > 0;
   const calidad = r.enCalidad > 0 && (
     <span className="text-xs text-amber-700">
@@ -18,23 +25,24 @@ function TarjetaArea({ r }: { r: ResumenArea }) {
         : `${plural(r.enCalidad, "mueble entregado", "muebles entregados")} a Calidad`}
     </span>
   );
-  // Dentro de la tarjeta de la sección: fondo tenue sin borde. Primero el área,
-  // luego la cifra en grande y debajo el detalle.
   return (
     <Link
       href={`/estimaciones/por-llegar#${r.area}`}
-      className="flex flex-col gap-1 rounded-xl bg-slate-100/70 p-4 transition-colors hover:bg-slate-100"
+      // En el estilo Mobiliarium: fondo tenue sin borde (está dentro de otra
+      // tarjeta) y primero el área, luego la cifra en grande y debajo el detalle.
+      className={`flex flex-col gap-1 rounded-xl border border-slate-200 border-t-4 bg-white p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md mob:border-0 mob:bg-slate-100/70 mob:hover:bg-slate-100 mob:hover:shadow-none ${tono.tarjeta}`}
     >
-      <span className="text-sm font-medium text-slate-600">
+      <span className={`text-sm font-semibold mob:order-[-2] mob:font-medium mob:text-slate-600 ${tono.etiqueta}`}>
         Trabajo de {AREA_RECIBO_LABELS[r.area].toLowerCase()}
       </span>
       {hay ? (
         <>
-          <span className="text-3xl tabular-nums text-slate-900">{money(r.importe)}</span>
-          <span className="text-xs text-slate-500">
-            Aprobado por Calidad, listo para cobrar
+          <span className="text-xs text-slate-500">Aprobado por Calidad, listo para cobrar</span>
+          <span className="text-2xl font-semibold tabular-nums tracking-tight text-slate-900 mob:order-[-1] mob:text-3xl">
+            {money(r.importe)}
+            {r.sinPrecio > 0 && <span className="ml-1 text-sm font-normal text-slate-500">+ sin precio</span>}
           </span>
-          <span className="mt-2 text-sm text-slate-700">
+          <span className="text-sm text-slate-700 mob:mt-2">
             {plural(r.muebles, "mueble", "muebles")}
             {r.componentes > 0 && ` y ${plural(r.componentes, "componente", "componentes")}`} ·{" "}
             {r.recibosMinimos === 1 ? "falta al menos 1 recibo" : `faltan al menos ${r.recibosMinimos} recibos`}
@@ -65,7 +73,7 @@ export default async function ResumenPorLlegar() {
   return (
     <section
       aria-labelledby="por-llegar-titulo"
-      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white p-6 shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white p-5 shadow-sm mob:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
