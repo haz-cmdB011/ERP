@@ -22,6 +22,9 @@ import {
   type FiltroPanel,
 } from "@/lib/produccion/panel";
 import { cargarMueblesDePanel } from "@/lib/produccion/panel-db";
+import { MAX_MODELOS_RECIENTES, modelosRecientes } from "@/lib/produccion/inicio";
+import { cargarFechasDePedidos, muebleInicioDeLiberado } from "@/lib/produccion/inicio-db";
+import CarruselModelos from "@/app/produccion/carrusel-modelos";
 import DetalleAsignacion from "@/app/produccion/asignaciones/detalle-asignacion";
 import { estiloCampo } from "@/app/produccion/asignaciones/modal";
 import PanelAsignacion from "./panel-asignacion";
@@ -60,7 +63,7 @@ export default async function PanelAsignacionPage({
   const puedeEditar = puedeEditarProduccion(perfil);
   const puedeAnular = puedeAdministrarProduccion(perfil);
 
-  const [liberados, equipos, encargados] = await Promise.all([
+  const [liberados, equipos, encargados, fechasPm] = await Promise.all([
     cargarMueblesDePanel(supabase, enfoque ? ids : null),
     leer(
       supabase
@@ -80,7 +83,12 @@ export default async function PanelAsignacionPage({
         .returns<EncargadoEquipo[]>(),
       "encargados_equipo_produccion"
     ),
+    // Los muebles recientes salen de todos los liberados, no de lo recién liberado.
+    enfoque ? Promise.resolve(null) : cargarFechasDePedidos(supabase),
   ]);
+  const modelos = fechasPm
+    ? modelosRecientes(liberados.map((m) => muebleInicioDeLiberado(m, fechasPm))).slice(0, MAX_MODELOS_RECIENTES)
+    : [];
 
   // Los contadores de cada filtro respetan la búsqueda y la O.T., no el estado elegido.
   const delBuscador = filtrarPanel(liberados, { filtro: "todos", ot, q });
@@ -146,6 +154,8 @@ export default async function PanelAsignacionPage({
           ruta y el mueble completo la suya.
         </p>
       </div>
+
+      {fechasPm && modelos.length > 0 && <CarruselModelos modelos={modelos} />}
 
       {enfoque && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-300 bg-brand-50 p-3 text-sm text-slate-800">

@@ -92,9 +92,6 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloReciente[]
                   >
                     {m.modelo}
                   </Link>
-                  {m.descripcion && (
-                    <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-slate-500">{m.descripcion.split("\n")[0]}</p>
-                  )}
                 </div>
                 <AnillosConcentricos conteos={m.conteos} />
               </div>

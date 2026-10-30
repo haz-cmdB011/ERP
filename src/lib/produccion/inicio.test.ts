@@ -53,4 +53,12 @@ describe("inicio de Producción", () => {
       ["149-26", 1],
     ]);
   });
+
+  it("una O.T. de un PM viejo con movimiento reciente sale primero", () => {
+    const r = otsConPendientes([
+      ...muebles,
+      mueble("g", { pedidoId: "p9", numeroPm: "PM50-26", ot: "50-26", creadoEn: "2026-03-01T10:00:00Z", actividad: "2026-10-29T09:00:00Z" }),
+    ]);
+    expect(r.map((o) => o.ot)).toEqual(["50-26", "154-26", "149-26"]);
+  });
 });

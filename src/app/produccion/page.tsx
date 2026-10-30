@@ -5,6 +5,7 @@ import { esAlerta, resumirTaller, type ResumenEquipo } from "@/lib/produccion/at
 import { cargarTaller } from "@/lib/produccion/cargar-taller";
 import {
   ESTADOS_INICIO,
+  MAX_MODELOS_RECIENTES,
   contarInicio,
   modelosRecientes,
   otsConPendientes,
@@ -17,12 +18,10 @@ import ChipPlazo from "./chip-plazo";
 
 // Filas por sección: lo demás está a un clic en su pantalla.
 const MAX_FILAS = 8;
-// Modelos en "Muebles recientes": los de los PM más recientes; los demás están en el panel.
-const MAX_MODELOS = 30;
 // Asignaciones a la vista por equipo (las más atrasadas); el resto, en el taller.
 const ASIGNACIONES_POR_EQUIPO = 3;
 // O.T. con pendientes a la vista (las más recientes); las demás se despliegan.
-const OTS_A_LA_VISTA = 5;
+const OTS_A_LA_VISTA = 4;
 
 // Inicio de Producción: los muebles más recientes por modelo, qué
 // tiene cada equipo y qué O.T. tienen pendientes. Cada bloque lleva a su pantalla.
@@ -45,7 +44,7 @@ export default async function ProduccionInicioPage() {
   const taller = resumirTaller(asignaciones, plazos, hoy);
   const ocupados = new Set(taller.equipos.map((e) => e.equipoId));
   const libres = (equiposActivos ?? []).filter((e) => !ocupados.has(e.id));
-  const modelos = modelosRecientes(muebles).slice(0, MAX_MODELOS);
+  const modelos = modelosRecientes(muebles).slice(0, MAX_MODELOS_RECIENTES);
   const ots = otsConPendientes(muebles);
 
   return (
