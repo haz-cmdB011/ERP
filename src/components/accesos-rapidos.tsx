@@ -19,7 +19,7 @@ export default function AccesosRapidos({ accesos }: { accesos: Acceso[] }) {
         <Link
           key={a.href}
           href={a.href}
-          className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-brand-500 ${
+          className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors duration-200 focus-visible:outline-brand-500 ${
             a.principal
               ? "border-brand-600 bg-brand-500 text-on-brand hover:bg-brand-400"
               : "border-slate-200 border-l-4 border-l-brand-500 bg-white text-slate-900 hover:bg-brand-50"

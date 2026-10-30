@@ -842,13 +842,89 @@ html.transicion-tema *::after {
       border-color: color-mix(in oklab, var(--color-slate-200) 70%, transparent);
       box-shadow: var(--sombra-pieza);
     }
-    /* Una tarjeta dentro de otra no repite la sombra: basta el borde. */
+    /* Tres niveles de superficie: la página sin marco, la sección en tarjeta
+       blanca con sombra, y lo que va dentro de una tarjeta en un fondo gris muy
+       tenue, sin borde ni sombra. Las tablas (y los recuadros punteados de
+       "no hay nada") se quedan en blanco con su borde. */
     :where(
         :root:not([data-estilo="vidrio"])
           :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2)
           :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
       ) {
       box-shadow: none;
+    }
+    :where(
+        :root:not([data-estilo="vidrio"])
+          :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2)
+          :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"], .border-dashed, :has(> table))
+      ) {
+      background-color: color-mix(in oklab, var(--color-slate-100) 60%, var(--color-white));
+      border-color: transparent;
+    }
+
+    /* Franja de color arriba de una tarjeta (border-t-4): en vez del borde grueso
+       que se curva con las esquinas, el borde normal y una muesca corta del
+       color al inicio, como la de los títulos de pantalla. */
+    :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4 {
+      --muesca: var(--color-brand-500);
+      border-top-width: 1px;
+      border-top-color: color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+      background-image: linear-gradient(var(--muesca), var(--muesca));
+      background-size: 2.5rem 3px;
+      background-position: 1.25rem 0;
+      background-repeat: no-repeat;
+    }
+    :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4[class*="border-t-amber"] {
+      --muesca: var(--color-amber-400);
+    }
+    :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4[class*="border-t-rose"] {
+      --muesca: var(--color-rose-400);
+    }
+    :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4[class*="border-t-emerald"] {
+      --muesca: var(--color-emerald-400);
+    }
+    :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4[class*="border-t-slate"] {
+      --muesca: var(--color-slate-500);
+    }
+
+    /* Encabezado de tarjeta: el título de la sección (h2 al inicio de una
+       tarjeta, o en su primer bloque) en la serif de los títulos. */
+    :where(main) :is(section, div, article, form, aside):is(.rounded-xl, .rounded-2xl):is(.border)
+      > :is(h2, :first-child > h2, header h2):not(.text-xs) {
+      font-family: var(--font-titulo), Georgia, serif;
+      font-optical-sizing: auto;
+      font-size: 1.1875rem;
+      font-weight: 500;
+      letter-spacing: -0.008em;
+      line-height: 1.3;
+    }
+
+    /* Botones secundarios con fondo verde claro (bg-brand-50/100): solo contorno
+       fino y texto, como los demás secundarios. Los que marcan una opción elegida
+       (aria-pressed, aria-current, aria-selected) conservan su fondo. */
+    :where(main)
+      :is(button, a):is([class~="bg-brand-50"], [class~="bg-brand-100"]):not(
+        [aria-pressed="true"],
+        [aria-current],
+        [aria-selected="true"]
+      ) {
+      background-color: transparent;
+      box-shadow: inset 0 0 0 1px var(--color-brand-300);
+    }
+    :where(main)
+      :is(button, a):is([class~="bg-brand-50"], [class~="bg-brand-100"]):not(
+        [aria-pressed="true"],
+        [aria-current],
+        [aria-selected="true"],
+        :disabled
+      ):hover {
+      background-color: var(--color-brand-50);
+    }
+
+    /* Tarjetas que se elevaban al señalarlas: se quedan quietas (solo cambian
+       de tono o de borde). */
+    [class*="hover:-translate-y"]:hover {
+      translate: none;
     }
     /* Encabezado de cada pantalla (el bloque hijo directo de <main> con border-b border-slate-200
        pb-4): en vez de la raya gris, una línea fina con un tramo corto de la marca al inicio. */
@@ -926,9 +1002,9 @@ html.transicion-tema *::after {
   }
 
   /* Botones de acción en píldora: los rellenos de la marca y los de contorno.
-     Los íconos cuadrados quedan en círculo; las filas y tarjetas que se pueden
-     tocar no cambian (no traen estas clases). */
-  :is(button, a, [role="button"]):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl):is(
+     Los íconos cuadrados quedan en círculo; las tarjetas que se pueden tocar
+     (display flex o block, como los accesos rápidos) no cambian. */
+  :is(button, a, [role="button"]):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl):not(.flex, .block, .grid):is(
       [class~="bg-brand-500"],
       [class~="bg-brand-600"],
       [class~="bg-brand-700"],
@@ -965,8 +1041,19 @@ html.transicion-tema *::after {
       :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *, :disabled):hover {
       background-color: var(--color-nav-hover);
     }
+    /* Textos de adentro que pedían el color sobre la marca (text-on-brand/80). */
+    :root:not([data-tema="oscuro"], [data-estilo="vidrio"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *)
+      [class*="text-on-brand"] {
+      color: var(--color-on-nav-suave);
+    }
   }
   @media screen {
+    :root[data-tema="claro"]:not([data-estilo="vidrio"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *)
+      [class*="text-on-brand"] {
+      color: var(--color-on-nav-suave);
+    }
     :root[data-tema="claro"]:not([data-estilo="vidrio"])
       :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *) {
       background-color: var(--color-nav);
@@ -1004,6 +1091,29 @@ html.transicion-tema *::after {
   svg[viewBox="0 0 24 24"][stroke="currentColor"]:not(.anim-giro) {
     stroke-width: 1.6;
   }
+}
+
+/* Mensajes de "no hay nada" (párrafo centrado en recuadro punteado, en muchas
+   pantallas): llevan arriba la silla en trazo fino de los estados vacíos
+   (components/estado-vacio.tsx) y sin el recuadro punteado. */
+@layer utilities {
+  :where(main) p.border-dashed.text-center.p-6 {
+    border-color: transparent;
+    padding-top: 1.25rem;
+  }
+  :where(main) p.border-dashed.text-center.p-6::before {
+    content: "";
+    display: block;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin: 0 auto 0.75rem;
+    background-color: var(--color-slate-400);
+    -webkit-mask: var(--dibujo-silla) center / contain no-repeat;
+    mask: var(--dibujo-silla) center / contain no-repeat;
+  }
+}
+:root {
+  --dibujo-silla: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='black' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 6l2 30M17 35h29v3H17zM21 38v18M43 38v18M21 49h22'/%3E%3Cpath d='M17 61h29M17 59v4M46 59v4' stroke-opacity='.6'/%3E%3C/svg%3E");
 }
 
 /* Carga: un pulso lento de opacidad en lugar del brillo que cruza. */

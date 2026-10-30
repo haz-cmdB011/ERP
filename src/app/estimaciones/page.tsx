@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Chevron from "@/components/chevron";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -18,19 +19,13 @@ import ResumenPorLlegar, { ResumenPorLlegarCargando } from "./por-llegar/resumen
 const TARJETAS: {
   href: string;
   titulo: string;
-  detalle: string;
-  // Color propio de cada acceso (borde superior, velo y icono), sin perder el verde de la marca.
-  tono: { tarjeta: string; icono: string };
+  detalle: string;
   icono: React.ReactNode;
 }[] = [
   {
     href: "/estimaciones/recibos",
     titulo: "Generador de Recibos",
     detalle: "Captura un recibo y compáralo contra el precio sugerido",
-    tono: {
-      tarjeta: "border-t-brand-500",
-      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
-    },
     icono: (
       <>
         <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
@@ -42,20 +37,12 @@ const TARJETAS: {
     href: "/estimaciones/registro",
     titulo: "Registro de recibos",
     detalle: "Revisa, aprueba y marca como pagados",
-    tono: {
-      tarjeta: "border-t-brand-500",
-      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
-    },
     icono: <path d="M4 6h16M4 12h16M4 18h10" />,
   },
   {
     href: "/estimaciones/reportes",
     titulo: "Análisis de pagos",
     detalle: "Gráficas y cierres por semana",
-    tono: {
-      tarjeta: "border-t-brand-500",
-      icono: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
-    },
     icono: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   },
 ];
@@ -124,16 +111,11 @@ export default async function EstimacionesPage() {
         </Suspense>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* Índice de las secciones: una hoja con una fila por sección. */}
+      <ul className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {TARJETAS.map((t) => (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={`group flex h-full items-center gap-4 rounded-xl border border-slate-200 border-t-4 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.tono.tarjeta}`}
-          >
-            <span
-              className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.tono.icono}`}
-            >
+          <li key={t.href}>
+            <Link href={t.href} className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -141,19 +123,20 @@ export default async function EstimacionesPage() {
                 strokeWidth={1.75}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-6 w-6"
+                className="h-6 w-6 shrink-0 text-brand-700"
                 aria-hidden="true"
               >
                 {t.icono}
               </svg>
-            </span>
-            <span className="min-w-0">
-              <h2 className="text-base font-semibold text-slate-900">{t.titulo}</h2>
-              <p className="text-sm text-slate-500">{t.detalle}</p>
-            </span>
-          </Link>
+              <span className="min-w-0 flex-1">
+                <h2 className="font-serif text-lg font-medium text-slate-900">{t.titulo}</h2>
+                <p className="text-sm text-slate-500">{t.detalle}</p>
+              </span>
+              <Chevron abierto={false} className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-slate-700" />
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </main>
   );
 }

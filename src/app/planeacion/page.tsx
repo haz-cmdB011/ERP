@@ -216,7 +216,7 @@ export default async function PlaneacionListPage({
       )}
 
       {filas.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           {agruparPorCliente(filas, (fila) => clienteDe(fila.pedidos[0])).map((grupo, _, grupos) => (
             <DesplegableCliente
               key={grupo.cliente}

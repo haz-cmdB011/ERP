@@ -28,11 +28,11 @@ export default function ListaPedidos({
   tituloAvance?: string;
 }) {
   return (
-    <ul className="lista-animada flex flex-col gap-3">
+    <ul className="lista-animada flex flex-col gap-2">
       {filas.map((f) => (
         <li
           key={f.clave}
-          className="group relative flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 focus-within:bg-slate-50 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+          className="group relative flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs transition-colors duration-200 focus-within:border-slate-300 hover:border-slate-300 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
         >
           <div className="min-w-0 sm:flex-1">
             <EnlaceFila

@@ -169,7 +169,7 @@ export default async function ProduccionListPage({
               accion={hayFiltros ? { href: "/produccion/pedidos", etiqueta: "Quitar filtros" } : undefined}
             />
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               {agruparPorCliente(filas, (fila) => clienteDe(fila.pedidos[0])).map((grupo, _, grupos) => (
                 <DesplegableCliente
                   key={grupo.cliente}

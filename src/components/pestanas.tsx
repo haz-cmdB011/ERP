@@ -1,5 +1,6 @@
 import Link from "next/link";
 import IconoMenu, { type NombreIcono } from "@/components/iconos-menu";
+import IndicadorDeslizante from "@/components/indicador-deslizante";
 
 export interface Pestana {
   id: string;
@@ -33,7 +34,9 @@ export default function Pestanas({
   etiqueta: string;
 }) {
   return (
-    <div role="tablist" aria-label={etiqueta} className="flex gap-1 border-b border-slate-200">
+    <div role="tablist" aria-label={etiqueta} className="relative flex gap-1 border-b border-slate-200">
+      {/* La raya de la pestaña activa se desliza a la elegida. */}
+      <IndicadorDeslizante activa={activa} forma="linea" className="h-0.5 rounded-full bg-brand-600" />
       {items.map((p) => {
         const esActiva = p.id === activa;
         return (
@@ -47,7 +50,7 @@ export default function Pestanas({
             scroll={false}
             className={`-mb-px inline-flex min-h-11 items-center rounded-t-lg border-b-2 px-4 text-sm font-medium transition-colors ${
               esActiva
-                ? "pestana-activa border-brand-600 text-slate-900"
+                ? "border-transparent text-slate-900"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
             }`}
           >

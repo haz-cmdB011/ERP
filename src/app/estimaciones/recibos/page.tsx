@@ -1,17 +1,16 @@
 import Link from "next/link";
+import Chevron from "@/components/chevron";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esMaquilador, getPerfilActual, puedeCapturarTipo } from "@/lib/auth/get-perfil";
 import type { AreaMaquila } from "@/lib/auth/roles";
 import EstadoVacio from "@/components/estado-vacio";
 
-const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string; tono: string; letra: string; icono: React.ReactNode }[] = [
+const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string; icono: React.ReactNode }[] = [
   {
     tipo: "acabados",
     titulo: "Acabados",
     icono: <path d="M18 3l3 3-9 9-3-3zM9 12c-2.5 0-4 1.5-4 4 0 1.5-1 2.5-2 3 3 1 7 .5 8-3 .3-1-.5-2.5-2-4z" />,
-    tono: "border-t-brand-500",
-    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     descripcion:
       "Maquila de acabados: captura lo que propone el maquilador y compáralo contra el precio sugerido.",
   },
@@ -19,8 +18,6 @@ const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string; tono: str
     tipo: "armado",
     titulo: "Armado",
     icono: <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z" />,
-    tono: "border-t-brand-500",
-    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     descripcion:
       "Maquila de armado (natural, laminado o colocación de herrajes): mismo control de precios que Acabados.",
   },
@@ -28,8 +25,6 @@ const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string; tono: str
     tipo: "electrificacion",
     titulo: "Electrificación",
     icono: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
-    tono: "border-t-brand-500",
-    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
     descripcion:
       "Maquila de electrificación: modelo, metros de LED y kit de charolas, comparado contra el precio sugerido.",
   },
@@ -60,16 +55,13 @@ export default async function GeneradorRecibosPage() {
           descripcion="Pide a un administrador que te asigne una para poder generar recibos."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        // Índice de los tipos de recibo: una hoja con una fila por tipo.
+        <ul className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           {disponibles.map((t) => (
-            <Link
-              key={t.tipo}
-              href={`/estimaciones/recibos/${t.tipo}`}
-              className={`group flex items-start gap-4 rounded-xl border border-slate-200 border-t-4 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.tono}`}
-            >
-              <span
-                className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.letra}`}
-                aria-hidden="true"
+            <li key={t.tipo}>
+              <Link
+                href={`/estimaciones/recibos/${t.tipo}`}
+                className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -78,18 +70,20 @@ export default async function GeneradorRecibosPage() {
                   strokeWidth={1.75}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-6 w-6"
+                  className="h-6 w-6 shrink-0 text-brand-700"
+                  aria-hidden="true"
                 >
                   {t.icono}
                 </svg>
-              </span>
-              <span className="min-w-0">
-                <h2 className="text-base font-semibold text-slate-900">{t.titulo}</h2>
-                <p className="mt-1 text-sm text-slate-500">{t.descripcion}</p>
-              </span>
-            </Link>
+                <span className="min-w-0 flex-1">
+                  <h2 className="font-serif text-lg font-medium text-slate-900">{t.titulo}</h2>
+                  <p className="mt-0.5 text-sm text-slate-500">{t.descripcion}</p>
+                </span>
+                <Chevron abierto={false} className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-slate-700" />
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </main>
   );
