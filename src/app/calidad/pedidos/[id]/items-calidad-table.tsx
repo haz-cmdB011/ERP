@@ -9,6 +9,7 @@ import { validarDetalle } from "@/lib/calidad/no-conformidad";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ImagenAmpliable from "@/components/imagen-ampliable";
+import { estiloMaterial } from "@/lib/ui/material";
 import { IconoCancelado, IconoCheck, IconoReloj, IconoX } from "@/components/iconos-estado";
 import ConfirmDialog from "@/components/confirm-dialog";
 import { avisar } from "@/components/avisos";
@@ -407,7 +408,7 @@ export default function ItemsCalidadTable({
     if (item.estadoRevision === "cancelado") {
       return (
         <div>
-          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500">
+          <span className={`inline-flex items-center gap-1.5 text-sm font-medium rounded-full px-2.5 py-0.5 ring-1 ring-inset bg-slate-100 text-slate-600 ring-slate-200`}>
             <IconoCancelado />
             Cancelado
           </span>
@@ -429,8 +430,8 @@ export default function ItemsCalidadTable({
         <div>
           <span
             title={item.situacion?.detalle}
-            className={`inline-flex items-center gap-1.5 text-sm font-medium ${
-              antiguo ? "text-amber-600" : "text-slate-500"
+            className={`inline-flex items-center gap-1.5 text-sm font-medium rounded-full px-2.5 py-0.5 ring-1 ring-inset ${
+              antiguo ? "bg-amber-50 text-amber-700 ring-amber-200" : "bg-slate-100 text-slate-600 ring-slate-200"
             }`}
           >
             <IconoReloj />
@@ -452,8 +453,8 @@ export default function ItemsCalidadTable({
         <EnlaceFila
           href={`/calidad/pedidos/${pedidoId}/informe/${ultimo.id}`}
           title="Ver informe"
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium hover:underline ${
-            ultimo.aprobado ? "text-emerald-700" : "text-rose-700"
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium hover:underline rounded-full px-2.5 py-0.5 ring-1 ring-inset ${
+            ultimo.aprobado ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-rose-200"
           }`}
         >
           {ultimo.aprobado ? <IconoCheck /> : <IconoX />}
@@ -489,12 +490,12 @@ export default function ItemsCalidadTable({
     return (
       <div>
         <span
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium ${
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-full px-2.5 py-0.5 ring-1 ring-inset ${
             estado === "aprobado"
-              ? "text-emerald-700"
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
               : estado === "no_aprobado"
-                ? "text-rose-700"
-                : "text-amber-700"
+                ? "bg-rose-50 text-rose-700 ring-rose-200"
+                : "bg-amber-50 text-amber-700 ring-amber-200"
           }`}
         >
           {estado === "aprobado" ? <IconoCheck /> : estado === "no_aprobado" ? <IconoX /> : <IconoReloj />}
@@ -686,18 +687,38 @@ export default function ItemsCalidadTable({
     return (
       <tr
         key={item.id}
-        className={`transition-colors hover:bg-slate-50 ${indentado ? "border-t border-slate-100" : "text-sm font-medium text-slate-900"}`}
+        className={`transition-colors hover:bg-slate-50 ${indentado ? "border-t border-slate-100" : "text-base font-medium text-slate-900"}`}
       >
         <td className={`border-l-4 py-2 pl-2 pr-1 ${franjaDe(item)}`}>
-          <Miniatura item={item} clase="h-8 w-8" />
+          <Miniatura item={item} clase={indentado ? "h-12 w-12" : "h-16 w-16"} />
         </td>
-        <td className="px-3 py-2 text-slate-700">{item.item_code}</td>
+        <td className={`px-3 py-2 text-slate-900 ${indentado ? "text-base font-semibold" : "text-lg font-bold"}`}>
+          {indentado ? (
+            item.item_code
+          ) : (
+            <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-brand-100 px-2 text-brand-900">
+              {item.item_code}
+            </span>
+          )}
+        </td>
         <td className="px-3 py-2 text-slate-700">
-          {item.modelo && <p className="font-medium text-slate-900">{item.modelo}</p>}
-          <p>{indentado ? item.descripcion?.split("\n")[0] : item.descripcion}</p>
-          {item.tipo_material && <p className="text-xs font-normal text-slate-500">{item.tipo_material}</p>}
+          {item.modelo && (
+            <p className={indentado ? "text-base font-medium text-slate-900" : "text-lg font-semibold text-slate-900"}>
+              {item.modelo}
+            </p>
+          )}
+          <p className="text-sm">{indentado ? item.descripcion?.split("\n")[0] : item.descripcion}</p>
+          {item.tipo_material && (
+            <p className="mt-1">
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+              >
+                {item.tipo_material}
+              </span>
+            </p>
+          )}
         </td>
-        <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+        <td className="whitespace-nowrap px-3 py-2 text-base font-semibold text-slate-900">
           {item.cantidad_total} {item.unidad}
         </td>
         <td className="px-3 py-2">
@@ -717,15 +738,17 @@ export default function ItemsCalidadTable({
         className={`flex flex-col gap-3 border-l-4 p-3 ${franjaDe(item)} ${indentado ? "ml-4 border-t border-slate-100" : ""}`}
       >
         <div className="flex items-start gap-3">
-          <Miniatura item={item} clase="h-12 w-12 shrink-0" />
+          <Miniatura item={item} clase="h-16 w-16 shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-base font-bold text-slate-900">
               Ítem {item.item_code}
               {item.modelo ? ` · ${item.modelo}` : ""}
             </p>
             <p className="line-clamp-2 text-xs text-slate-600">{item.descripcion?.split("\n")[0]}</p>
             <p className="mt-0.5 text-xs text-slate-500">
-              {item.cantidad_total} {item.unidad}
+              <span className="text-base font-semibold text-slate-900">
+                {item.cantidad_total} {item.unidad}
+              </span>
               {item.tipo_material ? ` · ${item.tipo_material}` : ""}
             </p>
           </div>
@@ -741,7 +764,7 @@ export default function ItemsCalidadTable({
 
   const ENCABEZADO = (
     <thead>
-      <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
         <th className="px-3 py-2.5"></th>
         <th className="px-3 py-2.5">Item</th>
         <th className="px-3 py-2.5">Descripción</th>

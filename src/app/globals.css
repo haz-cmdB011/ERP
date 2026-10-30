@@ -2,6 +2,7 @@
 @import "./tema-oscuro.css";
 @import "./vidrio.css";
 @import "./marca-clasica.css";
+@import "./acentos.css";
 
 :root {
   --background: #ffffff;
@@ -69,6 +70,17 @@
   --radius-lg: 0.375rem;
   --radius-xl: 0.5rem;
   --radius-2xl: 0.625rem;
+
+  /* Letra un poco más grande en toda la app (alrededor de un 7 % sobre la escala de Tailwind):
+     solo cambia el tamaño del texto, no los espacios ni los anchos. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.3125rem;
+  --text-2xl: 1.5625rem;
+  --text-3xl: 1.9375rem;
+  --text-4xl: 2.3125rem;
 
   --shadow-xs: none;
   --shadow-sm: none;
@@ -623,11 +635,7 @@ html.transicion-tema *::after {
 }
 /* Padre desplegado: se distingue del resto de filas. */
 .fila-padre-abierta {
-  background-image: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--color-brand-500) 14%, transparent),
-    transparent 70%
-  );
+  background-color: color-mix(in oklab, var(--color-brand-500) 8%, transparent);
 }
 
 /* ---------------------------------------------------------------------------

@@ -1,5 +1,14 @@
-import { EsqueletoSecciones } from "@/components/cargando";
+import { Bloque, PaginaEsqueleto, TituloEsqueleto } from "@/components/esqueleto";
 
+// Esqueleto de Recibos por llegar: título y las dos áreas con sus muebles.
 export default function Loading() {
-  return <EsqueletoSecciones ancho="6xl" secciones={2} detalle="w-full max-w-xl" />;
+  return (
+    <PaginaEsqueleto ancho="max-w-6xl">
+      <TituloEsqueleto />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Bloque className="h-72 rounded-xl" />
+        <Bloque className="h-72 rounded-xl" />
+      </div>
+    </PaginaEsqueleto>
+  );
 }

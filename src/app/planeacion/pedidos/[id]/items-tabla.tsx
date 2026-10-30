@@ -28,6 +28,7 @@ import Chevron from "@/components/chevron";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import type { ImagenItemUrls } from "@/lib/planeacion/imagenes";
 import { useFlip } from "@/lib/ui/use-flip";
+import { estiloMaterial } from "@/lib/ui/material";
 
 export interface ItemTabla {
   id: string;
@@ -371,7 +372,7 @@ export default function ItemsTabla({
           aria-label="Acciones sobre los ítems seleccionados"
           className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-xl border border-brand-200 bg-brand-50/95 p-3 text-sm shadow-sm backdrop-blur"
         >
-          <span className="font-medium text-slate-800">
+          <span className="text-base font-semibold text-slate-800">
             {seleccion.size} seleccionado{seleccion.size === 1 ? "" : "s"}
           </span>
           <button
@@ -386,7 +387,7 @@ export default function ItemsTabla({
               type="button"
               onClick={() => void liberarSeleccion()}
               disabled={aplicando || liberando}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+              className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-brand-500 px-6 py-2 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
             >
               <IconoMenu nombre="enviar" className="h-4 w-4" />
               {liberando ? "Liberando…" : "Liberar a Producción"}
@@ -456,7 +457,7 @@ export default function ItemsTabla({
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table ref={tablaRef} className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 <th className="w-6 py-2 pl-3"></th>
                 {puedeEditar && (
                   <th className="w-8 px-3 py-2">
@@ -465,7 +466,7 @@ export default function ItemsTabla({
                       checked={todosMarcados}
                       onChange={() => marcar(idsVisibles, !todosMarcados)}
                       aria-label="Seleccionar todos los ítems visibles"
-                      className="h-4 w-4"
+                      className="h-5 w-5 cursor-pointer"
                     />
                   </th>
                 )}
@@ -485,7 +486,7 @@ export default function ItemsTabla({
                       <tr
                         data-flip={m.id}
                         onClick={() => alternar(m.id)}
-                        className={`cursor-pointer border-t border-slate-100 align-top text-sm text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${
+                        className={`cursor-pointer border-t border-slate-100 align-top text-base text-slate-900 transition-colors hover:bg-slate-50 ${abierto ? "fila-padre-abierta" : ""} ${
                           seleccion.has(m.id) ? "bg-brand-50" : colorFilaEstadoRevision(m.estado_revision)
                         }`}
                       >
@@ -509,16 +510,27 @@ export default function ItemsTabla({
                                 marcar([m.id, ...hijos.map((h) => h.id)], !seleccion.has(m.id))
                               }
                               aria-label={`Seleccionar ítem ${m.item_code}`}
-                              className="h-4 w-4"
+                              className="h-5 w-5 cursor-pointer"
                             />
                           </td>
                         )}
                         <td className="px-3 py-2">
-                          <ImagenesMueble imagenes={imagenesPorItem[m.id] ?? []} etiqueta={`Ítem ${m.item_code}`} />
+                          <ImagenesMueble imagenes={imagenesPorItem[m.id] ?? []} etiqueta={`Ítem ${m.item_code}`} className="h-20 w-20" />
                         </td>
-                        <td className="px-3 py-2">{m.item_code}</td>
+                        <td className="px-3 py-2 text-lg font-bold">
+                          <span className="inline-grid h-9 min-w-9 place-items-center rounded-lg bg-brand-100 px-2 text-brand-900">
+                            {m.item_code}
+                          </span>
+                        </td>
                         <td className="px-3 py-2">
-                          <span className="font-medium">{m.modelo}</span>
+                          <span className="text-lg font-semibold">{m.modelo}</span>
+                          {m.tipo_material && (
+                            <span
+                              className={`ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold ${estiloMaterial(m.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+                            >
+                              {m.tipo_material}
+                            </span>
+                          )}
                           {m.descripcion && (
                             <span className="mt-0.5 line-clamp-2 block text-xs font-normal text-slate-500">
                               {m.descripcion.split("\n")[0]}
@@ -526,7 +538,7 @@ export default function ItemsTabla({
                           )}
                           <PlanosItem planos={planosPorItem[m.id] ?? []} />
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="whitespace-nowrap px-3 py-2 text-base font-semibold">
                           {m.cantidad_total} {m.unidad}
                         </td>
                         <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
@@ -539,7 +551,7 @@ export default function ItemsTabla({
                             key={f.id}
                             data-flip={f.id}
                             style={{ "--i": i } as React.CSSProperties}
-                            className={`fila-hija border-t border-slate-100 align-top text-slate-700 transition-colors hover:bg-slate-50 ${
+                            className={`fila-hija border-t border-slate-100 align-top text-sm text-slate-700 transition-colors hover:bg-slate-50 ${
                               seleccion.has(f.id) ? "bg-brand-50" : colorFilaEstadoRevision(f.estado_revision)
                             }`}
                           >
@@ -551,15 +563,15 @@ export default function ItemsTabla({
                                   checked={seleccion.has(f.id)}
                                   onChange={() => marcar([f.id], !seleccion.has(f.id))}
                                   aria-label={`Seleccionar ítem ${f.item_code}`}
-                                  className="h-4 w-4"
+                                  className="h-5 w-5 cursor-pointer"
                                 />
                               </td>
                             )}
                             <td className="py-2 pr-3 pl-6">
-                              <ImagenesMueble imagenes={imagenesPorItem[f.id] ?? []} etiqueta={`Ítem ${f.item_code}`} />
+                              <ImagenesMueble imagenes={imagenesPorItem[f.id] ?? []} etiqueta={`Ítem ${f.item_code}`} className="h-14 w-14" />
                             </td>
-                            <td className="px-3 py-2">{f.item_code}</td>
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 text-base font-semibold">{f.item_code}</td>
+                            <td className="px-3 py-2 text-base font-medium">
                               {f.modelo}
                               {f.descripcion && (
                                 <span className="mt-0.5 line-clamp-2 block text-xs text-slate-500">
@@ -568,7 +580,7 @@ export default function ItemsTabla({
                               )}
                               <PlanosItem planos={planosPorItem[f.id] ?? []} />
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="whitespace-nowrap px-3 py-2 text-base font-semibold">
                               {f.cantidad_total} {f.unidad}
                             </td>
                             <td className="px-3 py-2">
@@ -666,7 +678,7 @@ export default function ItemsTabla({
 function EstadoCelda({ item, puedeEditar }: { item: ItemTabla; puedeEditar: boolean }) {
   const liberado = item.estado_liberacion === LIBERADO;
   const chip = liberado ? (
-    <span className="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-emerald-700">
+    <span className="mt-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
       <span aria-hidden="true">✓</span> En Producción
     </span>
   ) : null;
@@ -737,14 +749,14 @@ function TarjetaItem({
         )}
         <ImagenesMueble imagenes={imagenes} etiqueta={`Ítem ${item.item_code}`} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="text-base font-bold text-slate-900">
             N.º {item.item_code}
             {item.modelo && <span className="ml-2 font-medium text-slate-700">{item.modelo}</span>}
           </p>
           {descripcion && (
             <p className={`mt-0.5 text-sm text-slate-700 ${corto ? "line-clamp-2" : "line-clamp-3"}`}>{descripcion}</p>
           )}
-          <p className="mt-1 text-xs font-medium text-slate-700">
+          <p className="mt-1 text-base font-semibold text-slate-900">
             {item.cantidad_total} {item.unidad}
           </p>
           <PlanosItem planos={planos} />
@@ -772,10 +784,18 @@ function TarjetaItem({
 
 // Miniaturas del mueble o componente; al tocarlas se amplían con zoom (rueda, arrastrar, +/−).
 // Sin imagen queda un recuadro gris del mismo tamaño, para que no parezca que algo falló.
-function ImagenesMueble({ imagenes, etiqueta }: { imagenes: ImagenItemUrls[]; etiqueta: string }) {
+function ImagenesMueble({
+  imagenes,
+  etiqueta,
+  className = "h-10 w-10",
+}: {
+  imagenes: ImagenItemUrls[];
+  etiqueta: string;
+  className?: string;
+}) {
   if (imagenes.length === 0) {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-100 text-center text-[9px] leading-tight text-slate-500">
+      <div className={`flex ${className} shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-100 text-center text-[9px] leading-tight text-slate-500`}>
         Sin imagen
       </div>
     );
@@ -784,7 +804,7 @@ function ImagenesMueble({ imagenes, etiqueta }: { imagenes: ImagenItemUrls[]; et
     <div className="flex gap-1">
       {imagenes.map((img, i) => (
         // La misma imagen puede venir repetida en un ítem: la URL sola no sirve de llave.
-        <ImagenAmpliable key={`${i}-${img.url}`} url={img.url} urlGrande={img.urlGrande} alt={etiqueta} />
+        <ImagenAmpliable key={`${i}-${img.url}`} url={img.url} urlGrande={img.urlGrande} alt={etiqueta} className={className} />
       ))}
     </div>
   );

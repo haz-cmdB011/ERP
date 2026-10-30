@@ -57,6 +57,14 @@ function descripcionFiltros(f: FiltrosIncidencias): string {
   return partes.join(", ");
 }
 
+// Cada número del resumen lleva su color: una franja arriba y un fondo suave que se aclara hacia abajo.
+const TONO_NUMERO: Record<string, string> = {
+  Reportes: "border-t-brand-500",
+  Abiertos: "border-t-amber-400",
+  Cerrados: "border-t-emerald-400",
+  "Abiertos de +30 días": "border-t-rose-400",
+};
+
 // Con qué se compara el periodo que se mira (el inmediato anterior).
 const VS_ANTERIOR: Record<Vista, string> = {
   dia: "el día anterior",
@@ -135,7 +143,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">No conformidades</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">No conformidades</h1>
         <NuevoReporte opciones={opciones} hoy={hoy} sugerido={leerReporteSugerido(parametros)} />
       </div>
 
@@ -185,6 +193,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                 {
                   id: "resumen",
                   titulo: "Resumen",
+                  icono: "panel",
                   contenido: (
                     <>
                       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -198,8 +207,11 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                           const bueno = cambio !== null && (subirEsBueno ? cambio > 0 : cambio < 0);
                           const malo = cambio !== null && (subirEsBueno ? cambio < 0 : cambio > 0);
                           return (
-                            <div key={String(etiqueta)} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                              <p className={`text-3xl font-semibold tabular-nums ${color}`}>{valor}</p>
+                            <div
+                              key={String(etiqueta)}
+                              className={`rounded-xl border border-slate-200 border-t-4 bg-white p-4 shadow-sm ${TONO_NUMERO[String(etiqueta)] ?? ""}`}
+                            >
+                              <p className={`text-4xl font-bold tabular-nums ${color}`}>{valor}</p>
                               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{etiqueta}</p>
                               {cambio !== null && (
                                 <p
@@ -207,7 +219,9 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                                     bueno ? "text-emerald-700" : malo ? "text-rose-700" : "text-slate-500"
                                   }`}
                                 >
-                                  {cambio === 0 ? "Igual" : `${cambio > 0 ? "+" : "−"}${Math.abs(cambio)}`} vs. {VS_ANTERIOR[vista]}
+                                  {cambio === 0
+                                    ? `Igual que ${VS_ANTERIOR[vista]}`
+                                    : `${Math.abs(cambio)} ${cambio > 0 ? "más" : "menos"} que ${VS_ANTERIOR[vista]}`}
                                 </p>
                               )}
                             </div>
@@ -227,11 +241,13 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                 {
                   id: "auditores",
                   titulo: "Auditores",
+                  icono: "usuarios",
                   contenido: <TablaAuditores auditores={auditores} hrefDe={(nombre) => filtrarPor({ auditor: nombre })} />,
                 },
                 {
                   id: "areas",
                   titulo: "Áreas",
+                  icono: "equipos",
                   contenido: (
                     <div className="grid gap-6 md:grid-cols-2">
                       <Barras
@@ -254,6 +270,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                 {
                   id: "motivos",
                   titulo: "Motivos y tipos",
+                  icono: "incidencias",
                   contenido: (
                     <div className="grid gap-6 md:grid-cols-2">
                       <Barras
@@ -282,6 +299,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
                 {
                   id: "proyectos",
                   titulo: "Proyectos",
+                  icono: "pedidos",
                   contenido: (
                     <Barras
                       titulo="Proyectos con más reportes"
