@@ -87,7 +87,7 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloReciente[]
                 <div className="min-w-0">
                   <Link
                     href={`/produccion/panel?estado=todos&q=${encodeURIComponent(m.modelo)}`}
-                    className="block truncate text-lg font-bold leading-tight tracking-tight text-slate-900 hover:underline"
+                    className="block break-words text-2xl font-bold leading-tight tracking-tight text-slate-900 hover:underline"
                     title={`Ver ${m.modelo} en el panel de asignación`}
                   >
                     {m.modelo}
