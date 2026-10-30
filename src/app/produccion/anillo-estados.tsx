@@ -67,7 +67,7 @@ export function AnillosConcentricos({ conteos }: { conteos: Conteos }) {
   const texto = ESTADOS_INICIO.map((e) => `${conteos[e.valor]} ${e.etiqueta.toLowerCase()}`).join(", ");
   const grosor = 4.5;
   return (
-    <svg viewBox="0 0 64 64" role="img" aria-label={texto} className="size-[5.5rem] shrink-0">
+    <svg viewBox="0 0 64 64" role="img" aria-label={texto} className="size-28 shrink-0">
       <title>{texto}</title>
       {ESTADOS_INICIO.map((e, i) => {
         const r = 28.5 - i * 7;

@@ -1,5 +1,5 @@
-import Cargando from "@/components/cargando";
+import { EsqueletoAtajos } from "@/components/cargando";
 
 export default function Loading() {
-  return <Cargando />;
+  return <EsqueletoAtajos n={4} />;
 }

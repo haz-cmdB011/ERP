@@ -1,5 +1,5 @@
-import Cargando from "@/components/cargando";
+import { EsqueletoTabla } from "@/components/cargando";
 
 export default function Loading() {
-  return <Cargando />;
+  return <EsqueletoTabla ancho="5xl" chips columnas={5} />;
 }

@@ -1,5 +1,5 @@
-import Cargando from "@/components/cargando";
+import { EsqueletoLista } from "@/components/cargando";
 
 export default function Loading() {
-  return <Cargando forma="tarjetas" />;
+  return <EsqueletoLista />;
 }
