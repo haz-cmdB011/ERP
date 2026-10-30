@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePresencia } from "@/lib/ui/use-presencia";
 import {
   APARIENCIA_INICIAL,
   CLAVE_APARIENCIA,
@@ -89,6 +90,7 @@ const CAMPOS_COLOR: { clave: "marca" | "fondo1" | "fondo2" | "fondo3"; etiqueta:
 // intensidad. Los cambios se ven al momento y se guardan en este navegador; otras pestañas abiertas se actualizan solas.
 export default function PersonalizarApariencia() {
   const [abierto, setAbierto] = useState(false);
+  const { montado, saliendo } = usePresencia(abierto);
   const [estilo, setEstilo] = useState<Estilo>(ESTILO_INICIAL);
   const [valores, setValores] = useState<Apariencia>(APARIENCIA_INICIAL);
   const [marcaClasica, setMarcaClasica] = useState(MARCA_CLASICA_INICIAL);
@@ -196,8 +198,9 @@ export default function PersonalizarApariencia() {
         </svg>
       </button>
 
-      {abierto && (
+      {montado && (
         <div
+          data-saliendo={saliendo || undefined}
           className="fixed inset-0 z-50 flex items-start justify-end bg-scrim/10 p-3 pt-[max(4.5rem,calc(env(safe-area-inset-top)+4rem))] print:hidden sm:p-4 sm:pt-16"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) cerrar();

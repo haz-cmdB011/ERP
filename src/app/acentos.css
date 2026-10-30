@@ -9,18 +9,6 @@
    violeta, rojo) se reservan para señalar estados, para no restarle contraste.
    --------------------------------------------------------------------------- */
 @layer components {
-  /* Título de cada pantalla: una barra de la marca antes del texto. La pantalla de
-     entrada (auth-shell) lo evita con data-sin-acento. */
-  main:not([data-sin-acento]) h1::before {
-    content: "";
-    display: inline-block;
-    width: 0.3em;
-    height: 0.95em;
-    margin-right: 0.45em;
-    border-radius: 9999px;
-    background: var(--color-brand-500);
-    vertical-align: -0.1em;
-  }
 
   /* Filas de las tablas: al señalarlas, una barra de la marca a la izquierda. Las filas
      que ya traen su propia franja de color (border-l-*) no la llevan, ni las tablas con

@@ -24,9 +24,21 @@ for (const [, paso, valor] of globales.matchAll(/--color-(brand-\d+):\s*([^;]+);
 const PASOS = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"];
 const familias = [...new Set([...colores.keys()].map((n) => n.split("-")[0]))];
 
-// Fondo de "papel" oscuro y su opuesto para el texto que era blanco.
-const BLANCO_OSCURO = "oklch(19% 0.03 264)"; // tarjetas y fondos claros
+// Fondo de "papel" oscuro y su opuesto para el texto que era blanco. En oscuro,
+// los grises (slate y gray, que son los de superficies, bordes y texto) pierden
+// su tinte azul y toman uno verde muy leve, el de la barra superior de la
+// marca: así tarjetas, bordes y barra se sienten de una pieza.
+const TINTE = { hue: 150, croma: 0.35 };
+const BLANCO_OSCURO = `oklch(19% 0.014 ${TINTE.hue})`; // tarjetas y fondos claros
 const NEGRO_CLARO = colores.get("slate-100");
+const GRISES = new Set(["slate", "gray"]);
+
+function tenir(valor) {
+  const m = /^oklch\(([\d.]+%)\s+([\d.]+)\s+([\d.]+)\)$/.exec(valor);
+  if (!m) return valor;
+  const croma = Math.round(Number(m[2]) * TINTE.croma * 1000) / 1000;
+  return `oklch(${m[1]} ${croma} ${TINTE.hue})`;
+}
 
 const oscuro = [];
 const claro = [];
@@ -35,7 +47,7 @@ for (const f of familias) {
     const origen = colores.get(`${f}-${paso}`);
     const espejo = colores.get(`${f}-${PASOS[PASOS.length - 1 - i]}`);
     if (!origen || !espejo) return;
-    oscuro.push(`    --color-${f}-${paso}: ${espejo};`);
+    oscuro.push(`    --color-${f}-${paso}: ${GRISES.has(f) ? tenir(espejo) : espejo};`);
     claro.push(`  --color-${f}-${paso}: ${origen};`);
   });
 }

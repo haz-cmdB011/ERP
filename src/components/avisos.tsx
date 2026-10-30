@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SALIDA_MS } from "@/lib/ui/use-presencia";
 
 export type TipoAviso = "exito" | "error" | "info";
 
@@ -77,10 +78,25 @@ export default function Avisos() {
     new Map<number, ReturnType<typeof setTimeout>>(),
   );
 
+  // Los que se están yendo: se deslizan hacia el borde y luego se quitan.
+  const [saliendo, setSaliendo] = useState<ReadonlySet<number>>(new Set());
+
   const cerrar = useCallback((id: number) => {
     clearTimeout(temporizadores.current.get(id));
     temporizadores.current.delete(id);
-    setAvisos((lista) => lista.filter((a) => a.id !== id));
+    setSaliendo((s) => new Set(s).add(id));
+    const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(
+      () => {
+        setAvisos((lista) => lista.filter((a) => a.id !== id));
+        setSaliendo((s) => {
+          const n = new Set(s);
+          n.delete(id);
+          return n;
+        });
+      },
+      sinMovimiento ? 0 : SALIDA_MS,
+    );
   }, []);
 
   const programarCierre = useCallback(
@@ -127,6 +143,7 @@ export default function Avisos() {
         return (
           <div
             key={aviso.id}
+            data-saliendo={saliendo.has(aviso.id) || undefined}
             role={aviso.tipo === "error" ? "alert" : "status"}
             onMouseEnter={() =>
               clearTimeout(temporizadores.current.get(aviso.id))

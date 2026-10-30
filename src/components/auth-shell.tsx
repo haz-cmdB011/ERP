@@ -41,8 +41,9 @@ export default function AuthShell({
   sinAvisoPrivacidad?: boolean;
 }) {
   return (
-    <main data-sin-acento className="grid min-h-dvh grid-rows-[auto_1fr]">
-      <header className="border-b border-nav-line bg-nav px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-on-nav sm:px-10">
+    // con-plano: detrás va la hoja de planos de muebles, tenue (globals.css).
+    <main data-sin-acento className="con-plano grid min-h-dvh grid-rows-[auto_1fr]">
+      <header className="mx-2 mt-[max(0.5rem,env(safe-area-inset-top))] rounded-2xl border border-nav-line bg-nav px-6 py-4 text-on-nav shadow-lg sm:mx-4 sm:mt-[max(0.75rem,env(safe-area-inset-top))] sm:px-10">
         <Marca sobreOscuro className="h-10 sm:h-11" />
       </header>
 
@@ -50,7 +51,7 @@ export default function AuthShell({
         {/* panel-auth: en el estilo "Vidrio" el formulario va en un panel de
             vidrio (vidrio.css); en el clásico, sin marco. */}
         <div className="panel-auth w-full max-w-sm">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-medium text-slate-900">
             {titulo}
           </h1>
           {descripcion && (

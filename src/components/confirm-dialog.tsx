@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { usePresencia } from "@/lib/ui/use-presencia";
 
 function normalizar(texto: string): string {
   return texto.trim().toLowerCase();
@@ -43,9 +44,12 @@ export default function ConfirmDialog({
   onConfirm: (contrasena: string) => void;
   onCancel: () => void;
 }) {
-  if (!open) return null;
+  // Al cerrar sigue montado un momento para irse con animación.
+  const { montado, saliendo } = usePresencia(open);
+  if (!montado) return null;
   return (
     <Contenido
+      saliendo={saliendo}
       title={title}
       message={message}
       confirmLabel={confirmLabel}
@@ -63,6 +67,7 @@ export default function ConfirmDialog({
 
 // Se monta solo con el diálogo abierto, así lo escrito empieza vacío cada vez.
 function Contenido({
+  saliendo,
   title,
   message,
   confirmLabel,
@@ -75,6 +80,7 @@ function Contenido({
   onConfirm,
   onCancel,
 }: {
+  saliendo: boolean;
   title: string;
   message: string;
   confirmLabel: string;
@@ -94,7 +100,10 @@ function Contenido({
     (!pedirContrasena || contrasena.length > 0);
 
   const dialogo = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 p-4">
+    <div
+      data-saliendo={saliendo || undefined}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 p-4"
+    >
       <div role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-sm rounded bg-white p-4 shadow-lg">
         <h2 className="text-sm font-semibold">{title}</h2>
         <p className="mt-2 text-sm text-gray-700">{message}</p>

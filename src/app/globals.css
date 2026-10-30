@@ -19,8 +19,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-texto);
+  --font-serif: var(--font-titulo);
+  --font-mono: var(--font-codigo);
   /* Colores que NO cambian con el modo oscuro (ver tema-oscuro.css): el velo
      negro detrás de visores/diálogos, su texto, y el fondo blanco de las
      imágenes de los ítems. */
@@ -62,14 +63,17 @@
   --color-brand-950: var(--vidrio-marca-950, #0f2400);
 }
 
-/* Apariencia minimalista: sombras casi planas (solo una línea tenue donde la
-   jerarquía lo pide); el borde hace el trabajo de separar. Sobrescribe la
-   escala de Tailwind, así que vale para todas las pantallas sin tocarlas. */
+/* Apariencia "ficha de ebanista": esquinas suaves, bordes casi invisibles y
+   una sombra fina que separa cada tarjeta del fondo, como una pieza sobre la
+   mesa. Sobrescribe la escala de Tailwind, así que vale para todas las
+   pantallas sin tocarlas. */
 @theme {
-  /* Esquinas menos redondeadas. */
-  --radius-lg: 0.375rem;
-  --radius-xl: 0.5rem;
-  --radius-2xl: 0.625rem;
+  /* Esquinas más suaves: controles a 8–12 px, tarjetas a 16 px. */
+  --radius-sm: 0.3125rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.375rem;
 
   /* Letra un poco más grande en toda la app (alrededor de un 7 % sobre la escala de Tailwind):
      solo cambia el tamaño del texto, no los espacios ni los anchos. */
@@ -82,25 +86,28 @@
   --text-3xl: 1.9375rem;
   --text-4xl: 2.3125rem;
 
-  --shadow-xs: none;
-  --shadow-sm: none;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-md: 0 1px 3px rgb(0 0 0 / 0.06);
-  --shadow-lg: 0 4px 12px -4px rgb(0 0 0 / 0.12);
-  --shadow-xl: 0 8px 20px -8px rgb(0 0 0 / 0.16);
-  --shadow-2xl: 0 12px 28px -10px rgb(0 0 0 / 0.2);
+  --shadow-xs: 0 1px 1px rgb(16 24 40 / 0.03);
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.05);
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 12px -6px rgb(16 24 40 / 0.1);
+  --shadow-md: 0 1px 2px rgb(16 24 40 / 0.05), 0 8px 20px -10px rgb(16 24 40 / 0.16);
+  --shadow-lg: 0 2px 4px rgb(16 24 40 / 0.04), 0 16px 32px -14px rgb(16 24 40 / 0.22);
+  --shadow-xl: 0 2px 6px rgb(16 24 40 / 0.05), 0 24px 44px -18px rgb(16 24 40 / 0.28);
+  --shadow-2xl: 0 4px 8px rgb(16 24 40 / 0.06), 0 32px 60px -20px rgb(16 24 40 / 0.34);
+
+  /* Sombra de las tarjetas: un filo apenas visible y una caída muy larga. */
+  --sombra-pieza: 0 1px 2px rgb(16 24 40 / 0.04), 0 10px 24px -16px rgb(16 24 40 / 0.18);
 }
 
 /* Mismas reglas que tema-oscuro.css: el sistema decide salvo que el usuario
    haya elegido tema (data-tema en <html>). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --background: #05070b;
+    --background: oklch(13.5% 0.012 150);
     --foreground: #ededed;
   }
 }
 :root[data-tema="oscuro"] {
-  --background: #05070b;
+  --background: oklch(13.5% 0.012 150);
   --foreground: #ededed;
 }
 
@@ -127,8 +134,11 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+  font-family: var(--font-texto), system-ui, -apple-system, "Segoe UI", Roboto, Arial,
     sans-serif;
+  /* Texto un poco más abierto y cifras alineadas en columnas en toda la app. */
+  letter-spacing: 0.003em;
+  font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
   /* iPhone en horizontal: nada queda bajo la muesca. */
@@ -326,51 +336,22 @@ body {
   animation: barrido 350ms ease-out backwards;
 }
 
-/* Aviso que "late" con un anillo suave (recibos por revisar). */
-@keyframes latido {
-  0% {
-    box-shadow: 0 0 0 0 rgb(225 29 72 / 0.55);
-  }
-  70%,
-  100% {
-    box-shadow: 0 0 0 7px rgb(225 29 72 / 0);
-  }
-}
-@keyframes aparece-con-rebote {
-  0% {
-    transform: scale(0.4);
+/* El globo de recibos por revisar aparece una vez, sin rebote ni latido: se
+   nota por su color, no por moverse. */
+@keyframes aparece-suave {
+  from {
     opacity: 0;
-  }
-  60% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
+    transform: scale(0.85);
   }
 }
 .anim-aviso {
-  animation:
-    aparece-con-rebote 450ms ease-out backwards,
-    latido 2.4s ease-out 600ms infinite;
+  animation: aparece-suave 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-/* Esqueleto de carga con brillo que cruza (en vez de parpadear). */
-@keyframes brillo {
-  to {
-    background-position: -200% 0;
-  }
-}
+/* Esqueleto de carga: un pulso lento de opacidad (respirar, más abajo). */
 .esqueleto {
   background-color: var(--color-slate-200);
-  background-image: linear-gradient(
-    100deg,
-    transparent 30%,
-    color-mix(in oklab, var(--color-white) 65%, transparent) 50%,
-    transparent 70%
-  );
-  background-size: 200% 100%;
-  animation: brillo 1.4s linear infinite;
+  animation: respirar 1.8s ease-in-out infinite;
 }
 
 /* Giro del indicador de "cargando" dentro de los botones. */
@@ -520,19 +501,13 @@ html.transicion-tema *::after {
     transform: rotate(-70deg) scale(0.88);
   }
 }
-@keyframes girar-entrada {
-  from {
-    opacity: 0;
-    transform: rotate(-90deg) scale(0.6);
-  }
-}
 
 @media screen and (prefers-reduced-motion: no-preference) {
   /* Diálogos y visores: el velo se funde y la ventana sube un poco. */
-  .fixed.inset-0.z-50 {
+  .fixed.inset-0:is(.z-50, .z-\[100\]) {
     animation: velo-entrada 220ms ease-out backwards;
   }
-  .fixed.inset-0.z-50 > div {
+  .fixed.inset-0:is(.z-50, .z-\[100\]) > div {
     animation: panel-entrada 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
@@ -565,9 +540,68 @@ html.transicion-tema *::after {
     animation: donut-entrada 900ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
   .anim-icono {
-    animation: girar-entrada 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: velo-entrada 280ms ease-out backwards;
   }
 
+}
+
+/* ---------------------------------------------------------------------------
+   Salidas: lo que se cierra se va con la misma suavidad con la que llegó
+   (usePresencia en src/lib/ui/use-presencia.ts lo deja montado SALIDA_MS = 200
+   ms con data-saliendo). Mientras sale no recibe clics.
+   --------------------------------------------------------------------------- */
+[data-saliendo] {
+  pointer-events: none;
+}
+@keyframes velo-salida {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes panel-salida {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes cajon-salida {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes menu-salida {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes aviso-salida {
+  to {
+    opacity: 0;
+    transform: translateX(1.25rem);
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* Diálogos y visores (cualquier capa fija a pantalla completa). */
+  .fixed.inset-0[data-saliendo] {
+    animation: velo-salida 200ms ease-in forwards;
+  }
+  .fixed.inset-0[data-saliendo] > div {
+    animation: panel-salida 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  .fixed.inset-0[data-saliendo] > .cajon-menu {
+    animation: cajon-salida 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  /* Menús desplegables y listas de opciones. */
+  .anim-menu[data-saliendo],
+  [data-saliendo] > .anim-menu {
+    transform-origin: top;
+    animation: menu-salida 150ms ease-in forwards;
+  }
+  /* Avisos de la esquina: se deslizan hacia el borde. */
+  .aviso-entrada[data-saliendo] {
+    animation: aviso-salida 200ms ease-in forwards;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -590,6 +624,40 @@ html.transicion-tema *::after {
   opacity: 1;
   visibility: visible;
   transition-delay: 0s;
+}
+
+/* Sección que se despliega y se pliega sin quedarse montada
+   (src/components/aparece.tsx). Recorta solo mientras se mueve: al terminar de
+   abrir suelta el recorte para que sus menús se puedan salir. */
+.aparece {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease;
+}
+.aparece > div {
+  overflow: hidden;
+}
+.aparece-abierto {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  @starting-style {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@keyframes soltar-recorte {
+  from {
+    overflow: hidden;
+  }
+  to {
+    overflow: visible;
+  }
+}
+.aparece-abierto > div {
+  animation: soltar-recorte 320ms steps(1, end) forwards;
 }
 
 @keyframes hija-entrada {
@@ -702,102 +770,43 @@ html.transicion-tema *::after {
     stroke-dashoffset: 0;
   }
 }
-@keyframes sacudir {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-3px) rotate(-6deg);
-  }
-  40% {
-    transform: translateX(3px) rotate(6deg);
-  }
-  60% {
-    transform: translateX(-2px) rotate(-3deg);
-  }
-  80% {
-    transform: translateX(2px) rotate(3deg);
-  }
-}
 @media (prefers-reduced-motion: no-preference) {
   .anim-trazo {
     stroke-dasharray: 1;
     animation: trazar 520ms ease-out 120ms backwards;
   }
-  .anim-sacudir {
-    animation: sacudir 520ms ease-in-out 100ms backwards;
-  }
+  /* Íconos de error e información: entran igual que el aviso, sin sacudirse
+     ni rebotar. */
+  .anim-sacudir,
   .anim-rebote {
-    animation: aparece-con-rebote 450ms ease-out backwards;
+    animation: aparece-suave 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 }
 
 /* ---------------------------------------------------------------------------
-   Interacción: las tarjetas de las listas entran una tras otra, los botones
-   "se hunden" al presionarlos y la pestaña que se activa se asienta. Solo para
-   quien no pidió menos movimiento. Todo usa propiedades individuales
-   (translate, scale) para no pisar los transform de Tailwind.
+   Interacción serena: las listas aparecen juntas con un fundido breve, los
+   botones se oscurecen un poco al presionarlos (sin hundirse) y la pestaña que
+   se activa se funde. Solo para quien no pidió menos movimiento.
    --------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes subir-entrada {
-    from {
-      opacity: 0;
-      translate: 0 12px;
-    }
-  }
   .lista-animada > li {
-    animation: subir-entrada 420ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
-  }
-  .lista-animada > li:nth-child(2) {
-    animation-delay: 45ms;
-  }
-  .lista-animada > li:nth-child(3) {
-    animation-delay: 90ms;
-  }
-  .lista-animada > li:nth-child(4) {
-    animation-delay: 135ms;
-  }
-  .lista-animada > li:nth-child(5) {
-    animation-delay: 180ms;
-  }
-  .lista-animada > li:nth-child(6) {
-    animation-delay: 225ms;
-  }
-  .lista-animada > li:nth-child(n + 7) {
-    animation-delay: 270ms;
+    animation: velo-entrada 240ms ease-out backwards;
   }
 
-  /* Pulso al presionar: baja un poco y vuelve. */
-  @keyframes presionar {
-    40% {
-      scale: 0.95;
-    }
-  }
+  /* Pulsar: el tono baja un poco mientras se mantiene presionado. */
   button:not(:disabled):active,
   [role="button"]:not([aria-disabled="true"]):active,
   .presionable:active {
-    animation: presionar 240ms ease-out;
+    filter: brightness(0.94);
   }
 
-  /* La pestaña activa se asienta desde un poco más abajo. */
   @keyframes pestana-entra {
     from {
-      opacity: 0.55;
-      translate: 0 3px;
+      opacity: 0.6;
     }
   }
   .pestana-activa {
-    animation: pestana-entra 320ms ease-out;
-  }
-
-  /* El icono de un acceso rápido crece y se inclina al señalarlo. */
-  .acceso-icono {
-    transition: scale 220ms cubic-bezier(0.3, 1.6, 0.5, 1), rotate 220ms ease;
-  }
-  .group:hover .acceso-icono {
-    scale: 1.14;
-    rotate: -4deg;
+    animation: pestana-entra 240ms ease-out;
   }
 }
 
@@ -830,24 +839,31 @@ html.transicion-tema *::after {
           :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
       ) {
       background-color: var(--color-white);
+      border-color: color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+      box-shadow: var(--sombra-pieza);
     }
-    /* Título de cada pantalla (en el bloque hijo directo de <main> con border-b border-slate-200
-       pb-4): resaltado con el color de la marca y sin la barra de acento. */
-    :where(main) > div.border-b.border-slate-200.pb-4 h1 {
-      width: fit-content;
-      border-radius: var(--radius-lg);
-      padding: 0.125rem 0.625rem;
-      background-color: var(--color-brand-500);
-      color: var(--color-on-brand);
+    /* Una tarjeta dentro de otra no repite la sombra: basta el borde. */
+    :where(
+        :root:not([data-estilo="vidrio"])
+          :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2)
+          :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
+      ) {
+      box-shadow: none;
     }
-    :where(main) > div.border-b.border-slate-200.pb-4 h1::before {
-      display: none;
+    /* Encabezado de cada pantalla (el bloque hijo directo de <main> con border-b border-slate-200
+       pb-4): en vez de la raya gris, una línea fina con un tramo corto de la marca al inicio. */
+    :where(main) > div.border-b.border-slate-200.pb-4 {
+      border-bottom-color: transparent;
+      background:
+        linear-gradient(var(--color-brand-500), var(--color-brand-500)) left bottom / 2.5rem 2px no-repeat,
+        linear-gradient(var(--color-slate-300), var(--color-slate-300)) left bottom / 100% 1px no-repeat;
     }
     /* La tabla de Usuarios (panel-vidrio) no tiene marco propio: aquí, una tarjeta. */
     :where(:root:not([data-estilo="vidrio"])) .panel-vidrio {
-      border: 1px solid var(--color-slate-200);
+      border: 1px solid color-mix(in oklab, var(--color-slate-200) 70%, transparent);
       border-radius: var(--radius-xl);
       background-color: var(--color-white);
+      box-shadow: var(--sombra-pieza);
       padding: 1rem;
       overflow-x: auto;
     }
@@ -862,5 +878,164 @@ html.transicion-tema *::after {
 @media print {
   body {
     background: #fff;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Tipografía y formas de la remodelación. Todo vive aquí para no tocar cada
+   pantalla: títulos en serif, encabezados de tabla sin mayúsculas, botones en
+   píldora. Va en la capa de utilidades con la especificidad justa para ganarle
+   a la clase de Tailwind que corrige (ej. .uppercase), no a las demás.
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  /* Títulos de pantalla y de sección en Newsreader: serif fina, ópticamente
+     ajustada a su tamaño. Los h2 chicos (rótulos de tarjeta) siguen en sans. */
+  h1,
+  h2:is(.text-lg, .text-xl, .text-2xl, .text-3xl) {
+    font-family: var(--font-titulo), Georgia, "Times New Roman", serif;
+    font-optical-sizing: auto;
+    letter-spacing: -0.012em;
+  }
+  h1:is(.font-semibold, .font-bold),
+  h2:is(.text-lg, .text-xl, .text-2xl, .text-3xl):is(.font-semibold, .font-bold) {
+    font-weight: 500;
+  }
+  :where(main) > div.border-b.border-slate-200.pb-4 h1 {
+    font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem);
+    line-height: 1.15;
+  }
+
+  /* Rótulos en mayúsculas espaciadas (encabezados de tabla, etiquetas de
+     tarjeta): pasan a minúsculas normales, un poco más gruesas, que se leen
+     mejor y gritan menos. Los códigos (font-mono) se quedan como están. */
+  .uppercase:is([class*="tracking-"], .text-xs, th, th *):not(.font-mono) {
+    text-transform: none;
+    letter-spacing: 0.005em;
+  }
+  thead th {
+    font-weight: 500;
+  }
+
+  /* Folios y códigos: IBM Plex Mono en negrita se ve de máquina de escribir;
+     a peso medio y un poco más junta, acompaña sin pesar. */
+  .font-mono {
+    letter-spacing: -0.02em;
+  }
+  .font-mono:is(.font-semibold, .font-bold) {
+    font-weight: 500;
+  }
+
+  /* Botones de acción en píldora: los rellenos de la marca y los de contorno.
+     Los íconos cuadrados quedan en círculo; las filas y tarjetas que se pueden
+     tocar no cambian (no traen estas clases). */
+  :is(button, a, [role="button"]):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl):is(
+      [class~="bg-brand-500"],
+      [class~="bg-brand-600"],
+      [class~="bg-brand-700"],
+      [class~="bg-slate-900"],
+      [class~="bg-rose-600"],
+      [class~="bg-red-600"],
+      [class~="border-slate-300"]
+    ) {
+    border-radius: 9999px;
+  }
+
+  /* Campos de texto: borde más suave. */
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), select, textarea):is(.border) {
+    border-color: color-mix(in oklab, var(--color-slate-300) 85%, transparent);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   El verde limón es acento, no relleno. En modo claro los botones principales
+   (los que traen bg-brand-500) van en el verde oscuro de la barra superior con
+   texto claro; el limón queda para lo que señala algo: el área activa, la
+   línea bajo el título, el foco, las barras de avance. En modo oscuro el limón
+   relleno sí se lee bien sobre el fondo y se queda. No aplica en "Vidrio", que
+   tiene su propio acento, ni dentro de la barra superior.
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  @media screen and (prefers-color-scheme: light) {
+    :root:not([data-tema="oscuro"], [data-estilo="vidrio"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *) {
+      background-color: var(--color-nav);
+      color: var(--color-on-nav);
+    }
+    :root:not([data-tema="oscuro"], [data-estilo="vidrio"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *, :disabled):hover {
+      background-color: var(--color-nav-hover);
+    }
+  }
+  @media screen {
+    :root[data-tema="claro"]:not([data-estilo="vidrio"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *) {
+      background-color: var(--color-nav);
+      color: var(--color-on-nav);
+    }
+    :root[data-tema="claro"]:not([data-estilo="vidrio"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *, :disabled):hover {
+      background-color: var(--color-nav-hover);
+    }
+  }
+}
+
+@layer utilities {
+  /* Etiquetas de estado con contorno (pastilla redonda con ring-1 y fondo suave
+     -50/-100): pierden el relleno y se quedan con el contorno fino y el texto. */
+  :where(main) span.rounded-full.ring-1:is([class*="-50 "], [class$="-50"], [class*="-100 "], [class$="-100"]) {
+    background-color: transparent;
+  }
+
+  /* Tablas: separadores casi invisibles entre filas. */
+  :where(main) tbody > tr {
+    border-color: color-mix(in oklab, var(--color-slate-200) 60%, transparent);
+  }
+
+  /* Cifras grandes (totales, conteos del inicio) en la serif de los títulos. */
+  :is(p, span, div, dd, strong):is(.text-2xl, .text-3xl, .text-4xl).tabular-nums {
+    font-family: var(--font-titulo), Georgia, serif;
+    font-optical-sizing: auto;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Íconos de línea con un solo grosor fino en toda la app (los de 24×24 con
+     trazo del color del texto). El indicador de "cargando" se queda grueso. */
+  svg[viewBox="0 0 24 24"][stroke="currentColor"]:not(.anim-giro) {
+    stroke-width: 1.6;
+  }
+}
+
+/* Carga: un pulso lento de opacidad en lugar del brillo que cruza. */
+@keyframes respirar {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Inicio de sesión: la hoja de planos de muebles del estilo "Vidrio", en trazo
+   fino y muy tenue, detrás del formulario (que va en una tarjeta). */
+@media screen {
+  :root:not([data-estilo="vidrio"]):has(main.con-plano) .fondo-mobiliario {
+    display: block;
+    --fondo-papel: var(--background);
+    --fondo-trazo: var(--color-brand-900);
+    --fondo-cota: var(--color-slate-500);
+    --fondo-op-trazo: 0.2;
+    --fondo-op-cota: 0.32;
+    --fondo-op-masa: 0.025;
+  }
+  :root:not([data-estilo="vidrio"]):has(main.con-plano) .fondo-mobiliario .luces {
+    display: none;
+  }
+  :root:not([data-estilo="vidrio"]):has(main.con-plano) .fondo-mobiliario::after {
+    display: none;
+  }
+  :root:not([data-estilo="vidrio"]) main.con-plano .panel-auth {
+    border: 1px solid color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+    border-radius: var(--radius-2xl);
+    background-color: var(--color-white);
+    box-shadow: var(--shadow-xl);
+    padding: 2rem 1.75rem;
   }
 }

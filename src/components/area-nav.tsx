@@ -127,8 +127,14 @@ export default async function AreaNav({
 
   return (
     <div className="print:hidden">
-      <header className="vt-cabecera border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav">
-        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6">
+      {/* Tablero flotante: separado del borde de la ventana, con esquinas
+          suaves (debajo de la muesca del iPhone si la hay). */}
+      <header className="vt-cabecera mx-2 mt-[max(0.5rem,env(safe-area-inset-top))] rounded-2xl border border-nav-line bg-nav text-on-nav shadow-lg sm:mx-4 sm:mt-[max(0.75rem,env(safe-area-inset-top))]">
+        {/* En pantallas anchas (xl) va todo en una fila: marca, áreas y sesión,
+            esta solo con íconos (los textos "Buscar…", el correo y "Cerrar
+            sesión" vuelven en 2xl). En las angostas, las áreas bajan a una
+            segunda fila. */}
+        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 text-sm sm:px-5 xl:flex-nowrap xl:gap-x-5">
           {/* Paneles del área (Pedidos, Cargar Excel...): menú lateral que se
               abre con las tres rayas. */}
           {children && (
@@ -141,11 +147,11 @@ export default async function AreaNav({
             className="shrink-0 rounded-lg focus-visible:outline-brand-500"
             aria-label="Mobiliarium, ir al inicio"
           >
-            <Marca sobreOscuro />
+            <Marca sobreOscuro className="h-7 sm:h-9" />
           </Link>
 
           {/* Acciones de sesión: a la derecha de la marca. */}
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5 xl:order-3">
             <BuscadorGlobal area={area} />
             <PersonalizarApariencia />
             <SelectorTema />
@@ -159,20 +165,22 @@ export default async function AreaNav({
                 inicial={inicial}
                 tamano="h-7 w-7 sm:h-8 sm:w-8"
               />
-              <span className="sr-only xl:not-sr-only xl:max-w-44 xl:truncate">{email}</span>
+              <span className="sr-only 2xl:not-sr-only 2xl:max-w-44 2xl:truncate">{email}</span>
             </Link>
             <LogoutButton />
           </div>
 
-          <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5">
+          <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5 xl:order-2 xl:mx-0 xl:basis-auto xl:flex-1">
             {visibles.map((a) => (
               <Link
                 key={a.area}
                 href={a.href}
                 aria-current={area === a.area ? "page" : undefined}
-                className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 ${
+                // Área activa: fondo apenas más claro y el ícono en verde limón
+                // (el limón es acento, no relleno).
+                className={`group inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-medium transition-colors focus-visible:outline-brand-500 ${
                   area === a.area
-                    ? "bg-brand-500 text-on-brand"
+                    ? "bg-nav-hover text-on-nav [&>svg]:text-brand-500"
                     : "text-on-nav-suave hover:bg-nav-hover hover:text-on-nav"
                 }`}
               >
@@ -180,10 +188,10 @@ export default async function AreaNav({
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth={2}
+                  strokeWidth={1.6}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-6 w-6 shrink-0"
+                  className="h-5 w-5 shrink-0"
                   aria-hidden="true"
                 >
                   {a.icono}

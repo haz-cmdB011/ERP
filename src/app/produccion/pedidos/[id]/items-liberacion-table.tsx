@@ -282,7 +282,7 @@ export default function ItemsLiberacionTable({
               </span>
               {item.tipo_material && (
                 <span
-                  className={`rounded-full px-2 py-0.5 font-medium ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+                  className={`rounded-full px-2 py-0.5 font-medium ${estiloMaterial(item.tipo_material)?.pastilla ?? "text-slate-600 ring-1 ring-inset ring-slate-300"}`}
                 >
                   {item.tipo_material}
                 </span>
@@ -310,7 +310,7 @@ export default function ItemsLiberacionTable({
         <td className="hidden px-3 py-2 text-sm font-normal text-slate-600 lg:table-cell">
           {item.tipo_material && (
             <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${estiloMaterial(item.tipo_material)?.pastilla ?? "text-slate-600 ring-1 ring-inset ring-slate-300"}`}
             >
               {item.tipo_material}
             </span>

@@ -526,7 +526,7 @@ export default function ItemsTabla({
                           <span className="text-lg font-semibold">{m.modelo}</span>
                           {m.tipo_material && (
                             <span
-                              className={`ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold ${estiloMaterial(m.tipo_material)?.pastilla ?? "bg-slate-100 text-slate-600"}`}
+                              className={`ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold ${estiloMaterial(m.tipo_material)?.pastilla ?? "text-slate-600 ring-1 ring-inset ring-slate-300"}`}
                             >
                               {m.tipo_material}
                             </span>
