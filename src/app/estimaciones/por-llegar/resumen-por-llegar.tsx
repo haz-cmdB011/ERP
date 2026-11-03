@@ -28,19 +28,21 @@ function TarjetaArea({ r }: { r: ResumenArea }) {
   return (
     <Link
       href={`/estimaciones/por-llegar#${r.area}`}
-      className={`flex flex-col gap-1 rounded-xl border border-slate-200 border-t-4 bg-white p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${tono.tarjeta}`}
+      // En el estilo Mobiliarium: fondo tenue sin borde (está dentro de otra
+      // tarjeta) y primero el área, luego la cifra en grande y debajo el detalle.
+      className={`flex flex-col gap-1 rounded-xl border border-slate-200 border-t-4 bg-white p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-md mob:border-0 mob:bg-slate-100/70 mob:hover:bg-slate-100 mob:hover:shadow-none ${tono.tarjeta}`}
     >
-      <span className={`text-sm font-semibold ${tono.etiqueta}`}>
+      <span className={`text-sm font-semibold mob:order-[-2] mob:font-medium mob:text-slate-600 ${tono.etiqueta}`}>
         Trabajo de {AREA_RECIBO_LABELS[r.area].toLowerCase()}
       </span>
       {hay ? (
         <>
           <span className="text-xs text-slate-500">Aprobado por Calidad, listo para cobrar</span>
-          <span className="text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
+          <span className="text-2xl font-semibold tabular-nums tracking-tight text-slate-900 mob:order-[-1] mob:text-3xl">
             {money(r.importe)}
             {r.sinPrecio > 0 && <span className="ml-1 text-sm font-normal text-slate-500">+ sin precio</span>}
           </span>
-          <span className="text-sm text-slate-700">
+          <span className="text-sm text-slate-700 mob:mt-2">
             {plural(r.muebles, "mueble", "muebles")}
             {r.componentes > 0 && ` y ${plural(r.componentes, "componente", "componentes")}`} ·{" "}
             {r.recibosMinimos === 1 ? "falta al menos 1 recibo" : `faltan al menos ${r.recibosMinimos} recibos`}
@@ -71,7 +73,7 @@ export default async function ResumenPorLlegar() {
   return (
     <section
       aria-labelledby="por-llegar-titulo"
-      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white p-5 shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white p-5 shadow-sm mob:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

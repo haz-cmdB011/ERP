@@ -40,6 +40,26 @@ for (const f of familias) {
   });
 }
 
+// Estilo "Mobiliarium" (mobiliarium.css): en oscuro, los grises (slate y gray,
+// los de superficies, bordes y texto) pierden su tinte azul y toman uno verde
+// muy leve, el de la barra superior de la marca.
+const TINTE = { hue: 150, croma: 0.35 };
+function tenir(valor) {
+  const m = /^oklch\(([\d.]+%)\s+([\d.]+)\s+([\d.]+)\)$/.exec(valor);
+  if (!m) return valor;
+  const croma = Math.round(Number(m[2]) * TINTE.croma * 1000) / 1000;
+  return `oklch(${m[1]} ${croma} ${TINTE.hue})`;
+}
+const grisesMobiliarium = [];
+for (const f of ["slate", "gray"]) {
+  PASOS.forEach((paso, i) => {
+    const espejo = colores.get(`${f}-${PASOS[PASOS.length - 1 - i]}`);
+    if (espejo) grisesMobiliarium.push(`    --color-${f}-${paso}: ${tenir(espejo)};`);
+  });
+}
+const variablesMobiliarium = `    --color-white: oklch(19% 0.014 ${TINTE.hue});
+${grisesMobiliarium.join("\n")}`;
+
 const variablesOscuras = `    color-scheme: dark;
     --color-white: ${BLANCO_OSCURO};
     --color-black: ${NEGRO_CLARO};
@@ -59,6 +79,18 @@ ${variablesOscuras}
 @media screen {
   :root[data-tema="oscuro"] {
 ${variablesOscuras}
+  }
+}
+
+/* Estilo "Mobiliarium" en oscuro: grises con tinte verde carbón. */
+@media screen and (prefers-color-scheme: dark) {
+  :root[data-estilo="mobiliarium"]:not([data-tema="claro"]) {
+${variablesMobiliarium}
+  }
+}
+@media screen {
+  :root[data-estilo="mobiliarium"][data-tema="oscuro"] {
+${variablesMobiliarium}
   }
 }
 

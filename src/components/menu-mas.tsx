@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { usePresencia } from "@/lib/ui/use-presencia";
 
 // Opciones del menú "Más": lo secundario de una pantalla o de una fila, para que a la vista
 // quede solo la acción principal. Una opción es un enlace (`href`) o una acción (`alHacer`).
@@ -25,6 +26,7 @@ export default function MenuMas({
   compacto?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const { montado, saliendo } = usePresencia(abierto, 150);
   const [posicion, setPosicion] = useState<{ top: number; right: number } | null>(null);
   const botonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -105,12 +107,13 @@ export default function MenuMas({
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
-      {abierto && posicion && (
+      {montado && posicion && (
         <div
           ref={panelRef}
           role="menu"
+          data-saliendo={saliendo || undefined}
           style={{ position: "fixed", top: posicion.top, right: posicion.right }}
-          className="z-50 min-w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+          className="anim-menu z-50 min-w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
           onClick={(e) => e.stopPropagation()}
         >
           {opciones.map((o) =>

@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import BotonDesplegar from "@/components/boton-desplegar";
+import Aparece from "@/components/aparece";
 import { agruparPorCliente } from "@/lib/planeacion/vista-lista";
 import {
   PROCESOS,
@@ -161,8 +162,7 @@ export default function PanelAsignacion({
               <Estados resumen={contarEstados(muebles)} />
             </div>
 
-            {abiertoCliente && (
-              <div className="anim-desplegar divide-y divide-slate-200 border-t border-slate-200">
+            <Aparece abierto={abiertoCliente} className="divide-y divide-slate-200 border-t border-slate-200">
                 {c.filas.map((g) => (
                   <GrupoOt
                     key={claveOt(g)}
@@ -206,8 +206,8 @@ export default function PanelAsignacion({
                               </div>
                             )}
                           </div>
-                          {pmAbierta && (
-                            <ul className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 p-3">
+                          <Aparece abierto={pmAbierta}>
+                            <ul className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/60 p-3">
                               {pm.muebles.map((m) => (
                                 <FilaMueble
                                   key={m.flujo.id}
@@ -220,14 +220,13 @@ export default function PanelAsignacion({
                                 />
                               ))}
                             </ul>
-                          )}
+                          </Aparece>
                         </article>
                       );
                     })}
                   </GrupoOt>
                 ))}
-              </div>
-            )}
+            </Aparece>
           </section>
         );
       })}
@@ -267,9 +266,9 @@ function GrupoOt({
         <Estados resumen={resumenOt(g)} />
       </div>
 
-      {abierta && (
-        <div className="anim-desplegar divide-y divide-slate-200 border-t border-slate-200">{children}</div>
-      )}
+      <Aparece abierto={abierta} className="divide-y divide-slate-200 border-t border-slate-200">
+        {children}
+      </Aparece>
     </section>
   );
 }

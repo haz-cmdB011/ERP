@@ -1,27 +1,29 @@
 // Apariencia de la interfaz, elegida en "Personalizar apariencia" y guardada
 // en este navegador (localStorage).
 //
-// Estilo: "clasico" (el predefinido: la marca verde con fondos sólidos) o
+// Estilo: "clasico" (el predefinido: la marca verde con fondos sólidos),
 // "vidrio" (glassmorphism: paneles translúcidos sobre una hoja de planos de
-// muebles). Se refleja en <html data-estilo="vidrio">, que es lo que activa
-// src/app/vidrio.css.
+// muebles) o "mobiliarium" (serif fina, formas suaves, el verde solo como
+// acento). Se refleja en <html data-estilo="vidrio|mobiliarium">, que es lo que
+// activa src/app/vidrio.css o src/app/mobiliarium.css.
 //
 // Apariencia del estilo vidrio: color de acento, tres colores para la hoja de
 // planos del fondo, y transparencia y desenfoque de los paneles que la
 // difuminan. Se aplica como variables CSS en <html style="--marca: ...">; en
-// el estilo clásico nada las lee.
-export type Estilo = "clasico" | "vidrio";
+// los otros estilos nada las lee. Clásico y Mobiliarium comparten su acento
+// (ver CLAVE_MARCA_CLASICA).
+export type Estilo = "clasico" | "vidrio" | "mobiliarium";
 
 export const CLAVE_ESTILO = "erp-estilo";
 export const ESTILO_INICIAL: Estilo = "clasico";
 
 export function esEstilo(valor: unknown): valor is Estilo {
-  return valor === "clasico" || valor === "vidrio";
+  return valor === "clasico" || valor === "vidrio" || valor === "mobiliarium";
 }
 
 export function aplicarEstilo(estilo: Estilo, raiz: HTMLElement = document.documentElement) {
-  if (estilo === "vidrio") raiz.setAttribute("data-estilo", "vidrio");
-  else raiz.removeAttribute("data-estilo");
+  if (estilo === "clasico") raiz.removeAttribute("data-estilo");
+  else raiz.setAttribute("data-estilo", estilo);
 }
 
 export interface Apariencia {
@@ -186,9 +188,9 @@ export function aplicarMarcaClasica(marca: string, raiz: HTMLElement = document.
 // SCRIPT_TEMA: pone el estilo y las variables de la apariencia. Repite en
 // pequeño la validación y el cálculo de contraste de arriba: no puede importar
 // módulos.
-export const SCRIPT_APARIENCIA = `(function(){try{if(localStorage.getItem(${JSON.stringify(
+export const SCRIPT_APARIENCIA = `(function(){try{var E=localStorage.getItem(${JSON.stringify(
   CLAVE_ESTILO
-)})!=="vidrio"){var m=localStorage.getItem(${JSON.stringify(
+)});if(E!=="vidrio"){if(E==="mobiliarium")document.documentElement.setAttribute("data-estilo","mobiliarium");var m=localStorage.getItem(${JSON.stringify(
   CLAVE_MARCA_CLASICA
 )});if(m&&m!==${JSON.stringify(
   MARCA_CLASICA_INICIAL

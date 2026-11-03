@@ -4,12 +4,13 @@ import IconoMenu, { type NombreIcono } from "@/components/iconos-menu";
 // no distingue colores lee el texto).
 export type TonoChip = "ok" | "proceso" | "alerta" | "peligro" | "neutro";
 
+// En el estilo Mobiliarium (mob:) van sin relleno: el punto lleva el color.
 const ESTILO: Record<TonoChip, { caja: string; punto: string }> = {
-  ok: { caja: "bg-emerald-50 text-emerald-800 ring-emerald-200", punto: "bg-emerald-500" },
-  proceso: { caja: "bg-sky-50 text-sky-800 ring-sky-200", punto: "bg-sky-500" },
-  alerta: { caja: "bg-amber-50 text-amber-800 ring-amber-200", punto: "bg-amber-500" },
-  peligro: { caja: "bg-rose-50 text-rose-800 ring-rose-200", punto: "bg-rose-500" },
-  neutro: { caja: "bg-slate-100 text-slate-600 ring-slate-200", punto: "bg-slate-400" },
+  ok: { caja: "bg-emerald-50 text-emerald-800 ring-emerald-200 mob:bg-transparent", punto: "bg-emerald-500" },
+  proceso: { caja: "bg-sky-50 text-sky-800 ring-sky-200 mob:bg-transparent", punto: "bg-sky-500" },
+  alerta: { caja: "bg-amber-50 text-amber-800 ring-amber-200 mob:bg-transparent", punto: "bg-amber-500" },
+  peligro: { caja: "bg-rose-50 text-rose-800 ring-rose-200 mob:bg-transparent", punto: "bg-rose-500" },
+  neutro: { caja: "bg-slate-100 text-slate-600 ring-slate-200 mob:bg-transparent", punto: "bg-slate-400" },
 };
 
 export default function ChipEstado({

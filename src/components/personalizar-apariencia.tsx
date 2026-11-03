@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePresencia } from "@/lib/ui/use-presencia";
 import {
   APARIENCIA_INICIAL,
   CLAVE_APARIENCIA,
@@ -22,8 +23,9 @@ import {
 } from "@/lib/apariencia";
 
 const ESTILOS: { id: Estilo; nombre: string; descripcion: string }[] = [
-  { id: "clasico", nombre: "Clásico", descripcion: "Verde Mobiliarium, fondos sólidos" },
-  { id: "vidrio", nombre: "Vidrio", descripcion: "Paneles translúcidos sobre planos" },
+  { id: "clasico", nombre: "Clásico", descripcion: "Fondos sólidos" },
+  { id: "vidrio", nombre: "Vidrio", descripcion: "Paneles translúcidos" },
+  { id: "mobiliarium", nombre: "Mobiliarium", descripcion: "Serif fina, formas suaves" },
 ];
 
 function leerEstilo(): Estilo {
@@ -84,11 +86,12 @@ const CAMPOS_COLOR: { clave: "marca" | "fondo1" | "fondo2" | "fondo3"; etiqueta:
   { clave: "fondo3", etiqueta: "Cotas y medidas" },
 ];
 
-// Botón de la barra (paleta) que abre un panel para elegir el estilo (clásico
-// o vidrio) y los colores: en el clásico el acento, en el de vidrio también el fondo y la
+// Botón de la barra (paleta) que abre un panel para elegir el estilo (clásico,
+// vidrio o Mobiliarium) y los colores: en clásico y Mobiliarium el acento, en el de vidrio también el fondo y la
 // intensidad. Los cambios se ven al momento y se guardan en este navegador; otras pestañas abiertas se actualizan solas.
 export default function PersonalizarApariencia() {
   const [abierto, setAbierto] = useState(false);
+  const { montado, saliendo } = usePresencia(abierto);
   const [estilo, setEstilo] = useState<Estilo>(ESTILO_INICIAL);
   const [valores, setValores] = useState<Apariencia>(APARIENCIA_INICIAL);
   const [marcaClasica, setMarcaClasica] = useState(MARCA_CLASICA_INICIAL);
@@ -196,8 +199,9 @@ export default function PersonalizarApariencia() {
         </svg>
       </button>
 
-      {abierto && (
+      {montado && (
         <div
+          data-saliendo={saliendo || undefined}
           className="fixed inset-0 z-50 flex items-start justify-end bg-scrim/10 p-3 pt-[max(4.5rem,calc(env(safe-area-inset-top)+4rem))] print:hidden sm:p-4 sm:pt-16"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) cerrar();
@@ -230,7 +234,7 @@ export default function PersonalizarApariencia() {
               <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Estilo
               </legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 {ESTILOS.map((e) => (
                   <button
                     key={e.id}
@@ -250,7 +254,7 @@ export default function PersonalizarApariencia() {
               </div>
             </fieldset>
 
-            {estilo === "clasico" && (
+            {estilo !== "vidrio" && (
               <>
                 <fieldset className="mt-5">
                   <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500">

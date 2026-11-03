@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePresencia } from "@/lib/ui/use-presencia";
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 8;
@@ -39,6 +40,7 @@ export default function ImagenAmpliable({
   className?: string;
 }) {
   const [abierta, setAbierta] = useState(false);
+  const { montado, saliendo } = usePresencia(abierta);
   const [vista, setVista] = useState<Vista>(VISTA_INICIAL);
   const [arrastrando, setArrastrando] = useState(false);
   const [grandeFalla, setGrandeFalla] = useState(false);
@@ -144,9 +146,10 @@ export default function ImagenAmpliable({
         <img src={url} alt={alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
       </button>
 
-      {abierta && (
+      {montado && (
         <div
           ref={contenedor}
+          data-saliendo={saliendo || undefined}
           role="dialog"
           aria-modal="true"
           aria-label="Imagen ampliada"

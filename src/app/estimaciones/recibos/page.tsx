@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Chevron from "@/components/chevron";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esMaquilador, getPerfilActual, puedeCapturarTipo } from "@/lib/auth/get-perfil";
@@ -60,15 +61,16 @@ export default async function GeneradorRecibosPage() {
           descripcion="Pide a un administrador que te asigne una para poder generar recibos."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        // En el estilo Mobiliarium, un índice: una hoja con una fila por tipo.
+        <ul className="grid gap-4 sm:grid-cols-2 mob:flex mob:flex-col mob:gap-0 mob:divide-y mob:divide-slate-200 mob:overflow-hidden mob:rounded-xl mob:border mob:border-slate-200 mob:bg-white mob:shadow-sm">
           {disponibles.map((t) => (
+            <li key={t.tipo} className="flex">
             <Link
-              key={t.tipo}
               href={`/estimaciones/recibos/${t.tipo}`}
-              className={`group flex items-start gap-4 rounded-xl border border-slate-200 border-t-4 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.tono}`}
+              className={`group flex flex-1 items-start gap-4 rounded-xl border border-slate-200 border-t-4 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md mob:items-center mob:rounded-none mob:border-0 mob:bg-transparent mob:px-5 mob:py-4 mob:shadow-none mob:hover:bg-slate-50 mob:hover:shadow-none ${t.tono}`}
             >
               <span
-                className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.letra}`}
+                className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.letra} mob:h-6 mob:w-6 mob:rounded-none mob:bg-transparent mob:text-brand-700 mob:group-hover:bg-transparent mob:group-hover:text-brand-700`}
                 aria-hidden="true"
               >
                 <svg
@@ -83,13 +85,15 @@ export default async function GeneradorRecibosPage() {
                   {t.icono}
                 </svg>
               </span>
-              <span className="min-w-0">
-                <h2 className="text-base font-semibold text-slate-900">{t.titulo}</h2>
-                <p className="mt-1 text-sm text-slate-500">{t.descripcion}</p>
+              <span className="min-w-0 mob:flex-1">
+                <h2 className="text-base font-semibold text-slate-900 mob:font-serif mob:text-lg mob:font-medium">{t.titulo}</h2>
+                <p className="mt-1 text-sm text-slate-500 mob:mt-0.5">{t.descripcion}</p>
               </span>
+              <Chevron abierto={false} className="hidden h-4 w-4 text-slate-400 transition-colors group-hover:text-slate-700 mob:block" />
             </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </main>
   );
