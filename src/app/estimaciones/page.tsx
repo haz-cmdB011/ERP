@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Chevron from "@/components/chevron";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -124,15 +125,16 @@ export default async function EstimacionesPage() {
         </Suspense>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* En el estilo Mobiliarium, un índice: una hoja con una fila por sección. */}
+      <ul className="grid gap-4 sm:grid-cols-2 mob:flex mob:flex-col mob:gap-0 mob:divide-y mob:divide-slate-200 mob:overflow-hidden mob:rounded-xl mob:border mob:border-slate-200 mob:bg-white mob:shadow-sm">
         {TARJETAS.map((t) => (
+          <li key={t.href} className="flex">
           <Link
-            key={t.href}
             href={t.href}
-            className={`group flex h-full items-center gap-4 rounded-xl border border-slate-200 border-t-4 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.tono.tarjeta}`}
+            className={`group flex h-full flex-1 items-center gap-4 rounded-xl border border-slate-200 border-t-4 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md mob:rounded-none mob:border-0 mob:bg-transparent mob:px-5 mob:py-4 mob:shadow-none mob:hover:bg-slate-50 mob:hover:shadow-none ${t.tono.tarjeta}`}
           >
             <span
-              className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.tono.icono}`}
+              className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.tono.icono} mob:h-6 mob:w-6 mob:rounded-none mob:bg-transparent mob:text-brand-700 mob:group-hover:bg-transparent mob:group-hover:text-brand-700`}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -147,13 +149,15 @@ export default async function EstimacionesPage() {
                 {t.icono}
               </svg>
             </span>
-            <span className="min-w-0">
-              <h2 className="text-base font-semibold text-slate-900">{t.titulo}</h2>
+            <span className="min-w-0 mob:flex-1">
+              <h2 className="text-base font-semibold text-slate-900 mob:font-serif mob:text-lg mob:font-medium">{t.titulo}</h2>
               <p className="text-sm text-slate-500">{t.detalle}</p>
             </span>
+            <Chevron abierto={false} className="hidden h-4 w-4 text-slate-400 transition-colors group-hover:text-slate-700 mob:block" />
           </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </main>
   );
 }

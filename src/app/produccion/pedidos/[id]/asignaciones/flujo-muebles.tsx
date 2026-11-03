@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import Chevron from "@/components/chevron";
+import Aparece from "@/components/aparece";
 import { usePathname, useSearchParams } from "next/navigation";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import {
@@ -383,13 +384,13 @@ export function FilaMueble({
         </ol>
       </div>
 
-      {abierto && (
+      <Aparece abierto={abierto}>
         <DetalleMueble
           mueble={m}
           asignar={asignar}
           detalles={detalles}
         />
-      )}
+      </Aparece>
     </li>
   );
 }

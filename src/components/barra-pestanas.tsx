@@ -1,5 +1,6 @@
 import Link from "next/link";
 import IconoMenu, { type NombreIcono } from "@/components/iconos-menu";
+import IndicadorDeslizante from "@/components/indicador-deslizante";
 
 export interface ItemPestana {
   id: string;
@@ -30,6 +31,14 @@ export default function BarraPestanas({
       aria-label={etiqueta}
       className="desplazable-sin-barra -mx-1 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-slate-200 px-1 print:hidden"
     >
+      {/* En el estilo Mobiliarium, raya de la pestaña activa. Al cambiar de pantalla,
+          la transición de página la lleva de la pestaña vieja a la nueva
+          (view-transition-name). */}
+      <IndicadorDeslizante
+        activa={activa}
+        forma="linea"
+        className="hidden h-0.5 rounded-full bg-brand-600 [view-transition-name:pestana-activa] mob:block"
+      />
       {items.map((p) => {
         const esActiva = p.id === activa;
         return (
@@ -41,7 +50,7 @@ export default function BarraPestanas({
               grande ? "min-h-12 text-base" : "min-h-11 text-sm"
             } ${
               esActiva
-                ? "pestana-activa border-brand-600 font-semibold text-slate-900"
+                ? "pestana-activa border-brand-600 font-semibold text-slate-900 mob:border-transparent"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
             }`}
           >

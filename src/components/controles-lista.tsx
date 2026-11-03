@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Chevron from "@/components/chevron";
+import IndicadorDeslizante from "@/components/indicador-deslizante";
 import { hrefListaPedidos } from "@/lib/planeacion/lista-ordenes-trabajo";
 import { ESTADOS_LISTA, type EstadoLista } from "@/lib/planeacion/vista-lista";
 
@@ -27,14 +28,16 @@ export function SelectorEstado({
 }) {
   const porOmision: EstadoLista = hayBusqueda ? "todos" : "activos";
   return (
-    <div className="flex w-fit gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
+    <div className="flex w-fit gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm mob:relative mob:rounded-full mob:bg-slate-100/70">
+      {/* En el estilo Mobiliarium, un fondo blanco que se desliza a la opción elegida. */}
+      <IndicadorDeslizante activa={actual} forma="fondo" className="hidden rounded-full bg-white shadow-sm mob:block" />
       {ESTADOS_LISTA.map(({ valor, etiqueta }) => (
         <Link
           key={valor}
           href={hrefListaPedidos(base, { ...params, estado: valor === porOmision ? undefined : valor })}
           aria-current={valor === actual ? "true" : undefined}
-          className={`rounded-md px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
-            valor === actual ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+          className={`rounded-md px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 mob:relative mob:rounded-full mob:px-3.5 ${
+            valor === actual ? "bg-white text-slate-900 shadow-sm mob:bg-transparent mob:shadow-none" : "text-slate-600 hover:text-slate-900"
           }`}
         >
           {etiqueta} <span className="text-xs font-normal text-slate-500">{cuentas[valor]}</span>
@@ -45,6 +48,8 @@ export function SelectorEstado({
 }
 
 // Un cliente con sus O.T., plegable. Usa <details>: abre y cierra sin JavaScript.
+// En el estilo Mobiliarium es una fila de la hoja que junta a todos los clientes
+// (la página la envuelve en un recuadro con divide-y), sin marco propio.
 export function DesplegableCliente({
   cliente,
   total,
@@ -57,15 +62,15 @@ export function DesplegableCliente({
   children: React.ReactNode;
 }) {
   return (
-    <details open={abierto} className="group/cliente rounded-xl border border-slate-200 bg-white/50">
-      <summary className="flex cursor-pointer select-none list-none items-center gap-2 rounded-xl px-4 py-3 transition-colors hover:bg-brand-50 [&::-webkit-details-marker]:hidden">
-        <Chevron abierto={false} className="h-4 w-4 text-slate-500 group-open/cliente:rotate-90" />
+    <details open={abierto} className="group/cliente rounded-xl border border-slate-200 bg-white/50 mob:rounded-none mob:border-0 mob:bg-transparent">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-2 rounded-xl px-4 py-3 transition-colors hover:bg-brand-50 [&::-webkit-details-marker]:hidden mob:gap-2.5 mob:rounded-none mob:px-5 mob:py-3.5">
+        <Chevron abierto={false} className="h-4 w-4 text-slate-500 group-open/cliente:rotate-90 mob:text-slate-400" />
         <span className="font-semibold text-slate-900">{cliente}</span>
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-slate-500 mob:ml-auto mob:text-sm">
           {total} O.T.
         </span>
       </summary>
-      <div className="border-t border-slate-100 p-3">{children}</div>
+      <div className="border-t border-slate-100 p-3 mob:border-t-0 mob:bg-slate-50/70 mob:pt-1">{children}</div>
     </details>
   );
 }

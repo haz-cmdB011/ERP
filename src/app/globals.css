@@ -3,6 +3,12 @@
 @import "./vidrio.css";
 @import "./marca-clasica.css";
 @import "./acentos.css";
+@import "./mobiliarium.css";
+
+/* Variante mob: para lo que solo cambia en el estilo "Mobiliarium" (lo elige
+   cada quien en "Personalizar apariencia"; <html data-estilo="mobiliarium">).
+   Uso en las clases: `mob:rounded-full`. */
+@custom-variant mob (&:where([data-estilo="mobiliarium"] *));
 
 :root {
   --background: #e9edf2;
@@ -14,13 +20,19 @@
   --nav-base-linea: #24391a;
   --nav-base-texto: #e9f2e1;
   --nav-base-suave: #a4b79a;
+  /* Familias del estilo clásico (Geist); el estilo Mobiliarium las cambia. */
+  --fuente-texto: var(--font-geist-sans);
+  --fuente-titulo: var(--font-geist-sans);
+  --fuente-codigo: var(--font-geist-mono);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Tipografía según el estilo: --fuente-* las cambia mobiliarium.css. */
+  --font-sans: var(--fuente-texto);
+  --font-serif: var(--fuente-titulo);
+  --font-mono: var(--fuente-codigo);
   /* Colores que NO cambian con el modo oscuro (ver tema-oscuro.css): el velo
      negro detrás de visores/diálogos, su texto, y el fondo blanco de las
      imágenes de los ítems. */
@@ -127,7 +139,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+  font-family: var(--fuente-texto), system-ui, -apple-system, "Segoe UI", Roboto, Arial,
     sans-serif;
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
@@ -529,10 +541,10 @@ html.transicion-tema *::after {
 
 @media screen and (prefers-reduced-motion: no-preference) {
   /* Diálogos y visores: el velo se funde y la ventana sube un poco. */
-  .fixed.inset-0.z-50 {
+  .fixed.inset-0:is(.z-50, .z-\[100\]) {
     animation: velo-entrada 220ms ease-out backwards;
   }
-  .fixed.inset-0.z-50 > div {
+  .fixed.inset-0:is(.z-50, .z-\[100\]) > div {
     animation: panel-entrada 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
@@ -571,6 +583,65 @@ html.transicion-tema *::after {
 }
 
 /* ---------------------------------------------------------------------------
+   Salidas: lo que se cierra se va con la misma suavidad con la que llegó
+   (usePresencia en src/lib/ui/use-presencia.ts lo deja montado SALIDA_MS = 200
+   ms con data-saliendo). Mientras sale no recibe clics. En todos los estilos.
+   --------------------------------------------------------------------------- */
+[data-saliendo] {
+  pointer-events: none;
+}
+@keyframes velo-salida {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes panel-salida {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes cajon-salida {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes menu-salida {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes aviso-salida {
+  to {
+    opacity: 0;
+    transform: translateX(1.25rem);
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* Diálogos y visores (cualquier capa fija a pantalla completa). */
+  .fixed.inset-0[data-saliendo] {
+    animation: velo-salida 200ms ease-in forwards;
+  }
+  .fixed.inset-0[data-saliendo] > div {
+    animation: panel-salida 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  .fixed.inset-0[data-saliendo] > .cajon-menu {
+    animation: cajon-salida 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  /* Menús desplegables y listas de opciones. */
+  .anim-menu[data-saliendo],
+  [data-saliendo] > .anim-menu {
+    transform-origin: top;
+    animation: menu-salida 150ms ease-in forwards;
+  }
+  /* Avisos de la esquina: se deslizan hacia el borde. */
+  .aviso-entrada[data-saliendo] {
+    animation: aviso-salida 200ms ease-in forwards;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Desplegables (padre -> hijos, historiales, renglones, secciones).
    --------------------------------------------------------------------------- */
 
@@ -590,6 +661,40 @@ html.transicion-tema *::after {
   opacity: 1;
   visibility: visible;
   transition-delay: 0s;
+}
+
+/* Sección que se despliega y se pliega sin quedarse montada
+   (src/components/aparece.tsx). Recorta solo mientras se mueve: al terminar de
+   abrir suelta el recorte para que sus menús se puedan salir. */
+.aparece {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease;
+}
+.aparece > div {
+  overflow: hidden;
+}
+.aparece-abierto {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  @starting-style {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@keyframes soltar-recorte {
+  from {
+    overflow: hidden;
+  }
+  to {
+    overflow: visible;
+  }
+}
+.aparece-abierto > div {
+  animation: soltar-recorte 320ms steps(1, end) forwards;
 }
 
 @keyframes hija-entrada {

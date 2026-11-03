@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { usePresencia } from "@/lib/ui/use-presencia";
 import {
   MIN_CARACTERES_BUSQUEDA,
   type AreaBusqueda,
@@ -68,6 +69,7 @@ function escribiendoEnCampo(destino: EventTarget | null): boolean {
 export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
+  const { montado, saliendo } = usePresencia(abierto);
   const [consulta, setConsulta] = useState("");
   const [estado, setEstado] = useState<Estado>({ fase: "inicio" });
   const [activo, setActivo] = useState(0);
@@ -203,20 +205,21 @@ export default function BuscadorGlobal({ area }: { area: AreaBusqueda }) {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="group inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-lg sm:h-10 sm:w-10 xl:w-auto text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 xl:border xl:border-nav-line xl:px-3"
+        className="group inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-lg sm:h-10 sm:w-10 xl:w-auto text-on-nav-suave transition-colors hover:bg-nav-hover hover:text-on-nav focus-visible:outline-brand-500 xl:border xl:border-nav-line xl:px-3 mob:xl:w-10 mob:xl:border-0 mob:xl:px-0 mob:2xl:w-auto mob:2xl:border mob:2xl:px-3"
         aria-label={`Buscar (${atajo} o /)`}
         title={`Buscar en toda el área: ${atajo} o la tecla /`}
         aria-keyshortcuts="Control+K Meta+K /"
       >
-        <IconoLupa className="h-[22px] w-[22px] transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-125" />
-        <span className="hidden xl:inline">Buscar…</span>
-        <kbd className="hidden rounded border border-nav-line bg-nav-hover px-1.5 font-sans text-xs text-on-nav-suave xl:inline">
+        <IconoLupa className="h-[22px] w-[22px] transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-125 mob:h-5 mob:w-5 mob:group-hover:rotate-0 mob:group-hover:scale-100" />
+        <span className="hidden xl:inline mob:xl:hidden mob:2xl:inline">Buscar…</span>
+        <kbd className="hidden rounded border border-nav-line bg-nav-hover px-1.5 font-sans text-xs text-on-nav-suave xl:inline mob:xl:hidden mob:2xl:inline">
           {atajo}
         </kbd>
       </button>
 
-      {abierto && (
+      {montado && (
         <div
+          data-saliendo={saliendo || undefined}
           className="fixed inset-0 z-50 flex items-start justify-center bg-scrim/40 px-4 pt-[10vh] print:hidden"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) cerrar();

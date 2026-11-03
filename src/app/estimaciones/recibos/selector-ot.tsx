@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePresencia } from "@/lib/ui/use-presencia";
 import { createClient } from "@/lib/supabase/client";
 import {
   claveModelo,
@@ -136,6 +137,7 @@ export function CampoModeloOt({
   className: string;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const { montado, saliendo } = usePresencia(abierto, 150);
   const q = claveModelo(value);
   // Todos los modelos de la OT (la lista se desplaza y se filtra al escribir).
   const opciones = (seleccion.modelos ?? []).filter((m) => coincideModeloConBusqueda(m, value));
@@ -187,8 +189,8 @@ export function CampoModeloOt({
           </p>
         )
       )}
-      {abierto && opciones.length > 0 && (
-        <ul className="anim-menu absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+      {montado && opciones.length > 0 && (
+        <ul data-saliendo={saliendo || undefined} className="anim-menu absolute z-20 mt-1 max-h-64 w-full min-w-64 overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {opciones.map((m) => (
             <li key={`${m.esComponente ? "c" : "m"}|${claveVariante(m.modelo, m.descripcionPm)}`}>
               <button

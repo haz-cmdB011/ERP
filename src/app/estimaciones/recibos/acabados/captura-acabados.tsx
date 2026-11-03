@@ -1,5 +1,6 @@
 "use client";
 
+import Aparece from "@/components/aparece";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SelectMenu from "@/components/select-menu";
@@ -803,8 +804,8 @@ export default function CapturaAcabados({
                 </button>
               </div>
 
-              {!r.colapsado && (
-                <div className={`anim-desplegar grid gap-4 p-4 ${puedeVerSugerido ? "lg:grid-cols-[1.6fr_1fr]" : ""}`}>
+              <Aparece abierto={!r.colapsado}>
+                <div className={`grid gap-4 p-4 ${puedeVerSugerido ? "lg:grid-cols-[1.6fr_1fr]" : ""}`}>
                   {/* campos */}
                   <div className="flex flex-col gap-3">
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1076,7 +1077,7 @@ export default function CapturaAcabados({
                     </div>
                   )}
                 </div>
-              )}
+              </Aparece>
             </section>
           );
         })}

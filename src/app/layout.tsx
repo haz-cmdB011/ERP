@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import Avisos from "@/components/avisos";
 import { SCRIPT_TEMA } from "@/lib/tema";
@@ -7,7 +7,9 @@ import { SCRIPT_APARIENCIA } from "@/lib/apariencia";
 import BarraProgreso from "@/components/barra-progreso";
 import FondoMobiliario from "@/components/fondo-mobiliario";
 import EstadoEnvios from "@/components/estado-envios";
+import SalidasSuaves from "@/components/salidas-suaves";
 
+// Tipografía del estilo clásico (y de "Vidrio").
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -16,6 +18,29 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Tipografía del estilo "Mobiliarium" (mobiliarium.css): Hanken Grotesk para el
+// texto, Newsreader (serif) para títulos y cifras grandes, IBM Plex Mono para
+// folios y códigos. Sin precarga: solo se descargan si alguien usa ese estilo.
+const sans = Hanken_Grotesk({
+  variable: "--font-texto",
+  subsets: ["latin", "latin-ext"],
+  preload: false,
+});
+
+const serif = Newsreader({
+  variable: "--font-titulo",
+  subsets: ["latin", "latin-ext"],
+  axes: ["opsz"],
+  preload: false,
+});
+
+const mono = IBM_Plex_Mono({
+  variable: "--font-codigo",
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -53,7 +78,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     // antes de que React hidrate (el servidor no conoce la preferencia).
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${sans.variable} ${serif.variable} ${mono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -70,6 +95,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <Avisos />
         <EstadoEnvios />
+        <SalidasSuaves />
       </body>
     </html>
   );
