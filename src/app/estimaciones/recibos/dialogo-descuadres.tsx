@@ -38,12 +38,9 @@ export default function DialogoDescuadres({
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
         <div>
           <h2 id="titulo-descuadre" className="text-base font-semibold text-slate-900">
-            No se puede guardar: hay piezas de más
+            No se puede guardar
           </h2>
-          <p className="mt-1 text-sm text-slate-600">
-            No se puede cobrar más que lo que declaró Planeación en el PM. Corrige las cantidades; si el PM
-            está mal, pide a Planeación que lo corrija.
-          </p>
+          <p className="mt-1 text-sm text-slate-600">Supera el límite del PM.</p>
         </div>
 
         {descuadres.map((d) => (
@@ -83,7 +80,7 @@ export default function DialogoDescuadres({
 // El guardado falló porque la base vio un descuadre que la pantalla no (lo
 // registrado del modelo cambió mientras se capturaba, o dos recibos a la vez).
 export function esErrorDeDescuadre(error: string): boolean {
-  return error.includes("no se puede cobrar más que el PM");
+  return error.includes("supera el límite del PM");
 }
 
 export const AVISO_DESCUADRE_CAMBIO =
