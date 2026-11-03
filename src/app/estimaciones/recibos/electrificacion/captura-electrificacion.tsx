@@ -47,7 +47,7 @@ import {
   claveSaldo,
   claveVariante,
   conciliarRenglones,
-  requiereMotivo,
+  bloqueaGuardado,
   saldosDeVariantes,
 } from "@/lib/estimaciones/conciliacion-pm";
 import DialogoDescuadres, {
@@ -385,7 +385,7 @@ export default function CapturaElectrificacion({
   const [avisoDescuadre, setAvisoDescuadre] = useState(false);
   const descuadres: Descuadre[] = renglones.flatMap((r, i) => {
     const c = conciliaciones[i];
-    return c && requiereMotivo(c)
+    return c && bloqueaGuardado(c)
       ? [
           {
             id: r.id,
@@ -393,7 +393,6 @@ export default function CapturaElectrificacion({
             modelo: r.modelo,
             conciliacion: c,
             registrada: saldos.get(claveSaldo(r, saldos))?.cantidadRegistrada ?? 0,
-            motivo: r.motivoDescuadre,
           },
         ]
       : [];
@@ -504,7 +503,7 @@ export default function CapturaElectrificacion({
         nota: r.nota,
         // Solo viaja en los renglones que lo necesitan (uno que ya cuadra no
         // debe dejar un motivo viejo).
-        motivoDescuadre: requiereMotivo(conciliaciones[i]) ? r.motivoDescuadre : "",
+        motivoDescuadre: "",
       });
     });
 
@@ -514,8 +513,8 @@ export default function CapturaElectrificacion({
     }
 
     // Recién al guardar se avisa si las cantidades no concuerdan con el PM y
-    // se pide el motivo, que revisará el administrador de Estimaciones.
-    if (descuadres.some((d) => !d.motivo.trim())) {
+    // no se guarda: el PM es el tope.
+    if (descuadres.length > 0) {
       setAvisoDescuadre(true);
       return;
     }
@@ -589,9 +588,6 @@ export default function CapturaElectrificacion({
           ? `Recibo parcial: ${parciales
               .map((p) => `${p.modelo} lleva ${p.acumulada} de ${p.cantidadPm} pz declaradas`)
               .join("; ")}.`
-          : "",
-        descuadres.length > 0
-          ? "⚠ Hay renglones cuya cantidad supera lo declarado en los PM de la OT: se envió el motivo al administrador de Estimaciones para que lo acepte o lo rechace."
           : "",
         "Generando el PDF del recibo…",
         reciboExistente ? "" : "El formulario quedó listo para otro recibo (se conservan fecha, obra y OT).",
@@ -1402,12 +1398,7 @@ export default function CapturaElectrificacion({
           descuadres={descuadres}
           ot={ot}
           detalleModelos=" con iluminación"
-          onMotivo={(id, motivo) => actualizar(id, { motivoDescuadre: motivo })}
           onCerrar={() => setAvisoDescuadre(false)}
-          onConfirmar={() => {
-            setAvisoDescuadre(false);
-            void guardar();
-          }}
         />
       )}
     </main>

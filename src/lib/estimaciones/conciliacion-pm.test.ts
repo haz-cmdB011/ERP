@@ -7,7 +7,7 @@ import {
   claveVariante,
   conciliarRenglones,
   coincideModeloConBusqueda,
-  requiereMotivo,
+  bloqueaGuardado,
   saldosDeVariantes,
   type SaldoModeloPm,
 } from "./conciliacion-pm";
@@ -94,7 +94,7 @@ describe("conciliarRenglones", () => {
   it("capturar de menos está bien: entregas parciales", () => {
     const r = conciliarRenglones([{ modelo: "MS-01", cantidad: 4 }], new Map([[claveModelo("MS-01"), saldo(10)]]));
     expect(r).toEqual([{ estado: "dentro", cantidadPm: 10, acumulada: 4 }]);
-    expect(requiereMotivo(r[0])).toBe(false);
+    expect(bloqueaGuardado(r[0])).toBe(false);
   });
 
   it("igualar el PM con lo ya registrado en otros recibos está bien", () => {
@@ -105,7 +105,7 @@ describe("conciliarRenglones", () => {
   it("pasarse del PM exige motivo, con lo que sobra", () => {
     const r = conciliarRenglones([{ modelo: "MS-01", cantidad: 8 }], new Map([[claveModelo("MS-01"), saldo(10, 4)]]));
     expect(r[0]).toEqual({ estado: "excede", cantidadPm: 10, acumulada: 12, excedente: 2 });
-    expect(requiereMotivo(r[0])).toBe(true);
+    expect(bloqueaGuardado(r[0])).toBe(true);
   });
 
   it("como la base, solo exige motivo desde el renglón donde se pasa", () => {
@@ -117,14 +117,14 @@ describe("conciliarRenglones", () => {
       ],
       new Map([[claveModelo("MS-01"), saldo(10)]])
     );
-    expect(r.map(requiereMotivo)).toEqual([false, false, true]);
+    expect(r.map(bloqueaGuardado)).toEqual([false, false, true]);
     expect(r[2]).toMatchObject({ acumulada: 11, excedente: 1 });
   });
 
   it("un modelo que no está en el PM exige motivo", () => {
     const r = conciliarRenglones([{ modelo: "XX-9", cantidad: 1 }], new Map([[claveModelo("MS-01"), saldo(10)]]));
     expect(r[0]).toEqual({ estado: "sin_modelo_en_pm" });
-    expect(requiereMotivo(r[0])).toBe(true);
+    expect(bloqueaGuardado(r[0])).toBe(true);
   });
 
   it("los reprocesos y los renglones sin modelo no se concilian ni gastan saldo", () => {

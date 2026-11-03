@@ -15,7 +15,7 @@ import {
   claveSaldo,
   conciliarRenglones,
   saldosDeVariantes,
-  requiereMotivo,
+  bloqueaGuardado,
 } from "@/lib/estimaciones/conciliacion-pm";
 import {
   ACABADOS,
@@ -370,7 +370,7 @@ export default function CapturaAcabados({
   }, [otElegida, modelosOt, renglones, saldos]);
   const descuadres: Descuadre[] = renglones.flatMap((r, i) => {
     const c = conciliaciones[i];
-    return c && requiereMotivo(c)
+    return c && bloqueaGuardado(c)
       ? [
           {
             id: r.id,
@@ -378,7 +378,6 @@ export default function CapturaAcabados({
             modelo: r.modelo,
             conciliacion: c,
             registrada: saldos.get(claveSaldo(r, saldos))?.cantidadRegistrada ?? 0,
-            motivo: r.motivoDescuadre,
           },
         ]
       : [];
@@ -488,7 +487,7 @@ export default function CapturaAcabados({
         justificacion: justificacionFinal,
         nota: r.nota,
         // Solo en los renglones que no concuerdan con el PM.
-        motivoDescuadre: requiereMotivo(conciliaciones[i]) ? r.motivoDescuadre : "",
+        motivoDescuadre: "",
       });
     });
 
@@ -498,8 +497,8 @@ export default function CapturaAcabados({
     }
 
     // Recién al guardar se avisa si hay piezas que no concuerdan con el PM y
-    // se pide el motivo, que revisará el administrador de Estimaciones.
-    if (descuadres.some((d) => !d.motivo.trim())) {
+    // no se guarda: el PM es el tope.
+    if (descuadres.length > 0) {
       setAvisoDescuadre(true);
       return;
     }
@@ -571,9 +570,6 @@ export default function CapturaAcabados({
         sombras ? `${sombras} con estimado de nivel 3 guardado en sombra para calibrar.` : "",
         !puedeVerSugerido
           ? "Queda pendiente de revisión: el personal de Estimaciones acepta o modifica cada precio antes del pago."
-          : "",
-        descuadres.length > 0
-          ? "⚠ Hay piezas que no concuerdan con el PM: se envió el motivo al administrador de Estimaciones, y el recibo no se puede pagar hasta que lo decida."
           : "",
         "Generando el PDF del recibo…",
       ].filter(Boolean),
@@ -1291,12 +1287,7 @@ export default function CapturaAcabados({
         <DialogoDescuadres
           descuadres={descuadres}
           ot={ot}
-          onMotivo={(id, texto) => actualizar(id, { motivoDescuadre: texto })}
           onCerrar={() => setAvisoDescuadre(false)}
-          onConfirmar={() => {
-            setAvisoDescuadre(false);
-            void guardar();
-          }}
         />
       )}
     </main>

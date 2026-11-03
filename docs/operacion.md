@@ -129,7 +129,7 @@ update public.ajustes_flujo set activo = true, actualizado_en = now()
 
 Calidad revisa el mueble completo y no cada proceso, así que en Estimaciones "Listo para cobrar" y el aviso
 de "cobrado de más" al revisar un recibo se miden contra lo que **Producción verificó** al registrar la
-entrega (ajuste `cobro_segun_produccion`, encendido desde el 20 oct 2026). Lo que aprobó Calidad se sigue
+entrega (ajuste `cobro_segun_produccion`, encendido desde el 20 oct 2026 y **apagado el 3 nov 2026**: hoy manda lo que aprobó Calidad, y la base no deja guardar un recibo que cobre más que el PM ni más que lo aprobado). Lo que aprobó Calidad se sigue
 mostrando en gris, solo como dato. Un componente se da por liberado en la misma proporción que su mueble.
 
 Si se decide que vuelva a mandar Calidad, apagarlo desde el SQL Editor (con `true` regresa a Producción):

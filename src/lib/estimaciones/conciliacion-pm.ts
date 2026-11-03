@@ -7,8 +7,8 @@
 // OT), lo ya registrado en otros recibos
 // vigentes del área más lo capturado hasta ese renglón no debe superar lo
 // declarado. Capturar de menos está bien (entregas parciales). Los reprocesos
-// no cuentan. Esto solo adelanta el aviso para pedir el motivo antes de
-// guardar; la base sigue siendo quien lo exige.
+// no cuentan. Esto solo adelanta el aviso antes de guardar (no hay motivo que
+// valga: el PM es el tope); la base sigue siendo quien lo exige.
 
 const CON_ACENTO = "áéíóúüÁÉÍÓÚÜ";
 const SIN_ACENTO = "aeiouuAEIOUU";
@@ -184,7 +184,7 @@ export function conciliarRenglones(
   });
 }
 
-// ¿Este resultado exige motivo? (lo mismo que hace fallar al trigger).
-export function requiereMotivo(c: EstadoConciliacion | null): boolean {
+// ¿Este resultado impide guardar? (lo mismo que hace fallar al trigger).
+export function bloqueaGuardado(c: EstadoConciliacion | null): boolean {
   return c !== null && c.estado !== "dentro";
 }
