@@ -29,6 +29,14 @@ function paraLote(m: MuebleFlujo): MuebleParaLote {
 
 const tieneTrabajo = (m: MuebleParaLote) => PROCESOS.some((p) => m.disponible[p] > 0);
 
+// Cada nivel ocupa el ancho completo del anterior (nada se corre a la derecha al abrirlo) y su
+// profundidad se marca con el tono del encabezado, un paso más gris por nivel.
+const TONO = {
+  cliente: "bg-white hover:bg-brand-50",
+  ot: "bg-slate-50 hover:bg-brand-50",
+  pm: "bg-slate-100 hover:bg-brand-50",
+};
+
 // Los controles de un encabezado no deben desplegar/contraer su bloque.
 const sinToggle = (e: React.MouseEvent) => e.stopPropagation();
 
@@ -138,7 +146,7 @@ export default function PanelAsignacion({
           <section key={c.cliente} className="overflow-hidden rounded-xl border border-slate-200 bg-white/50">
             <div
               onClick={alternarCliente}
-              className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-brand-50 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3"
+              className={`flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3 transition-colors ${TONO.cliente}`}
             >
               <BotonDesplegar
                 abierto={abiertoCliente}
@@ -154,7 +162,7 @@ export default function PanelAsignacion({
             </div>
 
             {abiertoCliente && (
-              <div className="anim-desplegar flex flex-col gap-2 border-t border-slate-100 p-1.5 sm:gap-3 sm:p-3">
+              <div className="anim-desplegar divide-y divide-slate-200 border-t border-slate-200">
                 {c.filas.map((g) => (
                   <GrupoOt
                     key={claveOt(g)}
@@ -171,13 +179,10 @@ export default function PanelAsignacion({
                         ? { equipos, encargados, numeroPedido: pm.numeroPm }
                         : null;
                       return (
-                        <article
-                          key={pm.pedidoId}
-                          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-                        >
+                        <article key={pm.pedidoId} className="bg-white">
                           <div
                             onClick={alternarPm}
-                            className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-2.5 py-2 transition-colors hover:bg-brand-50 sm:gap-x-3 sm:gap-y-1 sm:px-3 sm:py-2.5"
+                            className={`flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-2.5 py-2 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-2.5 transition-colors ${TONO.pm}`}
                           >
                             <BotonDesplegar
                               abierto={pmAbierta}
@@ -244,10 +249,10 @@ function GrupoOt({
 }) {
   const nombreOt = g.ot ? `la O.T. ${g.ot}` : "los PM sin O.T.";
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section className="bg-white">
       <div
         onClick={alternar}
-        className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-brand-50 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3"
+        className={`flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2.5 sm:gap-x-3 sm:gap-y-1 sm:px-4 sm:py-3 transition-colors ${TONO.ot}`}
       >
         <BotonDesplegar
           abierto={abierta}
@@ -263,9 +268,7 @@ function GrupoOt({
       </div>
 
       {abierta && (
-        <div className="anim-desplegar flex flex-col gap-1.5 border-t border-slate-100 bg-slate-50/60 py-1.5 pr-1.5 pl-1.5 sm:gap-2 sm:py-3 sm:pr-3 sm:pl-6">
-          {children}
-        </div>
+        <div className="anim-desplegar divide-y divide-slate-200 border-t border-slate-200">{children}</div>
       )}
     </section>
   );

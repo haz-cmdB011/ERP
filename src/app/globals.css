@@ -5,7 +5,7 @@
 @import "./acentos.css";
 
 :root {
-  --background: #ffffff;
+  --background: #e9edf2;
   --foreground: #171717;
   /* Barra superior y pantallas de marca: siempre verde oscuro, con la marca en
      verde. El estilo "Vidrio" la sobrescribe con --vidrio-nav-*. */
@@ -95,12 +95,12 @@
    haya elegido tema (data-tema en <html>). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --background: #0a0a0a;
+    --background: #05070b;
     --foreground: #ededed;
   }
 }
 :root[data-tema="oscuro"] {
-  --background: #0a0a0a;
+  --background: #05070b;
   --foreground: #ededed;
 }
 
@@ -814,5 +814,53 @@ html.transicion-tema *::after {
   th > input[type="checkbox"],
   li > label > input[type="checkbox"] {
     outline-offset: 6px;
+  }
+}
+
+/* Tarjetas sobre el fondo. La página tiene su propio tono (--background: gris azulado en claro,
+   casi negro en oscuro; en "Vidrio", la hoja de planos) y las tarjetas van en otro: el blanco
+   del tema (--color-white, que en oscuro es el azul noche de las tarjetas). Los recuadros que
+   solo traen borde (tablas, formularios, listas...) se rellenan igual para que no dejen ver el
+   fondo. Todo en :where() para que bg-*, hover: y focus: sigan ganando; en "Vidrio" ya los
+   rellena vidrio.css. " bg-" con espacio: hover:bg-... no cuenta como fondo propio. */
+@layer utilities {
+  @media screen {
+    :where(
+        :root:not([data-estilo="vidrio"])
+          :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
+      ) {
+      background-color: var(--color-white);
+    }
+    /* Título de cada pantalla (en el bloque hijo directo de <main> con border-b border-slate-200
+       pb-4): resaltado con el color de la marca y sin la barra de acento. */
+    :where(main) > div.border-b.border-slate-200.pb-4 h1 {
+      width: fit-content;
+      border-radius: var(--radius-lg);
+      padding: 0.125rem 0.625rem;
+      background-color: var(--color-brand-500);
+      color: var(--color-on-brand);
+    }
+    :where(main) > div.border-b.border-slate-200.pb-4 h1::before {
+      display: none;
+    }
+    /* La tabla de Usuarios (panel-vidrio) no tiene marco propio: aquí, una tarjeta. */
+    :where(:root:not([data-estilo="vidrio"])) .panel-vidrio {
+      border: 1px solid var(--color-slate-200);
+      border-radius: var(--radius-xl);
+      background-color: var(--color-white);
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    /* Tarjetas de blanco translúcido: pensadas para una página blanca, sobre el fondo con tono
+       quedarían apenas más claras que él. */
+    :where(:root:not([data-estilo="vidrio"])) :is(.bg-white\/50, .bg-white\/60, .bg-white\/70) {
+      background-color: var(--color-white);
+    }
+  }
+}
+/* Al imprimir, la página va siempre en blanco. */
+@media print {
+  body {
+    background: #fff;
   }
 }

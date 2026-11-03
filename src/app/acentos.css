@@ -23,8 +23,9 @@
   }
 
   /* Filas de las tablas: al señalarlas, una barra de la marca a la izquierda. Las filas
-     que ya traen su propia franja de color (border-l-*) no la llevan. */
-  :where(main) tbody > tr:hover > td:first-child:not([class*="border-l-"]) {
+     que ya traen su propia franja de color (border-l-*) no la llevan, ni las tablas con
+     data-sin-barra en su tbody (Usuarios: ahí la fila se tiñe con el color del rol). */
+  :where(main) tbody:not([data-sin-barra]) > tr:hover > td:first-child:not([class*="border-l-"]) {
     box-shadow: inset 3px 0 0 var(--color-brand-500);
   }
 

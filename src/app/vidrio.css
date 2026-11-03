@@ -59,7 +59,7 @@
   /* Hoja de planos del fondo: --fondo-1 tiñe el papel, --fondo-2 son los
      trazos de los muebles y --fondo-3 las cotas. En modo oscuro el papel se
      vuelve azul noche y los trazos se aclaran (abajo). */
-  --fondo-papel: color-mix(in oklab, var(--fondo-1) 9%, #f4f3ee);
+  --fondo-papel: color-mix(in oklab, var(--fondo-1) 9%, #e5e7e0);
   --fondo-trazo: color-mix(in oklab, var(--fondo-2) 78%, #111);
   --fondo-cota: color-mix(in oklab, var(--fondo-3) 80%, #111);
   --fondo-op-trazo: 0.42;

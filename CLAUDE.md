@@ -180,7 +180,7 @@ es que el Armado con solo el modelo es el del mueble completo (el ensamble) y co
 **muebles recientes** (un recuadro por modelo, esté en uno o en varios PM, en un carrusel de tres en tres,
 `carrusel-modelos.tsx`, con anillos concéntricos por estado,
 sus O.T. de tres en tres y el nombre que abre el panel de asignación), lo que tiene cada equipo en taller y las O.T. con
-pendientes (5 a la vista, "Ver más" despliega el resto); lo más reciente primero (las O.T., por fecha de subida del PM; los muebles recientes, los 30 con el
+pendientes (4 a la vista, "Ver más" despliega el resto); lo más reciente primero (las O.T., por su último movimiento, como los muebles; los muebles recientes, los 30 con el
 último movimiento: subida del PM, liberación, asignación o entrega). Cuenta
 muebles padre vigentes: los liberados con el estado del panel de asignación (`cargarMueblesDePanel`) y los por liberar.
 Lógica en `src/lib/produccion/inicio.ts`, lectura en `inicio-db.ts`.

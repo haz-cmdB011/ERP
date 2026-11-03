@@ -583,8 +583,7 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
     <div className="flex flex-col gap-1.5 text-xs">
       <div className="flex items-center justify-between gap-2">
         <p className="font-semibold text-slate-700">
-          Despiece ({partes.length} partes){" "}
-          <span className="font-normal text-slate-500">· cada parte con su ruta, en sus piezas; asigna con el +</span>
+          Despiece ({partes.length} partes)
         </p>
         {/* El despiece se hace en el carrito; aquí solo se corrige si hace falta. */}
         {asignar && (
