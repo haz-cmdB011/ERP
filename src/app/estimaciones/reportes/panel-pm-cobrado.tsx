@@ -75,7 +75,7 @@ export default function PanelPmCobrado({
 
       {error && (
         <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-          No se pudo cargar el PM contra cobrado: {error}
+          No se pudo cargar el PM de Producción contra cobrado: {error}
         </p>
       )}
 
