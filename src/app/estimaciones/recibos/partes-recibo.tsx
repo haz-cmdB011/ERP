@@ -106,8 +106,13 @@ export function CabeceraRenglon({
       role="button"
       tabIndex={0}
       aria-expanded={!colapsado}
-      onClick={onAlternar}
+      onClick={(e) => {
+        // Un clic en la zona de la X nunca contrae ni despliega.
+        if ((e.target as HTMLElement).closest("[data-quitar]")) return;
+        onAlternar();
+      }}
       onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onAlternar();
@@ -144,13 +149,14 @@ export function CabeceraRenglon({
       </span>
       <button
         type="button"
+        data-quitar
         onClick={(e) => {
           e.stopPropagation();
           onQuitar();
         }}
         aria-label={`Quitar el renglón ${numero}`}
         title="Quitar renglón"
-        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-2 focus-visible:outline-brand-600"
+        className="-my-2 -mr-2 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-2 focus-visible:outline-brand-600"
       >
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" className="h-4 w-4" aria-hidden>
           <path d="M5 5l10 10M15 5L5 15" />
