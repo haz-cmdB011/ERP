@@ -11,6 +11,8 @@ export interface Descuadre {
   // Lo ya registrado del modelo en otros recibos del área.
   registrada: number;
   motivo: string;
+  // Un reproceso se compara con el retrabajo que reasignó Producción, no con el PM.
+  reproceso?: boolean;
 }
 
 // Al guardar un recibo con renglones que no concuerdan con el PM (modelo que no
@@ -58,9 +60,21 @@ export default function DialogoDescuadres({
           <div key={d.id} className="rounded-lg border border-amber-300 bg-amber-50 p-3">
             <p className="text-sm font-semibold text-amber-900">
               Renglón #{d.num} · <span className="font-mono">{d.modelo || "sin modelo"}</span>
+              {d.reproceso ? " (reproceso)" : ""}
             </p>
             <p className="mt-0.5 text-xs text-amber-900">
-              {d.conciliacion.estado === "sin_modelo_en_pm" ? (
+              {d.reproceso && d.conciliacion.estado === "excede" ? (
+                d.conciliacion.cantidadPm === 0 ? (
+                  `Producción no reasignó este modelo como retrabajo en la OT ${ot}: un reproceso solo se cobra si Calidad lo rechazó y Producción lo volvió a asignar.`
+                ) : (
+                  <>
+                    Producción reasignó <b>{d.conciliacion.cantidadPm} pz</b> como retrabajo; con este
+                    reproceso van <b>{d.conciliacion.acumulada} pz</b>
+                    {d.registrada > 0 ? ` (${d.registrada} ya cobradas en otros recibos)` : ""}, sobran{" "}
+                    {d.conciliacion.excedente}.
+                  </>
+                )
+              ) : d.conciliacion.estado === "sin_modelo_en_pm" ? (
                 `Este modelo no está entre los modelos${detalleModelos} de la OT ${ot}.`
               ) : d.conciliacion.estado === "excede" ? (
                 <>

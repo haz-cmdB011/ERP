@@ -193,14 +193,15 @@ function aRenglones(props: Props): RenglonRevision[] {
     numero: r.numero,
     modelo: r.modelo,
     variante: primeraLinea(r.descripcionPm),
-    descripcion:
-      tipo === "armado"
+    // Un reproceso va primero, con su causa: con ella se decide cuánto pagar.
+    descripcion: [
+      r.tipoTrabajo === "reproceso" && `Reproceso (${r.causa || "sin causa"})`,
+      ...(tipo === "armado"
         ? [r.familia, r.tipoArmado, r.colocacionHerrajes ? "con herrajes" : "sin herrajes"]
-            .filter(Boolean)
-            .join(" · ")
-        : [r.familia, r.acabado, r.acabado2 && `2º ${r.acabado2}`, r.tamano]
-            .filter(Boolean)
-            .join(" · "),
+        : [r.familia, r.acabado, r.acabado2 && `2º ${r.acabado2}`, r.tamano]),
+    ]
+      .filter(Boolean)
+      .join(" · "),
     cantidad: r.cantidad,
     propuesto: r.propuesto,
     aceptado: r.aceptado,

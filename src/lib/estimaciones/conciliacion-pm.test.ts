@@ -6,11 +6,67 @@ import {
   claveSaldo,
   claveVariante,
   conciliarRenglones,
+  conciliarReprocesos,
   coincideModeloConBusqueda,
   requiereMotivo,
   saldosDeVariantes,
+  saldosReproceso,
   type SaldoModeloPm,
 } from "./conciliacion-pm";
+
+describe("reprocesos contra el retrabajo que reasignó Producción", () => {
+  const mesa = {
+    modelo: "M-RED",
+    descripcionPm: "MESA REDONDA",
+    cantidadPm: 10,
+    cantidadRegistrada: 0,
+    reprocesoAsignado: 3,
+    reprocesoRegistrado: 1,
+  };
+  const tabla = {
+    modelo: "M-RED",
+    descripcionPm: "TABLA",
+    cantidadPm: 30,
+    cantidadRegistrada: 0,
+    esComponente: true,
+    reprocesoAsignado: null,
+    reprocesoRegistrado: 0,
+  };
+  const saldos = saldosReproceso([mesa, tabla]);
+  const rep = (cantidad: number, descripcionPm: string | null = "MESA REDONDA") => ({
+    modelo: "M-RED",
+    descripcionPm,
+    cantidad,
+    reproceso: true,
+  });
+
+  it("dentro de lo reasignado no pide motivo; contando lo ya cobrado, sí", () => {
+    expect(conciliarReprocesos([rep(2)], saldos)[0]).toEqual({ estado: "dentro", cantidadPm: 3, acumulada: 3 });
+    expect(conciliarReprocesos([rep(3)], saldos)[0]).toEqual({
+      estado: "excede",
+      cantidadPm: 3,
+      acumulada: 4,
+      excedente: 1,
+    });
+  });
+
+  it("sin retrabajo reasignado, cualquier reproceso pide motivo", () => {
+    const [c] = conciliarReprocesos([rep(1, "TABLA")], saldos);
+    expect(requiereMotivo(c)).toBe(true);
+    expect(c).toMatchObject({ cantidadPm: 0 });
+  });
+
+  it("los renglones del mismo recibo se acumulan y uno sin variante va por código", () => {
+    const [a, b] = conciliarReprocesos([rep(1), rep(1, null)], saldos);
+    expect(a).toMatchObject({ estado: "dentro", acumulada: 2 });
+    // Código: 3 reasignadas, 1 ya cobrada + 1 + 1 de este recibo.
+    expect(b).toMatchObject({ estado: "dentro", cantidadPm: 3, acumulada: 3 });
+  });
+
+  it("un renglón de producción no se concilia aquí", () => {
+    expect(conciliarReprocesos([{ ...rep(5), reproceso: false }], saldos)).toEqual([null]);
+  });
+});
 
 const saldo = (cantidadPm: number, cantidadRegistrada = 0): SaldoModeloPm => ({
   cantidadPm,

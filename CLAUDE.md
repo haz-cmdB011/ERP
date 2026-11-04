@@ -306,7 +306,12 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
 - **Componentes (hijos)**: salen como filas aparte bajo su mueble y el campo "Modelo" del recibo de
   Acabados/Armado también los ofrece (`CampoModeloOt`). Un recibo puede cobrar un componente suelto y se
   compara contra la cantidad de ese componente: el trigger `est_conciliar_renglon_pm` no cambió, solo
-  `cantidad_pm_variante` los incluye. Electrificación sigue solo con padres, pero cuenta los que llevan iluminación o electrificación en él o en sus componentes (`admite_electrificacion`, migración `electrificacion_estimaciones_por_componentes`). El saldo por
+  `cantidad_pm_variante` los incluye. **Si Producción guardó un despiece que no es el sugerido**
+  (`igual_a_sugerencia` = false), los componentes de ese mueble son sus partes (piezas por mueble ×
+  cantidad del mueble en el PM) en vez de los hijos del PM; una parte ligada a un hijo conserva la
+  descripción del hijo (`componentes_recibo_ot`, migración `recibos_segun_despiece`). El reporte usa la misma
+  regla: en pantalla es **"PM de Producción contra cobrado"** (migración `pm_cobrado_segun_despiece`; la ruta
+  y la función siguen siendo `pm-cobrado` y `ot_contra_cobrado`). Electrificación sigue solo con padres, pero cuenta los que llevan iluminación o electrificación en él o en sus componentes (`admite_electrificacion`, migración `electrificacion_estimaciones_por_componentes`). El saldo por
   código (`cantidad_pm_ot`, `saldosDeVariantes`) NO suma componentes.
 - **"Calidad aprobó" por área** (`aprobado_calidad_variante`, interna): barniz → Acabados y armado → Armado, de
   lotes de equipos que no son de planta (la planta no cobra recibo); en un componente, su último informe (todo
@@ -323,6 +328,12 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   (`recibo_contra_calidad`, que trae lo aprobado y lo verificado; `src/app/estimaciones/calidad-recibo.tsx`): es
   un aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece al liberarse.
 - No cubre el doble cobro (el mueble y también sus componentes por el mismo trabajo): salen juntos en pantalla.
+- **Reprocesos** (migración `reprocesos_segun_produccion`): no gastan saldo del PM; se comparan contra el
+  retrabajo que **Producción reasignó** tras un rechazo de Calidad (asignaciones con `informe_rechazo_id` o
+  `revision_final_rechazo_id`, equipos que no son de planta, proceso del área; `retrabajo_recibo_ot`), en las
+  mismas unidades (mueble o piezas de la parte). Pasarse, o cobrar reproceso sin retrabajo, pide motivo y deja
+  una discrepancia `es_reproceso`. La causa es obligatoria (`renglones_causa_reproceso_check`) y la revisión
+  la muestra junto al renglón.
 - **Recibos por llegar** (panel de Estimaciones y `/estimaciones/por-llegar`, solo quien revisa recibos): lo que
   **Calidad aprobó** y aún no se cobra, por área (Acabados, Armado), con base Calidad siempre (el maquilador solo
   cobra lo aprobado), aunque `cobro_segun_produccion` esté encendido. "Calidad aprobó" incluye la revisión final

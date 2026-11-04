@@ -4,8 +4,9 @@
 // haga, el sistema le propone un despiece armado con los componentes (ítems
 // hijo) que Planeación puso en el PM. La sugerencia nunca se guarda sola: es
 // solo el punto de partida. Lo que guarda el trabajador queda en
-// despieces_produccion (ver la migración despiece_produccion) y no cambia el PM
-// ni los recibos.
+// despieces_produccion (ver la migración despiece_produccion) y no cambia el PM.
+// Si no es el sugerido, los recibos cobran sus partes en vez de los hijos del PM
+// (migración recibos_segun_despiece).
 //
 // Cada línea dice cuántas piezas lleva UN mueble; para varios muebles se
 // multiplica por la cantidad del padre (totalLinea).
