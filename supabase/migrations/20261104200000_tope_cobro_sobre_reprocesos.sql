@@ -14,7 +14,9 @@
 -- Un reproceso queda como en reprocesos_segun_produccion: no gasta saldo del PM,
 -- se mide contra el retrabajo que Producción reasignó y, si se pasa, pide motivo y
 -- deja una discrepancia. Electrificación solo tiene el tope del PM (Calidad no la
--- compara).
+-- compara). Los componentes de un mueble con despiece propio (partes del despiece)
+-- no se comparan pieza por pieza con Calidad, que solo aprueba hijos del PM: ver el
+-- comentario en el cuerpo.
 
 create or replace function public.est_conciliar_renglon_pm()
 returns trigger
@@ -33,6 +35,8 @@ declare
   v_reproceso boolean := false;
   v_en_variante boolean := false;
   v_aprobado numeric;
+  v_filas_padre integer;
+  v_filas_total integer;
 begin
   if tg_table_name = 'renglones_electrificacion' then
     v_area := 'electrificacion';
@@ -107,14 +111,57 @@ begin
 
   -- 2. Tope de lo que Calidad aprobó (Acabados y Armado).
   if v_area in ('acabados', 'armado') then
-    select case v_area when 'acabados' then sum(a.aprobado_acabados) else sum(a.aprobado_armado) end
-      into v_aprobado
+    select case v_area when 'acabados' then sum(a.aprobado_acabados) else sum(a.aprobado_armado) end,
+           count(*) filter (where not a.componente),
+           count(*)
+      into v_aprobado, v_filas_padre, v_filas_total
       from public.aprobado_calidad_variante(v_ot) a
       where a.clave = public.norm_modelo(new.modelo)
         and (
           (v_en_variante and a.vclave = public.norm_descripcion(new.descripcion_pm))
           or (not v_en_variante and not a.componente)
         );
+
+    -- Un componente de un mueble con despiece propio sale de las partes del
+    -- despiece (componentes_recibo_ot), pero Calidad solo aprueba los hijos del
+    -- PM, enteros y por su cantidad. Ahí no se puede comparar pieza por pieza:
+    -- una parte sin hijo no se evalúa por separado (solo rige el tope del PM) y
+    -- una con hijo cuenta si Calidad le aprobó algo.
+    if v_en_variante and v_filas_padre = 0
+      -- Es un componente de la OT (no un mueble padre, que sí debe pasar por Calidad)...
+      and exists (
+        select 1 from public.componentes_recibo_ot(v_ot) c
+        where public.norm_modelo(c.modelo) = public.norm_modelo(new.modelo)
+          and public.norm_descripcion(c.descripcion) = public.norm_descripcion(new.descripcion_pm)
+      )
+      and not exists (
+        select 1
+        from public.planeacion_items pi
+        join public.pedido_versiones pv on pv.id = pi.pedido_version_id and pv.es_version_activa
+        join public.pedidos p on p.id = pv.pedido_id
+        where pi.tipo_registro = 'MO' and pi.parent_item_id is null
+          and p.eliminado_en is null and p.eliminado_definitivo_en is null
+          and public.ot_clave(p.numero_pedido) = v_ot
+          and public.norm_modelo(pi.modelo) = public.norm_modelo(new.modelo)
+          and public.norm_descripcion(pi.descripcion) = public.norm_descripcion(new.descripcion_pm)
+      )
+      -- ...y la OT tiene algún mueble con despiece propio.
+      and exists (
+        select 1
+        from public.despieces_produccion d
+        join public.planeacion_items pa on pa.id = d.planeacion_item_id
+        join public.pedido_versiones pv on pv.id = pa.pedido_version_id and pv.es_version_activa
+        join public.pedidos p on p.id = pv.pedido_id
+        where not d.igual_a_sugerencia
+          and p.eliminado_en is null and p.eliminado_definitivo_en is null
+          and public.ot_clave(p.numero_pedido) = v_ot
+      )
+    then
+      if v_filas_total = 0 or coalesce(v_aprobado, 0) > 0 then
+        return new;
+      end if;
+    end if;
+
     if coalesce(v_aprobado, 0) < v_acumulada then
       raise exception 'Renglón %: no se puede, Calidad solo tiene % pz aprobadas.', new.numero, coalesce(v_aprobado, 0);
     end if;
