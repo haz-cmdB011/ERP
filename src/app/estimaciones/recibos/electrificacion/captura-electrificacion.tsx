@@ -66,6 +66,14 @@ import { useBorradorRecibo } from "../use-borrador-recibo";
 import AvisoBorrador from "../aviso-borrador";
 import AvisoHistorico from "../aviso-historico";
 import AvisosCaptura from "../avisos-captura";
+import {
+  BandaCobro,
+  CabeceraRenglon,
+  CLASE_AGREGAR_RENGLON,
+  CLASE_FOLIO,
+  Paso,
+  TituloPiezas,
+} from "../partes-recibo";
 
 interface Charola {
   drivers: number | "";
@@ -614,7 +622,7 @@ export default function CapturaElectrificacion({
   }
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-6 pb-28">
+    <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-5 p-4 pb-28 sm:p-6 sm:pb-28">
       {borrador.pendiente && (
         <AvisoBorrador
           guardadoEn={borrador.pendiente.guardadoEn}
@@ -623,39 +631,42 @@ export default function CapturaElectrificacion({
         />
       )}
       {historicoFallo && <AvisoHistorico />}
-      {!puedeVerSugerido && (
-        <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
-          Captura tu precio propuesto para cada renglón. El personal de Estimaciones lo revisa
-          (acepta o modifica) y el recibo se paga una vez revisado. Consulta el estado en Mis
-          recibos.
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            {reciboExistente
-              ? `Modificar recibo ${reciboExistente.folio}`
-              : "Recibo de Electrificación"}
-          </h1>
-          {reciboExistente && (
-            <p className="mt-1 text-sm text-slate-500">Al guardar se reemplazan los renglones de este recibo.</p>
-          )}
-        </div>
-        {puedeVerSugerido && (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            Tarifas sin calibrar
-          </span>
-        )}
-      </div>
-
-      {/* ---------- Encabezado del recibo ---------- */}
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <label className="flex flex-col gap-1">
-            <span className={ETIQUETA}>Folio</span>
+      {/* ---------- Encabezado del recibo: la nota que se entrega en taller ---------- */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-dashed border-slate-300 p-5 sm:p-6">
+          <div className="min-w-0 max-w-lg flex-1">
+            <h1 className="font-serif text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+              {reciboExistente
+                ? `Modificar recibo ${reciboExistente.folio}`
+                : "Recibo de Electrificación"}
+            </h1>
+            {reciboExistente ? (
+              <p className="mt-2 text-sm text-slate-600">Al guardar se reemplazan los renglones de este recibo.</p>
+            ) : (
+              !puedeVerSugerido && (
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  Anota cada pieza que trabajaste y el precio que propones. Estimaciones lo acepta o lo ajusta, y el recibo se
+                  paga una vez revisado; su estado sale en Mis recibos.
+                </p>
+              )
+            )}
+            {contratistaFijo && (
+              <p className="mt-3 text-sm text-slate-600">
+                A nombre de <strong className="font-semibold text-slate-900">{contratista}</strong>
+              </p>
+            )}
+            {puedeVerSugerido && (
+              <span className="mt-3 inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                Tarifas sin calibrar
+              </span>
+            )}
+          </div>
+          {/* Folio como sello: es con lo que se busca el recibo después. */}
+          <label className="flex w-full flex-col gap-1 sm:w-48">
+            <span className="text-sm font-medium text-slate-600">Folio</span>
             <input
-              className={`${CONTROL} font-mono ${reciboExistente ? "bg-slate-50 text-slate-600" : ""}`}
+              className={`${CLASE_FOLIO} ${reciboExistente ? "bg-slate-50 text-slate-600" : ""}`}
+              placeholder="0000"
               value={folio}
               readOnly={!!reciboExistente}
               onChange={(e) => {
@@ -665,42 +676,75 @@ export default function CapturaElectrificacion({
               }}
             />
           </label>
-          <label className="flex flex-col gap-1">
-            <span className={ETIQUETA}>Fecha del recibo</span>
-            <input
-              type="date"
-              className={CONTROL}
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className={ETIQUETA}>Contratista</span>
-            <input
-              className={`${CONTROL} ${contratistaFijo ? "bg-slate-50 text-slate-600" : ""}`}
-              value={contratista}
-              readOnly={!!contratistaFijo}
-              onChange={(e) => setContratista(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className={ETIQUETA}>Obra</span>
-            <input
-              list="dl-obras"
-              className={CONTROL}
-              value={obra}
-              onChange={(e) => setObra(e.target.value)}
-            />
-            <datalist id="dl-obras">
-              {OBRAS.map((o) => (
-                <option key={o} value={o} />
-              ))}
-            </datalist>
-          </label>
+        </div>
+
+        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2">
+          <Paso n={1} titulo="Datos del recibo">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className={ETIQUETA}>Fecha del recibo</span>
+                <input
+                  type="date"
+                  className={CONTROL}
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                />
+              </label>
+              {!contratistaFijo && (
+                <label className="flex flex-col gap-1">
+                  <span className={ETIQUETA}>Contratista</span>
+                  <input
+                    className={CONTROL}
+                    value={contratista}
+                    onChange={(e) => setContratista(e.target.value)}
+                  />
+                </label>
+              )}
+              <label className="flex flex-col gap-1">
+                <span className={ETIQUETA}>Obra</span>
+                <input
+                  list="dl-obras"
+                  className={CONTROL}
+                  value={obra}
+                  onChange={(e) => setObra(e.target.value)}
+                />
+                <datalist id="dl-obras">
+                  {OBRAS.map((o) => (
+                    <option key={o} value={o} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={ETIQUETA}>Prioridad</span>
+                <SelectMenu
+                  value={prioridad}
+                  onChange={setPrioridad}
+                  opciones={[
+                    { value: "normal", label: "Normal" },
+                    { value: "preferente", label: "Preferente" },
+                    { value: "urgente", label: "Urgente" },
+                  ]}
+                />
+              </label>
+              {prioridad !== "normal" && (
+                <label className="flex flex-col gap-1 sm:col-span-2">
+                  <span className={ETIQUETA}>Motivo de la prioridad</span>
+                  <input
+                    className={CONTROL}
+                    placeholder="Por qué este recibo va con prioridad"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                  />
+                </label>
+              )}
+            </div>
+          </Paso>
+
+          <Paso n={2} titulo="Orden de trabajo">
           <label className="flex flex-col gap-1">
             <span className={ETIQUETA}>OT</span>
             <select
-              className={`${CONTROL} font-mono`}
+              className={`${CONTROL} py-2.5 font-mono text-base`}
               value={otElegida?.ot ?? ot}
               onChange={(e) => {
                 const elegida = ots?.find((o) => o.ot === e.target.value);
@@ -724,37 +768,17 @@ export default function CapturaElectrificacion({
                 </option>
               ))}
             </select>
-            <span className="text-xs text-slate-600">
-              Solo se muestran las OT y los modelos que incluyen iluminación.
-            </span>
           </label>
-          <label className="flex flex-col gap-1">
-            <span className={ETIQUETA}>Prioridad</span>
-            <SelectMenu
-              value={prioridad}
-              onChange={setPrioridad}
-              opciones={[
-                { value: "normal", label: "Normal" },
-                { value: "preferente", label: "Preferente" },
-                { value: "urgente", label: "Urgente" },
-              ]}
-            />
-          </label>
-          {prioridad !== "normal" && (
-            <label className="flex flex-col gap-1 sm:col-span-2 lg:col-span-4">
-              <span className={ETIQUETA}>Motivo de la prioridad</span>
-              <input
-                className={CONTROL}
-                placeholder="Por qué este recibo va con prioridad"
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-              />
-            </label>
-          )}
+          <p className="mt-2 text-sm text-slate-600">
+            Solo salen las OT y los modelos que incluyen iluminación; de ella salen los modelos que
+            puedes cobrar.
+          </p>
+          </Paso>
         </div>
 
+        <div className="px-5 pb-5 empty:hidden sm:px-6">
         {folioPrevio && !folioContinuado && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             <span>
               <strong>El folio {folio} ya existe</strong> con {folioPrevio.numRenglones} renglón
               {folioPrevio.numRenglones === 1 ? "" : "es"} capturado
@@ -771,14 +795,16 @@ export default function CapturaElectrificacion({
           </div>
         )}
         {folioContinuado && (
-          <div className="mt-3 rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
+          <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900">
             Continuando el folio <strong className="font-mono">{folio}</strong>. La numeración sigue
             desde el #{numeroInicial}.
           </div>
         )}
+        </div>
       </section>
 
       {/* ---------- Renglones ---------- */}
+      <TituloPiezas n={renglones.length} />
       <div className="flex flex-col gap-4">
         {renglones.map((r, idx) => {
           const { res, esManual, b } = evaluar(r);
@@ -794,63 +820,25 @@ export default function CapturaElectrificacion({
               key={r.id}
               className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
             >
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => alternarColapso(r.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    alternarColapso(r.id);
-                  }
-                }}
-                className="flex cursor-pointer select-none items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2 hover:bg-brand-100"
-              >
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className={`h-3.5 w-3.5 flex-shrink-0 text-slate-500 transition-transform ${
-                    r.colapsado ? "-rotate-90" : ""
-                  }`}
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.293l3.71-4.06a.75.75 0 1 1 1.11 1.01l-4.25 4.65a.75.75 0 0 1-1.11 0l-4.25-4.65a.75.75 0 0 1 .02-1.06Z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="font-mono text-xs font-semibold text-slate-500">
-                  #{numeroInicial + idx}
-                </span>
-                {r.colapsado && (
-                  <span className="truncate text-sm text-slate-600">
-                    {r.modelo || "sin modelo"} · {cantidad} pz · {metros} m LED ·{" "}
-                    {r.charolas.length} charola{r.charolas.length === 1 ? "" : "s"} por pieza
-                    {puedeVerSugerido && (
-                      <>
-                        {" · "}
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ring-1 ${BANDA_ESTILO[b.banda]}`}
-                        >
-                          {BANDA_NOMBRE[b.banda]}
-                        </span>
-                      </>
-                    )}
-                    {" · "}
-                    <span className="font-mono">{money(cantidad * (Number(r.propuesto) || 0))}</span>
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    quitar(r.id);
-                  }}
-                  className="ml-auto text-xs font-medium text-slate-500 hover:text-rose-600"
-                >
-                  Quitar
-                </button>
-              </div>
+              <CabeceraRenglon
+                numero={numeroInicial + idx}
+                titulo={r.modelo || "Pieza sin modelo"}
+                detalle={`${metros} m LED, ${r.charolas.length} charola${r.charolas.length === 1 ? "" : "s"} por pieza`}
+                cantidad={cantidad}
+                precio={Number(r.propuesto) || 0}
+                colapsado={r.colapsado}
+                extra={
+                  puedeVerSugerido && r.colapsado ? (
+                    <span
+                      className={`hidden rounded-full px-1.5 py-0.5 text-xs font-semibold ring-1 sm:inline ${BANDA_ESTILO[b.banda]}`}
+                    >
+                      {BANDA_NOMBRE[b.banda]}
+                    </span>
+                  ) : null
+                }
+                onAlternar={() => alternarColapso(r.id)}
+                onQuitar={() => quitar(r.id)}
+              />
 
               <Aparece abierto={!r.colapsado}>
                 <div className={`grid gap-4 p-4 ${puedeVerSugerido ? "lg:grid-cols-[1.6fr_1fr]" : ""}`}>
@@ -1057,21 +1045,11 @@ export default function CapturaElectrificacion({
                     </label>
 
                     {!puedeVerSugerido && (
-                      <label className="flex max-w-xs flex-col gap-1">
-                        <span className={ETIQUETA}>Precio propuesto por pieza</span>
-                        <input
-                          type="number"
-                          min={0}
-                          step={10}
-                          className={`${CONTROL} tabular-nums`}
-                          value={r.propuesto}
-                          onChange={(e) =>
-                            actualizar(r.id, {
-                              propuesto: e.target.value === "" ? "" : Number(e.target.value),
-                            })
-                          }
-                        />
-                      </label>
+                      <BandaCobro
+                        propuesto={r.propuesto}
+                        cantidad={cantidad}
+                        onPropuesto={(propuesto) => actualizar(r.id, { propuesto })}
+                      />
                     )}
                   </div>
 
@@ -1188,9 +1166,9 @@ export default function CapturaElectrificacion({
             setRenglones((prev) => [...prev, nuevoRenglon()]);
             setResultado(null);
           }}
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-brand-50"
+          className={CLASE_AGREGAR_RENGLON}
         >
-          + Agregar renglón
+          + Agregar otro renglón
         </button>
       </div>
 
@@ -1374,7 +1352,11 @@ export default function CapturaElectrificacion({
       <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 px-6 py-3 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           <Total etiqueta="Renglones" valor={String(renglones.length)} />
-          <Total etiqueta="Propuesto" valor={money(totales.propuesto)} />
+          <Total
+            etiqueta={puedeVerSugerido ? "Propuesto" : "Total propuesto"}
+            valor={money(totales.propuesto)}
+            grande={!puedeVerSugerido}
+          />
           {puedeVerSugerido && (
             <>
               <Total etiqueta="Aceptado" valor={money(totales.aceptado)} />
@@ -1418,16 +1400,18 @@ function Total({
   etiqueta,
   valor,
   destacado = false,
+  grande = false,
 }: {
   etiqueta: string;
   valor: string;
   destacado?: boolean;
+  grande?: boolean;
 }) {
   return (
     <div className="flex flex-col">
       <span className={ETIQUETA}>{etiqueta}</span>
       <span
-        className={`font-mono text-sm font-semibold tabular-nums ${
+        className={`font-semibold tabular-nums ${grande ? "font-serif text-xl" : "font-mono text-sm"} ${
           destacado ? "text-emerald-700" : "text-slate-900"
         }`}
       >

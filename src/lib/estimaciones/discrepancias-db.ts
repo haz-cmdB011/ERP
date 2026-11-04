@@ -26,9 +26,12 @@ export interface DiscrepanciaRecibo {
   motivo: string;
   estado: EstadoDiscrepancia;
   notaResolucion: string | null;
+  // De un reproceso: cantidadPm es lo que Producción reasignó como retrabajo.
+  esReproceso: boolean;
 }
 
 interface DiscrepanciaRow {
+  es_reproceso?: boolean | null;
   id: string;
   modelo: string;
   cantidad_capturada: number;
@@ -49,7 +52,7 @@ export async function listarDiscrepanciasRecibo(
   const { data, error } = await supabase
     .from("discrepancias_pm")
     .select(
-      "id, modelo, cantidad_capturada, cantidad_acumulada, cantidad_pm, motivo, estado, nota_resolucion"
+      "id, modelo, cantidad_capturada, cantidad_acumulada, cantidad_pm, motivo, estado, nota_resolucion, es_reproceso"
     )
     .eq(area === "electrificacion" ? "recibo_electrificacion_id" : "recibo_id", reciboId)
     .order("creado_en", { ascending: true })
@@ -64,6 +67,7 @@ export async function listarDiscrepanciasRecibo(
     motivo: d.motivo,
     estado: d.estado,
     notaResolucion: d.nota_resolucion,
+    esReproceso: d.es_reproceso === true,
   }));
 }
 

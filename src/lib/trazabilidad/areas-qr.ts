@@ -235,7 +235,7 @@ export function panelQr(area: AreaQr, e: EstadoQr): PanelQr {
         otras: [
           {
             tipo: "enlace",
-            etiqueta: "PM contra cobrado",
+            etiqueta: "PM de Producción contra cobrado",
             detalle: "Lo liberado y lo cobrado en recibos de esta O.T.",
             href: `/estimaciones/pm-cobrado/${encodeURIComponent(m.numeroPedido)}`,
           },

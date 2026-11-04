@@ -44,6 +44,9 @@ export interface ModeloOtRecibo {
   itemCodigo: string | null;
   material: string | null;
   padreModelo: string | null;
+  // Reproceso: lo que Producción reasignó como retrabajo (null: nada) y lo ya cobrado.
+  reprocesoAsignado: number | null;
+  reprocesoRegistrado: number;
 }
 
 // null si la consulta falla.
@@ -87,6 +90,9 @@ export async function listarModelosOtRecibo(
       item_codigo?: string | null;
       material?: string | null;
       padre_modelo?: string | null;
+      // Desde reprocesos_segun_produccion.
+      reproceso_asignado?: number | null;
+      reproceso_registrado?: number | null;
     }[]
   ).map((r) => ({
     modelo: r.modelo,
@@ -100,5 +106,7 @@ export async function listarModelosOtRecibo(
     itemCodigo: r.item_codigo ?? null,
     material: r.material ?? null,
     padreModelo: r.padre_modelo ?? null,
+    reprocesoAsignado: r.reproceso_asignado == null ? null : Number(r.reproceso_asignado),
+    reprocesoRegistrado: Number(r.reproceso_registrado) || 0,
   }));
 }

@@ -309,7 +309,7 @@ export default async function ReportePage({
                 )}
                 {resumenesPm && (
                   <a href="#pm-cobrado" className="font-medium text-brand-700 hover:underline">
-                    Ir a PM contra cobrado ↓
+                    Ir a PM de Producción contra cobrado ↓
                   </a>
                 )}
               </div>
@@ -820,8 +820,8 @@ export default async function ReportePage({
                 {resumenesPm && (
                   <SeccionDesplegable
                     id="pm-cobrado"
-                    titulo="PM contra cobrado"
-                    descripcion="Lo declarado por Planeación en cada O.T. contra lo capturado en recibos vigentes."
+                    titulo="PM de Producción contra cobrado"
+                    descripcion="Lo que se espera de cada O.T. (muebles del PM y las partes de los despieces de Producción) contra lo capturado en recibos vigentes."
                     resumen={pm?.error ? "No se pudo leer" : `${resumenesPm.length} O.T.`}
                   >
                     <PanelPmCobrado
