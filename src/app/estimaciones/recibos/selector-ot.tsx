@@ -175,7 +175,8 @@ export function CampoModeloOt({
         <p className="mt-0.5 truncate text-xs text-slate-500" title={descripcionPm}>
           {elegida?.esComponente && (
             <span className="mr-1 rounded bg-slate-100 px-1 font-medium text-slate-600">
-              componente {elegida.itemCodigo}
+              {/* Una parte que agregó Producción en su despiece no tiene número del PM. */}
+              {elegida.itemCodigo ? `componente ${elegida.itemCodigo}` : "parte del despiece"}
               {elegida.material ? ` · ${elegida.material}` : ""}
             </span>
           )}

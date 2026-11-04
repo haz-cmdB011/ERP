@@ -77,6 +77,10 @@ export interface VarianteModeloPm {
   // para elegirla en la lista, pero no suma en el saldo por código (ahí solo
   // cuentan los muebles padre, igual que en la base).
   esComponente?: boolean;
+  // Reproceso: lo que Producción reasignó como retrabajo de esta variante (null:
+  // nada) y lo ya cobrado de reproceso en otros recibos del área.
+  reprocesoAsignado?: number | null;
+  reprocesoRegistrado?: number;
 }
 
 // Saldos para conciliarRenglones: uno por variante (claveVariante) y uno por
@@ -181,6 +185,66 @@ export function conciliarRenglones(
       };
     }
     return { estado: "dentro", cantidadPm: saldo.cantidadPm, acumulada };
+  });
+}
+
+// --- Reprocesos -------------------------------------------------------------------
+//
+// Un reproceso no gasta saldo del PM: se mide contra el retrabajo que Producción
+// reasignó tras un rechazo de Calidad (migración reprocesos_segun_produccion). Por
+// variante, y por código (todas sus variantes, componentes incluidos) cuando el
+// renglón no trae una variante de la OT, como el trigger.
+
+export interface SaldoReproceso {
+  asignado: number;
+  registrado: number;
+}
+
+export function saldosReproceso(variantes: VarianteModeloPm[]): Map<string, SaldoReproceso> {
+  const saldos = new Map<string, SaldoReproceso>();
+  for (const v of variantes) {
+    const asignado = Number(v.reprocesoAsignado) || 0;
+    const registrado = Number(v.reprocesoRegistrado) || 0;
+    saldos.set(claveVariante(v.modelo, v.descripcionPm), { asignado, registrado });
+    const km = claveModelo(v.modelo);
+    const previo = saldos.get(km) ?? { asignado: 0, registrado: 0 };
+    saldos.set(km, { asignado: previo.asignado + asignado, registrado: previo.registrado + registrado });
+  }
+  return saldos;
+}
+
+export function claveReproceso(
+  r: { modelo: string; descripcionPm?: string | null },
+  saldos: Map<string, SaldoReproceso>
+): string {
+  if (r.descripcionPm != null) {
+    const kv = claveVariante(r.modelo, r.descripcionPm);
+    if (saldos.has(kv)) return kv;
+  }
+  return claveModelo(r.modelo);
+}
+
+// Un resultado por renglón; null en los que no son reproceso. Sin retrabajo
+// reasignado, lo esperado es 0: cualquier pieza pide motivo.
+export function conciliarReprocesos(
+  renglones: { modelo: string; descripcionPm?: string | null; cantidad: number | ""; reproceso: boolean }[],
+  saldos: Map<string, SaldoReproceso>
+): (EstadoConciliacion | null)[] {
+  const capturadoHasta = new Map<string, number>();
+  return renglones.map((r) => {
+    const km = claveModelo(r.modelo);
+    if (!km || !r.reproceso) return null;
+    const clave = claveReproceso(r, saldos);
+    const cantidad = Number(r.cantidad) || 0;
+    if (clave !== km) capturadoHasta.set(km, (capturadoHasta.get(km) ?? 0) + cantidad);
+    const conEste = (capturadoHasta.get(clave) ?? 0) + cantidad;
+    capturadoHasta.set(clave, conEste);
+
+    const saldo = saldos.get(clave) ?? { asignado: 0, registrado: 0 };
+    const acumulada = saldo.registrado + conEste;
+    return acumulada > saldo.asignado
+      ? { estado: "excede", cantidadPm: saldo.asignado, acumulada, excedente: acumulada - saldo.asignado }
+      : { estado: "dentro", cantidadPm: saldo.asignado, acumulada };
   });
 }
 

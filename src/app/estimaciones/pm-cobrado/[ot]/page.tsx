@@ -25,7 +25,7 @@ import {
 import { AREA_RECIBO_LABELS } from "@/lib/estimaciones/discrepancias-db";
 import BarraAvance from "../barra-avance";
 
-export const metadata: Metadata = { title: "PM contra cobrado" };
+export const metadata: Metadata = { title: "PM de Producción contra cobrado" };
 
 const FILTROS: [string, string][] = [
   ["todos", "Todos"],
@@ -215,7 +215,12 @@ export default async function PmCobradoDetallePage({
             <thead>
               <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Modelo</th>
-                <th className="px-3 py-2.5 text-right">PM (O.T.)</th>
+                <th
+                  className="px-3 py-2.5 text-right"
+                  title="Muebles: lo del PM. Componentes: las partes del despiece de Producción, o los hijos del PM si usó el sugerido."
+                >
+                  PM de Producción
+                </th>
                 {AREAS_COBRO.map((a) => (
                   <th key={a} className="px-3 py-2.5 text-right">
                     {AREA_RECIBO_LABELS[a]}
