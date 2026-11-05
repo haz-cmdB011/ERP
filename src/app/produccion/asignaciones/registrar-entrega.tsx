@@ -266,7 +266,7 @@ export default function RegistrarEntrega({
                                 {" · "}
                                 <button
                                   type="button"
-                                  onClick={() => setPiezas({ ...piezas, [p.id]: String(falta) })}
+                                  onClick={() => setPiezas((prev) => ({ ...prev, [p.id]: String(falta) }))}
                                   className="font-medium text-brand-700 hover:underline"
                                 >
                                   Entregar las {falta} que faltan
@@ -284,7 +284,10 @@ export default function RegistrarEntrega({
                           disabled={falta <= 0}
                           aria-label={`Piezas entregadas de ${p.descripcion}`}
                           value={piezas[p.id] ?? ""}
-                          onChange={(e) => setPiezas({ ...piezas, [p.id]: e.target.value })}
+                          onChange={(e) => {
+                            const valor = e.target.value;
+                            setPiezas((prev) => ({ ...prev, [p.id]: valor }));
+                          }}
                           placeholder="0"
                           className={`${estiloCampo} tabular-nums`}
                         />
