@@ -174,7 +174,7 @@ export default async function RegistroRecibosPage({
           {pagina.pagina > 1 ? (
             <Link
               href={hrefRegistro({ ...filtros, pagina: pagina.pagina - 1 })}
-              className="rounded px-3 py-1 font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+              className="rounded px-3 py-1 font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-brand-50"
             >
               ← Anterior
             </Link>
@@ -187,7 +187,7 @@ export default async function RegistroRecibosPage({
           {pagina.pagina < pagina.totalPaginas ? (
             <Link
               href={hrefRegistro({ ...filtros, pagina: pagina.pagina + 1 })}
-              className="rounded px-3 py-1 font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+              className="rounded px-3 py-1 font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-brand-50"
             >
               Siguiente →
             </Link>

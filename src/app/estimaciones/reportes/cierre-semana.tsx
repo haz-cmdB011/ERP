@@ -79,7 +79,7 @@ export default function CierreSemana({
             type="button"
             disabled={trabajando || (!cierre && actual.numRecibos === 0)}
             onClick={() => setConfirmando(cierre ? "reabrir" : "cerrar")}
-            className="min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-brand-50 disabled:opacity-50"
           >
             {cierre ? "Reabrir semana" : "Cerrar semana"}
           </button>

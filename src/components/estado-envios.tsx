@@ -187,7 +187,7 @@ export default function EstadoEnvios() {
                 type="button"
                 onClick={() => setAbierto(false)}
                 aria-label="Cerrar"
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-brand-100"
               >
                 ✕
               </button>

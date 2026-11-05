@@ -510,7 +510,7 @@ export default function UploadForm() {
         } ${
           arrastrando
             ? "border-brand-600 bg-brand-50"
-            : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50"
+            : "border-slate-300 bg-white hover:border-slate-400 hover:bg-brand-50"
         }`}
       >
         <svg
@@ -718,7 +718,7 @@ function ConfirmarOcultas({
         <button
           type="button"
           onClick={onOmitir}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-brand-50"
         >
           No subir el archivo
         </button>
@@ -812,7 +812,7 @@ function ConfirmarImpacto({
         <button
           type="button"
           onClick={onOmitir}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-brand-50"
         >
           Omitir este archivo
         </button>

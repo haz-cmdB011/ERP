@@ -360,14 +360,14 @@ export default async function PedidoDetailPage({
                         <div className="flex flex-wrap gap-2">
                           <Link
                             href={`${base}?version=${v.numero_version}`}
-                            className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-brand-50"
                           >
                             Ver muebles
                           </Link>
                           {v.numero_version > 1 && (
                             <Link
                               href={`${base}/cambios?a=${v.numero_version}`}
-                              className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-brand-700 hover:bg-slate-50"
+                              className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-brand-700 hover:bg-brand-50"
                             >
                               Qué cambió
                             </Link>

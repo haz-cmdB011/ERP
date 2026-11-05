@@ -118,7 +118,7 @@ export function CabeceraRenglon({
           onAlternar();
         }
       }}
-      className="flex cursor-pointer select-none items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-brand-600"
+      className="flex cursor-pointer select-none items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 hover:bg-brand-100 focus-visible:outline-2 focus-visible:outline-brand-600"
     >
       <svg
         viewBox="0 0 20 20"

@@ -90,7 +90,7 @@ export default function Pestanas({ pestanas }: { pestanas: Pestana[] }) {
             tabIndex={activa === p.id ? 0 : -1}
             onClick={() => elegir(p.id)}
             onKeyDown={(e) => teclas(e, i)}
-            className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-1.5 py-2.5 text-xs font-medium transition-colors sm:flex-none sm:px-4 sm:text-sm ${
               activa === p.id
                 ? "border-brand-500 text-slate-900 mob:border-transparent"
                 : "border-transparent text-slate-500 hover:text-slate-800"

@@ -167,7 +167,7 @@ export function SeccionMaquilador({
 
   return (
     <details className="group rounded-xl border border-slate-200 bg-white shadow-sm">
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-slate-50">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-brand-50">
         <span
           aria-hidden="true"
           className="h-3 w-3 shrink-0 rounded-sm"

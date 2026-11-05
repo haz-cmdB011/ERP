@@ -234,7 +234,7 @@ export default function TablaRegistro({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {recibos.map((r) => (
-              <tr key={r.id} className="transition-colors hover:bg-slate-50">
+              <tr key={r.id} className="transition-colors hover:bg-brand-50">
                 <td className="px-4 py-3">
                   {r.estado === "revisado" && (
                     <input

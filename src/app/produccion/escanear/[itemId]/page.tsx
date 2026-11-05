@@ -250,7 +250,7 @@ export default async function MuebleEscaneadoPage({
         </Link>
         <Link
           href={hrefAsignar}
-          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-brand-50"
         >
           Ver el PM
         </Link>

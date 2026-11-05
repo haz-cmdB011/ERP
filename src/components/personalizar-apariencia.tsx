@@ -220,7 +220,7 @@ export default function PersonalizarApariencia() {
               <button
                 type="button"
                 onClick={cerrar}
-                className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-brand-100 hover:text-slate-800"
                 aria-label="Cerrar"
               >
                 ✕
@@ -244,7 +244,7 @@ export default function PersonalizarApariencia() {
                     className={`rounded-xl border p-3 text-left transition-colors ${
                       estilo === e.id
                         ? "border-brand-500 bg-brand-50"
-                        : "border-slate-200 hover:bg-slate-50"
+                        : "border-slate-200 hover:bg-brand-50"
                     }`}
                   >
                     <span className="block text-sm font-semibold text-slate-900">{e.nombre}</span>
@@ -270,7 +270,7 @@ export default function PersonalizarApariencia() {
                         className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-xs font-medium transition-colors ${
                           marcaClasica === p.marca
                             ? "border-brand-500 bg-brand-50 text-slate-900"
-                            : "border-slate-200 hover:bg-slate-50"
+                            : "border-slate-200 hover:bg-brand-50"
                         }`}
                       >
                         <span
@@ -317,7 +317,7 @@ export default function PersonalizarApariencia() {
                         className={`group flex flex-col items-center gap-1.5 rounded-xl border p-2 text-xs font-medium transition-colors ${
                           presetActivo === p.id
                             ? "border-brand-500 bg-brand-50 text-slate-900"
-                            : "border-slate-200 hover:bg-slate-50"
+                            : "border-slate-200 hover:bg-brand-50"
                         }`}
                       >
                         <span
@@ -413,7 +413,7 @@ export default function PersonalizarApariencia() {
                     ? iguales(valores, APARIENCIA_INICIAL)
                     : marcaClasica === MARCA_CLASICA_INICIAL
                 }
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Restablecer
               </button>

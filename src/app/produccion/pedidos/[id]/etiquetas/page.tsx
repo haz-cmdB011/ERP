@@ -111,7 +111,7 @@ export default async function EtiquetasPage({
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href={hrefOtra}
-            className="rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-brand-50"
           >
             {porPieza ? "Una por mueble" : "Una por pieza"}
           </Link>

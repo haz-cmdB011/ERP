@@ -52,7 +52,7 @@ export default async function SeguimientoReciboElectrificacionPage({
           {esPersonal && (recibo.estado === "pendiente" || recibo.estado === "revisado") && (
             <Link
               href={`/estimaciones/revision/electrificacion/${encodeURIComponent(recibo.folio)}`}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-brand-50"
             >
               {recibo.estado === "pendiente" ? "Revisar" : "Pagar"}
             </Link>

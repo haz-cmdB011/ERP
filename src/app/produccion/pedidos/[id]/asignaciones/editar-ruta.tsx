@@ -152,7 +152,7 @@ export default function EditarRuta({
                       disabled={!puedeMover(pasos, i, -1) || enviando}
                       title={i > 0 && !puedeMover(pasos, i, -1) ? "Los dos pasos tienen asignaciones: no cambian de orden" : undefined}
                       aria-label={`Subir ${etiquetaPaso(pasos, i)}`}
-                      className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                      className="rounded px-2 py-1 text-slate-600 hover:bg-brand-100 disabled:opacity-30"
                     >
                       ↑
                     </button>
@@ -166,7 +166,7 @@ export default function EditarRuta({
                           : undefined
                       }
                       aria-label={`Bajar ${etiquetaPaso(pasos, i)}`}
-                      className="rounded px-2 py-1 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                      className="rounded px-2 py-1 text-slate-600 hover:bg-brand-100 disabled:opacity-30"
                     >
                       ↓
                     </button>

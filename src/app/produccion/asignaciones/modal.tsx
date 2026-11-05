@@ -49,4 +49,4 @@ export const estiloEtiqueta = "flex flex-col gap-1 text-sm font-medium text-slat
 export const estiloBotonPrimario =
   "flex-1 rounded-lg bg-brand-500 px-4 py-3 text-base font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50 sm:flex-none sm:py-2 sm:text-sm";
 export const estiloBotonSecundario =
-  "rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-700 transition-colors hover:bg-slate-50 sm:py-2 sm:text-sm";
+  "rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-700 transition-colors hover:bg-brand-50 sm:py-2 sm:text-sm";

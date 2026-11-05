@@ -202,7 +202,7 @@ export default function CarritoVista() {
           <button
             type="button"
             onClick={() => setConfirmarVaciar(true)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-brand-50"
           >
             Vaciar carrito
           </button>
@@ -294,7 +294,7 @@ export default function CarritoVista() {
                       <Link
                         href={urlPanel(mueblesPm.map((m) => m.id))}
                         title="Ver la ruta de cada mueble y asignar por partes en el panel de asignación"
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-brand-50"
                       >
                         Ver en el panel
                       </Link>
@@ -378,7 +378,7 @@ function FilaCarrito({
           if (!desplegable || (e.target as HTMLElement).closest("a, button")) return;
           setAbierto((v) => !v);
         }}
-        className={`flex items-start gap-3 px-4 py-3 ${desplegable ? "cursor-pointer hover:bg-slate-50" : ""}`}
+        className={`flex items-start gap-3 px-4 py-3 ${desplegable ? "cursor-pointer hover:bg-brand-50" : ""}`}
       >
       {desplegable && (
         <BotonDesplegar
@@ -428,7 +428,7 @@ function FilaCarrito({
         onClick={alQuitar}
         aria-label={`Quitar el ítem ${item.itemCode} del carrito`}
         title="Quitar del carrito"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 transition-colors hover:bg-brand-100"
       >
         ✕
       </button>

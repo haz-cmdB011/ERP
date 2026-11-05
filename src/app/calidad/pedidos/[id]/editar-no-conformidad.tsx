@@ -72,7 +72,7 @@ export default function EditarNoConformidad({
           setError(null);
           setAbierto(true);
         }}
-        className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 print:hidden"
+        className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-brand-50 print:hidden"
       >
         Completar / editar no conformidad
       </button>
@@ -80,7 +80,7 @@ export default function EditarNoConformidad({
         <button
           type="button"
           onClick={cambiarCierre}
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 print:hidden"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-brand-50 print:hidden"
         >
           {cerrado ? "Reabrir reporte" : "Cerrar reporte"}
         </button>

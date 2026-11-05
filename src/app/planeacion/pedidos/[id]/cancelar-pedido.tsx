@@ -169,7 +169,7 @@ export default function CancelarPedido({
               setMotivo("");
               setErrorMotivo(false);
             }}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-brand-50"
           >
             Volver
           </button>

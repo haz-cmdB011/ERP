@@ -16,7 +16,7 @@ export default function Secciones({
   return (
     <div className="flex flex-col gap-4">
       <div
-        className="flex flex-wrap gap-1 border-b border-slate-200"
+        className="grid auto-cols-fr grid-flow-col gap-0.5 border-b border-slate-200 sm:flex sm:flex-wrap sm:gap-1"
         role="group"
         aria-label="Apartados de estadísticas"
       >
@@ -26,7 +26,7 @@ export default function Secciones({
             type="button"
             aria-pressed={activa === s.id}
             onClick={() => setActiva(s.id)}
-            className={`-mb-px inline-flex min-h-11 items-center gap-2 rounded-t-lg border-b-2 px-4 text-base font-medium transition-colors ${
+            className={`-mb-px inline-flex min-h-11 flex-col items-center justify-start gap-1 rounded-t-lg border-b-2 px-1 py-1.5 text-center text-[11px] leading-tight font-medium transition-colors sm:flex-row sm:justify-center sm:gap-2 sm:px-4 sm:py-0 sm:text-base sm:leading-normal ${
               activa === s.id
                 ? "border-brand-600 font-semibold text-slate-900"
                 : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"

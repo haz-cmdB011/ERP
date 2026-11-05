@@ -296,7 +296,7 @@ export default async function BuscarFolioPage({
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-brand-50"
             }`}
           >
             {etiqueta} ({conteo[valor as keyof typeof conteo]})
@@ -377,7 +377,7 @@ export default async function BuscarFolioPage({
                   </>
                 );
                 return (
-                  <tr key={f.id} className="align-top transition-colors hover:bg-slate-50">
+                  <tr key={f.id} className="align-top transition-colors hover:bg-brand-50">
                     <td className="px-3 py-3 lg:py-2">
                       <span className="font-mono text-sm text-slate-900">{f.folio}</span>
                       {/* Tablet y celular: las demás columnas apiladas aquí. */}

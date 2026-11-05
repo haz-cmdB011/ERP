@@ -36,7 +36,7 @@ export default function MenuDesplegable({
 
   return (
     <details ref={ref} className="group relative">
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 group-open:bg-slate-50">
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-brand-50 group-open:bg-slate-50">
         {etiqueta}
         <span aria-hidden="true" className="text-xs text-slate-500 transition-transform group-open:rotate-180">
           ▾
