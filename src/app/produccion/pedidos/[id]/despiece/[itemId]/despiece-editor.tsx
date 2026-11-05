@@ -17,7 +17,6 @@ import {
   tipoMaterial,
   totalLinea,
   validarLineas,
-  type TipoMaterial,
   type LineaDespiece,
   type SugerenciaDespiece,
   type VersionHistorial,
@@ -27,6 +26,7 @@ import {
   estiloBotonSecundario,
   estiloCampo,
 } from "@/app/produccion/asignaciones/modal";
+import { COLORES_MATERIAL, InsigniaMaterial, luzMaterial } from "@/app/produccion/material-parte";
 
 interface Fila {
   clave: number;
@@ -83,42 +83,6 @@ function numero(n: number): string {
 
 const GRID = "sm:grid-cols-[minmax(0,1fr)_6rem_6rem_7rem_2.5rem]";
 
-// Color de cada material: la tarjeta de la línea se ilumina con él. Colores fijos (no del
-// tema) para que se reconozcan igual en claro y oscuro; el híbrido mezcla madera y metal.
-const COLORES_MATERIAL: Record<TipoMaterial, { etiqueta: string; colores: string[] }> = {
-  madera: { etiqueta: "Madera", colores: ["#16a34a"] },
-  metal: { etiqueta: "Metal", colores: ["#2563eb"] },
-  superficie_solida: { etiqueta: "Superficie sólida", colores: ["#ffffff"] },
-  hibrido: { etiqueta: "Híbrido", colores: ["#16a34a", "#2563eb"] },
-  tapiz: { etiqueta: "Tapiz", colores: ["#dc2626"] },
-  electrificacion: { etiqueta: "Electrificación", colores: ["#facc15"] },
-  vidrio: { etiqueta: "Vidrio / cristal", colores: ["#22d3ee"] },
-  espejo: { etiqueta: "Espejo", colores: ["#94a3b8"] },
-  piedra: { etiqueta: "Piedra", colores: ["#a16207"] },
-  otro: { etiqueta: "Sin material", colores: ["#64748b"] },
-};
-
-// La tarjeta "encendida": borde, resplandor y un tinte del color (hex + transparencia).
-function luzMaterial(tipo: TipoMaterial): React.CSSProperties {
-  const [a, b = a] = COLORES_MATERIAL[tipo].colores;
-  return {
-    borderColor: `${a}cc`,
-    boxShadow: `0 0 14px 1px ${a}55, 0 0 14px 1px ${b}40`,
-    background: `linear-gradient(135deg, ${a}29, ${b}14)`,
-  };
-}
-
-function MuestraColor({ tipo }: { tipo: TipoMaterial }) {
-  const [a, b = a] = COLORES_MATERIAL[tipo].colores;
-  // El borde deja ver el blanco de la superficie sólida sobre fondo claro.
-  return (
-    <span
-      className="inline-block h-3 w-3 shrink-0 rounded-full border border-slate-300"
-      style={{ background: `linear-gradient(135deg, ${a} 50%, ${b} 50%)` }}
-      aria-hidden="true"
-    />
-  );
-}
 
 function claveBorrador(itemId: string): string {
   return `despiece-borrador-${itemId}`;
@@ -182,7 +146,6 @@ export default function DespieceEditor({
   itemId,
   version,
   muebles,
-  unidadMueble,
   sugerencia,
   guardado,
   historial,
@@ -451,15 +414,7 @@ export default function DespieceEditor({
           </p>
           {cambiado && puedeEditar && <p className="mt-1 text-amber-700">Tienes cambios sin guardar.</p>}
         </div>
-      ) : (
-        <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
-          <p className="font-medium">Sugerencia del sistema</p>
-          <p className="mt-1">
-            Armada con los componentes de este mueble en el PM. Todavía no está guardada: úsala tal cual o
-            ajústala como te sirva en el taller.
-          </p>
-        </div>
-      )}
+      ) : null}
 
       {enCola && (
         <p role="status" className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
@@ -531,13 +486,6 @@ export default function DespieceEditor({
         </div>
       )}
 
-      <p className="text-sm text-slate-600">
-        Cada línea es lo que lleva <strong className="font-semibold">un</strong> mueble.
-        {muebles > 0
-          ? ` Con ${numero(muebles)}${unidadMueble ? ` ${unidadMueble}` : ""} en el PM, el total de cada línea se multiplica por ${numero(muebles)}.`
-          : ""}
-      </p>
-
       {sugerencia.avisos.length > 0 && !guardado && (
         <ul className="flex flex-col gap-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           {sugerencia.avisos.map((a) => (
@@ -569,10 +517,10 @@ export default function DespieceEditor({
       )}
 
       {tiposUsados.length > 0 && (
-        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600" aria-label="Colores por material">
+        <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600" aria-label="Materiales del despiece">
           {tiposUsados.map((t) => (
             <li key={t} className="flex items-center gap-1.5">
-              <MuestraColor tipo={t} />
+              <InsigniaMaterial tipo={t} tamano="sm" />
               {COLORES_MATERIAL[t].etiqueta}
             </li>
           ))}
@@ -595,7 +543,9 @@ export default function DespieceEditor({
             >
             <div className={`grid grid-cols-2 items-end gap-2 ${GRID}`}>
               <div className="col-span-full flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-slate-500">Parte {i + 1}</span>
+                <InsigniaMaterial tipo={tipo} />
+                <span className="font-medium text-slate-700">{COLORES_MATERIAL[tipo].etiqueta}</span>
+                <span className="text-slate-500">· Parte {i + 1}</span>
                 {asignada && <span className="text-slate-500">· asignada a un equipo</span>}
               </div>
               <Campo etiqueta="Descripción" className="col-span-full">

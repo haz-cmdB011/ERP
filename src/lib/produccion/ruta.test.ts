@@ -4,6 +4,7 @@ import {
   moverPaso,
   pasosDeTodasLasRutas,
   puedeMover,
+  pasosConIds,
   rutaDeParte,
   rutaDelMueble,
   rutaSugerida,
@@ -34,25 +35,31 @@ describe("rutaSugerida", () => {
 describe("ruta del mueble y de cada parte", () => {
   const guardada: PasoRuta[] = [{ id: "a", proceso: "armado" }];
 
-  it("el mueble usa la suya; sin guardar, la sugerida, o vacía si tiene partes", () => {
+  it("el mueble usa la suya; sin guardar, la sugerida aunque tenga despiece", () => {
     expect(rutaDelMueble(guardada, aplica(false, false), true)).toBe(guardada);
     expect(rutaDelMueble(undefined, aplica(false, false), false).map((p) => p.proceso)).toEqual(["armado", "barniz"]);
-    expect(rutaDelMueble(undefined, aplica(false, false), true)).toEqual([]);
-    // Con partes, la del mueble puede quedar vacía a propósito.
+    expect(rutaDelMueble(undefined, aplica(false, false), true).map((p) => p.proceso)).toEqual(["armado", "barniz"]);
+    expect(rutaDelMueble([], aplica(false, false), false).map((p) => p.proceso)).toEqual(["armado", "barniz"]);
+    // Uno que ya trabajaba por partes puede tener la del mueble vacía a propósito.
     expect(rutaDelMueble([], aplica(false, false), true)).toEqual([]);
   });
 
-  it("una parte usa la suya (aunque esté vacía) o, si nunca la guardó, la sugerida", () => {
-    expect(rutaDeParte(guardada, true, "Tabla")).toBe(guardada);
-    expect(rutaDeParte(undefined, true, "Tabla")).toEqual([]);
-    expect(rutaDeParte(undefined, false, "Tabla").map((p) => p.proceso)).toEqual(["armado", "barniz"]);
+  it("una parte solo conserva la ruta que guardó; si no, no lleva procesos", () => {
+    expect(rutaDeParte(guardada)).toBe(guardada);
+    expect(rutaDeParte(undefined)).toEqual([]);
   });
 
-  it("la sugerida de una parte sale de su descripción", () => {
-    const procesos = (d: string) => rutaDeParte(undefined, false, d).map((p) => p.proceso);
-    expect(procesos("MARCO METALICO, SOPORTE ENTREPAÑO Y CHAROLA ELECTRIFICACIÓN")).toEqual(["electrificacion"]);
-    expect(procesos("MODULO D:")).toEqual(["armado", "barniz"]);
-    expect(procesos("CUBIERTA DE CORIAN")).toEqual(["armado", "superficie_solida", "barniz"]);
+  it("al elegir la ruta conserva los pasos guardados por proceso y vez", () => {
+    const previa: PasoRuta[] = [
+      { id: "a1", proceso: "armado" },
+      { id: "b1", proceso: "barniz" },
+    ];
+    expect(pasosConIds(["armado", "barniz", "armado"], previa)).toEqual([
+      { id: "a1", proceso: "armado" },
+      { id: "b1", proceso: "barniz" },
+      { id: null, proceso: "armado" },
+    ]);
+    expect(pasosConIds(["electrificacion"], previa)).toEqual([{ id: null, proceso: "electrificacion" }]);
   });
 });
 
