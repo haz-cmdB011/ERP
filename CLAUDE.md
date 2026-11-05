@@ -317,8 +317,17 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   lotes de equipos que no son de planta (la planta no cobra recibo); en un componente, su último informe (todo
   o nada). Solo hay dato si Producción asignó el mueble en el sistema; si no, es null y no se marca nada.
   Electrificación no se compara con Calidad.
-- **Se cobra según Producción** (migración `cobro_segun_produccion`, ajuste `cobro_segun_produccion` de
-  `ajustes_flujo`, ENCENDIDO): Calidad revisa el mueble completo, no cada proceso, así que lo liberado para
+- **Tope duro al guardar un recibo** (migraciones `cobro_limitado_por_pm_y_calidad` y `mensajes_cobro_cortos`, 3 nov
+  2026; `reprocesos_segun_produccion` las sobrescribió el 4 nov y `tope_cobro_sobre_reprocesos` las volvió a poner):
+  el trigger `est_conciliar_renglon_pm` no deja guardar un renglón **normal** que cobre más que el PM de la OT (ni con
+  motivo; un modelo que no está en la OT tampoco) ni, en Acabados y Armado, más que lo que **Calidad aprobó** del
+  mueble en el área (`aprobado_calidad_variante`, revisión final incluida; un mueble que no pasó por Producción y
+  Calidad en el sistema no se cobra). Electrificación solo tiene el tope del PM. La pantalla
+  (`dialogo-descuadres.tsx`) avisa el PM antes de guardar; lo de Calidad lo dice la base al guardar. El **reproceso**
+  conserva su regla (se mide contra el retrabajo reasignado y, si se pasa, pide motivo y deja discrepancia). **Cuidado
+  al reescribir esa función: tomar la versión vigente de la base, no la de una migración vieja.**
+- **(Apagado desde el 3 nov 2026) Se cobra según Producción** (migración `cobro_segun_produccion`, ajuste `cobro_segun_produccion` de
+  `ajustes_flujo`, hoy APAGADO: manda Calidad): Calidad revisa el mueble completo, no cada proceso, así que lo liberado para
   cobrar es lo que **Producción verificó** al registrar la entrega (`verificado_produccion_variante`, interna,
   mismas reglas que la de Calidad y sin retrabajos; un componente, en la proporción de su mueble). "Calidad
   aprobó" queda solo informativo. Apagado el ajuste, todo vuelve a medirse contra Calidad. La app lo lee con
