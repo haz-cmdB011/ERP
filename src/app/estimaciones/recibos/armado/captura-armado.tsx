@@ -1004,7 +1004,7 @@ export default function CapturaArmado({
                               tocadoAceptado: true,
                             })
                           }
-                          className="mb-0.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+                          className="mb-0.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-600 hover:bg-brand-100"
                         >
                           →
                         </button>
@@ -1198,7 +1198,7 @@ export default function CapturaArmado({
                 <button
                   type="button"
                   onClick={agregarTarifaProyecto}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-brand-50"
                 >
                   Fijar para esta OT
                 </button>

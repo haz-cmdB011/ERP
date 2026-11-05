@@ -248,7 +248,7 @@ export function FilaMueble({
           contenido: <Paso mueble={m} indice={i} />,
         }));
   const estiloPildora =
-    "rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap";
+    "rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap sm:px-3 sm:text-sm";
   const estiloAsignar = `${estiloPildora} bg-amber-500 text-white shadow-sm transition-colors hover:bg-amber-600`;
 
   return (
@@ -261,7 +261,7 @@ export function FilaMueble({
           if (!e.currentTarget.contains(t) || t.closest("a, button, input, select, textarea")) return;
           onAlternar();
         }}
-        className="flex cursor-pointer flex-col gap-3 p-3 sm:flex-row sm:items-center"
+        className="flex cursor-pointer flex-col gap-2 p-2 sm:gap-3 sm:flex-row sm:items-center sm:p-3"
       >
         <div className={`flex min-w-0 items-center gap-2 ${imagen === undefined ? "sm:w-56" : "sm:w-72"}`}>
           {imagen ? (
@@ -269,12 +269,12 @@ export function FilaMueble({
               url={imagen.url}
               urlGrande={imagen.urlGrande}
               alt={`Ítem ${m.item_code}${m.modelo ? ` — ${m.modelo}` : ""}`}
-              className="h-14 w-14"
+              className="h-11 w-11 sm:h-14 sm:w-14"
             />
           ) : (
             imagen === null && (
               <span
-                className="block h-14 w-14 shrink-0 rounded border border-dashed border-slate-200"
+                className="block h-11 w-11 shrink-0 rounded border border-dashed border-slate-200 sm:h-14 sm:w-14"
                 title="Sin imagen"
               />
             )
@@ -337,11 +337,11 @@ export function FilaMueble({
               ▸
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-base font-semibold text-slate-900">
+              <span className="block truncate text-sm font-semibold text-slate-900 sm:text-base">
                 <span className="text-slate-500">{m.item_code} ·</span>{" "}
                 {m.modelo ?? "Sin modelo"}
               </span>
-              <span className="block text-sm text-slate-500">
+              <span className="block text-xs text-slate-500 sm:text-sm">
                 {m.cantidad} {m.unidad ?? ""}
                 {(m.partes?.length ?? 0) > 0 && (
                   <span
@@ -364,7 +364,7 @@ export function FilaMueble({
               <button
                 type="button"
                 onClick={onAlternar}
-                className="rounded-lg p-1 transition-colors hover:bg-slate-50"
+                className="rounded-lg p-1 transition-colors hover:bg-brand-50"
               >
                 {a.contenido}
               </button>
@@ -373,7 +373,7 @@ export function FilaMueble({
                 // menos la mitad del grosor), no del paso con su etiqueta.
                 <span
                   aria-hidden
-                  className="mx-1 mt-[35px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
+                  className="mx-0.5 mt-[27px] h-0.5 min-w-2 flex-1 rounded-full transition-colors sm:mx-1 sm:mt-[35px]"
                   style={{
                     background: a.estado === "terminado" ? COLOR.terminado : "var(--color-slate-200)",
                   }}
@@ -413,7 +413,7 @@ function Anillo({
   return (
     <span className="flex flex-col items-center gap-1.5" title={titulo}>
       <span
-        className="relative grid size-16 place-items-center rounded-full transition-[background] duration-300"
+        className="relative grid size-12 place-items-center rounded-full transition-[background] duration-300 sm:size-16"
         style={{
           background:
             estado === "sin_asignar"
@@ -423,7 +423,7 @@ function Anillo({
         }}
       >
         <span
-          className="grid size-[3.25rem] place-items-center rounded-full bg-white text-sm font-bold tabular-nums"
+          className="grid size-9 place-items-center rounded-full bg-white text-xs font-bold tabular-nums sm:size-[3.25rem] sm:text-sm"
           style={{ color }}
         >
           {estado === "terminado" ? "✓" : `${pct}%`}
@@ -434,7 +434,7 @@ function Anillo({
           </span>
         )}
       </span>
-      <span className="text-xs font-medium leading-tight whitespace-nowrap text-slate-700">{etiqueta}</span>
+      <span className="text-[11px] font-medium leading-tight whitespace-nowrap text-slate-700 sm:text-xs">{etiqueta}</span>
     </span>
   );
 }
@@ -492,7 +492,7 @@ function CeldaRuta({
   const i = pasoEnColumna(ruta, c);
   if (i < 0) {
     return (
-      <td className="p-2 text-slate-400" title="No lleva este proceso">
+      <td className="p-1.5 sm:p-2 text-slate-400" title="No lleva este proceso">
         —
       </td>
     );
@@ -501,8 +501,8 @@ function CeldaRuta({
   const unidad = parte ? (parte.unidad ?? "pz") : (m.unidad ?? "pz");
   const dueno = parte ? parte.descripcion : "el mueble completo";
   return (
-    <td className="p-2 whitespace-nowrap text-slate-600">
-      <span className="flex items-center gap-2">
+    <td className="p-1.5 sm:p-2 whitespace-nowrap text-slate-600">
+      <span className="flex items-center gap-1 sm:gap-2">
         {/* El "+" a la izquierda: asigna esta ruta en este paso. */}
         {asignar && a.disponible > 0 ? (
           <BotonAsignar
@@ -510,20 +510,20 @@ function CeldaRuta({
             inicial={{ parte: parte?.id ?? null, paso: i }}
             asignar={asignar}
             titulo={`Asignar ${dueno} en ${c.etiqueta} (${fmt(a.disponible)} ${unidad} por asignar)`}
-            className="grid size-7 shrink-0 place-items-center rounded-md bg-brand-500 text-base font-bold text-on-brand transition-colors hover:bg-brand-400"
+            className="grid size-6 shrink-0 place-items-center rounded-md bg-brand-500 text-sm sm:size-7 sm:text-base font-bold text-on-brand transition-colors hover:bg-brand-400"
           >
             +
           </BotonAsignar>
         ) : (
-          asignar && <span aria-hidden className="size-7 shrink-0" />
+          asignar && <span aria-hidden className="size-6 shrink-0 sm:size-7" />
         )}
         <span
-          className="text-sm font-medium text-slate-900"
+          className="text-xs font-medium text-slate-900 sm:text-sm"
           title={`Entregadas / total (${fmt(a.asignado)} asignadas)`}
         >
           {a.estado === "terminado" ? "✓ " : ""}
           {fmt(a.entregado)}/{fmt(a.total)}
-          <span className="ml-1 font-normal text-slate-500">{unidad}</span>
+          <span className="ml-1 hidden font-normal text-slate-500 sm:inline">{unidad}</span>
         </span>
       </span>
     </td>
@@ -594,22 +594,22 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
         )}
       </div>
       <div className="overflow-x-auto rounded-lg bg-white">
-        <table className="w-full text-left tabular-nums">
+        <table className="w-full text-left text-[11px] tabular-nums sm:text-xs">
           <thead className="text-slate-500">
             <tr>
-              <th className="p-2 font-medium">Parte</th>
+              <th className="p-1.5 sm:p-2 font-medium">Parte</th>
               {columnas.map((c) => (
-                <th key={`${c.proceso}-${c.vez}`} className="p-2 font-medium whitespace-nowrap">
+                <th key={`${c.proceso}-${c.vez}`} className="p-1.5 sm:p-2 font-medium whitespace-nowrap">
                   {c.etiqueta}
                 </th>
               ))}
-              {asignar && <th className="p-2" aria-label="Ruta" />}
+              {asignar && <th className="p-1.5 sm:p-2" aria-label="Ruta" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {partes.map((p) => (
               <tr key={p.id}>
-                <td className="p-2 text-slate-900">
+                <td className="p-1.5 sm:p-2 text-slate-900">
                   {p.descripcion}
                   <span className="block text-slate-500">
                     {fmt(p.piezasPorMueble)} {p.unidad ?? "pz"} por mueble · {fmt(p.piezasPorMueble * m.cantidad)} en total
@@ -618,11 +618,11 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
                 {columnas.map((c) => (
                   <CeldaRuta key={`${c.proceso}-${c.vez}`} mueble={m} parte={p} columna={c} asignar={asignar} />
                 ))}
-                {asignar && <td className="p-2 text-right">{botonRuta(p)}</td>}
+                {asignar && <td className="p-1 text-right sm:p-2">{botonRuta(p)}</td>}
               </tr>
             ))}
             <tr className="bg-slate-50/60">
-              <td className="p-2 font-semibold text-slate-900">
+              <td className="p-1.5 sm:p-2 font-semibold text-slate-900">
                 Mueble completo
                 <span className="block font-normal text-slate-500">
                   {m.ruta.length === 0 ? "sin pasos: termina con sus partes" : "ya armado, después de sus partes"}
@@ -631,7 +631,7 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
               {columnas.map((c) => (
                 <CeldaRuta key={`${c.proceso}-${c.vez}`} mueble={m} parte={null} columna={c} asignar={asignar} />
               ))}
-              {asignar && <td className="p-2 text-right">{botonRuta(null)}</td>}
+              {asignar && <td className="p-1 text-right sm:p-2">{botonRuta(null)}</td>}
             </tr>
           </tbody>
         </table>

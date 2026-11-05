@@ -43,7 +43,7 @@ export default function SeccionDesplegable({
       open={abierta}
       className="group scroll-mt-4 rounded-xl border border-slate-200 bg-white shadow-sm"
     >
-      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4 hover:bg-slate-50">
+      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4 hover:bg-brand-50">
         <span className="min-w-0 flex-1">
           <span className="block text-lg font-semibold text-slate-900">{titulo}</span>
           {descripcion && <span className="mt-0.5 block text-sm text-slate-500">{descripcion}</span>}

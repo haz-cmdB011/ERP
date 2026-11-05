@@ -56,7 +56,7 @@ export default function TablaReportes({
   }
 
   const boton =
-    "rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 max-md:min-h-9";
+    "rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-brand-50 disabled:opacity-50 max-md:min-h-9";
 
   return (
     <>

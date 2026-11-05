@@ -189,7 +189,7 @@ export default async function OrdenTrabajoCalidadPage({
       {pmsVisibles.length > 0 && (
         <div className="flex flex-col gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-            <span className="rounded-full bg-brand-100 px-3 py-0.5 text-xs font-bold text-brand-900">
+            <span className="rounded-full bg-brand-100 px-3 py-0.5 text-xs font-medium text-brand-900">
               {pmsVisibles.length}
             </span>
             PM con muebles en producción
@@ -197,16 +197,16 @@ export default async function OrdenTrabajoCalidadPage({
           <div className="overflow-x-auto rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-slate-50 text-xs font-semibold text-slate-600">
-                  <th className="px-2 py-3">Pedido</th>
-                  <th className="px-2 py-3">Proyecto</th>
-                  <th className="px-2 py-3">Entrega</th>
-                  <th className="px-2 py-3">Versión activa</th>
-                  <th className="px-2 py-3 text-right">En Calidad</th>
-                  <th className="px-2 py-3 text-right">Aprobados</th>
-                  <th className="px-2 py-3 text-right">Rechazados</th>
-                  <th className="px-2 py-3 text-right">Sin evaluar</th>
-                  <th className="px-2 py-3 text-right" title="Producción todavía no los preaprueba">
+                <tr className="bg-slate-50 text-xs font-normal text-slate-600">
+                  <th className="px-2 py-3 font-normal">Pedido</th>
+                  <th className="px-2 py-3 font-normal">Proyecto</th>
+                  <th className="px-2 py-3 font-normal">Entrega</th>
+                  <th className="px-2 py-3 font-normal">Versión activa</th>
+                  <th className="px-2 py-3 font-normal text-right">En Calidad</th>
+                  <th className="px-2 py-3 font-normal text-right">Aprobados</th>
+                  <th className="px-2 py-3 font-normal text-right">Rechazados</th>
+                  <th className="px-2 py-3 font-normal text-right">Sin evaluar</th>
+                  <th className="px-2 py-3 font-normal text-right" title="Producción todavía no los preaprueba">
                     En taller
                   </th>
                 </tr>
@@ -227,7 +227,7 @@ export default async function OrdenTrabajoCalidadPage({
                         {/* El enlace se extiende sobre toda la fila (after:inset-0): tocar cualquier parte abre el pedido. */}
                         <EnlaceFila
                           href={`/calidad/pedidos/${p.id}`}
-                          className="group inline-flex items-center gap-2 text-sm font-semibold text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
+                          className="group inline-flex items-center gap-2 text-sm font-medium text-slate-900 outline-none after:absolute after:inset-0 hover:text-brand-700 focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
                         >
                           {p.numero_pedido}
                         </EnlaceFila>
@@ -252,7 +252,7 @@ export default async function OrdenTrabajoCalidadPage({
                       <td className="px-2 py-4 text-slate-700">{p.fecha_entrega ?? "—"}</td>
                       <td className="px-2 py-4">
                         {activa ? (
-                          <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-bold text-brand-900">
+                          <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-900">
                             #{activa.numero_version}
                           </span>
                         ) : (
@@ -291,7 +291,7 @@ function Cifra({ valor, tono }: { valor: number; tono: string }) {
   if (!valor) return <span className="text-slate-300">—</span>;
   return (
     <span
-      className={`inline-flex min-w-8 justify-center rounded-full px-2 py-0.5 text-sm font-bold tabular-nums ${tono}`}
+      className={`inline-flex min-w-8 justify-center rounded-full px-2 py-0.5 text-sm font-medium tabular-nums ${tono}`}
     >
       {valor}
     </span>

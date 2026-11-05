@@ -101,7 +101,7 @@ interface ItemEscaneado {
 const ESTILO_PRINCIPAL =
   "flex min-h-12 w-full items-center justify-center rounded-xl bg-brand-500 px-4 py-3 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400";
 const ESTILO_OPCION =
-  "flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50";
+  "flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-brand-50";
 
 // Destino del QR de la Hoja de Viajero: /q/<ítem>. El QR lleva solo el id del mueble (la
 // dirección completa de la hoja lleva dos ids y daba un código tan denso que el celular lo

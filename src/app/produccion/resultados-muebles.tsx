@@ -72,14 +72,14 @@ export default function ResultadosMuebles({
           <button
             type="button"
             onClick={() => setAbiertos(Object.fromEntries(conHijos.map((g) => [g.padre.id, true])))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-brand-50"
           >
             Mostrar componentes
           </button>
           <button
             type="button"
             onClick={() => setAbiertos(Object.fromEntries(conHijos.map((g) => [g.padre.id, false])))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-brand-50"
           >
             Ocultar componentes
           </button>
@@ -102,7 +102,7 @@ export default function ResultadosMuebles({
             <div
               onClick={alternar}
               className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-3 ${
-                desplegable ? "cursor-pointer hover:bg-slate-50" : ""
+                desplegable ? "cursor-pointer hover:bg-brand-50" : ""
               }`}
             >
               <div onClick={(e) => e.stopPropagation()}>

@@ -624,7 +624,7 @@ export default function ItemsCalidadTable({
           <button
             type="button"
             onClick={() => deshacerAprobacion(item.id)}
-            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 max-md:min-h-11 max-md:px-4"
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-brand-50 max-md:min-h-11 max-md:px-4"
           >
             Deshacer
           </button>
@@ -687,7 +687,7 @@ export default function ItemsCalidadTable({
     return (
       <tr
         key={item.id}
-        className={`transition-colors hover:bg-slate-50 ${indentado ? "border-t border-slate-100" : "text-base font-medium text-slate-900"}`}
+        className={`transition-colors hover:bg-brand-50 ${indentado ? "border-t border-slate-100" : "text-base font-medium text-slate-900"}`}
       >
         <td className={`border-l-4 py-2 pl-2 pr-1 ${franjaDe(item)}`}>
           <Miniatura item={item} clase={indentado ? "h-12 w-12" : "h-16 w-16"} />
@@ -843,7 +843,7 @@ export default function ItemsCalidadTable({
                 className={`rounded border px-3 py-1 font-medium transition-colors max-md:min-h-11 ${
                   filtroCalidad === valor
                     ? "border-brand-600 bg-brand-500 text-on-brand"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    : "border-slate-200 text-slate-600 hover:bg-brand-50"
                 }`}
               >
                 {etiqueta}
@@ -944,7 +944,7 @@ export default function ItemsCalidadTable({
                 type="button"
                 onClick={() => setTallerAbierto((v) => !v)}
                 aria-expanded={tallerVisible}
-                className="flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 max-md:min-h-11"
+                className="flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-brand-100 max-md:min-h-11"
               >
                 <span aria-hidden className={`transition-transform ${tallerVisible ? "rotate-90" : ""}`}>
                   ›

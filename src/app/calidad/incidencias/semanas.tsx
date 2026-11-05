@@ -40,7 +40,7 @@ export default function Semanas({
                     href={hrefDe(s.inicio)}
                     title={texto}
                     aria-label={texto}
-                    className="flex w-full flex-col items-center justify-end gap-0.5 rounded-sm hover:bg-slate-50"
+                    className="flex w-full flex-col items-center justify-end gap-0.5 rounded-sm hover:bg-brand-50"
                     style={{ height: ALTO + 18 }}
                   >
                     <span className="text-xs tabular-nums leading-none text-slate-500">{s.total || ""}</span>

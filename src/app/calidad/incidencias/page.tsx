@@ -152,7 +152,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
         {/* El Excel lleva lo mismo que se ve: el periodo y los filtros puestos. */}
         <a
           href={hrefIncidencias("/api/calidad/incidencias/excel", filtros, { vista, ref: dia })}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 max-md:min-h-11"
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-brand-50 max-md:min-h-11"
         >
           Descargar Excel
         </a>

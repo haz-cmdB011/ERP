@@ -45,7 +45,7 @@ export function FiltrosOrdenesTrabajo({
               className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors pointer-coarse:py-2.5 ${
                 activo
                   ? "border-brand-600 bg-brand-500 text-on-brand"
-                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-brand-50"
               }`}
             >
               {a ?? "Todos"}
@@ -101,7 +101,7 @@ export function TablaOrdenesTrabajo<P extends PedidoConOt>({
             return (
               <tr
                 key={fila.ot ?? primero.id}
-                className={`align-top transition-colors hover:bg-slate-50 ${
+                className={`align-top transition-colors hover:bg-brand-50 ${
                   filaClicable ? "relative focus-within:bg-slate-50" : ""
                 }`}
               >

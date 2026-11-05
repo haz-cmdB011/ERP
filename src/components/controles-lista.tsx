@@ -63,7 +63,7 @@ export function DesplegableCliente({
 }) {
   return (
     <details open={abierto} className="group/cliente rounded-xl border border-slate-200 bg-white/50 mob:rounded-none mob:border-0 mob:bg-transparent">
-      <summary className="flex cursor-pointer select-none list-none items-center gap-2 rounded-xl px-4 py-3 transition-colors hover:bg-slate-50 [&::-webkit-details-marker]:hidden mob:gap-2.5 mob:rounded-none mob:px-5 mob:py-3.5">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-2 rounded-xl px-4 py-3 transition-colors hover:bg-brand-50 [&::-webkit-details-marker]:hidden mob:gap-2.5 mob:rounded-none mob:px-5 mob:py-3.5">
         <Chevron abierto={false} className="h-4 w-4 text-slate-500 group-open/cliente:rotate-90 mob:text-slate-400" />
         <span className="font-semibold text-slate-900">{cliente}</span>
         <span className="text-xs text-slate-500 mob:ml-auto mob:text-sm">

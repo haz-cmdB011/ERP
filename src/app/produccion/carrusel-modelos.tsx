@@ -40,7 +40,7 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloReciente[]
   }
 
   const boton =
-    "grid size-9 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-35 disabled:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
+    "grid size-9 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-brand-100 disabled:opacity-35 disabled:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
 
   return (
     <section

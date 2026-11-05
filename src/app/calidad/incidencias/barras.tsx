@@ -51,7 +51,7 @@ export default function Barras({
             return (
               <li key={f.nombre}>
                 {hrefDe ? (
-                  <Link href={hrefDe(f.nombre)} className="flex items-center gap-2 rounded hover:bg-slate-50">
+                  <Link href={hrefDe(f.nombre)} className="flex items-center gap-2 rounded hover:bg-brand-50">
                     {contenido}
                   </Link>
                 ) : (

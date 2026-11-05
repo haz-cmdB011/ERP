@@ -180,7 +180,7 @@ export default async function CambiosVersiones({
         {filtro !== "todos" && <input type="hidden" name="ver" value={filtro} />}
         <button
           type="submit"
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-brand-50"
         >
           Comparar
         </button>
@@ -229,7 +229,7 @@ export default async function CambiosVersiones({
                     className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                       activo
                         ? "border-brand-600 bg-brand-500 text-on-brand"
-                        : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                        : "border-slate-300 bg-white text-slate-600 hover:bg-brand-50"
                     }`}
                   >
                     {FILTROS[f]} ({cuenta})
