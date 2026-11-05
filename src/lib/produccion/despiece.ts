@@ -611,3 +611,36 @@ export interface VersionHistorial {
   igualASugerencia: boolean;
   lineas: LineaDespiece[];
 }
+
+// --- Dividir un componente en partes --------------------------------------------
+
+// Los nombres de las partes que sugiere una descripción: "PUERTA CON MARCO" → PUERTA, MARCO.
+// Corta por "con", "y", "+" y comas; con una sola pieza no hay nada que sugerir.
+export function sugerirPartes(descripcion: string): string[] {
+  const piezas = descripcion
+    .split(/\s+con\s+|\s+y\s+|\s*\+\s*|\s*,\s*/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return piezas.length > 1 ? piezas : [];
+}
+
+// Lo que se escribió ("Puerta, Marco") como lista de nombres, sin vacíos ni repetidos.
+export function nombresDePartes(texto: string): string[] {
+  const vistos = new Set<string>();
+  return texto
+    .split(/\s*[,\n]\s*/)
+    .map((n) => n.replace(/\s+/g, " ").trim())
+    .filter((n) => {
+      const clave = n.toLowerCase();
+      if (!n || vistos.has(clave)) return false;
+      vistos.add(clave);
+      return true;
+    });
+}
+
+// Una línea del despiece dividida en partes: cada una con las piezas por mueble, el material y la
+// unidad de la original. Las partes nuevas no se ligan al componente del PM (una línea por
+// componente) ni heredan asignaciones: por eso no se divide una línea ya asignada.
+export function dividirLinea(linea: LineaDespiece, nombres: string[]): LineaDespiece[] {
+  return nombres.map((descripcion) => ({ ...linea, id: null, hijo_id: null, descripcion }));
+}

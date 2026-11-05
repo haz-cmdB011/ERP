@@ -18,6 +18,9 @@ import {
   totalLinea,
   validarLineas,
   type LineaDespiece,
+  dividirLinea,
+  nombresDePartes,
+  sugerirPartes,
   type SugerenciaDespiece,
   type VersionHistorial,
 } from "@/lib/produccion/despiece";
@@ -299,6 +302,28 @@ export default function DespieceEditor({
     setFilas((prev) => (prev.length > 1 ? prev.filter((f) => f.clave !== clave) : prev));
   }
 
+  // Dividir una línea en partes ("Puerta con marco" → Puerta y Marco): se abre el cuadro de la
+  // línea con los nombres sugeridos y, al aceptar, la línea se reemplaza por sus partes.
+  const [dividiendo, setDividiendo] = useState<{ clave: number; nombres: string } | null>(null);
+
+  function empezarDivision(f: Fila) {
+    setDividiendo({ clave: f.clave, nombres: sugerirPartes(f.descripcion).join(", ") });
+  }
+
+  function dividir() {
+    if (!dividiendo) return;
+    const nombres = nombresDePartes(dividiendo.nombres);
+    if (nombres.length < 2) return;
+    setFilas((prev) =>
+      prev.flatMap((f) => {
+        if (f.clave !== dividiendo.clave) return [f];
+        const [original] = lineasDesde([f]);
+        return filasDesde(dividirLinea(original, nombres));
+      })
+    );
+    setDividiendo(null);
+  }
+
   function desvincular(clave: number) {
     setFilas((prev) => prev.map((f) => (f.clave === clave ? { ...f, hijoId: null } : f)));
   }
@@ -547,7 +572,59 @@ export default function DespieceEditor({
                 <span className="font-medium text-slate-700">{COLORES_MATERIAL[tipo].etiqueta}</span>
                 <span className="text-slate-500">· Parte {i + 1}</span>
                 {asignada && <span className="text-slate-500">· asignada a un equipo</span>}
+                {puedeEditar && (
+                  <button
+                    type="button"
+                    onClick={() => empezarDivision(f)}
+                    disabled={asignada}
+                    title={
+                      asignada
+                        ? "Ya está asignada a un equipo: no se puede dividir"
+                        : "Separar esta línea en dos o más partes que se entregan por aparte"
+                    }
+                    className="ml-auto font-medium text-sky-700 hover:underline disabled:text-slate-400 disabled:no-underline"
+                  >
+                    Dividir en partes
+                  </button>
+                )}
               </div>
+              {dividiendo?.clave === f.clave && (
+                <div className="col-span-full flex flex-col gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3">
+                  <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+                    Nombres de las partes, separados por coma
+                    <input
+                      autoFocus
+                      value={dividiendo.nombres}
+                      onChange={(e) => setDividiendo({ clave: f.clave, nombres: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          dividir();
+                        }
+                      }}
+                      placeholder="Puerta, Marco"
+                      className={estiloCampo}
+                    />
+                  </label>
+                  <p className="text-xs text-slate-600">
+                    Cada parte lleva las mismas piezas por mueble, material y unidad. Se dejan de ligar al
+                    componente del PM y cada una se entrega por aparte.
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setDividiendo(null)} className={estiloBotonSecundario}>
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={dividir}
+                      disabled={nombresDePartes(dividiendo.nombres).length < 2}
+                      className={estiloBotonPrimario}
+                    >
+                      Dividir
+                    </button>
+                  </div>
+                </div>
+              )}
               <Campo etiqueta="Descripción" className="col-span-full">
                 <input
                   value={f.descripcion}

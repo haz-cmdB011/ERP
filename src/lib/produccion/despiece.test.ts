@@ -9,6 +9,9 @@ import {
   lineasConComponenteCaido,
   lineasDesdeJson,
   limpiarLineas,
+  dividirLinea,
+  nombresDePartes,
+  sugerirPartes,
   mismasLineas,
   repartirPorcentajes,
   despieceParaOtroMueble,
@@ -441,5 +444,34 @@ describe("despiece por modelo", () => {
   it("reconoce la copia sin cambios por su contenido, sin mirar ids ni componentes", () => {
     expect(mismoContenido([linea("Capelo", "o2", "x")], [linea(" Capelo", "d2")])).toBe(true);
     expect(mismoContenido([linea("Capelo", "o2")], [{ ...linea("Capelo", "o2"), piezas_por_mueble: 2 }])).toBe(false);
+  });
+});
+
+describe("dividir un componente en partes", () => {
+  it("sugiere las partes de una descripción compuesta", () => {
+    expect(sugerirPartes("PUERTA CON MARCO")).toEqual(["PUERTA", "MARCO"]);
+    expect(sugerirPartes("Cajón y frente")).toEqual(["Cajón", "frente"]);
+    expect(sugerirPartes("Tabla")).toEqual([]);
+  });
+
+  it("limpia lo escrito: sin vacíos, espacios de más ni repetidos", () => {
+    expect(nombresDePartes("Puerta,  Marco , ,puerta")).toEqual(["Puerta", "Marco"]);
+    expect(nombresDePartes("")).toEqual([]);
+  });
+
+  it("cada parte conserva piezas, material y unidad, y nace sin id ni componente", () => {
+    const linea = {
+      id: "p1",
+      descripcion: "PUERTA CON MARCO",
+      material: "MDF",
+      unidad: "PZA",
+      piezas_por_mueble: 2,
+      porcentaje: null,
+      hijo_id: "h1",
+    };
+    const partes = dividirLinea(linea, ["Puerta", "Marco"]);
+    expect(partes.map((p) => p.descripcion)).toEqual(["Puerta", "Marco"]);
+    expect(partes.every((p) => p.id === null && p.hijo_id === null)).toBe(true);
+    expect(partes.every((p) => p.piezas_por_mueble === 2 && p.material === "MDF" && p.unidad === "PZA")).toBe(true);
   });
 });

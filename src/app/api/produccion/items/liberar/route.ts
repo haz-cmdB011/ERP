@@ -86,11 +86,14 @@ export async function POST(request: Request) {
     );
   }
 
+  // Una sola marca para todo lo liberado: con ella el panel abre "lo recién liberado" sin
+  // listar ids en la dirección (que tienen tope).
+  const liberadoEn = new Date().toISOString();
   const { data, error } = await supabase
     .from("planeacion_items")
     .update({
       estado_liberacion: "enviado_a_produccion",
-      liberado_en: new Date().toISOString(),
+      liberado_en: liberadoEn,
       liberado_por: user.id,
     })
     .in("id", itemIds)
@@ -140,5 +143,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, liberados: data.length, rutasGuardadas: Object.keys(rutas).length - avisos.length, avisos });
+  return NextResponse.json({ ok: true, liberados: data.length, liberadoEn, rutasGuardadas: Object.keys(rutas).length - avisos.length, avisos });
 }

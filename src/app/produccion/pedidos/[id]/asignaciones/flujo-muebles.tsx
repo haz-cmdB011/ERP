@@ -314,9 +314,11 @@ export function FilaMueble({
             <span className="block text-sm text-slate-500 tabular-nums">
               {m.cantidad} {m.unidad ?? ""}
               {partesConRuta(m).length > 0 && (
-                <span title="Muebles completos: los que alcanza la parte más atrasada">
-                  {" "}
-                  · {encuadreMueble(m).completos}/{m.cantidad} completos
+                <span
+                  className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                  title={`Se empezó por partes; lo nuevo va al mueble completo. Muebles completos hasta ahora: ${encuadreMueble(m).completos} de ${m.cantidad}.`}
+                >
+                  Por partes
                 </span>
               )}
             </span>

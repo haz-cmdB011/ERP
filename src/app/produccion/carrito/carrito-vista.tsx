@@ -30,11 +30,11 @@ import DespieceEnLinea from "./despiece-en-linea";
 
 const AVISO_SIN_DESPIECE = "Falta el despiece de algún mueble: despliégalo y guarda su despiece para poder liberar.";
 
-// Panel de asignación de esos muebles (todos los liberados si son demasiados para la dirección).
-function urlPanel(ids: string[]): string {
-  return ids.length > 0 && ids.length <= MAX_IDS_PANEL
-    ? `/produccion/panel?ids=${ids.join(",")}`
-    : "/produccion/panel";
+// Panel de asignación de lo recién liberado: por ids si caben en la dirección y, si no, por la
+// marca de tiempo de la liberación (sin tope de cantidad).
+function urlPanel(ids: string[], liberadoEn?: string): string {
+  if (ids.length > 0 && ids.length <= MAX_IDS_PANEL) return `/produccion/panel?ids=${ids.join(",")}`;
+  return liberadoEn ? `/produccion/panel?lote=${encodeURIComponent(liberadoEn)}` : "/produccion/panel";
 }
 
 type Datos = DatosCarrito & {
@@ -128,9 +128,8 @@ export default function CarritoVista() {
       for (const aviso of (cuerpo.avisos ?? []) as string[]) {
         avisar(`La ruta no se guardó: ${aviso} Cámbiala con "Ruta" en el panel.`, "error");
       }
-      // Un componente liberado solo no se asigna: sin muebles no hay a dónde ir. Con demasiados
-      // muebles la lista no cabe en la dirección: se abre el panel con todo lo liberado.
-      if (muebles.length > 0) router.push(urlPanel(muebles));
+      // Un componente liberado solo no se asigna: sin muebles no hay a dónde ir.
+      if (muebles.length > 0) router.push(urlPanel(muebles, cuerpo.liberadoEn));
     } catch {
       avisar("Error de red al liberar.", "error");
     } finally {

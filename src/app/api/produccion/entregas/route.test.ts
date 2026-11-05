@@ -38,6 +38,36 @@ beforeEach(() => {
   rpc.mockReset().mockResolvedValue({ data: "entrega-1", error: null });
 });
 
+describe("POST /api/produccion/entregas por partes", () => {
+  const PARTE = "22222222-2222-4222-8222-222222222222";
+
+  it("manda las piezas de cada parte y responde cuántos muebles completos se alcanzaron", async () => {
+    rpc.mockResolvedValue({ data: 3, error: null });
+    const r = await POST(peticion({ cantidad: null, partes: JSON.stringify([{ parteId: PARTE, piezas: 6 }]) }));
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: true, completos: 3 });
+    expect(rpc).toHaveBeenCalledWith("registrar_entrega_partes", {
+      p_asignacion_id: ASIGNACION,
+      p_fecha_entrega: "2026-10-01",
+      p_partes: [{ parteId: PARTE, piezas: 6 }],
+      p_folios_calidad: "CAL-000123",
+      p_clave_envio: CLAVE,
+    });
+  });
+
+  it("sin partes válidas y sin cantidad no registra nada", async () => {
+    const r = await POST(peticion({ cantidad: null, partes: "no es json" }));
+    expect(r.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("un rechazo de la base es definitivo (400)", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "P0001", message: "De Marco solo faltan 2." } });
+    const r = await POST(peticion({ cantidad: null, partes: JSON.stringify([{ parteId: PARTE, piezas: 9 }]) }));
+    expect(r.status).toBe(400);
+  });
+});
+
 describe("POST /api/produccion/entregas", () => {
   it("registra la entrega con su clave de envío, sin foto ni calificación", async () => {
     const r = await POST(peticion());

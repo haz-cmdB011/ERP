@@ -231,7 +231,7 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
   Activos / Por asignar / En proceso / Terminados (`estado`, por omisión Activos, también al llegar de liberar)
   y un buscador que filtra al escribir (`q`: PM, O.T., modelo, descripción, proyecto, cliente;
   `buscador-panel.tsx`); `ot` se sigue aceptando en la dirección. Lógica pura en
-  `src/lib/produccion/panel.ts`, lectura en `panel-db.ts`; `flujo-db.ts` (`cargarFlujoMuebles`) arma el flujo
+  `src/lib/produccion/panel.ts`, lectura en `panel-db.ts` (primero una fila liviana por mueble, `listarLiberadosDePanel`, para filtrar por O.T. y búsqueda; el flujo solo se carga de lo que queda). Se pintan 40 muebles y "Ver más" suma otros 40 (`?n=`); lo recién liberado abre por `?ids=` o, si son más de 100, por `?lote=<liberado_en>`, que devuelve `/api/produccion/items/liberar`. `flujo-db.ts` (`cargarFlujoMuebles`) arma el flujo
   y lo comparten el panel y el carrito.
 - La pantalla de asignaciones de un PM (`/produccion/pedidos/<id>/asignaciones`) sigue existiendo (la usan el
   QR y el tablero), pero ya no se llega a ella desde el pedido ni la O.T.
@@ -282,6 +282,16 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
   hacia abajo). También da, por parte, sus piezas terminadas, los muebles que alcanza y lo que le falta
   para llegar a la más adelantada (20 tablas de 3 = 6 muebles → al herraje le faltan 6). En pantalla solo
   sale "0/23 completos" junto a la cantidad del mueble en el panel; el resto queda como lógica.
+- **Dividir y entregar por partes** (migración `entrega_por_partes`, 5 nov 2026): en el editor, "Dividir en partes"
+  separa una línea ("Puerta con marco" → Puerta y Marco; `sugerirPartes`/`dividirLinea` en `despiece.ts`; las
+  nuevas no se ligan al componente del PM y no se divide una ya asignada). El mueble sigue asignándose completo con
+  una sola ruta, pero **la entrega** de un mueble con despiece puede ser "Por partes" (`registrar-entrega.tsx`,
+  `partes` en `POST /api/produccion/entregas`): `registrar_entrega_partes` guarda las piezas por parte
+  (`entregas_partes_produccion`) y, cuando la parte más atrasada alcanza para más muebles que los ya entregados,
+  registra sola la entrega del mueble completo (`registrar_entrega_produccion`) por la diferencia; Calidad y cobro
+  siguen contando muebles. No aplica a asignaciones de una parte ni a muebles de antes con ruta por parte
+  (`partesParaEntrega`, `src/lib/produccion/entregas-partes.ts`). Anular esa entrega del mueble no devuelve las piezas.
+  Si puerta y marco llevaran procesos distintos, una sola ruta no alcanza (habría que devolver ruta a las partes).
 - Pendiente: fase 3, cobro por partes.
 
 ## Revisión final de Calidad

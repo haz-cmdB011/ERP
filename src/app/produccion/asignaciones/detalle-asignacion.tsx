@@ -12,6 +12,7 @@ import type { EntregaConFoto } from "@/lib/produccion/consultar-asignaciones";
 import { DIAS_SIN_VERIFICAR, diasEsperando } from "@/lib/produccion/detenidos";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import AccionConMotivo from "./accion-con-motivo";
+import type { ParteEntrega } from "@/lib/produccion/entregas-partes";
 import RegistrarEntrega from "./registrar-entrega";
 import VerificarEntrega from "./verificar-entrega";
 
@@ -59,11 +60,14 @@ export default function DetalleAsignacion({
   entregas,
   puedeEditar,
   puedeAnular,
+  partes,
 }: {
   asignacion: AsignacionResumen;
   entregas: EntregaConFoto[];
   puedeEditar: boolean;
   puedeAnular: boolean;
+  // Partes del despiece del mueble, para entregar por partes (ver partesParaEntrega).
+  partes?: ParteEntrega[];
 }) {
   const pendiente = Math.round((Number(a.cantidad) - Number(a.entregado)) * 100) / 100;
   const descripcion = `${a.numero_pedido} · ${a.modelo ?? `ítem ${a.item_code}`} · ${a.equipo}`;
@@ -170,6 +174,8 @@ export default function DetalleAsignacion({
               pendiente={pendiente}
               unidad={a.unidad}
               fechaAsignacion={a.fecha_asignacion}
+              cantidadAsignada={Number(a.cantidad)}
+              partes={partes}
             />
           )}
           {vigentes === 0 && <AccionConMotivo accion="cancelar" id={a.id} descripcion={descripcion} />}
