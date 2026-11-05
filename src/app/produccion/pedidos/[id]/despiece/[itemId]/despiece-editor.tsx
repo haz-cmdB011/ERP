@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
 import { formatoFechaHora } from "@/lib/resumen/entrega";
 import { enviarOGuardar, usuarioActualId } from "@/lib/offline/cola-navegador";
+import { PROCESOS, PROCESO_LABELS, type Proceso } from "@/lib/produccion/asignaciones";
 import {
   MATERIALES_SUGERIDOS,
   UNIDADES_SUGERIDAS,
@@ -38,6 +39,8 @@ interface Fila {
   unidad: string;
   piezas: string;
   hijoId: string | null;
+  // Procesos por los que la parte NO pasa (vacío = todos, lo normal).
+  omitidos: Proceso[];
   // La parte del despiece que es la línea (null si es nueva): con ella conserva sus asignaciones.
   parteId: string | null;
   aviso: string | null;
@@ -61,6 +64,7 @@ function filasDesde(lineas: LineaDespiece[], avisos: (string | null)[] = []): Fi
     // 0 = el Excel no traía la cantidad: se deja en blanco para que se escriba.
     piezas: l.piezas_por_mueble > 0 ? String(l.piezas_por_mueble) : "",
     hijoId: l.hijo_id,
+    omitidos: l.procesos_omitidos ?? [],
     parteId: l.id ?? null,
     aviso: avisos[i] ?? null,
   }));
@@ -77,6 +81,7 @@ function lineasDesde(filas: Fila[]): LineaDespiece[] {
     piezas_por_mueble: leerCantidad(f.piezas),
     porcentaje: porcentajes[i],
     hijo_id: f.hijoId,
+    ...(f.omitidos.length > 0 ? { procesos_omitidos: f.omitidos } : {}),
   }));
 }
 
@@ -238,12 +243,13 @@ export default function DespieceEditor({
       guardarBorrador(itemId, {
         version,
         en: Date.now(),
-        filas: filas.map(({ descripcion, material, unidad, piezas, hijoId, parteId }) => ({
+        filas: filas.map(({ descripcion, material, unidad, piezas, hijoId, omitidos, parteId }) => ({
           descripcion,
           material,
           unidad,
           piezas,
           hijoId,
+          omitidos,
           parteId,
         })),
       });
@@ -294,7 +300,17 @@ export default function DespieceEditor({
   function agregar() {
     setFilas((prev) => [
       ...prev,
-      { clave: ++ultimaClave, descripcion: "", material: "", unidad: "", piezas: "1", hijoId: null, parteId: null, aviso: null },
+      {
+        clave: ++ultimaClave,
+        descripcion: "",
+        material: "",
+        unidad: "",
+        piezas: "1",
+        hijoId: null,
+        omitidos: [],
+        parteId: null,
+        aviso: null,
+      },
     ]);
   }
 
@@ -324,6 +340,19 @@ export default function DespieceEditor({
     setDividiendo(null);
   }
 
+  // Marca si la parte pasa o no por un proceso (por omisión pasa por todos).
+  function alternarProceso(clave: number, proceso: Proceso) {
+    setFilas((prev) =>
+      prev.map((f) => {
+        if (f.clave !== clave) return f;
+        const omitidos = f.omitidos.includes(proceso)
+          ? f.omitidos.filter((p) => p !== proceso)
+          : PROCESOS.filter((p) => p === proceso || f.omitidos.includes(p));
+        return { ...f, omitidos };
+      })
+    );
+  }
+
   function desvincular(clave: number) {
     setFilas((prev) => prev.map((f) => (f.clave === clave ? { ...f, hijoId: null } : f)));
   }
@@ -345,6 +374,7 @@ export default function DespieceEditor({
     // Los borradores de antes de las partes no traen parteId: la base reconoce la parte por su componente.
     setFilas(borrador.filas.map((f) => ({
         ...f,
+        omitidos: f.omitidos ?? [],
         parteId: f.parteId ?? null,
         clave: ++ultimaClave,
         aviso: null,
@@ -625,6 +655,32 @@ export default function DespieceEditor({
                   </div>
                 </div>
               )}
+              <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                <span className="font-medium text-slate-600">Pasa por</span>
+                {PROCESOS.map((p) => {
+                  const pasa = !f.omitidos.includes(p);
+                  // Una parte debe pasar al menos por un proceso: el último marcado no se quita.
+                  const ultimo = pasa && f.omitidos.length === PROCESOS.length - 1;
+                  return (
+                    <label
+                      key={p}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors ${
+                        pasa ? "border-slate-300 bg-white text-slate-800" : "border-dashed border-slate-300 text-slate-400 line-through"
+                      } ${puedeEditar && !ultimo ? "cursor-pointer" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={pasa}
+                        disabled={!puedeEditar || ultimo}
+                        onChange={() => alternarProceso(f.clave, p)}
+                        className="h-3.5 w-3.5"
+                      />
+                      {PROCESO_LABELS[p]}
+                    </label>
+                  );
+                })}
+                {f.omitidos.length === 0 && <span className="text-slate-500">todos, lo normal</span>}
+              </div>
               <Campo etiqueta="Descripción" className="col-span-full">
                 <input
                   value={f.descripcion}

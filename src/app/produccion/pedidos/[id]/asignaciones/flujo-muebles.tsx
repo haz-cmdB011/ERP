@@ -28,6 +28,7 @@ import {
   etapaSiguiente,
   opcionesAsignar,
   partesConRuta,
+  siguienteAsignable,
   pasoConAsignaciones,
   pasoEnColumna,
   requiereDespiece,
@@ -43,6 +44,7 @@ import { tipoMaterial, type TipoMaterial } from "@/lib/produccion/despiece";
 import { COLORES_MATERIAL, InsigniaMaterial } from "@/app/produccion/material-parte";
 import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
 import EditarRuta from "./editar-ruta";
+import AsignarPorPartes from "./asignar-por-partes";
 
 // Color de cada estado (variables de la paleta: el tema oscuro las invierte).
 const COLOR: Record<EstadoProceso, string> = {
@@ -233,6 +235,8 @@ export function FilaMueble({
   // Lo que toca asignar (para el botón de la izquierda): las partes o el paso del mueble.
   const etapa = etapaSiguiente(m);
   const toca = etapa && estadoEtapa(m, etapa) === "sin_asignar" ? etapa : null;
+  // Por partes: la primera parte (y su paso) que todavía tiene lugar para asignar.
+  const sigue = m.porPartes ? siguienteAsignable(m) : null;
   // Con despiece, un anillo por proceso (todas las partes y el mueble completo que lo llevan);
   // sin despiece, uno por paso de su ruta.
   const anillos: { clave: string; estado: EstadoProceso; contenido: ReactNode }[] =
@@ -262,6 +266,15 @@ export function FilaMueble({
       <EnlaceDespiece mueble={m} className={`${boton} border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100`}>
         Hacer despiece
       </EnlaceDespiece>
+    ) : asignar && m.porPartes && toca?.tipo === "partes" && sigue ? (
+      <BotonAsignar
+        mueble={m}
+        inicial={{ parte: sigue.parte?.id ?? null, paso: sigue.paso.indice }}
+        asignar={asignar}
+        className={`${boton} bg-brand-500 text-on-brand shadow-sm hover:bg-brand-400`}
+      >
+        Asignar partes
+      </BotonAsignar>
     ) : toca?.tipo === "paso" && porAsignar(m, toca.indice, asignar) ? (
       <BotonAsignar
         mueble={m}
@@ -316,7 +329,7 @@ export function FilaMueble({
               {partesConRuta(m).length > 0 && (
                 <span
                   className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
-                  title={`Se empezó por partes; lo nuevo va al mueble completo. Muebles completos hasta ahora: ${encuadreMueble(m).completos} de ${m.cantidad}.`}
+                  title={`${m.porPartes ? "Se asigna por partes." : "Se empezó por partes; lo nuevo va al mueble completo."} Muebles completos hasta ahora: ${encuadreMueble(m).completos} de ${m.cantidad}.`}
                 >
                   Por partes
                 </span>
@@ -550,6 +563,28 @@ function PieMueble({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: Asign
                 Cambiar ruta
               </EditarRuta>
             )}
+            {partes.length > 0 && !m.porPartes && (
+              <AsignarPorPartes
+                itemId={m.id}
+                descripcion={`ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`}
+                version={m.versionRuta}
+                activar
+                className={enlace}
+              >
+                Asignar por partes
+              </AsignarPorPartes>
+            )}
+            {m.porPartes && (
+              <AsignarPorPartes
+                itemId={m.id}
+                descripcion={`ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`}
+                version={m.versionRuta}
+                activar={false}
+                className={enlace}
+              >
+                Volver al mueble completo
+              </AsignarPorPartes>
+            )}
             {partes.length > 0 && (
               <EnlaceDespiece mueble={m} className={enlace}>
                 Editar despiece
@@ -645,8 +680,9 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
         )}
       </div>
       <p className="text-slate-500">
-        Este mueble se empezó por partes: lo que ya tienen sus partes se sigue entregando aquí. Lo nuevo se
-        asigna al mueble completo.
+        {m.porPartes
+          ? "Este mueble se asigna por partes: cada parte lleva su ruta y se asigna y se entrega en sus piezas. Cuenta completo cuando la parte más atrasada termina."
+          : "Este mueble se empezó por partes: lo que ya tienen sus partes se sigue entregando aquí. Lo nuevo se asigna al mueble completo."}
       </p>
       <div className="overflow-x-auto rounded-lg bg-white">
         <table className="w-full text-left text-[11px] tabular-nums sm:text-xs">
@@ -676,8 +712,14 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
                   </span>
                 </td>
                 {columnas.map((c) => (
-                  // Las partes solo se consultan: sin "+".
-                  <CeldaRuta key={`${c.proceso}-${c.vez}`} mueble={m} parte={p} columna={c} asignar={null} />
+                  // Las partes solo se consultan (sin "+") salvo que el mueble vaya por partes.
+                  <CeldaRuta
+                    key={`${c.proceso}-${c.vez}`}
+                    mueble={m}
+                    parte={p}
+                    columna={c}
+                    asignar={m.porPartes ? asignar : null}
+                  />
                 ))}
                 {asignar && <td className="p-1 sm:p-2" />}
               </tr>

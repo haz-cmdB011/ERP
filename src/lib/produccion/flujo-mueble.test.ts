@@ -317,6 +317,25 @@ describe("rutas por parte (cada parte la suya, en sus piezas)", () => {
     expect(seAsignaCompleto(m)).toBe(false);
   });
 
+  it("por partes: las partes de su despiece se ofrecen para asignar, cada una con su ruta", () => {
+    // Mueble sin pasos propios; la tabla ya terminó su armado, el herraje no.
+    const m: MuebleFlujo = {
+      ...conPartes([asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" })], []),
+      porPartes: true,
+    };
+    const o = opcionesAsignar(m);
+    expect(o.partes.map((x) => x.parte.id)).toEqual(["tabla", "herraje"]);
+    expect(o.partes[0].pasos.map((p) => p.etiqueta)).toEqual(["Armado", "Barniz"]);
+    expect(o.partes[1].pasos.map((p) => p.etiqueta)).toEqual(["Armado"]);
+    // Lo que toca: lo primero con lugar de la primera parte que lo tenga (el barniz de la tabla).
+    const s = siguienteAsignable(m);
+    expect(s?.parte?.id).toBe("tabla");
+    expect(s?.paso.etiqueta).toBe("Barniz");
+    expect(seAsignaCompleto(m)).toBe(false);
+    // Sin el interruptor, las mismas partes de antes no se ofrecen.
+    expect(opcionesAsignar({ ...m, porPartes: false }).partes).toEqual([]);
+  });
+
   it("un mueble con despiece sin rutas de partes se asigna completo", () => {
     const m: MuebleFlujo = { ...mueble([], rutaMueble), partes: [{ ...tabla, ruta: [] }, { ...herraje, ruta: [] }] };
     expect(seAsignaCompleto(m)).toBe(true);

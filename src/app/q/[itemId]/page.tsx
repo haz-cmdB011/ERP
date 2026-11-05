@@ -245,6 +245,7 @@ export default async function FichaMuebleQrPage({
     aplica,
     ruta: rutasMueble.ruta,
     versionRuta: rutas.get(item.id)?.version ?? 0,
+    porPartes: rutas.get(item.id)?.porPartes ?? false,
     asignaciones: todas,
     revisionFinal: finalActiva ? { aprobadas: resumenFinal?.aprobadas ?? 0 } : null,
     partes: rutasMueble.partes,
@@ -475,7 +476,7 @@ export default async function FichaMuebleQrPage({
             equipos={equipos ?? []}
             encargados={encargados ?? []}
             faltaDespiece={requiereDespiece(flujo)}
-            inicial={sigue ? { parte: null, paso: sigue.paso.indice } : undefined}
+            inicial={sigue ? { parte: sigue.parte?.id ?? null, paso: sigue.paso.indice } : undefined}
             className={clase}
           >
             {a.etiqueta}

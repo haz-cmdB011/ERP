@@ -291,7 +291,21 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
   registra sola la entrega del mueble completo (`registrar_entrega_produccion`) por la diferencia; Calidad y cobro
   siguen contando muebles. No aplica a asignaciones de una parte ni a muebles de antes con ruta por parte
   (`partesParaEntrega`, `src/lib/produccion/entregas-partes.ts`). Anular esa entrega del mueble no devuelve las piezas.
-  Si puerta y marco llevaran procesos distintos, una sola ruta no alcanza (habría que devolver ruta a las partes).
+  **Procesos por parte** (migración `procesos_por_parte`, aplicada el 5 nov 2026): cada línea del
+  despiece dice por qué procesos NO pasa (`partes_despiece.procesos_omitidos`, `procesos_omitidos` en la línea; vacío =
+  todos, lo normal; "Pasa por" en el editor, nunca los cuatro omitidos). La entrega por partes de una asignación (que es
+  de un proceso) solo ofrece las partes que llevan ese proceso y los muebles completos se cuentan con ellas: el Barniz
+  de la puerta no espera al marco si el marco no lleva Barniz.
+  **Asignar por partes** (migración `asignar_por_partes`, aplicada el 5 nov 2026; interruptor por mueble,
+  `rutas_produccion.por_partes`): por omisión el mueble se asigna completo con una sola ruta. En un mueble con
+  despiece, "Asignar por partes" (pie del detalle, `asignar-por-partes.tsx`, `activar_asignacion_por_partes`) retira la
+  ruta del mueble (sin asignaciones completas vigentes) y da a cada parte la suya: los procesos de la ruta del mueble
+  menos los que omite ("Pasa por"). Entonces cada parte se asigna y entrega en sus piezas (`crear_asignacion_produccion`
+  con `p_parte_id`, el "+" de la tabla y "Asignar partes"), y el mueble cuenta completo cuando la parte más atrasada
+  termina su último paso (lo de "Despiece por partes" de arriba). "Volver al mueble completo" solo si ninguna parte tiene
+  asignaciones vigentes. Sin la migración aplicada la lectura sigue (`leerRutas` tolera que falte la columna) y todo va
+  por mueble completo. Con el interruptor encendido no aplica la entrega parcial por partes de arriba: sus partes tienen
+  asignaciones propias.
 - Pendiente: fase 3, cobro por partes.
 
 ## Revisión final de Calidad

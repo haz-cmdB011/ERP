@@ -28,6 +28,9 @@ export interface MuebleFlujo {
   // Versión de las rutas del mueble (0 = todavía no se guarda), para el bloqueo
   // optimista de guardar_ruta_produccion. Una sola para el mueble y sus partes.
   versionRuta: number;
+  // Se asigna por partes de su despiece (migración asignar_por_partes). Omitido o false: el
+  // mueble completo con una sola ruta, lo normal.
+  porPartes?: boolean;
   asignaciones: AsignacionResumen[];
   // Revisión final de Calidad: piezas que ya aprobó. null u omitido si la
   // revisión final está apagada (ajuste revision_final).
@@ -54,6 +57,8 @@ export interface ParteDespiece {
   porcentaje?: number | null;
   // Ya guardó su ruta (aunque sea vacía). Si no, usa la sugerida.
   rutaGuardada?: boolean;
+  // Procesos por los que la parte NO pasa (migración procesos_por_parte); vacío u omitido = todos.
+  omitidos?: Proceso[];
 }
 
 // Una parte del despiece con su ruta: la guardada o la sugerida (pasos con id null).
@@ -360,17 +365,30 @@ export interface RutasAsignar {
 }
 
 export function opcionesAsignar(m: MuebleFlujo): RutasAsignar {
-  return { mueble: opcionesDePasos(m), partes: [] };
+  return {
+    mueble: opcionesDePasos(m),
+    // Las partes solo se asignan aparte cuando el mueble va "por partes".
+    partes: m.porPartes ? (m.partes ?? []).map((p) => ({ parte: p, pasos: opcionesDePasos(m, p) })) : [],
+  };
 }
 
 // Lo que toca asignar del mueble completo: su paso siguiente o, si ya está asignado, el
 // primero que todavía tenga lugar. null si ya está asignado todo. Las partes de antes
 // (con ruta propia) solo se consultan: no se les asigna nada nuevo.
-export function siguienteAsignable(m: MuebleFlujo): { parte: null; paso: OpcionPaso } | null {
-  const deMueble = opcionesDePasos(m).map((paso) => ({ parte: null, paso }));
-  const i = indiceSiguiente(m);
+export function siguienteAsignable(m: MuebleFlujo): { parte: ParteMueble | null; paso: OpcionPaso } | null {
+  const deMueble = opcionesDePasos(m).map((paso) => ({ parte: null as ParteMueble | null, paso }));
   const libre = (x: { paso: OpcionPaso }) => x.paso.disponible > 0;
-  return deMueble.filter((x) => x.paso.indice === i).find(libre) ?? deMueble.find(libre) ?? null;
+  const i = indiceSiguiente(m);
+  if (!m.porPartes) {
+    return deMueble.filter((x) => x.paso.indice === i).find(libre) ?? deMueble.find(libre) ?? null;
+  }
+  // Por partes: primero el primer paso con lugar de la primera parte que lo tenga; si ya van
+  // las del mueble completo, su paso siguiente.
+  const dePartes = (m.partes ?? []).flatMap((parte) =>
+    opcionesDePasos(m, parte).map((paso) => ({ parte: parte as ParteMueble | null, paso }))
+  );
+  const preferidas = etapaSiguiente(m)?.tipo === "partes" ? dePartes : deMueble.filter((x) => x.paso.indice === i);
+  return preferidas.find(libre) ?? dePartes.find(libre) ?? deMueble.find(libre) ?? null;
 }
 
 // Una columna del flujo de un mueble con despiece: un proceso y qué vez es (el 2º Armado de

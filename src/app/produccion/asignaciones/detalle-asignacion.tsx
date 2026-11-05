@@ -10,7 +10,7 @@ import {
 } from "@/lib/produccion/asignaciones";
 import type { EntregaConFoto } from "@/lib/produccion/consultar-asignaciones";
 import { DIAS_SIN_VERIFICAR, diasEsperando } from "@/lib/produccion/detenidos";
-import { hoyMexico } from "@/lib/produccion/asignaciones";
+import { hoyMexico, PROCESO_LABELS } from "@/lib/produccion/asignaciones";
 import AccionConMotivo from "./accion-con-motivo";
 import type { ParteEntrega } from "@/lib/produccion/entregas-partes";
 import RegistrarEntrega from "./registrar-entrega";
@@ -176,6 +176,7 @@ export default function DetalleAsignacion({
               fechaAsignacion={a.fecha_asignacion}
               cantidadAsignada={Number(a.cantidad)}
               partes={partes}
+              procesoEtiqueta={PROCESO_LABELS[a.proceso]}
             />
           )}
           {vigentes === 0 && <AccionConMotivo accion="cancelar" id={a.id} descripcion={descripcion} />}

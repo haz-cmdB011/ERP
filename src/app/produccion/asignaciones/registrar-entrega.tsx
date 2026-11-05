@@ -35,6 +35,7 @@ export default function RegistrarEntrega({
   fechaAsignacion,
   cantidadAsignada,
   partes,
+  procesoEtiqueta,
 }: {
   asignacionId: string;
   descripcion: string;
@@ -46,6 +47,8 @@ export default function RegistrarEntrega({
   // Las partes del despiece del mueble: con ellas se puede entregar por partes (lo que ya está,
   // aunque el mueble aún no esté completo). Sin ellas, solo la entrega del mueble completo.
   partes?: ParteEntrega[];
+  // Proceso de la asignación ("Barniz"): se dice en el formulario por partes.
+  procesoEtiqueta?: string;
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
@@ -244,8 +247,9 @@ export default function RegistrarEntrega({
             {conPartes && modo === "partes" && (
               <div className="flex flex-col gap-2">
                 <p className="text-xs text-slate-600">
-                  Escribe las piezas que se entregan hoy de cada parte. El mueble pasa a Calidad cuando todas
-                  sus partes lo alcanzan.
+                  Escribe las piezas que se entregan hoy de cada parte
+                  {procesoEtiqueta ? ` en ${procesoEtiqueta}` : ""}. Solo salen las partes que pasan por ese
+                  proceso. El mueble pasa a Calidad cuando todas lo alcanzan.
                 </p>
                 <ul className="flex flex-col gap-2">
                   {(partes ?? []).map((p) => {

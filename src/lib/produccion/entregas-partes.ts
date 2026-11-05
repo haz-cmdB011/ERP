@@ -39,16 +39,20 @@ export function completosPorPartes(
 }
 
 // Las partes que se ofrecen al registrar una entrega, o undefined si esa asignación se entrega
-// como siempre: la de una parte (muebles de antes), la de un mueble sin despiece o la de uno de
-// antes que ya trabajaba por partes con ruta propia (sus partes tienen asignaciones aparte).
+// como siempre: la de una parte (muebles de antes), la de un mueble sin despiece, la de uno de
+// antes que ya trabajaba por partes con ruta propia (sus partes tienen asignaciones aparte) o la
+// de un proceso que ninguna parte lleva.
 export function partesParaEntrega(
   mueble: MuebleFlujo | undefined,
-  asignacion: Pick<AsignacionResumen, "parte_id" | "cancelada_en">,
+  asignacion: Pick<AsignacionResumen, "parte_id" | "cancelada_en" | "proceso">,
   entregadas: Map<string, number> | undefined
 ): ParteEntrega[] | undefined {
   if (!mueble || asignacion.parte_id || asignacion.cancelada_en) return undefined;
-  const partes = mueble.partes ?? [];
-  if (partes.length === 0 || partesConRuta(mueble).length > 0) return undefined;
+  if ((mueble.partes ?? []).length === 0 || partesConRuta(mueble).length > 0) return undefined;
+  // Solo las partes que llevan el proceso de esta asignación: el Barniz de una puerta no espera
+  // al marco si el marco no lleva Barniz (procesos_por_parte).
+  const partes = (mueble.partes ?? []).filter((p) => !(p.omitidos ?? []).includes(asignacion.proceso));
+  if (partes.length === 0) return undefined;
   return partes.map((p) => ({
     id: p.id,
     descripcion: p.descripcion,

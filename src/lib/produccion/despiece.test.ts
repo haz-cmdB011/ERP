@@ -11,6 +11,7 @@ import {
   limpiarLineas,
   dividirLinea,
   nombresDePartes,
+  procesosOmitidosValidos,
   sugerirPartes,
   mismasLineas,
   repartirPorcentajes,
@@ -473,5 +474,27 @@ describe("dividir un componente en partes", () => {
     expect(partes.map((p) => p.descripcion)).toEqual(["Puerta", "Marco"]);
     expect(partes.every((p) => p.id === null && p.hijo_id === null)).toBe(true);
     expect(partes.every((p) => p.piezas_por_mueble === 2 && p.material === "MDF" && p.unidad === "PZA")).toBe(true);
+  });
+});
+
+describe("procesos que lleva cada parte", () => {
+  it("solo conserva procesos conocidos, en el orden de siempre y sin repetir", () => {
+    expect(procesosOmitidosValidos(["barniz", "armado", "barniz", "otro"])).toEqual(["armado", "barniz"]);
+    expect(procesosOmitidosValidos(undefined)).toEqual([]);
+  });
+
+  it("viaja con la línea (guardar, leer y comparar)", () => {
+    const base = { descripcion: "Marco", material: null, unidad: null, piezas_por_mueble: 1, hijo_id: null };
+    const sinBarniz = lineasDesdeJson([{ ...base, procesos_omitidos: ["barniz"] }]);
+    expect(sinBarniz[0].procesos_omitidos).toEqual(["barniz"]);
+    expect(mismasLineas(sinBarniz, lineasDesdeJson([base]))).toBe(false);
+    expect(mismasLineas(sinBarniz, lineasDesdeJson([{ ...base, procesos_omitidos: ["barniz"] }]))).toBe(true);
+  });
+
+  it("una parte no puede omitir todos los procesos", () => {
+    const base = { descripcion: "Marco", material: null, unidad: null, piezas_por_mueble: 1, hijo_id: null };
+    const todos = ["armado", "barniz", "electrificacion", "superficie_solida"] as const;
+    expect(validarLineas([{ ...base, procesos_omitidos: [...todos] }])).toMatch(/al menos por un proceso/);
+    expect(validarLineas([{ ...base, procesos_omitidos: ["barniz"] }])).toBeNull();
   });
 });

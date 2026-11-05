@@ -37,12 +37,23 @@ describe("entregas parciales por parte", () => {
       ruta,
     });
     const mueble = { partes: [parte("pu"), parte("ma")] } as unknown as MuebleFlujo;
-    const completa = { parte_id: null, cancelada_en: null };
+    const completa = { parte_id: null, cancelada_en: null, proceso: "armado" as const };
     expect(partesParaEntrega(mueble, completa, new Map([["pu", 4]]))?.map((p) => [p.id, p.entregadas])).toEqual([
       ["pu", 4],
       ["ma", 0],
     ]);
     expect(partesParaEntrega(mueble, { ...completa, parte_id: "pu" }, undefined)).toBeUndefined();
+
+    // El marco no lleva Barniz: la entrega del Barniz solo ofrece la puerta.
+    const conOmitido = {
+      partes: [parte("pu"), { ...parte("ma"), omitidos: ["barniz"] }],
+    } as unknown as MuebleFlujo;
+    expect(partesParaEntrega(conOmitido, { ...completa, proceso: "barniz" }, undefined)?.map((p) => p.id)).toEqual(["pu"]);
+    expect(partesParaEntrega(conOmitido, completa, undefined)?.map((p) => p.id)).toEqual(["pu", "ma"]);
+    const ningunaLleva = {
+      partes: [{ ...parte("pu"), omitidos: ["barniz"] }],
+    } as unknown as MuebleFlujo;
+    expect(partesParaEntrega(ningunaLleva, { ...completa, proceso: "barniz" }, undefined)).toBeUndefined();
     expect(partesParaEntrega(mueble, { ...completa, cancelada_en: "2026-11-01" }, undefined)).toBeUndefined();
     expect(partesParaEntrega({ partes: [] } as unknown as MuebleFlujo, completa, undefined)).toBeUndefined();
     const deAntes = { partes: [parte("pu", [{ id: "x", proceso: "armado" }])] } as unknown as MuebleFlujo;
