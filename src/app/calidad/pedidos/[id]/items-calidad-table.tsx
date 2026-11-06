@@ -65,6 +65,9 @@ export interface ItemCalidadRow {
   // Su mueble sigue en taller (nada preaprobado ni con informes): se muestra
   // abajo, aparte, y no cuenta como pendiente de Calidad.
   enTaller: boolean;
+  // Componente de un mueble con despiece propio: se cobra por las partes del despiece, así que
+  // no se aprueba aquí entero sino en las entregas (del mueble o de sus partes).
+  porEntregasDelMueble?: boolean;
   estadoRevision: string | null;
   motivoCancelacion: string | null;
   // Historial completo del ítem, ordenado desc — [0] es el más reciente.
@@ -306,7 +309,9 @@ export default function ItemsCalidadTable({
   }, []);
 
   // Aprueba de una vez todos los ítems nunca evaluados que se ven en la tabla.
-  const idsAprobables = idsPorAprobar(itemsFiltrados).filter((id) => !enEspera.has(id));
+  const idsAprobables = idsPorAprobar(itemsFiltrados.filter((i) => !i.porEntregasDelMueble)).filter(
+    (id) => !enEspera.has(id)
+  );
 
   async function aprobarTodos() {
     const lista = items.filter((i) => idsAprobables.includes(i.id));
@@ -567,6 +572,13 @@ export default function ItemsCalidadTable({
   // Botones de aprobar / no aprobar (o "Aprobando… Deshacer" durante la espera).
   function Acciones({ item }: { item: ItemCalidadRow }) {
     if (estadoDe(item) === "cancelado") return <span className="text-xs text-slate-500">—</span>;
+    if (item.porEntregasDelMueble) {
+      return (
+        <span className="max-w-[240px] text-xs leading-snug text-slate-500">
+          Se revisa en las entregas de su mueble (completo o por partes).
+        </span>
+      );
+    }
     // Todavía no se puede evaluar: los botones se ven (deshabilitados) y al
     // lado qué falta en Producción, para saber a quién preguntar.
     if (!item.evaluable) {

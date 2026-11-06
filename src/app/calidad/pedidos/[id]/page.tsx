@@ -259,10 +259,24 @@ export default async function PedidoCalidadPage({
   const listos = listosParaCalidad(items, mueblesPreaprobados, new Set(informesPorItem.keys()), verificacionActiva);
   const enTaller = enTallerParaCalidad(items, listos);
 
+  // Muebles con despiece propio (no el sugerido): sus componentes se cobran por las partes del
+  // despiece (migración cobro_por_partes), así que se revisan en las entregas, no enteros.
+  const { data: despiecesPropios } = muebleIds.length
+    ? await supabase
+        .from("despieces_produccion")
+        .select("planeacion_item_id")
+        .in("planeacion_item_id", muebleIds)
+        .eq("igual_a_sugerencia", false)
+        .returns<{ planeacion_item_id: string }[]>()
+    : { data: [] as { planeacion_item_id: string }[] };
+  const conDespiecePropio = new Set((despiecesPropios ?? []).map((d) => d.planeacion_item_id));
+
   const itemsConInforme: ItemCalidadRow[] = items.map((item) => {
     const evaluable = verificados.has(item.id);
     return {
       enTaller: enTaller.has(item.id),
+      porEntregasDelMueble:
+        item.tipo_registro === "FU" && !!item.parent_item_id && conDespiecePropio.has(item.parent_item_id),
       id: item.id,
       item_code: item.item_code,
       tipo_registro: item.tipo_registro,
