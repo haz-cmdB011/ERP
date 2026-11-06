@@ -32,6 +32,8 @@ import {
 import { formatoFechaDMA, formatoFechaHora } from "@/lib/resumen/entrega";
 import type { LoteCalidad, ResumenLotes } from "@/lib/calidad/lotes";
 import EvaluarLote from "../../evaluar-lote";
+import PistaProcesos from "../../pista-procesos";
+import type { PistaMueble } from "@/lib/calidad/pista-procesos";
 
 export interface InformeResumen {
   id: string;
@@ -78,6 +80,8 @@ export interface ItemCalidadRow {
   // Solo muebles: piezas de sus lotes y los lotes con piezas por evaluar.
   lotes: ResumenLotes | null;
   lotesPendientes: LoteCalidad[];
+  // Solo muebles con entregas: cada proceso de su ruta con lo aprobado, lo por revisar y sus folios.
+  pista?: PistaMueble | null;
 }
 
 type FiltroCalidad = "todos" | EstadoCalidad;
@@ -683,10 +687,29 @@ export default function ItemsCalidadTable({
     );
   }
 
+  // Un mueble con entregas se ve por procesos: la pista reemplaza el estado, los folios y
+  // los botones (cada "Revisar" va en su proceso).
+  function conPista(item: ItemCalidadRow): item is ItemCalidadRow & { pista: PistaMueble } {
+    return !!item.pista && item.pista.estaciones.length > 0 && estadoDe(item) !== "cancelado";
+  }
+
+  function CeldaPista({ item }: { item: ItemCalidadRow & { pista: PistaMueble } }) {
+    return (
+      <PistaProcesos
+        pista={item.pista}
+        unidad={item.unidad ?? "pz"}
+        pedidoId={pedidoId}
+        puedeEvaluar={puedeEvaluar}
+      />
+    );
+  }
+
   function franjaDe(item: ItemCalidadRow): string {
     const estado = estadoDe(item);
     const dias = diasSinEvaluar(item, new Date());
     const antiguo = dias !== null && dias >= DIAS_ANTIGUEDAD_ALERTA;
+    // Todo lo entregado está aprobado, pero faltan procesos de su ruta: todavía no es verde.
+    if (conPista(item) && estado === "aprobado" && !item.pista.completo) return "border-l-emerald-200";
     return estado === "cancelado"
       ? "border-l-slate-400"
       : antiguo
@@ -764,11 +787,19 @@ export default function ItemsCalidadTable({
         <td className="whitespace-nowrap px-3 py-2 text-base font-semibold text-slate-900">
           {item.cantidad_total} {item.unidad}
         </td>
-        <td className="px-3 py-2">
-          {EstadoBadge({ item })}
-          <div className="mt-1">{FolioCelda({ item })}</div>
-        </td>
-        {puedeEvaluar && <td className="flex flex-wrap gap-2 px-3 py-2">{Acciones({ item })}</td>}
+        {conPista(item) ? (
+          <td colSpan={puedeEvaluar ? 2 : 1} className="px-3 py-2 align-top">
+            {CeldaPista({ item })}
+          </td>
+        ) : (
+          <>
+            <td className="px-3 py-2">
+              {EstadoBadge({ item })}
+              <div className="mt-1">{FolioCelda({ item })}</div>
+            </td>
+            {puedeEvaluar && <td className="flex flex-wrap gap-2 px-3 py-2">{Acciones({ item })}</td>}
+          </>
+        )}
       </tr>
     );
   }
@@ -799,11 +830,17 @@ export default function ItemsCalidadTable({
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          {EstadoBadge({ item })}
-          {FolioCelda({ item })}
-        </div>
-        {puedeEvaluar && <div className="flex flex-wrap gap-2">{Acciones({ item })}</div>}
+        {conPista(item) ? (
+          CeldaPista({ item })
+        ) : (
+          <>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              {EstadoBadge({ item })}
+              {FolioCelda({ item })}
+            </div>
+            {puedeEvaluar && <div className="flex flex-wrap gap-2">{Acciones({ item })}</div>}
+          </>
+        )}
       </li>
     );
   }
@@ -815,8 +852,8 @@ export default function ItemsCalidadTable({
         <th className="px-3 py-2.5">Item</th>
         <th className="px-3 py-2.5">Descripción</th>
         <th className="px-3 py-2.5">Cant.</th>
-        <th className="px-3 py-2.5">Calidad</th>
-        {puedeEvaluar && <th className="px-3 py-2.5">Aprobación</th>}
+        <th className="px-3 py-2.5"></th>
+        {puedeEvaluar && <th className="px-3 py-2.5"></th>}
       </tr>
     </thead>
   );
@@ -1007,9 +1044,6 @@ export default function ItemsCalidadTable({
                   ›
                 </span>
                 En taller ({enTallerFiltrados.length})
-                <span className="text-xs font-normal text-slate-500">
-                  Producción todavía no los preaprueba: no se aprueban, pero puedes reportar una falla
-                </span>
               </button>
               <Colapsable abierto={tallerVisible}>
                 <div className="flex flex-col gap-4 opacity-90">{Bloques(gruposTaller)}</div>

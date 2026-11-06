@@ -200,13 +200,11 @@ export default async function OrdenTrabajoCalidadPage({
                 <tr className="bg-slate-50 text-xs font-normal text-slate-600">
                   <th className="px-2 py-3 font-normal">Pedido</th>
                   <th className="px-2 py-3 font-normal">Proyecto</th>
-                  <th className="px-2 py-3 font-normal">Entrega</th>
-                  <th className="px-2 py-3 font-normal">Versión activa</th>
-                  <th className="px-2 py-3 font-normal text-right">En Calidad</th>
-                  <th className="px-2 py-3 font-normal text-right">Aprobados</th>
-                  <th className="px-2 py-3 font-normal text-right">Rechazados</th>
-                  <th className="px-2 py-3 font-normal text-right">Sin evaluar</th>
-                  <th className="px-2 py-3 font-normal text-right" title="Producción todavía no los preaprueba">
+                  <th className="px-2 py-3 font-normal text-center">En Calidad</th>
+                  <th className="px-2 py-3 font-normal text-center">Aprobados</th>
+                  <th className="px-2 py-3 font-normal text-center">Rechazados</th>
+                  <th className="px-2 py-3 font-normal text-center">Sin evaluar</th>
+                  <th className="px-2 py-3 font-normal text-center" title="Producción todavía no los preaprueba">
                     En taller
                   </th>
                 </tr>
@@ -249,29 +247,19 @@ export default async function OrdenTrabajoCalidadPage({
                         )}
                       </td>
                       <td className="px-2 py-4 text-slate-600">{p.proyectos?.nombre ?? "—"}</td>
-                      <td className="px-2 py-4 text-slate-700">{p.fecha_entrega ?? "—"}</td>
-                      <td className="px-2 py-4">
-                        {activa ? (
-                          <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-900">
-                            #{activa.numero_version}
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">—</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-4 text-right">
+                      <td className="px-2 py-4 text-center">
                         <Cifra valor={a?.enviados ?? 0} tono="bg-sky-100 text-sky-900" />
                       </td>
-                      <td className="px-2 py-4 text-right">
+                      <td className="px-2 py-4 text-center">
                         <Cifra valor={a?.aprobados ?? 0} tono="bg-emerald-100 text-emerald-800" />
                       </td>
-                      <td className="px-2 py-4 text-right">
+                      <td className="px-2 py-4 text-center">
                         <Cifra valor={a?.rechazados ?? 0} tono="bg-rose-100 text-rose-800" />
                       </td>
-                      <td className="px-2 py-4 text-right">
+                      <td className="px-2 py-4 text-center">
                         <Cifra valor={sinEvaluar} tono="bg-amber-100 text-amber-800" />
                       </td>
-                      <td className="px-2 py-4 text-right">
+                      <td className="px-2 py-4 text-center">
                         <Cifra valor={a?.enTaller ?? 0} tono="bg-slate-100 text-slate-700" />
                       </td>
                     </tr>

@@ -315,6 +315,12 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
   una parte se vuelve a entregar en la misma asignación. Cobro: `aprobado_calidad_variante` da una fila por
   parte del despiece propio (lo aprobado de sus piezas o el mueble × piezas por mueble) y el tope de Calidad ya
   no exime a las partes. En "Rechazos de Calidad" sale "Partes por volver a entregar" (`partes-rechazadas.ts`).
+- **Procesos en anillos** (pedido de Calidad, solo pantalla): un mueble con entregas se ve como su ruta en
+  anillos, igual que en el panel de Producción (Armado → Barniz → …): cada anillo se llena con lo aprobado contra la
+  cantidad del mueble (verde), lo por revisar (ámbar, con su número) y lo que está en retrabajo (rosa); al tocarlo
+  salen sus folios (el historial). Debajo, un "Revisar Armado: 1 PZA del …" por entrega pendiente; el asistente dice
+  "Revisar Armado" y muestra la ruta con ese proceso marcado. Ya no se suman piezas de procesos distintos. Lógica en
+  `src/lib/calidad/pista-procesos.ts`, pantalla en `src/app/calidad/pista-procesos.tsx`.
 
 ## Revisión final de Calidad
 

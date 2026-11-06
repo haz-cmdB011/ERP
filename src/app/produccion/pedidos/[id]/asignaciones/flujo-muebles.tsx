@@ -611,7 +611,6 @@ function ModoAsignacion({ mueble: m }: { mueble: MuebleFlujo }) {
   const inactivo = `${base} text-slate-500 hover:text-slate-800`;
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="text-slate-600">Se asigna y entrega:</span>
       <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
         {m.porPartes ? (
           <AsignarPorPartes itemId={m.id} descripcion={descripcion} version={m.versionRuta} activar={false} className={inactivo}>

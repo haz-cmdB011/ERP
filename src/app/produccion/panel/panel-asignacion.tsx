@@ -84,26 +84,25 @@ export default function PanelAsignacion({
     .filter(tieneTrabajo);
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col">
       {((puedeEditar && paraTodos.length > 1) || pms.length > 1) && (
-        <div className="-mt-2 flex flex-wrap items-center justify-between gap-2">
-          {pms.length > 1 ? (
+        <div className="mb-2 flex flex-wrap items-center justify-end gap-3">
+          {pms.length > 1 && (
             <button
               type="button"
               onClick={() => fijarTodos(hayCerrados)}
-              className="text-sm font-medium text-sky-700 hover:underline"
+              className="text-sm text-slate-500 hover:text-slate-900"
             >
-              {hayCerrados ? "Abrir todos los PM" : "Cerrar todos los PM"}
+              {hayCerrados ? "Desplegar todo" : "Plegar todo"}
             </button>
-          ) : (
-            <span />
           )}
           {puedeEditar && paraTodos.length > 1 && (
             <AsignarLote
               muebles={paraTodos}
               equipos={equipos}
               encargados={encargados}
-              etiqueta={`Asignar varios a un equipo (${paraTodos.length})`}
+              etiqueta={`Asignar varios (${paraTodos.length})`}
+              discreto
             />
           )}
         </div>
@@ -116,37 +115,45 @@ export default function PanelAsignacion({
         const enPm = resumen ? resumen.por_asignar + resumen.en_proceso + resumen.terminado : pm.muebles.length;
         const idLista = `panel-pm-${pm.pedidoId}`;
         return (
-          <section key={pm.pedidoId} className="flex flex-col gap-2">
-            <h2 className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <section key={pm.pedidoId} className="flex flex-col gap-2 border-t border-slate-200 py-3 first-of-type:border-t-0">
+            {/* Una línea: el PM (O.T. y proyecto al pasar el cursor), sus conteos y el enlace al PM. */}
+            <h2 className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setManual({ ...manual, [pm.pedidoId]: !desplegado })}
                 aria-expanded={desplegado}
                 aria-controls={idLista}
-                className="flex min-w-0 basis-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg px-1 py-1 text-left hover:bg-slate-100 sm:basis-auto"
+                title={[ot ? `O.T. ${ot}` : "Sin O.T.", pm.proyecto].filter(Boolean).join(", ")}
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-100"
               >
-                <Chevron abierto={desplegado} className="h-4 w-4 text-slate-500" />
-                <span className="text-base font-semibold text-slate-900">{pm.numeroPm}</span>
-                <span className="shrink-0 text-sm text-slate-500">{ot ? `O.T. ${ot}` : "Sin O.T."}</span>
-                {pm.proyecto && <span className="text-sm text-slate-500">{pm.proyecto}</span>}
+                <Chevron abierto={desplegado} className="h-4 w-4 shrink-0 text-slate-400" />
+                <span className="truncate text-base font-semibold text-slate-900">{pm.numeroPm}</span>
+                {ot && <span className="hidden shrink-0 text-sm text-slate-400 sm:inline">O.T. {ot}</span>}
               </button>
-              <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-slate-600">
+              <span className="flex shrink-0 items-center gap-3 text-sm text-slate-600">
                 {resumen &&
                   ESTADOS_RESUMEN.filter((e) => resumen[e.estado] > 0).map((e) => (
-                    <span key={e.estado} className="inline-flex items-center gap-1.5 whitespace-nowrap tabular-nums">
+                    <span key={e.estado} title={e.etiqueta(resumen[e.estado])} className="inline-flex items-center gap-1.5 tabular-nums">
                       <span aria-hidden className={`h-2 w-2 rounded-full ${e.punto}`} />
-                      {e.etiqueta(resumen[e.estado])}
+                      {resumen[e.estado]}
+                      <span className="sr-only">{e.etiqueta(resumen[e.estado])}</span>
                     </span>
                   ))}
                 {pm.muebles.length < enPm && (
-                  <span className="text-slate-500">se ven {pm.muebles.length} de {enPm}</span>
+                  <span className="text-slate-400" title={`Se ven ${pm.muebles.length} de ${enPm}`}>
+                    {pm.muebles.length}/{enPm}
+                  </span>
                 )}
               </span>
               <Link
                 href={`/produccion/pedidos/${pm.pedidoId}`}
-                className="ml-auto text-sm font-medium text-sky-700 hover:underline"
+                title="Abrir el PM"
+                aria-label={`Abrir ${pm.numeroPm}`}
+                className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-900"
               >
-                Abrir PM
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+                  <path d="M7 17 17 7M9 7h8v8" />
+                </svg>
               </Link>
             </h2>
             {desplegado && (

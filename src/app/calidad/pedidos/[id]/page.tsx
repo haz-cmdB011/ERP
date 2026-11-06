@@ -15,6 +15,7 @@ import { pasosDeTodasLasRutas } from "@/lib/produccion/ruta";
 import RevisionFinalSeccion, { type MuebleRevisionFinal } from "./revision-final";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
 import { conLotesDePartes } from "@/lib/calidad/lotes-partes-db";
+import { pistaDeProcesos } from "@/lib/calidad/pista-procesos";
 import {
   situacionesPorMueble,
   textoSituacion,
@@ -63,6 +64,8 @@ interface InformeRow {
   descripcion: string | null;
   categoria: string | null;
   cantidad: number | string | null;
+  entrega_id: string | null;
+  entrega_parte_id: string | null;
 }
 
 export const generateMetadata = metadataPedido;
@@ -175,7 +178,7 @@ export default async function PedidoCalidadPage({
       ? leer(
           supabase
             .from("informes_calidad")
-            .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria, cantidad")
+            .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria, cantidad, entrega_id, entrega_parte_id")
             .in("planeacion_item_id", itemIds)
             .order("elaborado_en", { ascending: false })
             .returns<InformeRow[]>(),
@@ -214,7 +217,8 @@ export default async function PedidoCalidadPage({
   const muebleIdsFinal = finalActiva && versionSeleccionada?.es_version_activa ? muebleIds : [];
   const [revisionFinal, rutas, partesFinal] = await Promise.all([
     cargarRevisionFinal(supabase, muebleIdsFinal),
-    cargarRutas(supabase, muebleIdsFinal),
+    // De todos los muebles: la pista de procesos sigue su ruta.
+    cargarRutas(supabase, muebleIds),
     cargarPartes(supabase, muebleIdsFinal),
   ]);
   const lotesPorMueble = new Map<string, LoteCalidad[]>();
@@ -296,6 +300,20 @@ export default async function PedidoCalidadPage({
       situacion: situacionDe(item, evaluable),
       lotes: item.tipo_registro === "MO" ? resumirLotes(lotesPorMueble.get(item.id) ?? []) : null,
       lotesPendientes: item.tipo_registro === "MO" ? lotesPorEvaluar(lotesPorMueble.get(item.id) ?? []) : [],
+      // Lo aprobado, lo que falta revisar y los folios de cada proceso de su ruta.
+      pista:
+        item.tipo_registro === "MO" && (lotesPorMueble.get(item.id) ?? []).length > 0
+          ? pistaDeProcesos(
+              lotesPorMueble.get(item.id) ?? [],
+              (informesPorItem.get(item.id) ?? []).map((inf) => ({
+                ...inf,
+                cantidad: inf.cantidad == null ? null : Number(inf.cantidad),
+              })),
+              rutas.get(item.id)?.pasos ?? [],
+              [...(rutas.get(item.id)?.partes.values() ?? [])],
+              Number(item.cantidad_total)
+            )
+          : null,
       estadoRevision: item.estado_revision,
       motivoCancelacion: item.motivo_cancelacion,
       imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
