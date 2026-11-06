@@ -306,7 +306,15 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
   asignaciones vigentes. Sin la migración aplicada la lectura sigue (`leerRutas` tolera que falte la columna) y todo va
   por mueble completo. Con el interruptor encendido no aplica la entrega parcial por partes de arriba: sus partes tienen
   asignaciones propias.
-- Pendiente: fase 3, cobro por partes.
+- **Calidad revisa las partes y se cobran** (migraciones `calidad_revisa_partes` y `cobro_por_partes`, 6 nov
+  2026): cada renglón de piezas de una entrega por partes es una entrega que Calidad aprueba o no (vista
+  `lotes_partes_calidad`, `evaluar_entrega_parte_calidad`; en pantalla, `conLotesDePartes` de
+  `src/lib/calidad/lotes-partes-db.ts` las junta con los lotes). La entrega del mueble que la base junta con
+  esas piezas (`entregas_produccion.desde_partes`) no se evalúa directo: la aprueba
+  `aprobar_mueble_desde_partes` cuando la parte más atrasada alcanza en piezas aprobadas. Lo no aprobado de
+  una parte se vuelve a entregar en la misma asignación. Cobro: `aprobado_calidad_variante` da una fila por
+  parte del despiece propio (lo aprobado de sus piezas o el mueble × piezas por mueble) y el tope de Calidad ya
+  no exime a las partes. Pendiente: que Producción vea en "Rechazado por Calidad" las piezas de partes rechazadas.
 
 ## Revisión final de Calidad
 
@@ -358,7 +366,8 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   el trigger `est_conciliar_renglon_pm` no deja guardar un renglón **normal** que cobre más que el PM de la OT (ni con
   motivo; un modelo que no está en la OT tampoco) ni, en Acabados y Armado, más que lo que **Calidad aprobó** del
   mueble en el área (`aprobado_calidad_variante`, revisión final incluida; un mueble que no pasó por Producción y
-  Calidad en el sistema no se cobra). Electrificación solo tiene el tope del PM. La pantalla
+  Calidad en el sistema no se cobra). Electrificación también se topa con lo que Calidad aprobó de ese proceso
+  (`aprobado_calidad_electrificacion`, migración `cobro_por_partes`); S.S. no tiene recibo. La pantalla
   (`dialogo-descuadres.tsx`) avisa el PM antes de guardar; lo de Calidad lo dice la base al guardar. El **reproceso**
   conserva su regla (se mide contra el retrabajo reasignado y, si se pasa, pide motivo y deja discrepancia). **Cuidado
   al reescribir esa función: tomar la versión vigente de la base, no la de una migración vieja.**
