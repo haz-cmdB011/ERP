@@ -35,8 +35,9 @@ export default async function EntregasProduccionPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Entregas de Producción</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Lo que Producción ya verificó, por fecha de entrega. Revisarlas aquí es opcional: úsalo si encuentras
-            una falla en un proceso. El mueble completo se revisa en la revisión final.
+            Cada entrega de un proceso, del mueble completo o de una de sus partes, por fecha. Apruébala o no
+            aquí; lo aprobado es lo que se le paga al maquilador. El mueble terminado también se revisa completo en
+            la revisión final.
           </p>
         </div>
         {lista.length > 0 && (

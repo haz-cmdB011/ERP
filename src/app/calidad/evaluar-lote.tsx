@@ -13,6 +13,7 @@ import { etiquetaProceso, formatoFecha } from "@/lib/produccion/asignaciones";
 type LoteParaEvaluar = Pick<
   LoteCalidad,
   | "entrega_id"
+  | "entrega_parte"
   | "pedido_id"
   | "numero_pedido"
   | "item_code"
@@ -85,13 +86,16 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
     }
     setEnviando(true);
     setError(null);
-    const { data, error } = await createClient().rpc("evaluar_entrega_calidad", {
-      p_entrega_id: lote.entrega_id,
+    const resultado = {
       p_aprobadas: r.aprobadas,
       p_rechazadas: r.rechazadas,
       p_motivo: r.rechazadas > 0 ? r.descripcion.trim() : null,
       p_categoria: r.rechazadas > 0 && r.categoria ? r.categoria : null,
-    });
+    };
+    // Las piezas de una entrega por partes se evalúan con su propia función.
+    const { data, error } = lote.entrega_parte
+      ? await createClient().rpc("evaluar_entrega_parte_calidad", { p_entrega_parte_id: lote.entrega_id, ...resultado })
+      : await createClient().rpc("evaluar_entrega_calidad", { p_entrega_id: lote.entrega_id, ...resultado });
     if (error) {
       setEnviando(false);
       setError(error.message);

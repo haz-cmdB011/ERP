@@ -64,6 +64,7 @@ import RutaQr from "./ruta-qr";
 import RechazosQr, { type RechazoQr } from "./rechazos-qr";
 import EntregasCalidadQr from "./entregas-calidad-qr";
 import PagoQr from "./pago-qr";
+import { conLotesDePartes } from "@/lib/calidad/lotes-partes-db";
 
 export const metadata: Metadata = { title: "Mueble" };
 
@@ -384,16 +385,20 @@ export default async function FichaMuebleQrPage({
   const lotesCalidad =
     area === "calidad" && liberado && puedeEvaluar
       ? lotesPorEvaluar(
-          (
-            (await leer(
-              supabase
-                .from("lotes_calidad")
-                .select("*")
-                .eq("planeacion_item_id", item.id)
-                .returns<LoteCalidad[]>(),
-              "lotes_calidad"
-            )) ?? []
-          ).map(normalizarLote)
+          await conLotesDePartes(
+            supabase,
+            (
+              (await leer(
+                supabase
+                  .from("lotes_calidad")
+                  .select("*")
+                  .eq("planeacion_item_id", item.id)
+                  .returns<LoteCalidad[]>(),
+                "lotes_calidad"
+              )) ?? []
+            ).map(normalizarLote),
+            { itemIds: [item.id] }
+          )
         )
       : [];
   const calidad = panelCalidadQr(resumenFinal ?? null, puedeEvaluar);

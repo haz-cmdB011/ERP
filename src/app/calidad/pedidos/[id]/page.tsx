@@ -14,6 +14,7 @@ import { cargarPartes } from "@/lib/produccion/partes-db";
 import { pasosDeTodasLasRutas } from "@/lib/produccion/ruta";
 import RevisionFinalSeccion, { type MuebleRevisionFinal } from "./revision-final";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
+import { conLotesDePartes } from "@/lib/calidad/lotes-partes-db";
 import {
   situacionesPorMueble,
   textoSituacion,
@@ -217,7 +218,7 @@ export default async function PedidoCalidadPage({
     cargarPartes(supabase, muebleIdsFinal),
   ]);
   const lotesPorMueble = new Map<string, LoteCalidad[]>();
-  for (const l of (filasLotes ?? []).map(normalizarLote)) {
+  for (const l of await conLotesDePartes(supabase, (filasLotes ?? []).map(normalizarLote), { itemIds: muebleIds })) {
     if (!l.planeacion_item_id) continue;
     lotesPorMueble.set(l.planeacion_item_id, [...(lotesPorMueble.get(l.planeacion_item_id) ?? []), l]);
   }
