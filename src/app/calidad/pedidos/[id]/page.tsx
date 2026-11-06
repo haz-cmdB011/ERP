@@ -376,9 +376,9 @@ export default async function PedidoCalidadPage({
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
-        <p className="mt-1 text-xs font-medium text-slate-500">
-          Entrega: {pedido.fecha_entrega ?? "—"}
-        </p>
+        {pedido.fecha_entrega && (
+          <p className="mt-1 text-xs font-medium text-slate-500">Entrega: {pedido.fecha_entrega}</p>
+        )}
       </div>
 
       {pedido.cancelado_en && (
@@ -392,7 +392,8 @@ export default async function PedidoCalidadPage({
         </div>
       )}
 
-      {versiones && versiones.length > 0 && (
+      {/* Con una sola versión no hay nada que elegir. */}
+      {versiones && versiones.length > 1 && (
         <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
           {versiones.map((v) => (
             <Link

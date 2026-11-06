@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import EnlaceFila from "@/components/enlace-fila";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import AsistenteNoConformidad, { type ResultadoAsistente } from "@/app/calidad/asistente-no-conformidad";
 import { guardarNoConformidad } from "@/lib/calidad/guardar-no-conformidad";
 import { validarDetalle } from "@/lib/calidad/no-conformidad";
@@ -92,6 +92,8 @@ const ESPERA_APROBACION_MS = 5000;
 
 const BOTON_ICONO =
   "flex h-8 w-8 items-center justify-center rounded border transition-colors max-md:h-11 max-md:w-11";
+
+const primeraLinea = (t: string | null) => (t ?? "").split(/\r?\n/)[0];
 
 function coincide(item: ItemCalidadRow, texto: string): boolean {
   if (!texto) return true;
@@ -747,12 +749,36 @@ export default function ItemsCalidadTable({
 
   function Fila({ item, indentado, componentes = 0 }: { item: ItemCalidadRow; indentado: boolean; componentes?: number }) {
     const despliega = componentes > 0;
+    // Componente de un mueble: solo consulta (se revisa en las entregas del mueble). En el tema
+    // Mobiliarium, una línea discreta (código, qué es, material y cantidad); en los demás, la fila completa.
+    const compacta = indentado && !!item.porEntregasDelMueble;
+    const lineaCompacta = compacta && (
+        <tr className="hidden text-sm text-slate-600 mob:table-row">
+          <td className="py-1.5 pl-3 pr-1" />
+          <td className="px-3 py-1.5 tabular-nums text-slate-400">{item.item_code}</td>
+          <td className="px-3 py-1.5" colSpan={2}>
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              <span className="text-slate-700">{primeraLinea(item.descripcion)}</span>
+              {item.tipo_material && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+            <span aria-hidden className={`h-2 w-2 rounded-full ${estiloMaterial(item.tipo_material)?.pastilla ?? "bg-slate-300"}`} />
+            {item.tipo_material}
+          </span>
+        )}
+            </span>
+          </td>
+          <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-slate-700" colSpan={puedeEvaluar ? 2 : 1}>
+            {item.cantidad_total} {item.unidad}
+          </td>
+        </tr>
+    );
     return (
+      <Fragment key={item.id}>
+      {lineaCompacta}
       <tr
-        key={item.id}
         onClick={despliega ? (e) => alternarDesde(e, item.id) : undefined}
         aria-expanded={despliega ? partesAbiertas.has(item.id) : undefined}
-        className={`transition-colors hover:bg-brand-50 ${despliega ? "cursor-pointer" : ""} ${indentado ? "border-t border-slate-100" : "text-base font-medium text-slate-900"}`}
+        className={`transition-colors hover:bg-brand-50 ${compacta ? "mob:hidden" : ""} ${despliega ? "cursor-pointer" : ""} ${indentado ? "border-t border-slate-100" : "text-base font-medium text-slate-900"}`}
       >
         <td className={`border-l-4 py-2 pl-2 pr-1 ${franjaDe(item)}`}>
           <Miniatura item={item} clase={indentado ? "h-12 w-12" : "h-16 w-16"} />
@@ -801,17 +827,31 @@ export default function ItemsCalidadTable({
           </>
         )}
       </tr>
+      </Fragment>
     );
   }
 
   // Misma información que la fila, en tarjeta para el celular o la tableta.
   function Tarjeta({ item, indentado, componentes = 0 }: { item: ItemCalidadRow; indentado: boolean; componentes?: number }) {
     const despliega = componentes > 0;
+    const compacta = indentado && !!item.porEntregasDelMueble;
+    const lineaCompacta = compacta && (
+        <li className="ml-4 hidden items-baseline justify-between gap-3 border-t border-slate-100 px-3 py-2 text-sm mob:flex">
+          <span className="min-w-0">
+            <span className="mr-2 tabular-nums text-slate-400">{item.item_code}</span>
+            <span className="text-slate-700">{primeraLinea(item.descripcion)}</span>
+          </span>
+          <span className="shrink-0 tabular-nums text-slate-700">
+            {item.cantidad_total} {item.unidad}
+          </span>
+        </li>
+    );
     return (
+      <Fragment key={item.id}>
+      {lineaCompacta}
       <li
-        key={item.id}
         onClick={despliega ? (e) => alternarDesde(e, item.id) : undefined}
-        className={`flex flex-col gap-3 border-l-4 p-3 ${franjaDe(item)} ${indentado ? "ml-4 border-t border-slate-100" : ""}`}
+        className={`flex flex-col gap-3 border-l-4 p-3 ${compacta ? "mob:hidden" : ""} ${franjaDe(item)} ${indentado ? "ml-4 border-t border-slate-100" : ""}`}
       >
         <div className="flex items-start gap-3">
           <Miniatura item={item} clase="h-16 w-16 shrink-0" />
@@ -842,11 +882,12 @@ export default function ItemsCalidadTable({
           </>
         )}
       </li>
+      </Fragment>
     );
   }
 
   const ENCABEZADO = (
-    <thead>
+    <thead className="mob:sr-only">
       <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
         <th className="px-3 py-2.5"></th>
         <th className="px-3 py-2.5">Item</th>
@@ -926,55 +967,45 @@ export default function ItemsCalidadTable({
   return (
     <div className="flex flex-col gap-4">
       {items.length > 0 && (
-        <div className="flex flex-col gap-3">
+        // Una sola barra: filtros (segmentados, como el panel de Producción), búsqueda y, a la
+        // derecha, aprobar en bloque.
+        <div className="flex flex-wrap items-center gap-3">
           {chips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            {chips.map(([valor, etiqueta]) => (
-              <button
-                key={valor}
-                type="button"
-                onClick={() => setFiltroCalidad(valor)}
-                className={`rounded border px-3 py-1 font-medium transition-colors max-md:min-h-11 ${
-                  filtroCalidad === valor
-                    ? "border-brand-600 bg-brand-500 text-on-brand"
-                    : "border-slate-200 text-slate-600 hover:bg-brand-50"
-                }`}
-              >
-                {etiqueta}
-              </button>
-            ))}
-          </div>
+            <nav aria-label="Filtrar" className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
+              {chips.map(([valor, etiqueta]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => setFiltroCalidad(valor)}
+                  aria-pressed={filtroCalidad === valor}
+                  className={`rounded-md px-3 py-1.5 whitespace-nowrap transition-colors max-md:min-h-11 ${
+                    filtroCalidad === valor ? "bg-slate-900 font-medium text-white" : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </nav>
           )}
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="search"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar ítem, modelo o descripción…"
-              aria-label="Buscar en los ítems"
-              className="min-h-10 w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-brand-600 focus:outline-none"
-            />
-          </div>
-        </div>
-      )}
-
-      {puedeEvaluar && idsAprobables.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          <span>
-            <strong>{idsAprobables.length}</strong> ítem{idsAprobables.length === 1 ? "" : "s"} por evaluar
-            {filtroCalidad === "todos" && !busqueda.trim() ? "" : " en esta vista"}
-          </span>
-          <button
-            type="button"
-            onClick={() => setConfirmandoTodos(true)}
-            disabled={aprobandoTodos}
-            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 max-md:min-h-11 max-md:px-4"
-          >
-            Aprobar los {idsAprobables.length}
-          </button>
-          <span className="text-xs text-emerald-800">
-            Cada uno recibe su propio folio; de los muebles se aprueban todas sus piezas por evaluar.
-          </span>
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar ítem o modelo"
+            aria-label="Buscar en los ítems"
+            className="min-h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:border-slate-400 focus:outline-none sm:max-w-xs"
+          />
+          {puedeEvaluar && idsAprobables.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setConfirmandoTodos(true)}
+              disabled={aprobandoTodos}
+              title="Cada uno recibe su propio folio; de los muebles se aprueban todas sus piezas por revisar."
+              className="ml-auto rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 max-md:min-h-11"
+            >
+              Aprobar {idsAprobables.length === 1 ? "el pendiente" : `los ${idsAprobables.length} pendientes`}
+            </button>
+          )}
         </div>
       )}
       <ConfirmDialog
