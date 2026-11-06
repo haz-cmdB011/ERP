@@ -45,6 +45,8 @@ import { COLORES_MATERIAL, InsigniaMaterial } from "@/app/produccion/material-pa
 import AsignarForm from "@/app/produccion/asignaciones/asignar-form";
 import EditarRuta from "./editar-ruta";
 import AsignarPorPartes from "./asignar-por-partes";
+import PasaPorParte from "./pasa-por-parte";
+import type { Proceso } from "@/lib/produccion/asignaciones";
 
 // Color de cada estado (variables de la paleta: el tema oscuro las invierte).
 const COLOR: Record<EstadoProceso, string> = {
@@ -563,28 +565,6 @@ function PieMueble({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: Asign
                 Cambiar ruta
               </EditarRuta>
             )}
-            {partes.length > 0 && !m.porPartes && (
-              <AsignarPorPartes
-                itemId={m.id}
-                descripcion={`ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`}
-                version={m.versionRuta}
-                activar
-                className={enlace}
-              >
-                Asignar por partes
-              </AsignarPorPartes>
-            )}
-            {m.porPartes && (
-              <AsignarPorPartes
-                itemId={m.id}
-                descripcion={`ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`}
-                version={m.versionRuta}
-                activar={false}
-                className={enlace}
-              >
-                Volver al mueble completo
-              </AsignarPorPartes>
-            )}
             {partes.length > 0 && (
               <EnlaceDespiece mueble={m} className={enlace}>
                 Editar despiece
@@ -593,15 +573,47 @@ function PieMueble({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: Asign
           </span>
         )}
       </div>
-      {verPartes && <DespieceMateriales mueble={m} />}
+      {verPartes && <DespieceMateriales mueble={m} editable={!!asignar} />}
+    </div>
+  );
+}
+
+// Cómo se asigna y entrega un mueble con despiece: completo (una ruta) o por componentes
+// (cada parte con su ruta, en sus piezas). Cambiar abre la confirmación de AsignarPorPartes.
+function ModoAsignacion({ mueble: m }: { mueble: MuebleFlujo }) {
+  const descripcion = `ítem ${m.item_code}${m.modelo ? ` · ${m.modelo}` : ""}`;
+  const base = "rounded-md px-3 py-1 text-sm font-medium transition-colors";
+  const activo = `${base} bg-white text-slate-900 shadow-sm`;
+  const inactivo = `${base} text-slate-500 hover:text-slate-800`;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-slate-600">Se asigna y entrega:</span>
+      <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+        {m.porPartes ? (
+          <AsignarPorPartes itemId={m.id} descripcion={descripcion} version={m.versionRuta} activar={false} className={inactivo}>
+            Mueble completo
+          </AsignarPorPartes>
+        ) : (
+          <span aria-current="true" className={activo}>Mueble completo</span>
+        )}
+        {m.porPartes ? (
+          <span aria-current="true" className={activo}>Por componentes</span>
+        ) : (
+          <AsignarPorPartes itemId={m.id} descripcion={descripcion} version={m.versionRuta} activar className={inactivo}>
+            Por componentes
+          </AsignarPorPartes>
+        )}
+      </div>
     </div>
   );
 }
 
 // Las partes del despiece: de qué está hecha cada una (icono y color de su material) y cuántas
 // piezas lleva.
-function DespieceMateriales({ mueble: m }: { mueble: MuebleFlujo }) {
+function DespieceMateriales({ mueble: m, editable }: { mueble: MuebleFlujo; editable: boolean }) {
   const partes = m.partes ?? [];
+  // Lo que se puede elegir en "Pasa por": los procesos de la ruta del mueble, sin repetir.
+  const procesosRuta = [...new Set(m.ruta.map((p) => p.proceso))] as Proceso[];
   return (
     <div className="flex flex-col gap-1.5 text-xs">
       <ul className="grid gap-1.5 sm:grid-cols-2">
@@ -621,6 +633,16 @@ function DespieceMateriales({ mueble: m }: { mueble: MuebleFlujo }) {
                 <span className="block text-slate-500 tabular-nums">
                   {COLORES_MATERIAL[tipo].etiqueta} · {fmt(p.piezasPorMueble)} {p.unidad ?? "pz"} por mueble ·{" "}
                   {fmt(p.piezasPorMueble * m.cantidad)} en total
+                </span>
+                <span className="mt-1 block">
+                  {/* Por componentes, la parte ya tiene su ruta: aquí solo se consulta. */}
+                  <PasaPorParte
+                    itemId={m.id}
+                    parteId={p.id}
+                    procesos={m.porPartes ? ([...new Set(p.ruta.map((x) => x.proceso))] as Proceso[]) : procesosRuta}
+                    omitidos={m.porPartes ? [] : (p.omitidos ?? [])}
+                    editable={editable && !m.porPartes}
+                  />
                 </span>
               </span>
             </li>
@@ -669,19 +691,10 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
   const columnas = columnasMueble(m);
   return (
     <div className="flex flex-col gap-1.5 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-semibold text-slate-700">
-          Despiece ({partes.length} partes)
-        </p>
-        {asignar && (
-          <EnlaceDespiece mueble={m} className="font-medium text-sky-700 underline">
-            Editar despiece
-          </EnlaceDespiece>
-        )}
-      </div>
+      <p className="font-semibold text-slate-700">Despiece ({partes.length} partes)</p>
       <p className="text-slate-500">
         {m.porPartes
-          ? "Este mueble se asigna por partes: cada parte lleva su ruta y se asigna y se entrega en sus piezas. Cuenta completo cuando la parte más atrasada termina."
+          ? "Cada parte se asigna y entrega en sus piezas; el mueble cuenta completo cuando termina la más atrasada."
           : "Este mueble se empezó por partes: lo que ya tienen sus partes se sigue entregando aquí. Lo nuevo se asigna al mueble completo."}
       </p>
       <div className="overflow-x-auto rounded-lg bg-white">
@@ -708,6 +721,9 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
                       <span className="block text-slate-500">
                         {fmt(p.piezasPorMueble)} {p.unidad ?? "pz"} por mueble · {fmt(p.piezasPorMueble * m.cantidad)} en total
                       </span>
+                      {m.porPartes && p.ruta.length === 0 && (
+                        <span className="block text-amber-700">Sin procesos: agrégale su ruta para poder asignarla.</span>
+                      )}
                     </span>
                   </span>
                 </td>
@@ -721,9 +737,11 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
                     asignar={m.porPartes ? asignar : null}
                   />
                 ))}
-                {asignar && <td className="p-1 sm:p-2" />}
+                {asignar && <td className="p-1 text-right sm:p-2">{m.porPartes && botonRuta(p)}</td>}
               </tr>
             ))}
+            {/* Por partes y sin pasos propios, el mueble completo no tiene nada que asignar. */}
+            {!(m.porPartes && m.ruta.length === 0) && (
             <tr className="bg-slate-50/60">
               <td className="p-1.5 sm:p-2 font-semibold text-slate-900">
                 Mueble completo
@@ -736,6 +754,7 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
               ))}
               {asignar && <td className="p-1 text-right sm:p-2">{botonRuta(null)}</td>}
             </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -910,14 +929,16 @@ function DetalleMueble({
   const abrirPartes = partesConTrabajo.some((x) => x.pasos.some((i) => pasoEnMarcha(m, i, x.parte)));
   return (
     <div className="flex flex-col gap-4 border-t border-slate-100 p-3 sm:px-4">
+      {/* Lo primero que se decide: cómo se asigna y entrega. */}
+      {asignar && (m.partes ?? []).length > 0 && (partesConRuta(m).length === 0 || m.porPartes) && (
+        <ModoAsignacion mueble={m} />
+      )}
       <Rutas mueble={m} asignar={asignar} />
       {pasosMueble.length === 0 && partes.length === 0 && !requiereDespiece(m) && (
         <p className="text-sm text-slate-500">Sin asignaciones todavía.</p>
       )}
       {partes.length > 0 &&
-        (partesConTrabajo.length === 0 ? (
-          <p className="text-xs text-slate-500">Aún no hay asignaciones de partes.</p>
-        ) : (
+        (partesConTrabajo.length === 0 ? null : (
           <details open={abrirPartes} className="group/partes flex flex-col gap-2 text-xs">
             <summary className="flex cursor-pointer list-none items-center gap-1.5 font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
               <Chevron abierto={false} className="h-3.5 w-3.5 text-slate-500 group-open/partes:rotate-90" />
