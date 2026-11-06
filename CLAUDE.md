@@ -314,7 +314,7 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
   `aprobar_mueble_desde_partes` cuando la parte más atrasada alcanza en piezas aprobadas. Lo no aprobado de
   una parte se vuelve a entregar en la misma asignación. Cobro: `aprobado_calidad_variante` da una fila por
   parte del despiece propio (lo aprobado de sus piezas o el mueble × piezas por mueble) y el tope de Calidad ya
-  no exime a las partes. Pendiente: que Producción vea en "Rechazado por Calidad" las piezas de partes rechazadas.
+  no exime a las partes. En "Rechazos de Calidad" sale "Partes por volver a entregar" (`partes-rechazadas.ts`).
 
 ## Revisión final de Calidad
 
