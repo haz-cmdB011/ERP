@@ -237,8 +237,9 @@ export function FilaMueble({
   // Lo que toca asignar (para el botón de la izquierda): las partes o el paso del mueble.
   const etapa = etapaSiguiente(m);
   const toca = etapa && estadoEtapa(m, etapa) === "sin_asignar" ? etapa : null;
-  // Por partes: la primera parte (y su paso) que todavía tiene lugar para asignar.
-  const sigue = m.porPartes ? siguienteAsignable(m) : null;
+  // El primer paso (o parte, si va por partes) que todavía tiene lugar para asignar. Aunque el
+  // paso actual siga en taller, se puede asignar el siguiente (queda "adelantada").
+  const sigue = siguienteAsignable(m);
   // Con despiece, un anillo por proceso (todas las partes y el mueble completo que lo llevan);
   // sin despiece, uno por paso de su ruta.
   const anillos: { clave: string; estado: EstadoProceso; contenido: ReactNode }[] =
@@ -255,7 +256,7 @@ export function FilaMueble({
         }));
   // Lo que sigue, a la derecha: el botón para asignar o, si no hay nada que hacer aquí, en qué va.
   const boton =
-    "rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors";
+    "block max-w-[8.5rem] rounded-lg px-3 py-2 text-center text-sm leading-tight font-semibold transition-colors @md:max-w-none @md:whitespace-nowrap";
   const texto = "text-sm font-medium whitespace-nowrap";
   const accion =
     terminado && obra === "en_revision_final" ? (
@@ -268,14 +269,14 @@ export function FilaMueble({
       <EnlaceDespiece mueble={m} className={`${boton} border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100`}>
         Hacer despiece
       </EnlaceDespiece>
-    ) : asignar && m.porPartes && toca?.tipo === "partes" && sigue ? (
+    ) : asignar && m.porPartes && toca?.tipo === "partes" && sigue?.parte ? (
       <BotonAsignar
         mueble={m}
         inicial={{ parte: sigue.parte?.id ?? null, paso: sigue.paso.indice }}
         asignar={asignar}
         className={`${boton} bg-brand-500 text-on-brand shadow-sm hover:bg-brand-400`}
       >
-        Asignar partes
+        Asignar
       </BotonAsignar>
     ) : toca?.tipo === "paso" && porAsignar(m, toca.indice, asignar) ? (
       <BotonAsignar
@@ -284,16 +285,38 @@ export function FilaMueble({
         asignar={asignar}
         className={`${boton} bg-brand-500 text-on-brand shadow-sm hover:bg-brand-400`}
       >
-        Asignar {etiquetaPaso(m.ruta, toca.indice)}
+        Asignar
       </BotonAsignar>
+    ) : asignar && sigue ? (
+      // Lo actual ya está en taller: se dice en qué va y se ofrece asignar lo que sigue.
+      <span className="flex flex-col items-end gap-1">
+        <BotonAsignar
+          mueble={m}
+          inicial={{ parte: sigue.parte?.id ?? null, paso: sigue.paso.indice }}
+          asignar={asignar}
+          className={`${boton} border border-brand-500 text-slate-900 hover:bg-brand-50`}
+        >
+          Asignar
+        </BotonAsignar>
+        <span className="text-xs text-slate-500">{siguiente}</span>
+      </span>
     ) : (
       <span className={`${texto} ${siguiente.startsWith("Asignar") ? "text-amber-700" : "text-slate-500"}`}>
         {siguiente}
       </span>
     );
 
+  // Sin barra de desplazamiento: según el ancho de la tarjeta (no de la pantalla), la ruta va
+  // entre el nombre y el botón o, si no cabe, en su propio renglón a todo lo ancho. Una ruta
+  // larga necesita una tarjeta más ancha para ir en línea.
+  const enLinea = anillos.length <= 4 ? "@3xl" : anillos.length <= 6 ? "@5xl" : "@7xl";
+  const columnas = {
+    "@3xl": "@3xl:grid-cols-[minmax(9rem,16rem)_minmax(0,1fr)_auto] @3xl:col-span-1 @3xl:col-start-2 @3xl:row-start-1 @3xl:col-start-3",
+    "@5xl": "@5xl:grid-cols-[minmax(9rem,16rem)_minmax(0,1fr)_auto] @5xl:col-span-1 @5xl:col-start-2 @5xl:row-start-1 @5xl:col-start-3",
+    "@7xl": "@7xl:grid-cols-[minmax(9rem,16rem)_minmax(0,1fr)_auto] @7xl:col-span-1 @7xl:col-start-2 @7xl:row-start-1 @7xl:col-start-3",
+  }[enLinea].split(" ");
   return (
-    <li className="rounded-xl border border-slate-200 bg-white">
+    <li className="@container rounded-xl border border-slate-200 bg-white">
       <div
         // Tocar cualquier parte de la fila la abre o la cierra; los botones y enlaces
         // conservan su propia acción (y los diálogos en portal no cuentan).
@@ -302,7 +325,7 @@ export function FilaMueble({
           if (!e.currentTarget.contains(t) || t.closest('a, button, input, select, textarea, [role="dialog"]')) return;
           onAlternar();
         }}
-        className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 p-2.5 sm:grid-cols-[18rem_minmax(0,1fr)_auto] sm:p-3"
+        className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 p-2.5 sm:p-3 ${columnas[0]}`}
       >
         <div className="flex min-w-0 items-center gap-3">
           {imagen ? (
@@ -341,13 +364,14 @@ export function FilaMueble({
         </div>
 
         {/* La ruta: en celular baja a su propia línea, debajo del nombre. */}
-        <ol className="col-span-2 row-start-2 flex items-start overflow-x-auto sm:col-span-1 sm:col-start-2 sm:row-start-1">
+        <ol className={`col-span-2 row-start-2 flex min-w-0 items-start ${columnas[1]} ${columnas[2]} ${columnas[3]}`}>
           {anillos.map((a, j) => (
             <li key={a.clave} className="flex flex-1 items-start last:flex-none">
               <button
                 type="button"
                 onClick={onAlternar}
-                className="rounded-lg px-1 transition-colors hover:bg-slate-50"
+                // Ancho fijo: con nombres largos (Superficie Sólida) las líneas entre anillos no se acortan.
+                className="w-[4.75rem] shrink-0 rounded-lg px-0.5 transition-colors hover:bg-slate-50"
               >
                 {a.contenido}
               </button>
@@ -355,7 +379,7 @@ export function FilaMueble({
                 // A la altura del centro del círculo (mitad de size-10, menos la mitad del grosor).
                 <span
                   aria-hidden
-                  className="mx-0.5 mt-[19px] h-0.5 min-w-3 flex-1 rounded-full transition-colors"
+                  className="mx-0.5 mt-[19px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
                   style={{
                     background: a.estado === "terminado" ? COLOR.terminado : "var(--color-slate-200)",
                   }}
@@ -365,7 +389,7 @@ export function FilaMueble({
           ))}
         </ol>
 
-        <div className="col-start-2 row-start-1 justify-self-end sm:col-start-3">{accion}</div>
+        <div className={`col-start-2 row-start-1 justify-self-end ${columnas[4]}`}>{accion}</div>
       </div>
 
       <Aparece abierto={abierto}>
@@ -418,7 +442,7 @@ function Anillo({
           </span>
         )}
       </span>
-      <span className="text-[11px] font-medium leading-tight whitespace-nowrap text-slate-600">{etiqueta}</span>
+      <span className="text-center text-[11px] font-medium leading-tight text-balance text-slate-600">{etiqueta}</span>
     </span>
   );
 }
