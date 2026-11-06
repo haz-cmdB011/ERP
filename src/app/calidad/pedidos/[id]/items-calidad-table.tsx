@@ -711,11 +711,25 @@ export default function ItemsCalidadTable({
     );
   }
 
-  function Fila({ item, indentado }: { item: ItemCalidadRow; indentado: boolean }) {
+  // Indicador de que el mueble tiene componentes que se despliegan al tocarlo.
+  function Despliega({ id, n }: { id: string; n: number }) {
+    const abierto = partesAbiertas.has(id);
+    return (
+      <span className="mt-1 flex items-center gap-1 text-xs font-normal text-slate-500">
+        <span aria-hidden className={`inline-block transition-transform ${abierto ? "rotate-90" : ""}`}>›</span>
+        {n} componente{n === 1 ? "" : "s"}
+      </span>
+    );
+  }
+
+  function Fila({ item, indentado, componentes = 0 }: { item: ItemCalidadRow; indentado: boolean; componentes?: number }) {
+    const despliega = componentes > 0;
     return (
       <tr
         key={item.id}
-        className={`transition-colors hover:bg-brand-50 ${indentado ? "border-t border-slate-100" : "text-base font-medium text-slate-900"}`}
+        onClick={despliega ? (e) => alternarDesde(e, item.id) : undefined}
+        aria-expanded={despliega ? partesAbiertas.has(item.id) : undefined}
+        className={`transition-colors hover:bg-brand-50 ${despliega ? "cursor-pointer" : ""} ${indentado ? "border-t border-slate-100" : "text-base font-medium text-slate-900"}`}
       >
         <td className={`border-l-4 py-2 pl-2 pr-1 ${franjaDe(item)}`}>
           <Miniatura item={item} clase={indentado ? "h-12 w-12" : "h-16 w-16"} />
@@ -745,6 +759,7 @@ export default function ItemsCalidadTable({
               </span>
             </p>
           )}
+          {despliega && <Despliega id={item.id} n={componentes} />}
         </td>
         <td className="whitespace-nowrap px-3 py-2 text-base font-semibold text-slate-900">
           {item.cantidad_total} {item.unidad}
@@ -759,15 +774,18 @@ export default function ItemsCalidadTable({
   }
 
   // Misma información que la fila, en tarjeta para el celular o la tableta.
-  function Tarjeta({ item, indentado }: { item: ItemCalidadRow; indentado: boolean }) {
+  function Tarjeta({ item, indentado, componentes = 0 }: { item: ItemCalidadRow; indentado: boolean; componentes?: number }) {
+    const despliega = componentes > 0;
     return (
       <li
         key={item.id}
+        onClick={despliega ? (e) => alternarDesde(e, item.id) : undefined}
         className={`flex flex-col gap-3 border-l-4 p-3 ${franjaDe(item)} ${indentado ? "ml-4 border-t border-slate-100" : ""}`}
       >
         <div className="flex items-start gap-3">
           <Miniatura item={item} clase="h-16 w-16 shrink-0" />
           <div className="min-w-0 flex-1">
+            {despliega && <Despliega id={item.id} n={componentes} />}
             <p className="text-base font-bold text-slate-900">
               Ítem {item.item_code}
               {item.modelo ? ` · ${item.modelo}` : ""}
@@ -803,21 +821,10 @@ export default function ItemsCalidadTable({
     </thead>
   );
 
-  // Botón del desplegable de componentes de un mueble por partes.
-  function BotonPartes({ m, n }: { m: ItemCalidadRow; n: number }) {
-    const abierto = partesAbiertas.has(m.id);
-    return (
-      <button
-        type="button"
-        onClick={() => alternarPartes(m.id)}
-        aria-expanded={abierto}
-        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-brand-50 max-md:min-h-11"
-      >
-        <span aria-hidden className={`inline-block transition-transform ${abierto ? "rotate-90" : ""}`}>›</span>
-        {abierto ? "Ocultar" : "Ver"} sus {n} componente{n === 1 ? "" : "s"}
-        <span className="font-normal text-slate-500">· se revisan en las entregas por partes</span>
-      </button>
-    );
+  // Tocar el mueble (no sus botones ni enlaces) abre o cierra sus componentes.
+  function alternarDesde(e: React.MouseEvent, id: string) {
+    if ((e.target as HTMLElement).closest("button, a, input, select, textarea, label")) return;
+    alternarPartes(id);
   }
 
   // Cada mueble en su recuadro. Completo: solo el mueble. Por partes: sus componentes en un
@@ -834,25 +841,13 @@ export default function ItemsCalidadTable({
                 <table className="w-full text-left text-xs">
                   {ENCABEZADO}
                   <tbody className="divide-y divide-slate-100">
-                    {Fila({ item: m, indentado: false })}
-                    {hijos.length > 0 && (
-                      <tr>
-                        <td colSpan={puedeEvaluar ? 6 : 5} className="p-0">
-                          <BotonPartes m={m} n={hijos.length} />
-                        </td>
-                      </tr>
-                    )}
+                    {Fila({ item: m, indentado: false, componentes: hijos.length })}
                     {verHijos && hijos.map((f) => Fila({ item: f, indentado: true }))}
                   </tbody>
                 </table>
               </div>
               <ul className="md:hidden">
-                {Tarjeta({ item: m, indentado: false })}
-                {hijos.length > 0 && (
-                  <li>
-                    <BotonPartes m={m} n={hijos.length} />
-                  </li>
-                )}
+                {Tarjeta({ item: m, indentado: false, componentes: hijos.length })}
                 {verHijos && hijos.map((f) => Tarjeta({ item: f, indentado: true }))}
               </ul>
             </div>
