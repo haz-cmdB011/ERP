@@ -10,29 +10,33 @@ import { leer } from "@/lib/supabase/leer";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import type { EncargadoEquipo, EquipoProduccion } from "@/lib/produccion/asignaciones";
 import { entregasPorAsignacion } from "@/lib/produccion/consultar-asignaciones";
+import { entregasPorParte, partesParaEntrega } from "@/lib/produccion/entregas-partes";
 import {
   agruparPanel,
   conteosPanel,
+  contarEstados,
   FILTROS_PANEL,
-  filtrarPanel,
+  coincideTexto,
   leerFiltroPanel,
+  leerLimitePanel,
+  limitarPanel,
   MAX_IDS_PANEL,
-  otsDePanel,
+  MUEBLES_POR_PAGINA,
   pasaFiltro,
   type FiltroPanel,
 } from "@/lib/produccion/panel";
-import { cargarMueblesDePanel } from "@/lib/produccion/panel-db";
-import { MAX_MODELOS_RECIENTES, modelosRecientes } from "@/lib/produccion/inicio";
-import { cargarFechasDePedidos, muebleInicioDeLiberado } from "@/lib/produccion/inicio-db";
-import CarruselModelos from "@/app/produccion/carrusel-modelos";
+import { cargarMueblesDePanel, listarLiberadosDePanel } from "@/lib/produccion/panel-db";
 import DetalleAsignacion from "@/app/produccion/asignaciones/detalle-asignacion";
-import { estiloCampo } from "@/app/produccion/asignaciones/modal";
+import BuscadorPanel from "./buscador-panel";
 import PanelAsignacion from "./panel-asignacion";
 
 export const metadata: Metadata = { title: "Panel de asignación" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FORMATO_OT = /^\d+-\d{2}$/;
+
+// Marca de tiempo de una liberación (la que devuelve /api/produccion/items/liberar).
+const FORMATO_LOTE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,6})?Z$/;
 
 function uno(valor: string | string[] | undefined): string | undefined {
   return Array.isArray(valor) ? valor[0] : valor;
@@ -51,9 +55,13 @@ export default async function PanelAsignacionPage({
   const ids = [
     ...new Set((uno(params.ids) ?? "").split(",").filter((id) => UUID.test(id))),
   ].slice(0, MAX_IDS_PANEL);
-  const enfoque = ids.length > 0;
-  const filtro = leerFiltroPanel(uno(params.estado), enfoque);
-  const filtroPorOmision = enfoque ? "todos" : "activos";
+  const lotePedido = uno(params.lote) ?? "";
+  const lote = ids.length === 0 && FORMATO_LOTE.test(lotePedido) ? lotePedido : null;
+  const enfoque = ids.length > 0 || lote !== null;
+  const limite = leerLimitePanel(uno(params.n));
+  // Por omisión, lo activo (por asignar y en proceso), también al llegar de liberar.
+  const filtro = leerFiltroPanel(uno(params.estado), false);
+  const filtroPorOmision = "activos";
   const otPedida = uno(params.ot) ?? "";
   const ot = FORMATO_OT.test(otPedida) ? otPedida : null;
   const q = (uno(params.q) ?? "").trim().slice(0, 100);
@@ -63,8 +71,10 @@ export default async function PanelAsignacionPage({
   const puedeEditar = puedeEditarProduccion(perfil);
   const puedeAnular = puedeAdministrarProduccion(perfil);
 
-  const [liberados, equipos, encargados, fechasPm] = await Promise.all([
-    cargarMueblesDePanel(supabase, enfoque ? ids : null),
+  // Primero la lista liviana (una fila por mueble) para filtrar por O.T. y búsqueda; el flujo
+  // (asignaciones, rutas, avance) solo se carga de lo que queda.
+  const [listados, equipos, encargados] = await Promise.all([
+    listarLiberadosDePanel(supabase, { ids: ids.length > 0 ? ids : null, lote }),
     leer(
       supabase
         .from("equipos_produccion")
@@ -83,23 +93,34 @@ export default async function PanelAsignacionPage({
         .returns<EncargadoEquipo[]>(),
       "encargados_equipo_produccion"
     ),
-    // Los muebles recientes salen de todos los liberados, no de lo recién liberado.
-    enfoque ? Promise.resolve(null) : cargarFechasDePedidos(supabase),
   ]);
-  const modelos = fechasPm
-    ? modelosRecientes(liberados.map((m) => muebleInicioDeLiberado(m, fechasPm))).slice(0, MAX_MODELOS_RECIENTES)
-    : [];
 
   // Los contadores de cada filtro respetan la búsqueda y la O.T., no el estado elegido.
-  const delBuscador = filtrarPanel(liberados, { filtro: "todos", ot, q });
+  const delBuscador = await cargarMueblesDePanel(
+    supabase,
+    listados.filter((m) => (!ot || m.ot === ot) && coincideTexto(m.texto, q))
+  );
   const conteos = conteosPanel(delBuscador);
-  const visibles = delBuscador.filter((m) => pasaFiltro(m.estado, filtro));
+  const coinciden = delBuscador.filter((m) => pasaFiltro(m.estado, filtro));
+  // Solo se pintan (y se les piden entregas, miniaturas y detalles) los primeros `limite`.
+  const visibles = limitarPanel(coinciden, limite);
+  const faltan = coinciden.length - visibles.length;
   const grupos = agruparPanel(visibles);
+  // Por PM: sus estados sobre todo lo que pasa la búsqueda (el encabezado no depende de la página).
+  const resumenes = Object.fromEntries(
+    [...new Set(delBuscador.map((m) => m.pedidoId))].map((id) => [
+      id,
+      contarEstados(delBuscador.filter((m) => m.pedidoId === id)),
+    ])
+  );
 
   // Entregas y acciones de las asignaciones que se ven (no de todo el historial) y la miniatura
   // de cada mueble (la primera imagen guardada; sin ella la fila queda con un cuadro vacío).
   const asignaciones = visibles.flatMap((m) => m.flujo.asignaciones);
-  const [entregas, imagenesPorItem] = await Promise.all([
+  const muebleDeAsignacion = new Map(visibles.flatMap((m) => m.flujo.asignaciones.map((a) => [a.id, m.flujo] as const)));
+  // Lo entregado por parte, solo de las asignaciones que se entregan por partes (mueble con despiece).
+  const conPartes = asignaciones.filter((a) => partesParaEntrega(muebleDeAsignacion.get(a.id), a, undefined));
+  const [entregas, imagenesPorItem, porParte] = await Promise.all([
     entregasPorAsignacion(
       supabase,
       asignaciones.map((a) => a.id)
@@ -108,6 +129,7 @@ export default async function PanelAsignacionPage({
       supabase,
       visibles.map((m) => m.flujo.id)
     ),
+    entregasPorParte(supabase, conPartes.map((a) => a.id)),
   ]);
   const imagenes = Object.fromEntries(
     visibles.flatMap((m) => {
@@ -124,12 +146,13 @@ export default async function PanelAsignacionPage({
         entregas={entregas.get(a.id) ?? []}
         puedeEditar={puedeEditar}
         puedeAnular={puedeAnular}
+        partes={partesParaEntrega(muebleDeAsignacion.get(a.id), a, porParte.get(a.id))}
       />,
     ])
   );
 
   // Dirección del panel con otros filtros, conservando lo demás.
-  const href = (cambios: { estado?: FiltroPanel; ot?: string | null; q?: string }) => {
+  const href = (cambios: { estado?: FiltroPanel; ot?: string | null; q?: string; n?: number }) => {
     const estado = cambios.estado ?? filtro;
     const otNueva = cambios.ot === undefined ? ot : cambios.ot;
     const qNueva = cambios.q === undefined ? q : cambios.q;
@@ -137,85 +160,54 @@ export default async function PanelAsignacionPage({
     if (estado !== filtroPorOmision) p.set("estado", estado);
     if (otNueva) p.set("ot", otNueva);
     if (qNueva) p.set("q", qNueva);
-    if (enfoque) p.set("ids", ids.join(","));
+    if (ids.length > 0) p.set("ids", ids.join(","));
+    else if (lote) p.set("lote", lote);
+    if (cambios.n && cambios.n > MUEBLES_POR_PAGINA) p.set("n", String(cambios.n));
     const texto = p.toString();
     return texto ? `/produccion/panel?${texto}` : "/produccion/panel";
   };
-  const ots = otsDePanel(liberados);
   const hayFiltros = !!ot || !!q;
+  // Lo que conserva el buscador al cambiar ?q=.
+  const otrosFiltros = new URLSearchParams(href({ q: "" }).split("?")[1] ?? "").toString();
+  // "Todos" no se ofrece: es la suma de Activos y Terminados.
+  const segmentos = FILTROS_PANEL.filter((f) => f.valor !== "todos");
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-4 p-2.5 pb-24 sm:gap-5 sm:p-6 sm:pb-24">
-      <div className="border-b border-slate-200 pb-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Panel de asignación</h1>
-      </div>
-
-      {fechasPm && modelos.length > 0 && <CarruselModelos modelos={modelos} />}
-
-      {enfoque && (
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-brand-300 bg-brand-50 p-3 text-sm text-slate-800">
-          <span>Estás viendo lo que acabas de liberar a producción.</span>
-          <Link href="/produccion/panel" className="font-medium text-brand-700 underline">
-            Ver todos los liberados
-          </Link>
-        </p>
-      )}
-
-      <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2 text-sm">
-        {FILTROS_PANEL.map((f) => (
-          <Link
-            key={f.valor}
-            href={href({ estado: f.valor })}
-            aria-current={filtro === f.valor ? "true" : undefined}
-            className={`rounded-full border px-3 py-1.5 transition-colors ${
-              filtro === f.valor
-                ? "border-slate-900 bg-slate-900 font-medium text-white"
-                : "border-slate-300 bg-white text-slate-600 hover:bg-brand-50"
-            }`}
-          >
-            {f.etiqueta} <span className="opacity-70">{conteos[f.valor]}</span>
-          </Link>
-        ))}
-      </nav>
-
-      <form method="get" action="/produccion/panel" className="flex flex-wrap items-end gap-2 text-sm">
-        {filtro !== filtroPorOmision && <input type="hidden" name="estado" value={filtro} />}
-        {enfoque && <input type="hidden" name="ids" value={ids.join(",")} />}
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs font-medium text-slate-600">
-          Buscar
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="PM, modelo, descripción, proyecto o cliente"
-            className={estiloCampo}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-          O.T.
-          <select name="ot" defaultValue={ot ?? ""} className={estiloCampo}>
-            <option value="">Todas</option>
-            {ots.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          className="rounded-lg bg-brand-500 px-4 py-2 font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400"
-        >
-          Filtrar
-        </button>
-        {hayFiltros && (
-          <Link href={href({ ot: null, q: "" })} className="px-1 py-2 text-slate-500 underline hover:text-slate-700">
-            Limpiar
+        {(enfoque || ot) && (
+          <Link href="/produccion/panel" className="text-sm font-medium text-sky-700 hover:underline">
+            {enfoque ? "Ver todos los liberados" : `Quitar O.T. ${ot}`}
           </Link>
         )}
-      </form>
+      </div>
 
-      {liberados.length === 0 ? (
+
+      <div className="flex flex-wrap items-center gap-3">
+        <nav
+          aria-label="Filtrar por estado"
+          className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm"
+        >
+          {segmentos.map((f) => (
+            <Link
+              key={f.valor}
+              href={href({ estado: f.valor })}
+              aria-current={filtro === f.valor ? "true" : undefined}
+              className={`rounded-md px-3 py-1.5 whitespace-nowrap transition-colors ${
+                filtro === f.valor
+                  ? "bg-slate-900 font-medium text-white"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {f.etiqueta} <span className="tabular-nums opacity-60">{conteos[f.valor]}</span>
+            </Link>
+          ))}
+        </nav>
+        <BuscadorPanel inicial={q} otros={otrosFiltros} />
+      </div>
+
+      {listados.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
           <p>Todavía no hay muebles liberados a producción.</p>
           <Link href="/produccion/pedidos" className="font-medium text-brand-700 hover:underline">
@@ -224,14 +216,11 @@ export default async function PanelAsignacionPage({
         </div>
       ) : visibles.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
-          No hay muebles con estos filtros.
-          {filtro !== "todos" && (
-            <>
-              {" "}
-              <Link href={href({ estado: "todos" })} className="font-medium text-brand-700 hover:underline">
-                Ver todos
-              </Link>
-            </>
+          {q ? `Nada coincide con "${q}".` : "No hay muebles en este estado."}{" "}
+          {hayFiltros && (
+            <Link href={href({ ot: null, q: "" })} className="font-medium text-sky-700 hover:underline">
+              Quitar la búsqueda
+            </Link>
           )}
         </p>
       ) : (
@@ -242,8 +231,23 @@ export default async function PanelAsignacionPage({
           puedeEditar={puedeEditar}
           detalles={detalles}
           imagenes={imagenes}
-          abrirTodo={enfoque || hayFiltros}
+          resumenes={resumenes}
         />
+      )}
+
+      {faltan > 0 && (
+        <div className="flex flex-col items-center gap-1 text-sm text-slate-600">
+          <p>
+            Se ven {visibles.length} de {coinciden.length} muebles.
+          </p>
+          <Link
+            href={href({ n: limite + MUEBLES_POR_PAGINA })}
+            scroll={false}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-800 hover:bg-slate-50"
+          >
+            Ver {Math.min(MUEBLES_POR_PAGINA, faltan)} más
+          </Link>
+        </div>
       )}
     </main>
   );

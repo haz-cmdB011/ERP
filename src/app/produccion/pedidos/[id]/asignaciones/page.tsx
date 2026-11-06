@@ -27,6 +27,7 @@ import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
 import { disponibleDe, rutasDelFlujo, seAsignaCompleto, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { cargarPartes } from "@/lib/produccion/partes-db";
+import { entregasPorParte, partesParaEntrega } from "@/lib/produccion/entregas-partes";
 import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import FlujoMuebles from "./flujo-muebles";
@@ -220,6 +221,7 @@ export default async function AsignacionesPedidoPage({
       aplica,
       ruta: r.ruta,
       versionRuta: rutas.get(m.id)?.version ?? 0,
+      porPartes: rutas.get(m.id)?.porPartes ?? false,
       asignaciones: porItem.get(m.id) ?? [],
       revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
       partes: r.partes,
@@ -227,6 +229,13 @@ export default async function AsignacionesPedidoPage({
       despieceHref: `/produccion/pedidos/${id}/despiece/${m.id}`,
     };
   });
+
+  // Entregas por parte (despiece) de las asignaciones que se entregan por partes.
+  const muebleDeAsignacion = new Map(flujo.flatMap((m) => m.asignaciones.map((a) => [a.id, m] as const)));
+  const porParte = await entregasPorParte(
+    supabase,
+    todas.filter((a) => partesParaEntrega(muebleDeAsignacion.get(a.id), a, undefined)).map((a) => a.id)
+  );
 
   // Para asignar varios muebles de una vez: lo que falta de cada uno (solo los que se
   // asignan completos; los demás van por partes de su despiece).
@@ -321,6 +330,7 @@ export default async function AsignacionesPedidoPage({
                 entregas={entregas.get(a.id) ?? []}
                 puedeEditar={puedeEditar}
                 puedeAnular={puedeAnular}
+                partes={partesParaEntrega(muebleDeAsignacion.get(a.id), a, porParte.get(a.id))}
               />,
             ])
           )}

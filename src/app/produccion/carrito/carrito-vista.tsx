@@ -6,14 +6,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { avisar } from "@/components/avisos";
 import ConfirmDialog from "@/components/confirm-dialog";
 import { agruparCarrito, filasCarrito, type ItemCarrito } from "@/lib/produccion/carrito";
-import { quitarItems, useCarrito, vaciarCarrito } from "@/lib/produccion/carrito-navegador";
-import type { DatosCarrito, DespieceCarrito, MuebleCarrito } from "@/lib/produccion/carrito-db";
 import {
-  PROCESO_LABELS,
-  PROCESOS,
+  elegirRuta,
+  olvidarRutas,
+  quitarItems,
+  useCarrito,
+  useRutasCarrito,
+  vaciarCarrito,
+} from "@/lib/produccion/carrito-navegador";
+import type { DatosCarrito, DespieceCarrito, MuebleCarrito, RutaCarrito } from "@/lib/produccion/carrito-db";
+import {
   type EncargadoEquipo,
   type EquipoProduccion,
+  type Proceso,
 } from "@/lib/produccion/asignaciones";
+import { etiquetaPaso, type PasoRuta } from "@/lib/produccion/ruta";
+import EditarRuta from "../pedidos/[id]/asignaciones/editar-ruta";
+import { COLORES_MATERIAL, InsigniaMaterial } from "../material-parte";
 import { MAX_IDS_PANEL } from "@/lib/produccion/panel";
 import AsignarLote from "../asignaciones/asignar-lote";
 import BotonDesplegar from "@/components/boton-desplegar";
@@ -21,11 +30,11 @@ import DespieceEnLinea from "./despiece-en-linea";
 
 const AVISO_SIN_DESPIECE = "Falta el despiece de algún mueble: despliégalo y guarda su despiece para poder liberar.";
 
-// Panel de asignación de esos muebles (todos los liberados si son demasiados para la dirección).
-function urlPanel(ids: string[]): string {
-  return ids.length > 0 && ids.length <= MAX_IDS_PANEL
-    ? `/produccion/panel?ids=${ids.join(",")}`
-    : "/produccion/panel";
+// Panel de asignación de lo recién liberado: por ids si caben en la dirección y, si no, por la
+// marca de tiempo de la liberación (sin tope de cantidad).
+function urlPanel(ids: string[], liberadoEn?: string): string {
+  if (ids.length > 0 && ids.length <= MAX_IDS_PANEL) return `/produccion/panel?ids=${ids.join(",")}`;
+  return liberadoEn ? `/produccion/panel?lote=${encodeURIComponent(liberadoEn)}` : "/produccion/panel";
 }
 
 type Datos = DatosCarrito & {
@@ -37,6 +46,8 @@ type Datos = DatosCarrito & {
 export default function CarritoVista() {
   const router = useRouter();
   const items = useCarrito();
+  // Rutas elegidas para muebles que aún no se liberan (se guardan al liberar).
+  const rutasElegidas = useRutasCarrito();
   const [datos, setDatos] = useState<Datos | null>(null);
   const [error, setError] = useState<string | null>(null);
   // "todo" o el id del PM que se está liberando.
@@ -90,10 +101,6 @@ export default function CarritoVista() {
   // Un mueble con sus componentes.
   const conComponentes = (ids: string[]) => ids.flatMap((id) => [id, ...(componentesDe.get(id) ?? [])]);
   const estadoDe = (id: string) => datos?.estados[id];
-  const mueblePorId = useMemo(
-    () => new Map((datos?.muebles ?? []).map((m) => [m.id, m])),
-    [datos]
-  );
 
   // Libera los ítems y, si salió bien, los saca del carrito y lleva al panel de
   // asignación con los muebles recién liberados.
@@ -104,7 +111,10 @@ export default function CarritoVista() {
       const res = await fetch("/api/produccion/items/liberar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemIds: ids }),
+        body: JSON.stringify({
+          itemIds: ids,
+          rutas: Object.fromEntries(ids.filter((id) => rutasElegidas[id]).map((id) => [id, rutasElegidas[id]])),
+        }),
       });
       const cuerpo = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -113,10 +123,13 @@ export default function CarritoVista() {
       }
       const muebles = items.filter((i) => ids.includes(i.id) && i.tipo === "MO").map((i) => i.id);
       quitarItems(ids);
+      olvidarRutas(ids);
       avisar(`${cuerpo.liberados} ítem(s) liberado(s) a producción.`, "exito");
-      // Un componente liberado solo no se asigna: sin muebles no hay a dónde ir. Con demasiados
-      // muebles la lista no cabe en la dirección: se abre el panel con todo lo liberado.
-      if (muebles.length > 0) router.push(urlPanel(muebles));
+      for (const aviso of (cuerpo.avisos ?? []) as string[]) {
+        avisar(`La ruta no se guardó: ${aviso} Cámbiala con "Ruta" en el panel.`, "error");
+      }
+      // Un componente liberado solo no se asigna: sin muebles no hay a dónde ir.
+      if (muebles.length > 0) router.push(urlPanel(muebles, cuerpo.liberadoEn));
     } catch {
       avisar("Error de red al liberar.", "error");
     } finally {
@@ -151,6 +164,7 @@ export default function CarritoVista() {
   const equipos = datos?.equipos ?? [];
   const encargados = datos?.encargados ?? [];
   const despieces = datos?.despieces ?? {};
+  const rutas = datos?.rutas ?? {};
   const porLiberar = (i: ItemCarrito) => !!estadoDe(i.id)?.vigente && !estadoDe(i.id)?.liberado;
   // Lo que se libera de unas filas: ellas y sus componentes que sigan pendientes.
   const idsALiberar = (filas: ItemCarrito[]) => {
@@ -166,46 +180,44 @@ export default function CarritoVista() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 text-sm shadow-sm backdrop-blur">
-        <span className="text-base font-semibold text-slate-900">
-          {filas.length} mueble{filas.length === 1 ? "" : "s"} · {grupos.length} O.T.
-        </span>
-        {pendientes.length > 0 && (
-          <span className="text-base font-semibold text-amber-700">{pendientes.length} por liberar</span>
-        )}
-        {sinDespiece.length > 0 && (
-          <span className="text-amber-700">
-            {sinDespiece.length} sin despiece: haz su despiece para poder liberar
-          </span>
-        )}
-        <div className="ml-auto flex flex-wrap gap-2">
+      {/* Barra fija: cuántos hay, lo que detiene la liberación y las dos acciones del carrito. */}
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
+        <p className="text-base font-semibold text-slate-900 tabular-nums">
+          {filas.length} mueble{filas.length === 1 ? "" : "s"}
+          {sinDespiece.length > 0 && (
+            <span className="ml-3 text-sm font-medium text-amber-700">
+              {sinDespiece.length} sin despiece
+            </span>
+          )}
+        </p>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmarVaciar(true)}
+            className="px-2 py-2 text-sm text-slate-500 hover:text-slate-800"
+          >
+            Vaciar
+          </button>
+          {puedeEditar && asignables.length > 0 && (
+            <AsignarLote
+              muebles={asignables}
+              equipos={equipos}
+              encargados={encargados}
+              etiqueta={`Asignar (${asignables.length})`}
+              alTerminar={sacarAsignados}
+            />
+          )}
           {puedeEditar && pendientes.length > 0 && (
             <button
               type="button"
               disabled={liberando !== null || faltaDespiece(pendientes)}
               title={faltaDespiece(pendientes) ? AVISO_SIN_DESPIECE : undefined}
               onClick={() => liberar("todo", idsALiberar(pendientes))}
-              className="min-h-12 rounded-lg bg-brand-500 px-5 py-2 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
+              className="min-h-11 rounded-lg bg-brand-500 px-5 py-2 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:opacity-50"
             >
-              {liberando === "todo" ? "Liberando..." : `Liberar todo a producción (${pendientes.length})`}
+              {liberando === "todo" ? "Liberando…" : `Liberar (${pendientes.length})`}
             </button>
           )}
-          {puedeEditar && asignables.length > 0 && (
-            <AsignarLote
-              muebles={asignables}
-              equipos={equipos}
-              encargados={encargados}
-              etiqueta={`Asignar todo el carrito (${asignables.length})`}
-              alTerminar={sacarAsignados}
-            />
-          )}
-          <button
-            type="button"
-            onClick={() => setConfirmarVaciar(true)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-brand-50"
-          >
-            Vaciar carrito
-          </button>
         </div>
       </div>
 
@@ -213,98 +225,68 @@ export default function CarritoVista() {
         <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>
       )}
       {datos && !puedeEditar && (
-        <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-          Tu cuenta puede ver el carrito, pero liberar y asignar es del personal de Producción.
-        </p>
+        <p className="text-sm text-slate-600">Solo Producción puede liberar y asignar.</p>
       )}
       {datos && puedeEditar && equipos.length <= 1 && (
-        <p className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800">
-          Da de alta tus equipos de maquila en{" "}
-          <Link href="/produccion/equipos" className="font-medium underline">
-            Equipos
-          </Link>{" "}
-          para poder asignarles trabajo.
+        <p className="text-sm text-slate-600">
+          Sin equipos de maquila todavía.{" "}
+          <Link href="/produccion/equipos" className="font-medium text-sky-700 underline">
+            Dar de alta equipos
+          </Link>
         </p>
       )}
 
       {grupos.map((g) => (
-        <section key={g.ot ?? "sin-ot"} className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-xl font-bold text-slate-900">
-              {g.ot ? (
-                <Link href={`/produccion/ot/${g.ot}`} className="hover:underline">
-                  O.T. {g.ot}
-                </Link>
-              ) : (
-                "Sin O.T."
-              )}
-            </h2>
-            <span className="text-sm text-slate-500">
-              {(() => {
-                const n = g.pms.reduce((s, pm) => s + pm.items.filter(visible).length, 0);
-                return `${n} mueble${n === 1 ? "" : "s"}`;
-              })()}
-            </span>
-          </div>
+        <section key={g.ot ?? "sin-ot"} className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-slate-500">
+            {g.ot ? (
+              <Link href={`/produccion/ot/${g.ot}`} className="hover:text-slate-900 hover:underline">
+                O.T. {g.ot}
+              </Link>
+            ) : (
+              "Sin O.T."
+            )}
+          </h2>
 
           {g.pms.map((pm) => {
             const idsPm = pm.items.map((i) => i.id);
             const filasPm = pm.items.filter(visible);
             const pendientesPm = filasPm.filter(porLiberar);
-            const mueblesPm = asignables.filter((m) => idsPm.includes(m.id));
+            // Con un solo PM, la barra de arriba ya libera lo mismo.
+            const liberarAqui = puedeEditar && pendientesPm.length > 0 && grupos.flatMap((x) => x.pms).length > 1;
             return (
               <article
                 key={pm.pedidoId}
                 className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
-                <header className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                <header className="flex items-center gap-3 border-b border-slate-100 px-4 py-2.5">
                   <Link
                     href={`/produccion/pedidos/${pm.pedidoId}`}
-                    className="text-lg font-bold text-slate-900 hover:underline"
+                    className="font-semibold text-slate-900 hover:underline"
                   >
                     {pm.numeroPm}
                   </Link>
-                  <span className="text-xs text-slate-500">
-                    {filasPm.length} mueble{filasPm.length === 1 ? "" : "s"}
-                  </span>
-                  <div className="ml-auto flex flex-wrap gap-2">
-                    {puedeEditar && pendientesPm.length > 0 && (
+                  <div className="ml-auto flex items-center gap-1">
+                    {liberarAqui && (
                       <button
                         type="button"
                         disabled={liberando !== null || faltaDespiece(pendientesPm)}
                         title={faltaDespiece(pendientesPm) ? AVISO_SIN_DESPIECE : undefined}
                         onClick={() => liberar(pm.pedidoId, idsALiberar(pendientesPm))}
-                        className="min-h-12 rounded-lg border-2 border-brand-600 bg-white px-5 py-2 text-base font-semibold text-slate-900 transition-colors hover:bg-brand-500 hover:text-on-brand disabled:opacity-50"
+                        className="rounded-lg border border-brand-600 px-3 py-1.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-brand-500 hover:text-on-brand disabled:opacity-50"
                       >
-                        {liberando === pm.pedidoId
-                          ? "Liberando..."
-                          : `Liberar ${pendientesPm.length} pendiente${pendientesPm.length === 1 ? "" : "s"}`}
+                        {liberando === pm.pedidoId ? "Liberando…" : `Liberar (${pendientesPm.length})`}
                       </button>
-                    )}
-                    {puedeEditar && mueblesPm.length > 0 && (
-                      <AsignarLote
-                        muebles={mueblesPm}
-                        equipos={equipos}
-                        encargados={encargados}
-                        etiqueta={`Asignar ${mueblesPm.length} a un equipo`}
-                        alTerminar={sacarAsignados}
-                      />
-                    )}
-                    {puedeEditar && mueblesPm.length > 0 && (
-                      <Link
-                        href={urlPanel(mueblesPm.map((m) => m.id))}
-                        title="Ver la ruta de cada mueble y asignar por partes en el panel de asignación"
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-brand-50"
-                      >
-                        Ver en el panel
-                      </Link>
                     )}
                     <button
                       type="button"
-                      onClick={() => quitarItems(idsPm)}
-                      className="rounded-lg px-2 py-1.5 text-sm text-slate-500 underline hover:text-slate-700"
+                      onClick={() => {
+                        quitarItems(idsPm);
+                        olvidarRutas(idsPm);
+                      }}
+                      className="px-2 py-1.5 text-sm text-slate-500 hover:text-slate-800"
                     >
-                      Quitar PM
+                      Quitar
                     </button>
                   </div>
                 </header>
@@ -316,10 +298,16 @@ export default function CarritoVista() {
                       cargado={!!datos}
                       vigente={estadoDe(i.id)?.vigente}
                       liberado={estadoDe(i.id)?.liberado}
-                      mueble={mueblePorId.get(i.id)}
                       despiece={despieces[i.id]}
+                      ruta={rutas[i.id]}
+                      rutaElegida={rutasElegidas[i.id]}
+                      puedeEditar={puedeEditar}
                       alGuardarDespiece={() => void cargar()}
-                      alQuitar={() => quitarItems(conComponentes([i.id]))}
+                      alGuardarRuta={() => void cargar()}
+                      alQuitar={() => {
+                        quitarItems(conComponentes([i.id]));
+                        olvidarRutas([i.id]);
+                      }}
                     />
                   ))}
                 </ul>
@@ -337,6 +325,7 @@ export default function CarritoVista() {
         destructive
         onConfirm={() => {
           vaciarCarrito();
+          olvidarRutas(items.map((i) => i.id));
           setConfirmarVaciar(false);
         }}
         onCancel={() => setConfirmarVaciar(false)}
@@ -350,88 +339,121 @@ function FilaCarrito({
   cargado,
   vigente,
   liberado,
-  mueble,
   despiece,
+  ruta,
+  rutaElegida,
+  puedeEditar,
   alGuardarDespiece,
+  alGuardarRuta,
   alQuitar,
 }: {
   item: ItemCarrito;
   cargado: boolean;
   vigente: boolean | undefined;
   liberado: boolean | undefined;
-  mueble: MuebleCarrito | undefined;
   despiece: DespieceCarrito | undefined;
+  ruta: RutaCarrito | undefined;
+  rutaElegida: Proceso[] | undefined;
+  puedeEditar: boolean;
   alGuardarDespiece: () => void;
+  alGuardarRuta: () => void;
   alQuitar: () => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const esHijo = item.tipo === "FU";
-  const faltan = mueble ? PROCESOS.filter((p) => mueble.disponible[p] > 0) : [];
-  // Solo un mueble con componentes lleva despiece (los demás se asignan completos): tocar
-  // su fila despliega sus componentes como despiece, para hacerlo ahí mismo.
+  // Solo un mueble con componentes lleva despiece: tocar su fila lo despliega para hacerlo ahí.
   const conDespiece = !!despiece && despiece.componentes > 0;
+  const faltaDespiece = conDespiece && despiece.partes === 0;
   const desplegable = conDespiece && !!vigente;
+  // El borde izquierdo dice qué le falta: despiece (ámbar) o ya está en Producción (verde).
+  const borde = !vigente
+    ? "border-l-rose-400"
+    : faltaDespiece
+      ? "border-l-amber-400"
+      : liberado
+        ? "border-l-emerald-500"
+        : "border-l-transparent";
   return (
-    <li className={`text-sm ${abierto && desplegable ? "bg-slate-50/60" : ""}`}>
+    <li className={`border-l-4 text-sm ${borde} ${abierto && desplegable ? "bg-slate-50/60" : ""}`}>
       <div
         onClick={(e) => {
-          if (!desplegable || (e.target as HTMLElement).closest("a, button")) return;
+          // Los clics dentro del diálogo de la ruta (se abre dentro de la fila) no cuentan.
+          const t = e.target as HTMLElement;
+          if (!desplegable || t.closest('a, button, input, select, textarea, [role="dialog"]')) return;
           setAbierto((v) => !v);
         }}
-        className={`flex items-start gap-3 px-4 py-3 ${desplegable ? "cursor-pointer hover:bg-brand-50" : ""}`}
+        className={`flex items-start gap-3 py-3 pr-3 pl-3 ${desplegable ? "cursor-pointer hover:bg-brand-50/60" : ""}`}
       >
-      {desplegable && (
-        <BotonDesplegar
-          abierto={abierto}
-          alAlternar={() => setAbierto((v) => !v)}
-          descripcion={`los componentes y el despiece del ítem ${item.itemCode}`}
-        />
-      )}
-      <div className="min-w-0 flex-1">
-        <p className={esHijo ? "text-base font-medium text-slate-900" : "text-lg font-semibold text-slate-900"}>
-          {item.itemCode}
-          {item.modelo ? ` · ${item.modelo}` : ""}
-          <span className="ml-2 text-xs font-normal text-slate-500">
-            {esHijo ? "Componente" : "Mueble"}
-          </span>
-        </p>
-        {item.descripcion && (
-          <p className="line-clamp-2 text-xs text-slate-600">{item.descripcion.split("\n")[0]}</p>
+        {desplegable ? (
+          <BotonDesplegar
+            abierto={abierto}
+            alAlternar={() => setAbierto((v) => !v)}
+            descripcion={`el despiece del ítem ${item.itemCode}`}
+          />
+        ) : (
+          <span aria-hidden className="w-6 shrink-0" />
         )}
-        <p className="mt-0.5 text-sm text-slate-600">
-          <span className="text-base font-semibold text-slate-900">
-            {item.cantidad} {item.unidad ?? ""}
-          </span>
-          {mueble &&
-            (faltan.length > 0
-              ? ` · por asignar: ${faltan.map((p) => `${PROCESO_LABELS[p]} ${mueble.disponible[p]}`).join(", ")}`
-              : " · todo asignado")}
-        </p>
-        {conDespiece && (
-          <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-slate-500">
-              {despiece.componentes} componente{despiece.componentes === 1 ? "" : "s"} ·
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-3">
+            <p className="min-w-0 flex-1 truncate text-base font-semibold text-slate-900">
+              <span className="text-slate-400 tabular-nums">{item.itemCode}</span> {item.modelo ?? "Sin modelo"}
+              {esHijo && <span className="ml-2 text-xs font-normal text-slate-500">Componente</span>}
+            </p>
+            <span className="shrink-0 text-base font-semibold text-slate-900 tabular-nums">
+              {item.cantidad} <span className="text-xs font-normal text-slate-500">{item.unidad ?? ""}</span>
             </span>
-            {despiece.partes > 0 ? (
-              <span className="font-medium text-emerald-700">
-                Despiece listo ({despiece.partes} parte{despiece.partes === 1 ? "" : "s"})
-              </span>
-            ) : (
-              <span className="font-medium text-amber-700">Falta el despiece</span>
-            )}
-          </p>
-        )}
-      </div>
-      <Estado cargado={cargado} vigente={vigente} liberado={liberado} />
-      <button
-        type="button"
-        onClick={alQuitar}
-        aria-label={`Quitar el ítem ${item.itemCode} del carrito`}
-        title="Quitar del carrito"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 transition-colors hover:bg-brand-100"
-      >
-        ✕
-      </button>
+          </div>
+          {item.descripcion && (
+            <p className="truncate text-xs text-slate-500" title={item.descripcion}>
+              {item.descripcion.split("\n")[0]}
+            </p>
+          )}
+          {!esHijo && vigente && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+              {ruta && (
+                <RutaDelMueble
+                  item={item}
+                  ruta={ruta}
+                  liberado={!!liberado}
+                  elegida={rutaElegida}
+                  puedeEditar={puedeEditar}
+                  alGuardar={alGuardarRuta}
+                />
+              )}
+              {conDespiece &&
+                (faltaDespiece ? (
+                  <button
+                    type="button"
+                    onClick={() => setAbierto(true)}
+                    className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    Hacer despiece
+                  </button>
+                ) : (
+                  <span
+                    role="img"
+                    className="flex items-center gap-1"
+                    title={`Despiece: ${despiece.partes} parte${despiece.partes === 1 ? "" : "s"}`}
+                    aria-label={`Despiece con ${despiece.materiales.map((t) => COLORES_MATERIAL[t].etiqueta).join(", ")}`}
+                  >
+                    {despiece.materiales.map((t) => (
+                      <InsigniaMaterial key={t} tipo={t} tamano="sm" />
+                    ))}
+                  </span>
+                ))}
+            </div>
+          )}
+        </div>
+        <Estado cargado={cargado} vigente={vigente} liberado={liberado} />
+        <button
+          type="button"
+          onClick={alQuitar}
+          aria-label={`Quitar el ítem ${item.itemCode} del carrito`}
+          title="Quitar del carrito"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+        >
+          ✕
+        </button>
       </div>
       {abierto && desplegable && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3 sm:pl-12">
@@ -448,6 +470,77 @@ function FilaCarrito({
   );
 }
 
+// La ruta del mueble completo como estaciones en orden; tocarla la cambia. Por liberar, la
+// elegida se queda en el aparato y se guarda al liberar; ya liberado, se guarda en la base.
+// Sin elegir, la sugerida.
+function RutaDelMueble({
+  item,
+  ruta,
+  liberado,
+  elegida,
+  puedeEditar,
+  alGuardar,
+}: {
+  item: ItemCarrito;
+  ruta: RutaCarrito;
+  liberado: boolean;
+  elegida: Proceso[] | undefined;
+  puedeEditar: boolean;
+  alGuardar: () => void;
+}) {
+  const local = !liberado && !!elegida;
+  const pasos: PasoRuta[] = local ? elegida.map((proceso) => ({ id: null, proceso })) : ruta.pasos;
+  const estaciones =
+    pasos.length === 0 ? (
+      <span className="text-xs text-slate-500">Sin ruta</span>
+    ) : (
+      <ol className="flex flex-wrap items-center gap-y-1" aria-label={`Ruta del ítem ${item.itemCode}`}>
+        {pasos.map((p, i) => (
+          <li key={p.id ?? `${p.proceso}-${i}`} className="flex items-center">
+            {i > 0 && <span aria-hidden className="mx-1 h-px w-2.5 bg-slate-300" />}
+            <span className="flex items-center gap-1 rounded-full border border-slate-200 bg-white py-0.5 pr-2 pl-0.5 text-xs font-medium text-slate-700">
+              <span className="grid h-4 w-4 place-items-center rounded-full bg-slate-100 text-[10px] font-semibold tabular-nums text-slate-500">
+                {i + 1}
+              </span>
+              {etiquetaPaso(pasos, i)}
+            </span>
+          </li>
+        ))}
+      </ol>
+    );
+  if (!puedeEditar) return estaciones;
+  return (
+    <EditarRuta
+      itemId={item.id}
+      descripcion={`${item.numeroPm} · ítem ${item.itemCode}${item.modelo ? ` · ${item.modelo}` : ""}`}
+      conPartes={ruta.deAntes}
+      ruta={pasos}
+      version={ruta.version}
+      aplica={ruta.aplica}
+      bloqueados={liberado ? ruta.bloqueados : pasos.map(() => false)}
+      alGuardar={alGuardar}
+      alElegir={liberado ? undefined : (nuevos) => elegirRuta(item.id, nuevos.map((x) => x.proceso))}
+      titulo="Cambiar la ruta"
+      className="group flex items-center gap-1.5 rounded-lg p-0.5 text-left transition-colors hover:bg-sky-50"
+    >
+      {estaciones}
+      <svg
+        viewBox="0 0 24 24"
+        className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-sky-700"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M4 20h4L19 9l-4-4L4 16z" />
+      </svg>
+      <span className="sr-only">Cambiar la ruta</span>
+    </EditarRuta>
+  );
+}
+
 function Estado({
   cargado,
   vigente,
@@ -457,23 +550,19 @@ function Estado({
   vigente: boolean | undefined;
   liberado: boolean | undefined;
 }) {
-  if (!cargado) return <span className="text-sm text-slate-500">…</span>;
-  if (vigente === undefined) {
-    return <span className="whitespace-nowrap text-sm font-semibold text-rose-700">Ya no existe</span>;
-  }
+  const base = "shrink-0 whitespace-nowrap text-xs font-medium";
+  if (!cargado) return <span className={`${base} text-slate-400`}>…</span>;
+  if (vigente === undefined) return <span className={`${base} text-rose-700`}>Ya no existe</span>;
   if (!vigente) {
     return (
-      <span
-        className="whitespace-nowrap text-sm font-semibold text-rose-700"
-        title="Está en la papelera o cancelado, es de una versión anterior o el PM se canceló"
-      >
+      <span className={`${base} text-rose-700`} title="En la papelera, cancelado o de una versión anterior del PM">
         No disponible
       </span>
     );
   }
   return liberado ? (
-    <span className="whitespace-nowrap text-base font-semibold text-emerald-700">Enviado a Producción</span>
+    <span className={`${base} text-emerald-700`}>Liberado</span>
   ) : (
-    <span className="whitespace-nowrap text-base font-semibold text-slate-500">Pendiente</span>
+    <span className={`${base} text-slate-500`}>Por liberar</span>
   );
 }

@@ -41,6 +41,47 @@ import { etiquetaPeriodo } from "./formato";
 
 export const metadata = { title: "No conformidades" };
 
+type FilaMueble = {
+  modelo: string | null;
+  descripcion: string | null;
+  pedido_versiones: { pedidos: { proyectos: { nombre: string } | null } | null } | null;
+};
+
+// Modelo (o descripción) de cada mueble padre vigente, agrupado por el nombre de su proyecto.
+async function cargarMueblesPorProyecto(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<Record<string, string[]>> {
+  const filas = await paginarTodo<FilaMueble>(
+    (desde, hasta) =>
+      supabase
+        .from("planeacion_items")
+        .select(
+          "modelo, descripcion, pedido_versiones!inner ( pedidos!inner ( proyectos ( nombre ) ) )"
+        )
+        .eq("tipo_registro", "MO")
+        .is("eliminacion_solicitada_en", null)
+        .or("estado_revision.is.null,estado_revision.neq.cancelado")
+        .eq("pedido_versiones.es_version_activa", true)
+        .is("pedido_versiones.pedidos.eliminado_en", null)
+        .is("pedido_versiones.pedidos.cancelado_en", null)
+        .order("id", { ascending: true })
+        .range(desde, hasta)
+        .returns<FilaMueble[]>(),
+    { contexto: "los muebles de los proyectos" }
+  );
+  const mapa = new Map<string, Set<string>>();
+  for (const f of filas) {
+    const proyecto = f.pedido_versiones?.pedidos?.proyectos?.nombre?.trim();
+    const mueble = (f.modelo || f.descripcion || "").trim();
+    if (!proyecto || !mueble) continue;
+    if (!mapa.has(proyecto)) mapa.set(proyecto, new Set());
+    mapa.get(proyecto)!.add(mueble);
+  }
+  return Object.fromEntries(
+    [...mapa].map(([p, m]) => [p, [...m].sort((a, b) => a.localeCompare(b, "es", { numeric: true }))])
+  );
+}
+
 const BASE = "/calidad/incidencias";
 const FILAS_EN_LISTA = 100;
 
@@ -122,10 +163,15 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
   const auditores = resumirPorAuditor(delPeriodo);
   const semanasDelAnio = vista === "anio" ? resumirPorSemana(delPeriodo).semanas : [];
 
+  // Los muebles de cada proyecto (PM vigentes, versión activa), entregados o no: se puede
+  // reportar una falla de cualquiera aunque Producción aún no lo haya entregado.
+  const mueblesPorProyecto = await cargarMueblesPorProyecto(supabase);
+
   // Valores ya registrados: sugerencias del formulario de captura y edición.
   const resumenTodo = resumirIncidencias(todas);
   const opciones: OpcionesFormulario = {
-    proyectos: resumenTodo.porProyecto.map((p) => p.nombre),
+    proyectos: [...new Set([...resumenTodo.porProyecto.map((p) => p.nombre), ...Object.keys(mueblesPorProyecto)])],
+    mueblesPorProyecto,
     areas: [...new Set([...resumenTodo.porArea, ...resumenTodo.porAreaQueReporta].map((a) => a.nombre))].sort((a, b) =>
       a.localeCompare(b, "es")
     ),

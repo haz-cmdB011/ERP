@@ -145,6 +145,17 @@ si el mueble o sus componentes las llevan); se crea con la primera asignación o
 (`guardar_ruta_produccion`, bloqueo optimista por versión, una versión por mueble). Migración `ruta_produccion`,
 lógica sin base en `src/lib/produccion/ruta.ts` y `flujo-mueble.ts`.
 
+**Ruta del mueble completo** (migración `ruta_por_mueble_completo`, 5 nov 2026; reemplaza lo de rutas por
+parte de abajo para lo nuevo): el mueble **se asigna completo** aunque tenga despiece y su ruta es la única;
+las partes ya no llevan ruta ni se asignan (una parte nueva nace con `ruta_guardada_en` y sin pasos). La
+ruta se elige **en el carrito** ("Cambiar ruta" en cada mueble): por liberar se guarda en el aparato
+(`useRutasCarrito`, `carrito-navegador.ts`) y `/api/produccion/items/liberar` la guarda al liberar
+(`pasosConIds`); ya liberado se guarda directo. Sin elegir, la sugerida. El panel solo asigna pasos del
+mueble y muestra el despiece como consulta con el **icono y color de cada material**
+(`src/app/produccion/material-parte.tsx`, que también usa el editor del despiece). Los muebles que ya
+trabajaban por partes (con asignaciones de partes vigentes) conservan su tabla: lo de sus partes solo se
+consulta y entrega, sin "+" (`partesConRuta`). Lo que sigue describe ese modelo anterior.
+
 **Rutas por parte** (migración `rutas_por_parte`, 26 oct 2026): la ruta del mueble es **solo del mueble
 completo** y cada parte del despiece tiene **la suya** (`pasos_ruta_produccion.parte_id`: null = mueble). Son
 independientes: agregar un paso al mueble no aparece en sus partes ni al revés (la Tabla: Armado → Barniz;
@@ -210,16 +221,17 @@ Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T
 - **Liberar** se hace desde el carrito (por PM o todo). Lo liberado sale del carrito y se abre el panel de
   asignación con esos muebles (`/produccion/panel?ids=…`, máximo `MAX_IDS_PANEL`). Lo asignado desde el
   carrito (muebles que ya estaban liberados) también sale.
-- **Panel de asignación** (menú de Producción, `/produccion/panel`): todos los muebles liberados, por cliente →
-  O.T. → PM (el cliente, como en Pedidos: el del primer PM de la O.T.; todo se despliega ahí mismo, sin enlaces a otra pantalla),
-  en el formato visual del flujo del PM (`FilaMueble` de
-  `pedidos/[id]/asignaciones/flujo-muebles.tsx`; sin las tarjetas de avance por proceso): un "+" en un paso lo asigna, y al abrir un mueble se ven sus
-  asignaciones y entregas. Cada O.T. y cada PM se despliegan como un mueble con sus componentes: cerrada,
-  una O.T. muestra solo su resumen; abierta, sus PM; y abierto un PM, sus muebles (todo cerrado por omisión;
-  abierto al llegar de liberar o con `ot`/`q`). Cada mueble lleva su miniatura (la primera imagen del ítem,
-  que se amplía al tocarla; sin imagen, un cuadro vacío para que las filas no se desalineen). Filtros por la dirección: `estado` (por omisión "Activos" =
-  por asignar + en proceso; los terminados solo si se piden, para no cargar el historial), `ot` y `q`. Lógica pura en
-  `src/lib/produccion/panel.ts`, lectura en `panel-db.ts`; `flujo-db.ts` (`cargarFlujoMuebles`) arma el flujo
+- **Panel de asignación** (menú de Producción, `/produccion/panel`; simplificado el 5 nov 2026): todos los
+  muebles liberados en **una lista plana** con una cabecera delgada por PM (PM, O.T., proyecto), sin niveles
+  que abrir. Cada mueble va en una línea (`FilaMueble` de `pedidos/[id]/asignaciones/flujo-muebles.tsx`, que
+  comparte la pantalla de asignaciones del PM): miniatura y nombre, la ruta en anillos y a la derecha **un solo
+  botón** con lo que sigue ("Asignar Barniz", "Hacer despiece") o en qué va. Al abrirlo: primero las
+  asignaciones por paso (las que siguen en taller, abiertas con su "Registrar entrega"), y al pie el despiece
+  resumido por material (se despliega), "Cambiar ruta" y "Editar despiece". Filtros: selector de
+  Activos / Por asignar / En proceso / Terminados (`estado`, por omisión Activos, también al llegar de liberar)
+  y un buscador que filtra al escribir (`q`: PM, O.T., modelo, descripción, proyecto, cliente;
+  `buscador-panel.tsx`); `ot` se sigue aceptando en la dirección. Lógica pura en
+  `src/lib/produccion/panel.ts`, lectura en `panel-db.ts` (primero una fila liviana por mueble, `listarLiberadosDePanel`, para filtrar por O.T. y búsqueda; el flujo solo se carga de lo que queda). Se pintan 40 muebles y "Ver más" suma otros 40 (`?n=`); lo recién liberado abre por `?ids=` o, si son más de 100, por `?lote=<liberado_en>`, que devuelve `/api/produccion/items/liberar`. `flujo-db.ts` (`cargarFlujoMuebles`) arma el flujo
   y lo comparten el panel y el carrito.
 - La pantalla de asignaciones de un PM (`/produccion/pedidos/<id>/asignaciones`) sigue existiendo (la usan el
   QR y el tablero), pero ya no se llega a ella desde el pedido ni la O.T.
@@ -270,7 +282,45 @@ y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mue
   hacia abajo). También da, por parte, sus piezas terminadas, los muebles que alcanza y lo que le falta
   para llegar a la más adelantada (20 tablas de 3 = 6 muebles → al herraje le faltan 6). En pantalla solo
   sale "0/23 completos" junto a la cantidad del mueble en el panel; el resto queda como lógica.
-- Pendiente: fase 3, cobro por partes.
+- **Dividir y entregar por partes** (migración `entrega_por_partes`, 5 nov 2026): en el editor, "Dividir en partes"
+  separa una línea ("Puerta con marco" → Puerta y Marco; `sugerirPartes`/`dividirLinea` en `despiece.ts`; las
+  nuevas no se ligan al componente del PM y no se divide una ya asignada). El mueble sigue asignándose completo con
+  una sola ruta, pero **la entrega** de un mueble con despiece puede ser "Por partes" (`registrar-entrega.tsx`,
+  `partes` en `POST /api/produccion/entregas`): `registrar_entrega_partes` guarda las piezas por parte
+  (`entregas_partes_produccion`) y, cuando la parte más atrasada alcanza para más muebles que los ya entregados,
+  registra sola la entrega del mueble completo (`registrar_entrega_produccion`) por la diferencia; Calidad y cobro
+  siguen contando muebles. No aplica a asignaciones de una parte ni a muebles de antes con ruta por parte
+  (`partesParaEntrega`, `src/lib/produccion/entregas-partes.ts`). Anular esa entrega del mueble no devuelve las piezas.
+  **Procesos por parte** (migración `procesos_por_parte`, aplicada el 5 nov 2026): cada línea del
+  despiece dice por qué procesos NO pasa (`partes_despiece.procesos_omitidos`, `procesos_omitidos` en la línea; vacío =
+  todos, lo normal; "Pasa por" en el editor, nunca los cuatro omitidos). La entrega por partes de una asignación (que es
+  de un proceso) solo ofrece las partes que llevan ese proceso y los muebles completos se cuentan con ellas: el Barniz
+  de la puerta no espera al marco si el marco no lleva Barniz.
+  **Asignar por partes** (migración `asignar_por_partes`, aplicada el 5 nov 2026; interruptor por mueble,
+  `rutas_produccion.por_partes`): por omisión el mueble se asigna completo con una sola ruta. En un mueble con
+  despiece, "Asignar por partes" (pie del detalle, `asignar-por-partes.tsx`, `activar_asignacion_por_partes`) retira la
+  ruta del mueble (sin asignaciones completas vigentes) y da a cada parte la suya: los procesos de la ruta del mueble
+  menos los que omite ("Pasa por"). Entonces cada parte se asigna y entrega en sus piezas (`crear_asignacion_produccion`
+  con `p_parte_id`, el "+" de la tabla y "Asignar partes"), y el mueble cuenta completo cuando la parte más atrasada
+  termina su último paso (lo de "Despiece por partes" de arriba). "Volver al mueble completo" solo si ninguna parte tiene
+  asignaciones vigentes. Sin la migración aplicada la lectura sigue (`leerRutas` tolera que falte la columna) y todo va
+  por mueble completo. Con el interruptor encendido no aplica la entrega parcial por partes de arriba: sus partes tienen
+  asignaciones propias.
+- **Calidad revisa las partes y se cobran** (migraciones `calidad_revisa_partes` y `cobro_por_partes`, 6 nov
+  2026): cada renglón de piezas de una entrega por partes es una entrega que Calidad aprueba o no (vista
+  `lotes_partes_calidad`, `evaluar_entrega_parte_calidad`; en pantalla, `conLotesDePartes` de
+  `src/lib/calidad/lotes-partes-db.ts` las junta con los lotes). La entrega del mueble que la base junta con
+  esas piezas (`entregas_produccion.desde_partes`) no se evalúa directo: la aprueba
+  `aprobar_mueble_desde_partes` cuando la parte más atrasada alcanza en piezas aprobadas. Lo no aprobado de
+  una parte se vuelve a entregar en la misma asignación. Cobro: `aprobado_calidad_variante` da una fila por
+  parte del despiece propio (lo aprobado de sus piezas o el mueble × piezas por mueble) y el tope de Calidad ya
+  no exime a las partes. En "Rechazos de Calidad" sale "Partes por volver a entregar" (`partes-rechazadas.ts`).
+- **Procesos en anillos** (pedido de Calidad, solo pantalla): un mueble con entregas se ve como su ruta en
+  anillos, igual que en el panel de Producción (Armado → Barniz → …): cada anillo se llena con lo aprobado contra la
+  cantidad del mueble (verde), lo por revisar (ámbar, con su número) y lo que está en retrabajo (rosa); al tocarlo
+  salen sus folios (el historial). Debajo, un "Revisar Armado: 1 PZA del …" por entrega pendiente; el asistente dice
+  "Revisar Armado" y muestra la ruta con ese proceso marcado. Ya no se suman piezas de procesos distintos. Lógica en
+  `src/lib/calidad/pista-procesos.ts`, pantalla en `src/app/calidad/pista-procesos.tsx`.
 
 ## Revisión final de Calidad
 
@@ -322,7 +372,8 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   el trigger `est_conciliar_renglon_pm` no deja guardar un renglón **normal** que cobre más que el PM de la OT (ni con
   motivo; un modelo que no está en la OT tampoco) ni, en Acabados y Armado, más que lo que **Calidad aprobó** del
   mueble en el área (`aprobado_calidad_variante`, revisión final incluida; un mueble que no pasó por Producción y
-  Calidad en el sistema no se cobra). Electrificación solo tiene el tope del PM. La pantalla
+  Calidad en el sistema no se cobra). Electrificación también se topa con lo que Calidad aprobó de ese proceso
+  (`aprobado_calidad_electrificacion`, migración `cobro_por_partes`); S.S. no tiene recibo. La pantalla
   (`dialogo-descuadres.tsx`) avisa el PM antes de guardar; lo de Calidad lo dice la base al guardar. El **reproceso**
   conserva su regla (se mide contra el retrabajo reasignado y, si se pasa, pide motivo y deja discrepancia). **Cuidado
   al reescribir esa función: tomar la versión vigente de la base, no la de una migración vieja.**

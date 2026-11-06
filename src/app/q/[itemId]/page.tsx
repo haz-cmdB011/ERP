@@ -64,6 +64,7 @@ import RutaQr from "./ruta-qr";
 import RechazosQr, { type RechazoQr } from "./rechazos-qr";
 import EntregasCalidadQr from "./entregas-calidad-qr";
 import PagoQr from "./pago-qr";
+import { conLotesDePartes } from "@/lib/calidad/lotes-partes-db";
 
 export const metadata: Metadata = { title: "Mueble" };
 
@@ -245,6 +246,7 @@ export default async function FichaMuebleQrPage({
     aplica,
     ruta: rutasMueble.ruta,
     versionRuta: rutas.get(item.id)?.version ?? 0,
+    porPartes: rutas.get(item.id)?.porPartes ?? false,
     asignaciones: todas,
     revisionFinal: finalActiva ? { aprobadas: resumenFinal?.aprobadas ?? 0 } : null,
     partes: rutasMueble.partes,
@@ -383,16 +385,20 @@ export default async function FichaMuebleQrPage({
   const lotesCalidad =
     area === "calidad" && liberado && puedeEvaluar
       ? lotesPorEvaluar(
-          (
-            (await leer(
-              supabase
-                .from("lotes_calidad")
-                .select("*")
-                .eq("planeacion_item_id", item.id)
-                .returns<LoteCalidad[]>(),
-              "lotes_calidad"
-            )) ?? []
-          ).map(normalizarLote)
+          await conLotesDePartes(
+            supabase,
+            (
+              (await leer(
+                supabase
+                  .from("lotes_calidad")
+                  .select("*")
+                  .eq("planeacion_item_id", item.id)
+                  .returns<LoteCalidad[]>(),
+                "lotes_calidad"
+              )) ?? []
+            ).map(normalizarLote),
+            { itemIds: [item.id] }
+          )
         )
       : [];
   const calidad = panelCalidadQr(resumenFinal ?? null, puedeEvaluar);
@@ -437,7 +443,7 @@ export default async function FichaMuebleQrPage({
           porEntregar: faltanEntregar,
           porAsignar: sigue
             ? {
-                paso: sigue.parte ? `${sigue.parte.descripcion} · ${sigue.paso.etiqueta}` : sigue.paso.etiqueta,
+                paso: sigue.paso.etiqueta,
                 cantidad: sigue.paso.disponible,
               }
             : null,

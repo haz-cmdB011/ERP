@@ -25,6 +25,8 @@ import ChipsAreas from "./chips-areas";
 // Valores ya registrados, para sugerir al escribir (y escribir igual que el resto).
 export interface OpcionesFormulario {
   proyectos: string[];
+  // Muebles de cada proyecto (de sus PM, entregados o no), para elegirlos al reportar.
+  mueblesPorProyecto?: Record<string, string[]>;
   areas: string[];
   motivos: string[];
   auditores: string[];
@@ -70,6 +72,21 @@ export default function FormularioReporte({
   const [error, setError] = useState<string | null>(null);
 
   const categoria = motivo.trim() ? categoriaDeMotivo(motivo) : null;
+
+  // Los muebles del proyecto elegido que aún no están en la lista, filtrados por lo que se
+  // escribe después de la última coma.
+  const elegidos = muebles.split(",").map((m) => m.trim()).filter(Boolean);
+  const escrito = /,s*$/.test(muebles) || !muebles.trim() ? "" : (muebles.split(",").pop() ?? "").trim().toLowerCase();
+  const delProyecto = (opciones.mueblesPorProyecto?.[proyecto.trim()] ?? []).filter(
+    (m) => !elegidos.some((e) => e.toLowerCase() === m.toLowerCase())
+  );
+  const sugeridos = delProyecto.filter((m) => !escrito || m.toLowerCase().includes(escrito)).slice(0, 12);
+
+  function agregarMueble(m: string) {
+    // Lo escrito a medias se reemplaza por el mueble elegido.
+    const previos = escrito ? elegidos.slice(0, -1) : elegidos;
+    setMuebles([...previos, m].join(", ") + ", ");
+  }
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
@@ -170,6 +187,23 @@ export default function FormularioReporte({
             autoComplete="off"
             className={estiloCampo}
           />
+          {sugeridos.length > 0 && (
+            <span className="mt-1.5 flex flex-wrap gap-1.5">
+              {sugeridos.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => agregarMueble(m)}
+                  className="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-xs font-normal text-slate-700 hover:border-sky-400"
+                >
+                  + {m}
+                </button>
+              ))}
+              {delProyecto.length > sugeridos.length && (
+                <span className="self-center text-xs font-normal text-slate-500">escribe para ver más</span>
+              )}
+            </span>
+          )}
         </label>
 
         <label className={estiloEtiqueta}>
