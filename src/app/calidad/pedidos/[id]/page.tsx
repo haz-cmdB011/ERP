@@ -275,8 +275,10 @@ export default async function PedidoCalidadPage({
     const evaluable = verificados.has(item.id);
     return {
       enTaller: enTaller.has(item.id),
-      porEntregasDelMueble:
-        item.tipo_registro === "FU" && !!item.parent_item_id && conDespiecePropio.has(item.parent_item_id),
+      // Un componente se aprueba con su mueble: completo (con el mueble) o por partes (en las
+      // entregas de sus partes). Ya no se aprueba suelto.
+      porEntregasDelMueble: item.tipo_registro === "FU" && !!item.parent_item_id,
+      porPartes: item.tipo_registro === "MO" && conDespiecePropio.has(item.id),
       id: item.id,
       item_code: item.item_code,
       tipo_registro: item.tipo_registro,

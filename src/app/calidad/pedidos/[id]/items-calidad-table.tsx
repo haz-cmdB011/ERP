@@ -68,6 +68,9 @@ export interface ItemCalidadRow {
   // Componente de un mueble con despiece propio: se cobra por las partes del despiece, así que
   // no se aprueba aquí entero sino en las entregas (del mueble o de sus partes).
   porEntregasDelMueble?: boolean;
+  // Mueble con despiece propio (se revisa también por partes): sus componentes se ven en un
+  // desplegable. Sin despiece propio se revisa completo y solo se ve el mueble.
+  porPartes?: boolean;
   estadoRevision: string | null;
   motivoCancelacion: string | null;
   // Historial completo del ítem, ordenado desc — [0] es el más reciente.
@@ -137,21 +140,24 @@ export default function ItemsCalidadTable({
   // Los conteos y los filtros son del trabajo de Calidad: lo que sigue en taller
   // no cuenta como "sin evaluar".
   const listos = useMemo(() => items.filter((i) => !i.enTaller), [items]);
-  const conteos = useMemo(
-    () => ({
-      todos: listos.length,
-      aprobado: listos.filter((i) => estadoDe(i) === "aprobado").length,
-      no_aprobado: listos.filter((i) => estadoDe(i) === "no_aprobado").length,
-      sin_evaluar: listos.filter((i) => estadoDe(i) === "sin_evaluar").length,
-      cancelado: listos.filter((i) => estadoDe(i) === "cancelado").length,
-    }),
-    [listos]
-  );
+  // Los componentes se aprueban con su mueble: no cuentan aparte.
+  const conteos = useMemo(() => {
+    const propios = listos.filter((i) => !i.porEntregasDelMueble);
+    return {
+      todos: propios.length,
+      aprobado: propios.filter((i) => estadoDe(i) === "aprobado").length,
+      no_aprobado: propios.filter((i) => estadoDe(i) === "no_aprobado").length,
+      sin_evaluar: propios.filter((i) => estadoDe(i) === "sin_evaluar").length,
+      cancelado: propios.filter((i) => estadoDe(i) === "cancelado").length,
+    };
+  }, [listos]);
 
   const itemsFiltrados = useMemo(
     () =>
       listos.filter(
-        (i) => (filtroCalidad === "todos" || estadoDe(i) === filtroCalidad) && coincide(i, busqueda.trim())
+        (i) =>
+          (filtroCalidad === "todos" || (estadoDe(i) === filtroCalidad && !i.porEntregasDelMueble)) &&
+          coincide(i, busqueda.trim())
       ),
     [listos, filtroCalidad, busqueda]
   );
@@ -161,6 +167,16 @@ export default function ItemsCalidadTable({
     [items, filtroCalidad, busqueda]
   );
   const [tallerAbierto, setTallerAbierto] = useState(false);
+  // Muebles por partes con su desplegable de componentes abierto.
+  const [partesAbiertas, setPartesAbiertas] = useState<Set<string>>(new Set());
+  function alternarPartes(id: string) {
+    setPartesAbiertas((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
 
   // Agrupación visual MO -> FU, mismo patrón que Producción.
   function agrupar(lista: ItemCalidadRow[]) {
@@ -787,27 +803,61 @@ export default function ItemsCalidadTable({
     </thead>
   );
 
-  // Cada mueble con sus componentes en su recuadro; los componentes sin mueble, juntos.
+  // Botón del desplegable de componentes de un mueble por partes.
+  function BotonPartes({ m, n }: { m: ItemCalidadRow; n: number }) {
+    const abierto = partesAbiertas.has(m.id);
+    return (
+      <button
+        type="button"
+        onClick={() => alternarPartes(m.id)}
+        aria-expanded={abierto}
+        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-brand-50 max-md:min-h-11"
+      >
+        <span aria-hidden className={`inline-block transition-transform ${abierto ? "rotate-90" : ""}`}>›</span>
+        {abierto ? "Ocultar" : "Ver"} sus {n} componente{n === 1 ? "" : "s"}
+        <span className="font-normal text-slate-500">· se revisan en las entregas por partes</span>
+      </button>
+    );
+  }
+
+  // Cada mueble en su recuadro. Completo: solo el mueble. Por partes: sus componentes en un
+  // desplegable debajo. Los componentes sin mueble, juntos.
   function Bloques({ mo, fuPorPadre, fuSueltos }: ReturnType<typeof agrupar>) {
     return (
       <>
-        {mo.map((m) => (
-          <div key={m.id} className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-left text-xs">
-                {ENCABEZADO}
-                <tbody className="divide-y divide-slate-100">
-                  {Fila({ item: m, indentado: false })}
-                  {(fuPorPadre.get(m.id) ?? []).map((f) => Fila({ item: f, indentado: true }))}
-                </tbody>
-              </table>
+        {mo.map((m) => {
+          const hijos = m.porPartes ? (fuPorPadre.get(m.id) ?? []) : [];
+          const verHijos = partesAbiertas.has(m.id);
+          return (
+            <div key={m.id} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-left text-xs">
+                  {ENCABEZADO}
+                  <tbody className="divide-y divide-slate-100">
+                    {Fila({ item: m, indentado: false })}
+                    {hijos.length > 0 && (
+                      <tr>
+                        <td colSpan={puedeEvaluar ? 6 : 5} className="p-0">
+                          <BotonPartes m={m} n={hijos.length} />
+                        </td>
+                      </tr>
+                    )}
+                    {verHijos && hijos.map((f) => Fila({ item: f, indentado: true }))}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="md:hidden">
+                {Tarjeta({ item: m, indentado: false })}
+                {hijos.length > 0 && (
+                  <li>
+                    <BotonPartes m={m} n={hijos.length} />
+                  </li>
+                )}
+                {verHijos && hijos.map((f) => Tarjeta({ item: f, indentado: true }))}
+              </ul>
             </div>
-            <ul className="md:hidden">
-              {Tarjeta({ item: m, indentado: false })}
-              {(fuPorPadre.get(m.id) ?? []).map((f) => Tarjeta({ item: f, indentado: true }))}
-            </ul>
-          </div>
-        ))}
+          );
+        })}
 
         {fuSueltos.length > 0 && (
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
