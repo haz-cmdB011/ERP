@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import { leerCantidad, leerFecha, mensajeErrorRpc } from "@/lib/produccion/asignaciones";
-import { esRechazoDefinitivo, esViolacionUnica, leerClaveEnvio } from "@/lib/produccion/envio-entrega";
+import {
+  esRechazoDefinitivo,
+  esViolacionUnica,
+  leerClaveEnvio,
+  leerPartesEntrega,
+} from "@/lib/produccion/envio-entrega";
 
 export const runtime = "nodejs";
 
@@ -48,6 +53,10 @@ export async function POST(request: Request) {
   const fecha = leerFecha(form.get("fecha"));
   const cantidad = leerCantidad(form.get("cantidad"));
   const folios = form.get("folios");
+  // Entrega parcial por partes del despiece (migración entrega_por_partes): en vez de una
+  // cantidad de muebles, las piezas de cada parte; la base registra por sí misma los muebles
+  // completos que ya alcanzan.
+  const partes = leerPartesEntrega(form.get("partes"));
 
   if (typeof asignacionId !== "string" || !/^[0-9a-f-]{36}$/i.test(asignacionId)) {
     return NextResponse.json({ error: "Asignación no válida." }, { status: 400 });
@@ -56,11 +65,30 @@ export async function POST(request: Request) {
   if (!fecha) {
     return NextResponse.json({ error: "Fecha de entrega no válida." }, { status: 400 });
   }
-  if (cantidad === null) {
+  if (!partes && cantidad === null) {
     return NextResponse.json({ error: "La cantidad debe ser mayor que cero." }, { status: 400 });
   }
   if (typeof folios !== "string" || !folios.trim()) {
     return NextResponse.json({ error: "Escribe el folio de la hoja de entrega." }, { status: 400 });
+  }
+
+  if (partes) {
+    const { data: completos, error: errorPartes } = await supabase.rpc("registrar_entrega_partes", {
+      p_asignacion_id: asignacionId,
+      p_fecha_entrega: fecha,
+      p_partes: partes,
+      p_folios_calidad: folios.trim().slice(0, 500),
+      p_clave_envio: clave,
+    });
+    if (errorPartes) {
+      // Repetir el mismo envío no duplica: la base ya lo tenía (índice único por clave y parte).
+      if (esViolacionUnica(errorPartes)) return NextResponse.json({ ok: true, repetida: true, completos: 0 });
+      return NextResponse.json(
+        { error: mensajeErrorRpc(errorPartes.message) },
+        { status: esRechazoDefinitivo(errorPartes) ? 400 : 500 }
+      );
+    }
+    return NextResponse.json({ ok: true, completos: Number(completos ?? 0) });
   }
 
   const { data: entregaId, error } = await supabase.rpc("registrar_entrega_produccion", {

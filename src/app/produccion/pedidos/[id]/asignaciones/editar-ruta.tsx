@@ -37,6 +37,8 @@ export default function EditarRuta({
   descripcion,
   parte,
   conPartes = false,
+  alGuardar,
+  alElegir,
   ruta,
   version,
   aplica,
@@ -49,8 +51,13 @@ export default function EditarRuta({
   descripcion: string;
   // La parte cuya ruta se edita; omitida, la del mueble completo.
   parte?: { id: string; descripcion: string };
-  // El mueble tiene partes: su ruta puede quedar vacía (todo se hace en las partes).
+  // El mueble ya trabajaba por partes con ruta propia (de antes): su ruta puede quedar vacía.
   conPartes?: boolean;
+  // Al guardar (por omisión recarga la página del servidor). El carrito lee sus datos aparte.
+  alGuardar?: () => void;
+  // Mueble todavía sin liberar (carrito): la ruta no se guarda en la base, solo se elige y
+  // se manda al liberarlo.
+  alElegir?: (pasos: PasoRuta[]) => void;
   ruta: PasoRuta[];
   version: number;
   aplica: Record<Proceso, boolean>;
@@ -80,13 +87,18 @@ export default function EditarRuta({
   const agregar = (proceso: Proceso) =>
     setPasos((prev) => [...prev, { id: null, proceso, clave: nuevaClave(), bloqueado: false }]);
 
-  // El mueble completo de un mueble con partes no lleva Barniz (se barnizan las partes) hasta
-  // que se demuestre lo contrario; uno que ya lo tenga lo conserva y se puede quitar.
-  const sinBarniz = conPartes && !parte;
-  const disponibles = ORDEN_SUGERIDO.filter((p) => aplica[p] && !(sinBarniz && p === "barniz"));
+  // Todos los procesos se pueden agregar (migración ruta_por_mueble_completo); `aplica` solo
+  // decide la sugerida.
+  void aplica;
+  const disponibles = ORDEN_SUGERIDO;
   const lleno = pasos.length >= MAX_PASOS;
 
   async function guardar() {
+    if (alElegir) {
+      alElegir(pasos.map(({ id, proceso }) => ({ id, proceso })));
+      setAbierto(false);
+      return;
+    }
     setEnviando(true);
     setError(null);
     const { error } = await createClient().rpc("guardar_ruta_produccion", {
@@ -102,7 +114,8 @@ export default function EditarRuta({
     }
     setAbierto(false);
     avisar(parte ? `Ruta de "${parte.descripcion}" guardada` : "Ruta del mueble guardada");
-    router.refresh();
+    if (alGuardar) alGuardar();
+    else router.refresh();
   }
 
   return (
@@ -129,8 +142,8 @@ export default function EditarRuta({
               {parte
                 ? "Los procesos por los que pasa esta parte, en orden. Solo cambia esta parte: el mueble y las demás partes conservan su ruta."
                 : conPartes
-                  ? "Lo que se le hace al mueble ya armado con sus partes, después de que terminan (el ensamble es un Armado). El Barniz va en las partes. Si todo se hace en ellas, déjala vacía."
-                  : "El orden en que el mueble pasa por los procesos."}{" "}
+                  ? "Lo que se le hace al mueble completo después de lo que ya llevan sus partes. Si todo se hace en ellas, déjala vacía."
+                  : "El orden en que el mueble completo pasa por los procesos; cada paso se asigna a un equipo."}{" "}
               Un proceso puede repetirse (Armado → Barniz → Armado) y cada vez se asigna aparte.
             </p>
             {pasos.length === 0 ? (
@@ -216,7 +229,7 @@ export default function EditarRuta({
                 disabled={enviando || (pasos.length === 0 && !puedeVaciarse)}
                 className={estiloBotonPrimario}
               >
-                {enviando ? "Guardando…" : "Guardar ruta"}
+                {enviando ? "Guardando…" : alElegir ? "Usar esta ruta" : "Guardar ruta"}
               </button>
             </div>
           </div>

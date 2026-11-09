@@ -53,6 +53,7 @@ export default function AsignarLote({
   equipos,
   encargados,
   etiqueta = "Asignar varios a un equipo",
+  discreto = false,
   alTerminar,
 }: {
   muebles: MuebleParaLote[];
@@ -60,6 +61,8 @@ export default function AsignarLote({
   encargados: EncargadoEquipo[];
   // Texto del botón que abre el modal.
   etiqueta?: string;
+  // Con contorno en vez de relleno, cuando no es la acción principal de la pantalla.
+  discreto?: boolean;
   // Se llama después de guardar asignaciones, con los muebles que sí se asignaron
   // (para quien muestra el estado por su cuenta).
   alTerminar?: (idsAsignados: string[]) => void;
@@ -191,7 +194,11 @@ export default function AsignarLote({
         onClick={abrir}
         disabled={procesosConTrabajo.length === 0}
         title={procesosConTrabajo.length === 0 ? "Ya está asignado todo" : undefined}
-        className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-on-brand shadow-sm transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          discreto
+            ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+            : "bg-brand-500 text-on-brand shadow-sm hover:bg-brand-400"
+        }`}
       >
         {etiqueta}
       </button>

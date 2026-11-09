@@ -1,13 +1,11 @@
 // Ruta de Producción: la lista ordenada de procesos por los que pasa algo (Armado →
 // Superficie Sólida → Barniz → Electrificación...). Los pasos se pueden repetir (Armado →
-// Barniz → Armado). Hay una ruta del mueble completo y una por cada parte de su despiece
-// (migración rutas_por_parte): son independientes, primero van las partes y después el
-// mueble. Las reglas reales viven en la base (guardar_ruta_produccion,
+// Barniz → Armado). La ruta es del mueble completo (migración ruta_por_mueble_completo); las
+// partes de su despiece solo conservan la que tenían cuando se asignaban aparte (migración
+// rutas_por_parte). Las reglas reales viven en la base (guardar_ruta_produccion,
 // crear_asignacion_produccion); aquí solo lo que comparte la interfaz.
 
 import { PROCESO_LABELS, type Proceso } from "./asignaciones";
-import { descripcionIncluyeIluminacion, descripcionMencionaElectrificacion } from "./electrificacion";
-import { descripcionMencionaSuperficieSolida } from "./superficie-solida";
 
 // Orden ideal de los procesos. Espejo de ruta_sugerida_produccion en la base.
 export const ORDEN_SUGERIDO: readonly Proceso[] = [
@@ -28,48 +26,42 @@ export interface PasoRuta {
 }
 
 // La sugerida: Armado y Barniz siempre; S.S. y Electrificación solo si el
-// mueble las lleva (por su descripción o la de sus componentes). La toman el mueble
-// sin despiece y cada parte que todavía no guarda la suya.
+// mueble las lleva (por su descripción o la de sus componentes).
 export function rutaSugerida(aplica: Record<Proceso, boolean>): PasoRuta[] {
   return ORDEN_SUGERIDO.filter(
     (p) => p === "armado" || p === "barniz" || aplica[p]
   ).map((proceso) => ({ id: null, proceso }));
 }
 
-// La ruta del mueble completo: la guardada o, si aún no tiene, la sugerida. Un mueble con
-// partes nace vacío: lo que se le hace ya armado (ensamblarlo es un Armado) lo agrega
-// Producción. Espejo de asegurar_ruta_produccion.
+// La ruta del mueble completo: la guardada o, si aún no tiene, la sugerida. Es la única
+// ruta del mueble aunque tenga despiece (migración ruta_por_mueble_completo): se elige en
+// el carrito y el mueble se asigna completo. Solo un mueble que ya trabajaba por partes
+// (de antes) puede tener la suya vacía. Espejo de asegurar_ruta_produccion.
 export function rutaDelMueble(
   guardada: PasoRuta[] | undefined,
   aplica: Record<Proceso, boolean>,
-  tienePartes: boolean
+  partesConRuta: boolean
 ): PasoRuta[] {
-  if (guardada && (guardada.length > 0 || tienePartes)) return guardada;
-  return tienePartes ? [] : rutaSugerida(aplica);
+  if (guardada && (guardada.length > 0 || partesConRuta)) return guardada;
+  return rutaSugerida(aplica);
 }
 
-// La sugerida de una parte sale de su propia descripción: la de electrificación (o
-// iluminación) solo lleva Electrificación; las demás, Armado (+ S.S. si la menciona) y
-// Barniz. Espejo de ruta_sugerida_parte en la base.
-export function rutaSugeridaParte(descripcion: string): PasoRuta[] {
-  if (descripcionIncluyeIluminacion(descripcion) || descripcionMencionaElectrificacion(descripcion)) {
-    return [{ id: null, proceso: "electrificacion" }];
-  }
-  return rutaSugerida({
-    armado: true,
-    barniz: true,
-    electrificacion: false,
-    superficie_solida: descripcionMencionaSuperficieSolida(descripcion),
+// La ruta de una parte del despiece: solo la que guardó cuando las partes se asignaban
+// aparte (de antes). Las demás no llevan procesos propios.
+export function rutaDeParte(guardada: PasoRuta[] | undefined): PasoRuta[] {
+  return guardada ?? [];
+}
+
+// Los pasos a guardar para una lista de procesos elegida (en el carrito), conservando el
+// id de los pasos guardados que siguen: el n-ésimo Armado nuevo es el n-ésimo guardado.
+// Así un paso con asignaciones no se quita solo por volver a elegir la misma ruta.
+export function pasosConIds(procesos: readonly Proceso[], guardada: readonly PasoRuta[]): PasoRuta[] {
+  const usados = new Set<string>();
+  return procesos.map((proceso) => {
+    const previo = guardada.find((p) => p.proceso === proceso && !!p.id && !usados.has(p.id));
+    if (previo?.id) usados.add(previo.id);
+    return { id: previo?.id ?? null, proceso };
   });
-}
-
-// La ruta de una parte: la guardada o, si nunca la guardó, la sugerida por su descripción.
-export function rutaDeParte(
-  guardada: PasoRuta[] | undefined,
-  rutaGuardada: boolean,
-  descripcion: string
-): PasoRuta[] {
-  return rutaGuardada ? (guardada ?? []) : rutaSugeridaParte(descripcion);
 }
 
 // "Armado" si el proceso va una sola vez en la ruta; "Armado 1", "Armado 2"

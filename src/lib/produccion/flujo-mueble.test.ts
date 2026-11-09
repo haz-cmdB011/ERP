@@ -21,6 +21,7 @@ import {
   procesosDe,
   requiereDespiece,
   rutasDelFlujo,
+  seAsignaCompleto,
   siguienteAsignable,
   siguientePaso,
   totalesProceso,
@@ -306,12 +307,43 @@ describe("rutas por parte (cada parte la suya, en sus piezas)", () => {
     expect(siguientePaso(m)).toBe("Terminado");
   });
 
-  it("lo que toca asignar: primero las partes, luego el mueble", () => {
+  it("lo que toca asignar: solo el mueble completo; las partes de antes ya no se asignan", () => {
     const m = conPartes([asig("armado", 30, 0, { parte_id: "tabla", paso_id: "t1" })], rutaMueble);
+    const s = siguienteAsignable(m);
+    expect(s?.parte).toBeNull();
+    expect(s?.paso.etiqueta).toBe("Armado");
+    expect(opcionesAsignar(m).partes).toEqual([]);
+    expect(opcionesAsignar(m).mueble.map((p) => p.etiqueta)).toEqual(["Armado", "Barniz"]);
+    expect(seAsignaCompleto(m)).toBe(false);
+  });
+
+  it("por partes: las partes de su despiece se ofrecen para asignar, cada una con su ruta", () => {
+    // Mueble sin pasos propios; la tabla ya terminó su armado, el herraje no.
+    const m: MuebleFlujo = {
+      ...conPartes([asig("armado", 30, 30, { parte_id: "tabla", paso_id: "t1" })], []),
+      porPartes: true,
+    };
+    const o = opcionesAsignar(m);
+    expect(o.partes.map((x) => x.parte.id)).toEqual(["tabla", "herraje"]);
+    expect(o.partes[0].pasos.map((p) => p.etiqueta)).toEqual(["Armado", "Barniz"]);
+    expect(o.partes[1].pasos.map((p) => p.etiqueta)).toEqual(["Armado"]);
+    // Lo que toca: lo primero con lugar de la primera parte que lo tenga (el barniz de la tabla).
     const s = siguienteAsignable(m);
     expect(s?.parte?.id).toBe("tabla");
     expect(s?.paso.etiqueta).toBe("Barniz");
-    expect(opcionesAsignar(m).partes.map((x) => x.pasos.length)).toEqual([2, 1]);
+    expect(seAsignaCompleto(m)).toBe(false);
+    // Sin el interruptor, las mismas partes de antes no se ofrecen.
+    expect(opcionesAsignar({ ...m, porPartes: false }).partes).toEqual([]);
+  });
+
+  it("un mueble con despiece sin rutas de partes se asigna completo", () => {
+    const m: MuebleFlujo = { ...mueble([], rutaMueble), partes: [{ ...tabla, ruta: [] }, { ...herraje, ruta: [] }] };
+    expect(seAsignaCompleto(m)).toBe(true);
+    expect(siguienteAsignable(m)?.paso.etiqueta).toBe("Armado");
+    expect(etapasMueble(m)).toEqual([
+      { tipo: "paso", indice: 0 },
+      { tipo: "paso", indice: 1 },
+    ]);
   });
 
   it("los totales cuentan cada vez que las partes llevan el proceso, por la más atrasada, y el mueble aparte", () => {
@@ -328,19 +360,24 @@ describe("rutas por parte (cada parte la suya, en sus piezas)", () => {
     expect(procesosDe([m])).toEqual(new Set(["armado", "barniz"]));
   });
 
-  it("rutasDelFlujo: el mueble con partes nace vacío y cada parte toma la sugerida hasta guardar la suya", () => {
+  it("rutasDelFlujo: la ruta es del mueble aunque tenga despiece; una parte solo conserva la que guardó", () => {
     const aplica = { armado: true, barniz: true, electrificacion: false, superficie_solida: false };
     const despiece = [
       { id: "tabla", descripcion: "Tabla", piezasPorMueble: 3, unidad: "PZA" },
       { id: "herraje", descripcion: "Herraje", piezasPorMueble: 1, unidad: "JUEGO", rutaGuardada: true },
     ];
+    // Despiece nuevo: el mueble toma la sugerida y las partes no llevan procesos.
+    const nuevo = rutasDelFlujo(undefined, aplica, despiece);
+    expect(nuevo.ruta.map((p) => p.proceso)).toEqual(["armado", "barniz"]);
+    expect(nuevo.partes.map((p) => p.ruta)).toEqual([[], []]);
+    // De antes: el herraje ya tenía su ruta y el mueble la dejó vacía a propósito.
     const r = rutasDelFlujo(
       { version: 3, pasos: [], partes: new Map([["herraje", [{ id: "h1", proceso: "armado" as const }]]]) },
       aplica,
       despiece
     );
     expect(r.ruta).toEqual([]);
-    expect(r.partes[0].ruta.map((p) => p.proceso)).toEqual(["armado", "barniz"]);
+    expect(r.partes[0].ruta).toEqual([]);
     expect(r.partes[1].ruta).toEqual([{ id: "h1", proceso: "armado" }]);
     expect(rutasDelFlujo(undefined, aplica, []).ruta.map((p) => p.proceso)).toEqual(["armado", "barniz"]);
   });

@@ -11,7 +11,15 @@
 // Cada línea dice cuántas piezas lleva UN mueble; para varios muebles se
 // multiplica por la cantidad del padre (totalLinea).
 
+import { PROCESOS, type Proceso } from "./asignaciones";
 import { descripcionIncluyeIluminacion, descripcionMencionaElectrificacion } from "./electrificacion";
+
+// Los procesos que la parte NO lleva (migración procesos_por_parte). Vacío = los lleva todos,
+// que es lo normal; solo se marca lo específico (la puerta lleva Barniz y el marco no).
+export function procesosOmitidosValidos(valor: unknown): Proceso[] {
+  if (!Array.isArray(valor)) return [];
+  return PROCESOS.filter((p) => valor.includes(p));
+}
 
 export interface PadreDespiece {
   id: string;
@@ -37,6 +45,12 @@ export interface HijoDespiece {
   estado_revision: string | null;
 }
 
+// La clave solo va cuando hay algo que omitir: las líneas de siempre conservan su forma.
+function conOmitidos(valor: unknown): { procesos_omitidos?: Proceso[] } {
+  const omitidos = procesosOmitidosValidos(valor);
+  return omitidos.length > 0 ? { procesos_omitidos: omitidos } : {};
+}
+
 export interface LineaDespiece {
   // Id de la parte (partes_despiece) que es esta línea; null u omitido en una línea
   // nueva (la base le da uno al guardar). Con él, la parte conserva sus asignaciones.
@@ -52,6 +66,8 @@ export interface LineaDespiece {
   porcentaje?: number | null;
   // Componente del PM de donde salió la línea; null si la agregó el trabajador.
   hijo_id: string | null;
+  // Procesos por los que la parte NO pasa (ver procesosOmitidosValidos); omitido = todos.
+  procesos_omitidos?: Proceso[];
 }
 
 export interface SugerenciaDespiece {
@@ -329,6 +345,7 @@ export function limpiarLineas(lineas: LineaDespiece[]): LineaDespiece[] {
     piezas_por_mueble: redondear(Number(l.piezas_por_mueble)),
     porcentaje: l.porcentaje == null || Number.isNaN(Number(l.porcentaje)) ? null : redondear(Number(l.porcentaje)),
     hijo_id: l.hijo_id,
+    ...conOmitidos(l.procesos_omitidos),
   }));
 }
 
@@ -352,6 +369,9 @@ export function validarLineas(lineas: LineaDespiece[]): string | null {
     if (l.piezas_por_mueble > MAX_PIEZAS) return `Línea ${n}: la cantidad por mueble es demasiado grande.`;
     if (l.porcentaje != null && (l.porcentaje < 0 || l.porcentaje > 100)) {
       return `Línea ${n}: el porcentaje debe estar entre 0 y 100.`;
+    }
+    if ((l.procesos_omitidos?.length ?? 0) >= PROCESOS.length) {
+      return `Línea ${n}: la parte debe pasar al menos por un proceso.`;
     }
     if (l.hijo_id) {
       if (hijosVistos.has(l.hijo_id)) return `Línea ${n}: ese componente del PM ya está en otra línea.`;
@@ -380,7 +400,8 @@ export function mismasLineas(a: LineaDespiece[], b: LineaDespiece[]): boolean {
         l.unidad === y[i].unidad &&
         l.piezas_por_mueble === y[i].piezas_por_mueble &&
         (l.porcentaje ?? null) === (y[i].porcentaje ?? null) &&
-        l.hijo_id === y[i].hijo_id
+        l.hijo_id === y[i].hijo_id &&
+        (l.procesos_omitidos ?? []).join(",") === (y[i].procesos_omitidos ?? []).join(",")
     )
   );
 }
@@ -408,6 +429,7 @@ export function lineasDesdeJson(valor: unknown): LineaDespiece[] {
       piezas_por_mueble: Number(l.piezas_por_mueble) || 0,
       porcentaje: l.porcentaje == null || l.porcentaje === "" || Number.isNaN(Number(l.porcentaje)) ? null : Number(l.porcentaje),
       hijo_id: texto(l.hijo_id),
+      ...conOmitidos(l.procesos_omitidos),
     });
   }
   return lineas;
@@ -610,4 +632,37 @@ export interface VersionHistorial {
   guardadoEn: string;
   igualASugerencia: boolean;
   lineas: LineaDespiece[];
+}
+
+// --- Dividir un componente en partes --------------------------------------------
+
+// Los nombres de las partes que sugiere una descripción: "PUERTA CON MARCO" → PUERTA, MARCO.
+// Corta por "con", "y", "+" y comas; con una sola pieza no hay nada que sugerir.
+export function sugerirPartes(descripcion: string): string[] {
+  const piezas = descripcion
+    .split(/\s+con\s+|\s+y\s+|\s*\+\s*|\s*,\s*/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return piezas.length > 1 ? piezas : [];
+}
+
+// Lo que se escribió ("Puerta, Marco") como lista de nombres, sin vacíos ni repetidos.
+export function nombresDePartes(texto: string): string[] {
+  const vistos = new Set<string>();
+  return texto
+    .split(/\s*[,\n]\s*/)
+    .map((n) => n.replace(/\s+/g, " ").trim())
+    .filter((n) => {
+      const clave = n.toLowerCase();
+      if (!n || vistos.has(clave)) return false;
+      vistos.add(clave);
+      return true;
+    });
+}
+
+// Una línea del despiece dividida en partes: cada una con las piezas por mueble, el material y la
+// unidad de la original. Las partes nuevas no se ligan al componente del PM (una línea por
+// componente) ni heredan asignaciones: por eso no se divide una línea ya asignada.
+export function dividirLinea(linea: LineaDespiece, nombres: string[]): LineaDespiece[] {
+  return nombres.map((descripcion) => ({ ...linea, id: null, hijo_id: null, descripcion }));
 }

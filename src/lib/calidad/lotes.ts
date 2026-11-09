@@ -40,6 +40,10 @@ export interface LoteCalidad {
   parte_id?: string | null;
   parte_descripcion?: string | null;
   parte_piezas_por_mueble?: number | null;
+  // Piezas de una entrega "por partes" de un mueble asignado completo (lotes_partes_calidad):
+  // entrega_id es entonces el renglón de entregas_partes_produccion y se evalúa con
+  // evaluar_entrega_parte_calidad.
+  entrega_parte?: boolean;
 }
 
 // PostgREST devuelve numeric como texto: se normaliza a número.

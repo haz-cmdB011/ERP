@@ -28,6 +28,9 @@ export interface MuebleFlujo {
   // Versión de las rutas del mueble (0 = todavía no se guarda), para el bloqueo
   // optimista de guardar_ruta_produccion. Una sola para el mueble y sus partes.
   versionRuta: number;
+  // Se asigna por partes de su despiece (migración asignar_por_partes). Omitido o false: el
+  // mueble completo con una sola ruta, lo normal.
+  porPartes?: boolean;
   asignaciones: AsignacionResumen[];
   // Revisión final de Calidad: piezas que ya aprobó. null u omitido si la
   // revisión final está apagada (ajuste revision_final).
@@ -46,12 +49,16 @@ export interface MuebleFlujo {
 export interface ParteDespiece {
   id: string;
   descripcion: string;
+  // Material escrito en el despiece (texto libre; ver tipoMaterial). Omitido si no se leyó.
+  material?: string | null;
   piezasPorMueble: number;
   unidad: string | null;
   // % del mueble que vale (todas suman 100). null: las partes valen lo mismo.
   porcentaje?: number | null;
   // Ya guardó su ruta (aunque sea vacía). Si no, usa la sugerida.
   rutaGuardada?: boolean;
+  // Procesos por los que la parte NO pasa (migración procesos_por_parte); vacío u omitido = todos.
+  omitidos?: Proceso[];
 }
 
 // Una parte del despiece con su ruta: la guardada o la sugerida (pasos con id null).
@@ -66,19 +73,17 @@ export function rutasDelFlujo(
   aplica: Record<Proceso, boolean>,
   partes: ParteDespiece[]
 ): { ruta: PasoRuta[]; partes: ParteMueble[] } {
+  const conRuta = partes.map((p) => ({ ...p, ruta: rutaDeParte(guardada?.partes.get(p.id)) }));
   return {
-    ruta: rutaDelMueble(guardada?.pasos, aplica, partes.length > 0),
-    partes: partes.map((p) => ({
-      ...p,
-      ruta: rutaDeParte(guardada?.partes.get(p.id), !!p.rutaGuardada, p.descripcion),
-    })),
+    ruta: rutaDelMueble(guardada?.pasos, aplica, conRuta.some((p) => p.ruta.length > 0)),
+    partes: conRuta,
   };
 }
 
-// Se asigna completo (en muebles): no tiene componentes ni partes. Los demás se asignan
-// por partes de su despiece, una a una, así que no entran en "Asignar varios a un equipo".
+// Se asigna completo (en muebles) por los pasos de su ruta: todos, salvo el que aún no
+// tiene su despiece (tiene componentes) y los de antes que ya trabajaban por partes.
 export function seAsignaCompleto(m: MuebleFlujo): boolean {
-  return !m.conComponentes && (m.partes?.length ?? 0) === 0;
+  return !requiereDespiece(m) && partesConRuta(m).length === 0;
 }
 
 // Hay que guardar el despiece antes de asignar: tiene componentes y aún no tiene partes.
@@ -351,7 +356,9 @@ export function opcionesDePasos(m: MuebleFlujo, parte: ParteMueble | null = null
   });
 }
 
-// Lo que se puede asignar de un mueble: la ruta del mueble completo y la de cada parte.
+// Lo que se puede asignar de un mueble: los pasos de la ruta del mueble completo. Las
+// partes ya no se asignan aparte (migración ruta_por_mueble_completo): `partes` queda vacío
+// y solo lo usan pantallas que todavía lo esperan.
 export interface RutasAsignar {
   mueble: OpcionPaso[];
   partes: { parte: ParteMueble; pasos: OpcionPaso[] }[];
@@ -360,21 +367,27 @@ export interface RutasAsignar {
 export function opcionesAsignar(m: MuebleFlujo): RutasAsignar {
   return {
     mueble: opcionesDePasos(m),
-    partes: (m.partes ?? []).map((p) => ({ parte: p, pasos: opcionesDePasos(m, p) })),
+    // Las partes solo se asignan aparte cuando el mueble va "por partes".
+    partes: m.porPartes ? (m.partes ?? []).map((p) => ({ parte: p, pasos: opcionesDePasos(m, p) })) : [],
   };
 }
 
-// Lo que toca asignar: si van las partes, el primer paso con lugar de la primera parte que
-// lo tenga; si ya va el mueble completo, su paso siguiente. Si eso ya está asignado, lo
-// primero que todavía tenga lugar. null si ya está asignado todo.
-export function siguienteAsignable(
-  m: MuebleFlujo
-): { parte: ParteMueble | null; paso: OpcionPaso } | null {
-  const deMueble = opcionesDePasos(m).map((paso) => ({ parte: null, paso }));
-  const dePartes = (m.partes ?? []).flatMap((parte) => opcionesDePasos(m, parte).map((paso) => ({ parte, paso })));
-  const i = indiceSiguiente(m);
-  const preferidas = etapaSiguiente(m)?.tipo === "partes" ? dePartes : deMueble.filter((x) => x.paso.indice === i);
+// Lo que toca asignar del mueble completo: su paso siguiente o, si ya está asignado, el
+// primero que todavía tenga lugar. null si ya está asignado todo. Las partes de antes
+// (con ruta propia) solo se consultan: no se les asigna nada nuevo.
+export function siguienteAsignable(m: MuebleFlujo): { parte: ParteMueble | null; paso: OpcionPaso } | null {
+  const deMueble = opcionesDePasos(m).map((paso) => ({ parte: null as ParteMueble | null, paso }));
   const libre = (x: { paso: OpcionPaso }) => x.paso.disponible > 0;
+  const i = indiceSiguiente(m);
+  if (!m.porPartes) {
+    return deMueble.filter((x) => x.paso.indice === i).find(libre) ?? deMueble.find(libre) ?? null;
+  }
+  // Por partes: primero el primer paso con lugar de la primera parte que lo tenga; si ya van
+  // las del mueble completo, su paso siguiente.
+  const dePartes = (m.partes ?? []).flatMap((parte) =>
+    opcionesDePasos(m, parte).map((paso) => ({ parte: parte as ParteMueble | null, paso }))
+  );
+  const preferidas = etapaSiguiente(m)?.tipo === "partes" ? dePartes : deMueble.filter((x) => x.paso.indice === i);
   return preferidas.find(libre) ?? dePartes.find(libre) ?? deMueble.find(libre) ?? null;
 }
 

@@ -2,6 +2,7 @@
 // (ErrorLectura) si una consulta falla: un número a medias engaña.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { conLotesDePartes } from "./lotes-partes-db";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import { resumirCalidad, type InformeBasico, type ItemLiberado, type ResumenCalidad } from "./resumen";
 import { lotesPorEvaluar, normalizarLote, type LoteCalidad } from "./lotes";
@@ -118,5 +119,5 @@ export async function cargarLotesPorEvaluar(supabase: SupabaseClient): Promise<L
         .returns<LoteCalidad[]>(),
     { contexto: "los lotes por evaluar" }
   );
-  return lotesPorEvaluar(filas.map(normalizarLote));
+  return lotesPorEvaluar(await conLotesDePartes(supabase, filas.map(normalizarLote), { soloPendientes: true }));
 }

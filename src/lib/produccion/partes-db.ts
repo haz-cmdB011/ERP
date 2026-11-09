@@ -2,6 +2,7 @@
 // despiece_por_partes; ver flujo-mueble.ts). Lanza ErrorLectura si la consulta falla.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { procesosOmitidosValidos } from "./despiece";
 import { ErrorLectura } from "@/lib/supabase/paginar";
 import type { ParteDespiece } from "./flujo-mueble";
 
@@ -23,7 +24,9 @@ export async function cargarPartes(
   for (let i = 0; i < itemIds.length; i += 100) {
     const { data, error } = await supabase
       .from("partes_despiece")
-      .select("id, planeacion_item_id, descripcion, piezas_por_mueble, unidad, porcentaje, ruta_guardada_en")
+      .select(
+        "id, planeacion_item_id, descripcion, material, piezas_por_mueble, unidad, porcentaje, ruta_guardada_en, procesos_omitidos"
+      )
       .in("planeacion_item_id", itemIds.slice(i, i + 100))
       .is("retirada_en", null)
       .order("orden")
@@ -32,10 +35,12 @@ export async function cargarPartes(
           id: string;
           planeacion_item_id: string;
           descripcion: string;
+          material: string | null;
           piezas_por_mueble: number | string;
           unidad: string | null;
           porcentaje: number | string | null;
           ruta_guardada_en: string | null;
+          procesos_omitidos: string[] | null;
         }[]
       >();
     if (error) {
@@ -46,10 +51,12 @@ export async function cargarPartes(
       mapa.get(p.planeacion_item_id)?.push({
         id: p.id,
         descripcion: p.descripcion,
+        material: p.material,
         piezasPorMueble: Number(p.piezas_por_mueble),
         unidad: p.unidad,
         porcentaje: p.porcentaje == null ? null : Number(p.porcentaje),
         rutaGuardada: p.ruta_guardada_en != null,
+        omitidos: procesosOmitidosValidos(p.procesos_omitidos),
       });
     }
   }

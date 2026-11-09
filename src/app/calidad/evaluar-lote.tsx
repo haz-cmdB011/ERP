@@ -13,6 +13,7 @@ import { etiquetaProceso, formatoFecha } from "@/lib/produccion/asignaciones";
 type LoteParaEvaluar = Pick<
   LoteCalidad,
   | "entrega_id"
+  | "entrega_parte"
   | "pedido_id"
   | "numero_pedido"
   | "item_code"
@@ -41,7 +42,16 @@ interface InformeCreado {
 // piezas aprueba y cuántas rechaza. Un folio por resultado; lo rechazado lleva
 // su no conformidad y vuelve a Producción como retrabajo. Se hace con el
 // asistente por pasos (pensado para celular y tableta): aprobar todo es un toque.
-export default function EvaluarLote({ lote, compacto = false }: { lote: LoteParaEvaluar; compacto?: boolean }) {
+export default function EvaluarLote({
+  lote,
+  compacto = false,
+  contexto = null,
+}: {
+  lote: LoteParaEvaluar;
+  compacto?: boolean;
+  // Se muestra en el asistente bajo el título (la ruta del mueble).
+  contexto?: React.ReactNode;
+}) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   // Quién produjo el lote (para sugerir el área de origen y su responsable).
@@ -49,9 +59,11 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Una parte del despiece se entrega por muebles (la base de metal de 7 muebles).
-  const unidad = lote.parte_descripcion ? "muebles" : (lote.unidad ?? "pz");
-  const titulo = `${lote.numero_pedido} · ${lote.modelo ?? `ítem ${lote.item_code}`}`;
+  // Las partes del despiece van en sus piezas (migración partes_en_piezas_y_ruta_por_parte).
+  const unidad = lote.unidad ?? "pz";
+  const mueble = `${lote.numero_pedido} · ${lote.modelo ?? `ítem ${lote.item_code}`}`;
+  // Lo primero que se lee al revisar es el proceso (y la parte): de eso depende a quién se le paga.
+  const titulo = `Revisar ${etiquetaProceso(lote)}`;
 
   function abrir() {
     setError(null);
@@ -85,13 +97,16 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
     }
     setEnviando(true);
     setError(null);
-    const { data, error } = await createClient().rpc("evaluar_entrega_calidad", {
-      p_entrega_id: lote.entrega_id,
+    const resultado = {
       p_aprobadas: r.aprobadas,
       p_rechazadas: r.rechazadas,
       p_motivo: r.rechazadas > 0 ? r.descripcion.trim() : null,
       p_categoria: r.rechazadas > 0 && r.categoria ? r.categoria : null,
-    });
+    };
+    // Las piezas de una entrega por partes se evalúan con su propia función.
+    const { data, error } = lote.entrega_parte
+      ? await createClient().rpc("evaluar_entrega_parte_calidad", { p_entrega_parte_id: lote.entrega_id, ...resultado })
+      : await createClient().rpc("evaluar_entrega_calidad", { p_entrega_id: lote.entrega_id, ...resultado });
     if (error) {
       setEnviando(false);
       setError(error.message);
@@ -107,7 +122,7 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
     const folios = creados.map((c) => c.folio).join(" y ");
     const primero = noAprobado ?? creados[0];
     avisar(
-      `${titulo}: ${folios || "evaluado"}.`,
+      `${mueble}, ${etiquetaProceso(lote)}: ${folios || "evaluado"}.`,
       "exito",
       primero && lote.pedido_id
         ? {
@@ -123,28 +138,34 @@ export default function EvaluarLote({ lote, compacto = false }: { lote: LotePara
   // (y, junto a otras del mismo mueble, por proceso y equipo).
   return (
     <>
-      <div className="flex flex-col items-start gap-0.5">
+      {compacto ? (
+        // Compacto: un solo botón, como "Asignar" en Producción; el detalle va al pasar el cursor
+        // y dentro del asistente.
+        <button
+          type="button"
+          onClick={abrir}
+          title={`${lote.pendiente} ${unidad} del ${formatoFecha(lote.fecha_entrega)}, entregó ${lote.equipo}${
+            lote.folio_rechazo ? `, retrabajo de ${lote.folio_rechazo}` : ""
+          }`}
+          className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-400 max-md:min-h-11"
+        >
+          Revisar {etiquetaProceso(lote)}
+        </button>
+      ) : (
         <button
           type="button"
           onClick={abrir}
           title={`${lote.equipo} · ${etiquetaProceso(lote)} · entregado el ${formatoFecha(lote.fecha_entrega)}`}
-          className={`rounded-lg border border-brand-300 bg-brand-50 font-medium text-brand-800 transition-colors hover:bg-brand-100 max-md:min-h-11 ${
-            compacto ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm"
-          }`}
+          className="rounded-lg border border-brand-300 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-100 max-md:min-h-11"
         >
-          Revisar {lote.pendiente} {unidad} del {formatoFecha(lote.fecha_entrega)}
+          Revisar {etiquetaProceso(lote)}: {lote.pendiente} {unidad} del {formatoFecha(lote.fecha_entrega)}
         </button>
-        {compacto && (
-          <span className="text-xs text-slate-500">
-            {etiquetaProceso(lote)} · {lote.equipo}
-            {lote.folio_rechazo ? ` · retrabajo de ${lote.folio_rechazo}` : ""}
-          </span>
-        )}
-      </div>
+      )}
       {abierto && (
         <AsistenteNoConformidad
           titulo={titulo}
-          subtitulo={`${lote.equipo} · ${etiquetaProceso(lote)} · entregado el ${formatoFecha(lote.fecha_entrega)}${
+          contexto={contexto}
+          subtitulo={`${mueble} · ${lote.equipo} · entregado el ${formatoFecha(lote.fecha_entrega)}${
             lote.folio_hoja ? ` · hoja ${lote.folio_hoja}` : ""
           }${lote.folio_rechazo ? ` · retrabajo de ${lote.folio_rechazo}` : ""}`}
           lote={{ pendiente: lote.pendiente, unidad: lote.unidad }}

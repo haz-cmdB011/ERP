@@ -14,6 +14,8 @@ import { cargarPartes } from "@/lib/produccion/partes-db";
 import { pasosDeTodasLasRutas } from "@/lib/produccion/ruta";
 import RevisionFinalSeccion, { type MuebleRevisionFinal } from "./revision-final";
 import { lotesPorEvaluar, normalizarLote, resumirLotes, type LoteCalidad } from "@/lib/calidad/lotes";
+import { conLotesDePartes } from "@/lib/calidad/lotes-partes-db";
+import { pistaDeProcesos } from "@/lib/calidad/pista-procesos";
 import {
   situacionesPorMueble,
   textoSituacion,
@@ -62,6 +64,8 @@ interface InformeRow {
   descripcion: string | null;
   categoria: string | null;
   cantidad: number | string | null;
+  entrega_id: string | null;
+  entrega_parte_id: string | null;
 }
 
 export const generateMetadata = metadataPedido;
@@ -174,7 +178,7 @@ export default async function PedidoCalidadPage({
       ? leer(
           supabase
             .from("informes_calidad")
-            .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria, cantidad")
+            .select("id, folio, aprobado, planeacion_item_id, elaborado_en, descripcion, categoria, cantidad, entrega_id, entrega_parte_id")
             .in("planeacion_item_id", itemIds)
             .order("elaborado_en", { ascending: false })
             .returns<InformeRow[]>(),
@@ -213,11 +217,12 @@ export default async function PedidoCalidadPage({
   const muebleIdsFinal = finalActiva && versionSeleccionada?.es_version_activa ? muebleIds : [];
   const [revisionFinal, rutas, partesFinal] = await Promise.all([
     cargarRevisionFinal(supabase, muebleIdsFinal),
-    cargarRutas(supabase, muebleIdsFinal),
+    // De todos los muebles: la pista de procesos sigue su ruta.
+    cargarRutas(supabase, muebleIds),
     cargarPartes(supabase, muebleIdsFinal),
   ]);
   const lotesPorMueble = new Map<string, LoteCalidad[]>();
-  for (const l of (filasLotes ?? []).map(normalizarLote)) {
+  for (const l of await conLotesDePartes(supabase, (filasLotes ?? []).map(normalizarLote), { itemIds: muebleIds })) {
     if (!l.planeacion_item_id) continue;
     lotesPorMueble.set(l.planeacion_item_id, [...(lotesPorMueble.get(l.planeacion_item_id) ?? []), l]);
   }
@@ -258,10 +263,29 @@ export default async function PedidoCalidadPage({
   const listos = listosParaCalidad(items, mueblesPreaprobados, new Set(informesPorItem.keys()), verificacionActiva);
   const enTaller = enTallerParaCalidad(items, listos);
 
+  // Muebles con despiece propio (no el sugerido): sus componentes se cobran por las partes del
+  // despiece (migración cobro_por_partes), así que se revisan en las entregas, no enteros.
+  const despiecesPropios = muebleIds.length
+    ? await leer(
+        supabase
+          .from("despieces_produccion")
+          .select("planeacion_item_id")
+          .in("planeacion_item_id", muebleIds)
+          .eq("igual_a_sugerencia", false)
+          .returns<{ planeacion_item_id: string }[]>(),
+        "despieces_produccion"
+      )
+    : [];
+  const conDespiecePropio = new Set((despiecesPropios ?? []).map((d) => d.planeacion_item_id));
+
   const itemsConInforme: ItemCalidadRow[] = items.map((item) => {
     const evaluable = verificados.has(item.id);
     return {
       enTaller: enTaller.has(item.id),
+      // Un componente se aprueba con su mueble: completo (con el mueble) o por partes (en las
+      // entregas de sus partes). Ya no se aprueba suelto.
+      porEntregasDelMueble: item.tipo_registro === "FU" && !!item.parent_item_id,
+      porPartes: item.tipo_registro === "MO" && conDespiecePropio.has(item.id),
       id: item.id,
       item_code: item.item_code,
       tipo_registro: item.tipo_registro,
@@ -276,6 +300,20 @@ export default async function PedidoCalidadPage({
       situacion: situacionDe(item, evaluable),
       lotes: item.tipo_registro === "MO" ? resumirLotes(lotesPorMueble.get(item.id) ?? []) : null,
       lotesPendientes: item.tipo_registro === "MO" ? lotesPorEvaluar(lotesPorMueble.get(item.id) ?? []) : [],
+      // Lo aprobado, lo que falta revisar y los folios de cada proceso de su ruta.
+      pista:
+        item.tipo_registro === "MO" && (lotesPorMueble.get(item.id) ?? []).length > 0
+          ? pistaDeProcesos(
+              lotesPorMueble.get(item.id) ?? [],
+              (informesPorItem.get(item.id) ?? []).map((inf) => ({
+                ...inf,
+                cantidad: inf.cantidad == null ? null : Number(inf.cantidad),
+              })),
+              rutas.get(item.id)?.pasos ?? [],
+              [...(rutas.get(item.id)?.partes.values() ?? [])],
+              Number(item.cantidad_total)
+            )
+          : null,
       estadoRevision: item.estado_revision,
       motivoCancelacion: item.motivo_cancelacion,
       imagenUrl: imagenesPorItem.get(item.id)?.[0]?.url ?? null,
@@ -338,9 +376,9 @@ export default async function PedidoCalidadPage({
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
-        <p className="mt-1 text-xs font-medium text-slate-500">
-          Entrega: {pedido.fecha_entrega ?? "—"}
-        </p>
+        {pedido.fecha_entrega && (
+          <p className="mt-1 text-xs font-medium text-slate-500">Entrega: {pedido.fecha_entrega}</p>
+        )}
       </div>
 
       {pedido.cancelado_en && (
@@ -354,7 +392,8 @@ export default async function PedidoCalidadPage({
         </div>
       )}
 
-      {versiones && versiones.length > 0 && (
+      {/* Con una sola versión no hay nada que elegir. */}
+      {versiones && versiones.length > 1 && (
         <div className="flex w-fit flex-wrap gap-1 rounded border border-slate-200 bg-slate-50 p-1 text-sm">
           {versiones.map((v) => (
             <Link

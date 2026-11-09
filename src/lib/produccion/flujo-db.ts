@@ -122,6 +122,7 @@ export async function cargarFlujoMuebles(
       aplica,
       ruta: r.ruta,
       versionRuta: rutas.get(m.id)?.version ?? 0,
+      porPartes: rutas.get(m.id)?.porPartes ?? false,
       asignaciones: porItem.get(m.id) ?? [],
       revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
       partes: r.partes,

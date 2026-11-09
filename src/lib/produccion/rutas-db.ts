@@ -4,11 +4,14 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leer } from "@/lib/supabase/leer";
+import { ErrorLectura } from "@/lib/supabase/paginar";
 import { esProceso } from "./asignaciones";
 import type { PasoRuta } from "./ruta";
 
 export interface RutaGuardada {
   version: number;
+  // Se asigna por partes (migración asignar_por_partes): false = el mueble completo, lo normal.
+  porPartes?: boolean;
   // Pasos del mueble completo.
   pasos: PasoRuta[];
   // Pasos de cada parte, por id de parte (solo las que tienen pasos guardados).
@@ -23,6 +26,34 @@ function tandas<T>(lista: T[], tamano = 50): T[][] {
   return salida;
 }
 
+interface FilaRuta {
+  planeacion_item_id: string;
+  version: number;
+  por_partes?: boolean;
+}
+
+// Las rutas de un lote de muebles. Si la columna por_partes aún no existe en esa base (la
+// migración asignar_por_partes sin aplicar), se leen sin ella: todos van por mueble completo.
+async function leerRutas(supabase: SupabaseClient, lote: string[]): Promise<FilaRuta[] | null> {
+  const { data, error } = await supabase
+    .from("rutas_produccion")
+    .select("planeacion_item_id, version, por_partes")
+    .in("planeacion_item_id", lote)
+    .returns<FilaRuta[]>();
+  if (!error) return data;
+  if (error.code !== "42703" && !/por_partes/.test(error.message)) {
+    throw new ErrorLectura(`No se pudo leer las rutas de los muebles: ${error.message}`);
+  }
+  return leer(
+    supabase
+      .from("rutas_produccion")
+      .select("planeacion_item_id, version")
+      .in("planeacion_item_id", lote)
+      .returns<FilaRuta[]>(),
+    "las rutas de los muebles"
+  );
+}
+
 // Por id de mueble; los que no tienen ruta guardada no aparecen (usan la sugerida).
 export async function cargarRutas(
   supabase: SupabaseClient,
@@ -34,14 +65,7 @@ export async function cargarRutas(
   const lotes = await Promise.all(
     tandas(itemIds).map((lote) =>
       Promise.all([
-        leer(
-          supabase
-            .from("rutas_produccion")
-            .select("planeacion_item_id, version")
-            .in("planeacion_item_id", lote)
-            .returns<{ planeacion_item_id: string; version: number }[]>(),
-          "las rutas de los muebles"
-        ),
+        leerRutas(supabase, lote),
         leer(
           supabase
             .from("pasos_ruta_produccion")
@@ -60,7 +84,12 @@ export async function cargarRutas(
 
   for (const [rutas, pasos] of lotes) {
     for (const r of rutas ?? []) {
-      mapa.set(r.planeacion_item_id, { version: r.version, pasos: [], partes: new Map() });
+      mapa.set(r.planeacion_item_id, {
+        version: r.version,
+        porPartes: r.por_partes === true,
+        pasos: [],
+        partes: new Map(),
+      });
     }
     for (const p of pasos ?? []) {
       const ruta = mapa.get(p.planeacion_item_id);

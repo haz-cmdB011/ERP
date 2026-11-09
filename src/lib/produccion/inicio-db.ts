@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import { procesosDeMueble, type MuebleInicio, type TipoActividad } from "./inicio";
-import { cargarMueblesDePanel } from "./panel-db";
+import { cargarMueblesDePanel, listarLiberadosDePanel } from "./panel-db";
 import type { MuebleDePanel } from "./panel";
 
 interface FilaPedido {
@@ -26,7 +26,7 @@ interface FilaPorLiberar {
 // quien consulta: RLS decide qué ve.
 export async function cargarMueblesInicio(supabase: SupabaseClient): Promise<MuebleInicio[]> {
   const [liberados, porLiberar, creadoEn] = await Promise.all([
-    cargarMueblesDePanel(supabase, null),
+    listarLiberadosDePanel(supabase).then((l) => cargarMueblesDePanel(supabase, l)),
     paginarTodo<FilaPorLiberar>(
       (desde, hasta) =>
         supabase
