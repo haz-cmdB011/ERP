@@ -33,11 +33,15 @@ export default function ImagenAmpliable({
   urlGrande = null,
   alt = "",
   className = "h-10 w-10",
+  ajuste = "cover",
 }: {
   url: string;
   urlGrande?: string | null;
   alt?: string;
   className?: string;
+  // Cómo se acomoda la miniatura en su caja: "cover" la llena recortando lo que sobra (por omisión);
+  // "contain" la muestra completa, sin recortar.
+  ajuste?: "cover" | "contain";
 }) {
   const [abierta, setAbierta] = useState(false);
   const { montado, saliendo } = usePresencia(abierta);
@@ -143,7 +147,13 @@ export default function ImagenAmpliable({
         className={`block shrink-0 cursor-zoom-in overflow-hidden rounded border border-slate-200 bg-papel transition hover:border-slate-400 hover:shadow ${className}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image */}
-        <img src={url} alt={alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <img
+          src={url}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className={`h-full w-full ${ajuste === "contain" ? "object-contain" : "object-cover"}`}
+        />
       </button>
 
       {montado && (

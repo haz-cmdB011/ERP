@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { pmCorto } from "@/lib/planeacion/pm-corto";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ModeloReciente } from "@/lib/produccion/inicio";
 import { AnillosConcentricos } from "./anillo-estados";
@@ -107,7 +108,7 @@ export default function CarruselModelos({ modelos }: { modelos: ModeloReciente[]
                       title={p.numeroPm}
                       className="block rounded-md border border-slate-200 bg-white px-1.5 py-1.5 text-center text-xs font-medium tabular-nums text-slate-700 transition-colors hover:border-brand-400 hover:text-slate-900"
                     >
-                      {p.ot ?? p.numeroPm}
+                      {p.ot ?? pmCorto(p.numeroPm)}
                     </Link>
                   </li>
                 ))}

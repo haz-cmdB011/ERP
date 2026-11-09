@@ -196,6 +196,62 @@ pendientes (4 a la vista, "Ver más" despliega el resto); lo más reciente prime
 muebles padre vigentes: los liberados con el estado del panel de asignación (`cargarMueblesDePanel`) y los por liberar.
 Lógica en `src/lib/produccion/inicio.ts`, lectura en `inicio-db.ts`.
 
+**Tablero** (única vista del inicio desde el 9 nov 2026: la lista se quitó "por el momento" y `?vista=lista` ya no hace nada; `lista-modelos.tsx`, `bitacora-taller.tsx` y `cambiar-vista.tsx` siguen en el repo sin usarse, por si se vuelve a poner): **una sección
+por O.T.** (la de movimiento más reciente primero, "Sin O.T." al final; cuando hay más de tres solo la primera empieza abierta, todas se
+pliegan; el título abre la pantalla de la O.T. y trae cuántas hay en cada columna), cada una con **dos columnas que salen del
+estado, no se arrastran** (`renglonesDeTablero` en `control-taller.ts`, `columnaDeRenglon` en `tablero.ts`): **"Por entregar"**
+(asignaciones que siguen en taller, con lo que falta entregar) y **"Por asignar"** (todo mueble liberado en estado por asignar, tenga o
+no un proceso ya entregado; es el mismo "Por asignar" de la leyenda de colores). Lo que sigue por liberar no sale: se
+libera antes, desde el carrito. Cada tarjeta lleva miniatura que se amplía con el visor de siempre (`ImagenAmpliable`), nombre que
+abre el panel, **los mismos anillos concéntricos de la lista** (`AnillosConcentricos`: cuántos muebles de su modelo hay por
+liberar, por asignar, en taller y terminados; `conteosPorModelo` sale de `modelosRecientes`, y la leyenda de colores de arriba
+de la página) y el PM que abre su pedido. En "Por asignar" va el botón **Asignar**, que abre
+`/produccion/panel?ids=<mueble>` (el panel con ese mueble ya abierto). En "Por entregar" va el botón verde **Entregar** (solo quien
+edita Producción; sin palomita ni tache en la tarjeta) y una barra con "5 de 13 PZA" entregadas que abre la **vista previa
+flotante** (`vista-previa-mueble.tsx`, una ventana sobre la página con el fondo difuminado, Esc o tocar fuera la cierra): imagen del
+mueble, nombre, anillos de su modelo, avance, la ruta como línea de puntos con el % de cada proceso (`procesosDeMueble` de `inicio.ts`,
+el mismo avance de las columnas del panel), la **Bitácora** (solo la palomita y el tache de la asignación, `MarcaSeleccionable`;
+sin tira de datos ni historial a la vista: el registro de cada cambio lo sigue escribiendo el trigger de la base) y, debajo, un
+menú: panel de asignación y pedido.
+**Entregar** abre una ventana mínima (`entregar-mueble.tsx`): % antes y después con barra, cantidad con − / +, "Entregar todo",
+folio de la hoja y fecha (hoy, con "Cambiar fecha"). Registra por la misma ruta que "Registrar entrega" del panel
+(`POST /api/produccion/entregas`, con cola sin conexión), así que al guardar la tarjeta y el panel se actualizan (`router.refresh`).
+Si la entrega del mueble se hace **por partes** del despiece (`partesParaEntrega`; `entregaPorPartes` de `MuebleInicio` →
+`porPartes` de la tarjeta), el botón es un enlace al panel de asignación con ese mueble (`hrefPanel`) y no abre la ventana.
+Al marcar desde la ventana de vista previa, la tarjeta muestra "Registrado" con la hora. **Lo más reciente va primero** (por el
+último movimiento de la asignación o del mueble, `reciente`) y por omisión el tablero muestra solo las 30 tarjetas más recientes
+(`MAX_TARJETAS_RECIENTES`; el botón "Todos" muestra el resto). **El PM siempre se ve corto** (`pmCorto`,
+`src/lib/planeacion/pm-corto.ts`): solo "PM009-26" o, si hay SDC, solo "SDC-1"; el nombre completo queda en el `title`. 8 tarjetas
+por columna y "Ver todas". No cubre un mueble repartido a medias (algo asignado y el resto sin equipo) ni uno cuyo paso
+sigue en proceso sin asignación en taller: esos se ven en el panel. Lógica en `src/lib/produccion/tablero.ts`, pantalla en
+`tablero-marcas.tsx`.
+
+**Bitácora de taller** (nov 2026; esta lista del inicio está **quitada por ahora**, ver Tablero): se llamaba "Bitácora de producción" (`lista-modelos.tsx`, 8 a la vista y
+"Ver más"): lo más reciente primero (sin encabezados por día), con la hora (`dias.ts`) y de qué fue el último
+movimiento de cada modelo (PM subido, liberado, asignado, entrega; `tipoReciente`). Un renglón por modelo con sus anillos, sus O.T. y, al lado, quién lo tiene: equipo, cuántos
+(pendiente de lo asignado), O.T./PM, **palomita o tache que elige quien asigna (Producción)** y "Asignar" (abre
+`/produccion/panel` filtrado por ese PM; "Liberar" y el pedido si el mueble sigue por liberar). **Todos los
+muebles llevan marca**: los asignados, una por asignación, y los que aún no tienen equipo ("Sin equipo · Por
+asignar"), una por mueble. Se guarda en `marcas_taller_produccion` (migraciones `marcas_taller_produccion` y
+`marcas_por_mueble`; una fila marca una asignación o un mueble, nunca las dos; sin fila = sin marcar; la ven
+todos los internos, la eligen quienes son de Producción; `POST /api/produccion/marcas` con `asignacionId` o
+`itemId`, `marca-seleccionable.tsx`) y es solo informativa: no cambia estados ni cobros.
+
+**Control de la bitácora** (migración `historial_marcas_taller`): cada marca puede llevar una **nota** (el
+motivo, hasta 300 caracteres; al poner el tache se abre la ventana, se puede omitir) y cada cambio queda en
+`historial_marcas_taller_produccion`, que escribe solo un trigger (nadie lo edita desde la app, sin llaves
+foráneas: sobrevive a que se borre el mueble o la asignación, y guarda copia del modelo, PM, O.T., equipo y
+nombre de quien lo hizo). La ventana de cada marca (`marca-seleccionable.tsx`) muestra sus últimos cambios
+(`GET /api/produccion/marcas/historial`). La pantalla **Bitácora de taller** (`/produccion/bitacora`, con lista de
+control, historial, Excel e imprimir) se **quitó el 9 nov 2026** junto con su ruta de exportar y su lectura
+(`control-taller-db.ts`, `bitacora-excel.ts`): se recupera del historial de Git. Lógica que sigue en el repo en
+`control-taller.ts` y `historial-marcas.ts`.
+**Los motivos están apagados por ahora** (`MOTIVOS_ACTIVOS = false` en `historial-marcas.ts`): no se piden ni se
+muestran en pantalla ni en el Excel; la columna, el trigger y la ruta siguen listas, y para volver a verlos
+basta ponerlo en `true`. Lo entregado en los últimos 14 días también sale (`DIAS_BITACORA`). Las asignaciones
+de modelos que no están entre los 30 recientes salen abajo, por equipo (`bitacora-taller.tsx`); "O.T. con
+pendientes" va al final. Lógica en `src/lib/produccion/bitacora.ts`, lectura en `bitacora-db.ts`.
+
 ## Carrito y panel de asignación
 
 Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T. ya no traen botones de
