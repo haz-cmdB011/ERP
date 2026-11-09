@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual } from "@/lib/auth/get-perfil";
+import { areasDePerfil, puedeAbrirRuta } from "@/lib/auth/acceso";
 import { consumirLimite, respuestaLimite } from "@/lib/seguridad/limite-tasa";
 import {
   MIN_CARACTERES_BUSQUEDA,
@@ -73,9 +74,17 @@ export async function GET(request: NextRequest) {
 
   const consulta = (request.nextUrl.searchParams.get("q") ?? "").slice(0, 80);
   const areaParam = request.nextUrl.searchParams.get("area");
-  const area = AREAS.includes(areaParam as AreaBusqueda)
-    ? (areaParam as AreaBusqueda)
-    : null;
+  // Cada quien busca solo en sus áreas: los enlaces apuntan a las pantallas de su área (si pide
+  // otra, se usa la suya) y al final se quita lo que no puede abrir.
+  const propias = areasDePerfil(perfil).map((a): AreaBusqueda => (a === "admin" ? "usuarios" : a));
+  const pedida = AREAS.includes(areaParam as AreaBusqueda) ? (areaParam as AreaBusqueda) : null;
+  const area = pedida && propias.includes(pedida) ? pedida : (propias[0] ?? null);
+  const responder = () =>
+    NextResponse.json({
+      grupos: grupos
+        .map((g) => ({ ...g, resultados: g.resultados.filter((r) => puedeAbrirRuta(perfil, r.href)) }))
+        .filter((g) => g.resultados.length > 0),
+    });
   const maquilador = perfil.rol === "maquilador";
 
   const grupos: GrupoBusqueda[] = [];
@@ -93,7 +102,7 @@ export async function GET(request: NextRequest) {
 
   const termino = terminoSeguro(consulta);
   if (termino.length < MIN_CARACTERES_BUSQUEDA) {
-    return NextResponse.json({ grupos });
+    return responder();
   }
   const patron = `%${termino}%`;
   // Entre comillas dentro de .or() para que los espacios del texto no rompan
@@ -149,7 +158,7 @@ export async function GET(request: NextRequest) {
   // El maquilador (externo) no ve pedidos ni folios internos: solo sus recibos.
   if (maquilador) {
     agregar("Recibos", await buscarRecibos());
-    return NextResponse.json({ grupos });
+    return responder();
   }
 
   const selectPedido =
@@ -249,7 +258,7 @@ export async function GET(request: NextRequest) {
       detalle: [pms[0].proyectos?.nombre, `${pms.length} PM`]
         .filter(Boolean)
         .join(" · "),
-      href: hrefOrdenTrabajo(ot),
+      href: hrefOrdenTrabajo(ot, area),
     })),
   );
 
@@ -282,7 +291,7 @@ export async function GET(request: NextRequest) {
       tipo: "modelo",
       titulo: m.modelo,
       detalle: [pm.numero_pedido, m.descripcion].filter(Boolean).join(" · "),
-      href: hrefModelo(pm.id, m.modelo),
+      href: hrefModelo(pm.id, m.modelo, area),
     });
     if (resultadosModelo.length === LIMITE) break;
   }
@@ -315,5 +324,5 @@ export async function GET(request: NextRequest) {
 
   agregar("Recibos", recibos);
 
-  return NextResponse.json({ grupos });
+  return responder();
 }

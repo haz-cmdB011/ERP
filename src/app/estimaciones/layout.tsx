@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
+import SinAcceso from "@/components/sin-acceso";
+import { areasDePerfil, avisoSinAcceso, puedeEntrarAArea } from "@/lib/auth/acceso";
 import { ResumenMenuProvider } from "@/components/resumen-menu";
 import SubnavLink from "@/components/subnav-link";
 import {
@@ -11,7 +13,6 @@ import {
 } from "@/lib/estimaciones/discrepancias-resumen";
 import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
-import CuentaPendiente from "@/components/cuenta-pendiente";
 
 // Globo con un número, para los contadores del menú.
 function Globo({ n }: { n: number }) {
@@ -47,6 +48,12 @@ export default async function EstimacionesLayout({
     .eq("id", user.id)
     .single();
 
+  // Solo las áreas asignadas: quien abre un enlace de otra área ve por qué no puede entrar y
+  // cómo ir a la suya, en vez de moverlo en silencio.
+  if (!puedeEntrarAArea(perfil, "estimaciones")) {
+    return <SinAcceso {...avisoSinAcceso(perfil, "estimaciones")} />;
+  }
+
   const maquilador = perfil?.rol === "maquilador";
   const decideDiscrepancias =
     perfil?.rol === "desarrollador" ||
@@ -74,7 +81,7 @@ export default async function EstimacionesLayout({
         email={user.email ?? ""}
         userId={user.id}
         avatarPath={user.app_metadata?.avatar_path}
-        esDesarrollador={perfil?.rol === "desarrollador"}
+        areas={areasDePerfil(perfil)}
         soloEstimaciones={maquilador}
         porRevisar={porRevisar}
       >
@@ -115,7 +122,6 @@ export default async function EstimacionesLayout({
           </>
         )}
       </AreaNav>
-      {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
     </div>
     </ResumenMenuProvider>
