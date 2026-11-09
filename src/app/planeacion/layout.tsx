@@ -3,12 +3,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
 import SinAcceso from "@/components/sin-acceso";
-import { puedeEntrarAArea } from "@/lib/auth/acceso";
+import { areasDePerfil, avisoSinAcceso, puedeEntrarAArea } from "@/lib/auth/acceso";
 import { ResumenMenuProvider } from "@/components/resumen-menu";
 import SubnavLink from "@/components/subnav-link";
 import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
-import CuentaPendiente from "@/components/cuenta-pendiente";
 
 export const metadata: Metadata = {
   title: { default: "Planeación", template: "%s · Planeación" },
@@ -34,17 +33,10 @@ export default async function PlaneacionLayout({
     .eq("id", user.id)
     .single();
 
-  // El maquilador es externo: solo tiene acceso a Estimaciones. No se le mueve en silencio (un enlace
-  // a esta pantalla parecería no funcionar): se le avisa y se le ofrece ir a lo suyo.
-  if (!puedeEntrarAArea(perfil?.rol, "planeacion")) {
-    return (
-      <SinAcceso
-        titulo="Esta pantalla es del personal interno"
-        mensaje="Tu cuenta es de maquilador y solo tiene acceso a Estimaciones."
-        hrefInicio="/estimaciones/recibos"
-        etiquetaInicio="Ir a mis recibos"
-      />
-    );
+  // Solo las áreas asignadas: quien abre un enlace de otra área ve por qué no puede entrar y
+  // cómo ir a la suya, en vez de moverlo en silencio.
+  if (!puedeEntrarAArea(perfil, "planeacion")) {
+    return <SinAcceso {...avisoSinAcceso(perfil, "planeacion")} />;
   }
 
   // Aviso de recibos por revisar en la pestaña Estimaciones (solo a quien los revisa).
@@ -58,7 +50,7 @@ export default async function PlaneacionLayout({
         email={user.email ?? ""}
         userId={user.id}
         avatarPath={user.app_metadata?.avatar_path}
-        esDesarrollador={perfil?.rol === "desarrollador"}
+        areas={areasDePerfil(perfil)}
         porRevisar={porRevisar}
       >
         <SubnavLink href="/planeacion" icono="pedidos" tambien={["/planeacion/pedidos", "/planeacion/ot"]}>
@@ -71,7 +63,6 @@ export default async function PlaneacionLayout({
           Archivo
         </SubnavLink>
       </AreaNav>
-      {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
     </div>
     </ResumenMenuProvider>

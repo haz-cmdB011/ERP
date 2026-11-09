@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
 import SinAcceso from "@/components/sin-acceso";
-import { puedeEntrarAArea } from "@/lib/auth/acceso";
+import { areasDePerfil, inicioDePerfil, puedeEntrarAArea } from "@/lib/auth/acceso";
 import SubnavLink from "@/components/subnav-link";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
 
@@ -30,16 +30,16 @@ export default async function AdminLayout({
 
   const { data: perfil } = await supabase
     .from("perfiles")
-    .select("rol")
+    .select("rol, area")
     .eq("id", user.id)
     .single();
 
-  if (!puedeEntrarAArea(perfil?.rol, "admin")) {
+  if (!puedeEntrarAArea(perfil, "admin")) {
     return (
       <SinAcceso
         titulo="Esta pantalla es solo para desarrolladores"
         mensaje="Tu cuenta no tiene acceso a Administración."
-        hrefInicio="/"
+        hrefInicio={inicioDePerfil(perfil)}
         etiquetaInicio="Ir al inicio"
       />
     );
@@ -52,7 +52,7 @@ export default async function AdminLayout({
         email={user.email ?? ""}
         userId={user.id}
         avatarPath={user.app_metadata?.avatar_path}
-        esDesarrollador
+        areas={areasDePerfil(perfil)}
         porRevisar={await contarPorRevisar(supabase).catch(() => 0)}
       >
         <SubnavLink href="/admin/usuarios" icono="usuarios">

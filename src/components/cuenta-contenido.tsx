@@ -1,12 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { urlAvatar } from "@/lib/cuenta/avatar";
-import PerfilForm from "@/app/planeacion/cuenta/perfil-form";
-import MfaForm from "@/app/planeacion/cuenta/mfa-form";
+import PerfilForm from "@/app/cuenta/perfil-form";
+import MfaForm from "@/app/cuenta/mfa-form";
 import PendientesCuenta from "./pendientes-cuenta";
 
 // Pantalla "Mi perfil": foto, nombre y verificación en dos pasos. La contraseña ya no se cambia
-// aquí: se restablece desde el login con "¿Olvidaste tu contraseña?" (/auth/restablecer). La comparten Planeación
-// (/planeacion/cuenta) y Estimaciones (/estimaciones/cuenta, para los
+// aquí: se restablece desde el login con "¿Olvidaste tu contraseña?" (/auth/restablecer). La comparten el perfil
+// (/cuenta, todo el personal) y Estimaciones (/estimaciones/cuenta, para los
 // maquiladores, que solo tienen esa área).
 export default async function CuentaContenido() {
   const supabase = await createClient();

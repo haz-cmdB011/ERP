@@ -9,6 +9,7 @@ import DesplazarAlActivo from "./desplazar-al-activo";
 import Marca from "./marca";
 import Avatar from "./avatar";
 import { urlAvatar } from "@/lib/cuenta/avatar";
+import { INICIO_DE_AREA, RUTA_CUENTA, type AreaApp } from "@/lib/auth/acceso";
 
 const INICIO_AREA = {
   planeacion: "/planeacion",
@@ -96,7 +97,7 @@ export default async function AreaNav({
   email,
   userId,
   avatarPath,
-  esDesarrollador = false,
+  areas,
   soloEstimaciones = false,
   porRevisar = 0,
   children,
@@ -106,9 +107,9 @@ export default async function AreaNav({
   // Para mostrar la foto de perfil (app_metadata.avatar_path del usuario).
   userId?: string;
   avatarPath?: unknown;
-  // Usuarios es un panel más, pero solo para desarrolladores (acceso
-  // global): las demás áreas no lo ven en su selector.
-  esDesarrollador?: boolean;
+  // Áreas que la persona puede abrir (areasDePerfil): solo esas salen en
+  // el selector. Usuarios (Administración) es solo del desarrollador.
+  areas: AreaApp[];
   // Maquilador (usuario externo): solo existe Estimaciones para él, así que
   // no se le muestran las demás áreas ni el enlace a la cuenta de Planeación.
   soloEstimaciones?: boolean;
@@ -117,14 +118,15 @@ export default async function AreaNav({
   porRevisar?: number;
   children?: React.ReactNode;
 }) {
-  const visibles = AREAS.filter((a) => {
-    if (soloEstimaciones) return a.area === "estimaciones";
-    if (a.area === "usuarios") return esDesarrollador;
-    return true;
-  });
+  const visibles = AREAS.filter((a) => areas.includes(a.area === "usuarios" ? "admin" : a.area));
   const inicial = (email.trim()[0] ?? "?").toUpperCase();
   const avatarUrl = userId ? await urlAvatar(userId, avatarPath) : null;
-  const hrefCuenta = soloEstimaciones ? "/estimaciones/cuenta" : "/planeacion/cuenta";
+  const hrefCuenta = soloEstimaciones ? "/estimaciones/cuenta" : RUTA_CUENTA;
+  const hrefInicio = soloEstimaciones
+    ? "/estimaciones/recibos"
+    : areas[0]
+      ? INICIO_DE_AREA[areas[0]]
+      : RUTA_CUENTA;
 
   return (
     <div className="print:hidden">
@@ -142,7 +144,7 @@ export default async function AreaNav({
             </MenuArea>
           )}
           <Link
-            href={soloEstimaciones ? "/estimaciones/recibos" : "/planeacion"}
+            href={hrefInicio}
             className="shrink-0 rounded-lg focus-visible:outline-brand-500"
             aria-label="Mobiliarium, ir al inicio"
           >

@@ -78,7 +78,12 @@ lo que se cargue o borre en local afecta datos reales.
 Roles: `desarrollador` (acceso global), `administrador` y `trabajador` (ligados a
 un área), `usuario` (sin asignar), `maquilador` (externo, siempre de
 Estimaciones, con contratista y una o más áreas de maquila: acabados, armado,
-electrificación). Definidos en `src/lib/auth/roles.ts`. Las reglas reales viven
+electrificación). Definidos en `src/lib/auth/roles.ts`. **Cada quien ve solo sus áreas**
+(`src/lib/auth/acceso.ts`, `areasDePerfil`): el administrador y el trabajador, la suya; el maquilador,
+Estimaciones; el desarrollador, todas más Administración; el `usuario` sin área, solo su perfil. Cada
+layout de área muestra `SinAcceso` si no es suya, el menú solo pinta las propias y el buscador global
+quita lo que no puede abrir. El perfil vive en `/cuenta` (el maquilador, `/estimaciones/cuenta`;
+`/planeacion/cuenta` redirige desde `next.config.ts`). Las reglas reales viven
 en RLS y funciones SQL (`is_admin`, `is_admin_planeacion`, `is_admin_area`,
 `puede_capturar_tipo`); la UI no basta como control de acceso.
 

@@ -1,9 +1,7 @@
-import Link from "next/link";
-
 // Aviso para quien se registró solo (rol "usuario"): su cuenta existe, pero hasta
 // que un administrador le asigne un rol y un área no puede ver los datos de la
-// empresa (la base de datos lo impide; ver la migración lectura_solo_personal).
-// Sin este aviso vería pantallas vacías sin saber por qué.
+// empresa (la base de datos lo impide; ver la migración lectura_solo_personal) ni
+// abrir ninguna área: solo su perfil (/cuenta), donde sale este aviso.
 export default function CuentaPendiente() {
   return (
     <div
@@ -15,12 +13,6 @@ export default function CuentaPendiente() {
         Un administrador debe asignarte un rol y un área para que puedas ver la información. Mientras
         tanto puedes cambiar tu nombre y tu foto.
       </span>
-      <Link
-        href="/planeacion/cuenta"
-        className="font-medium underline underline-offset-2 hover:text-amber-950"
-      >
-        Ir a mi perfil
-      </Link>
     </div>
   );
 }

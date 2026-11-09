@@ -62,7 +62,7 @@ export default function RegistroForm() {
       return;
     }
 
-    router.push("/planeacion");
+    router.push("/");
     router.refresh();
   }
 
