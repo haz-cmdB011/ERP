@@ -1,17 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import ImagenAmpliable from "@/components/imagen-ampliable";
-import { fetchJson } from "@/lib/http/fetch-json";
-import { formatoFechaHora, textoMarca, type EventoMarca } from "@/lib/produccion/historial-marcas";
 import type { ProcesoAvance } from "@/lib/produccion/inicio";
 import { diaCorto, type AvanceTarjeta, type TarjetaTablero } from "@/lib/produccion/tablero";
 import { usePresencia } from "@/lib/ui/use-presencia";
 import { AnillosConcentricos, COLOR_ESTADO } from "./anillo-estados";
 import MarcaSeleccionable from "./marca-seleccionable";
-
-const ULTIMOS_PASES = 4;
 
 // Color de la etiqueta de una marca: verde si está, rojo si no, gris si se quitó.
 export function claseMarca(marca: boolean | null): string {
@@ -23,7 +19,7 @@ export function claseMarca(marca: boolean | null): string {
 }
 
 // Vista previa de un mueble en taller: una ventana flotante sobre la página (como la vista previa de una
-// historia al dejarla presionada), con su imagen, cómo va, el pase de lista y, debajo, las opciones a las
+// historia al dejarla presionada), con su imagen, cómo va, la bitácora (palomita o tache) y, debajo, las opciones a las
 // que antes había que salir para llegar. Se cierra con Esc, tocando fuera o con "Cerrar".
 export default function VistaPreviaMueble({
   t,
@@ -33,7 +29,6 @@ export default function VistaPreviaMueble({
   alCerrar,
   marca,
   puedeEditar,
-  version,
   alGuardar,
 }: {
   t: TarjetaTablero;
@@ -44,8 +39,6 @@ export default function VistaPreviaMueble({
   // La marca vigente (la de la tarjeta, o la que se acaba de marcar) y qué hacer cuando se guarda otra.
   marca: boolean | null;
   puedeEditar: boolean;
-  // Cambia con cada marca guardada, para volver a leer el pase de lista.
-  version: number;
   alGuardar: (marca: boolean | null) => void;
 }) {
   const { montado, saliendo } = usePresencia(abierta);
@@ -128,6 +121,9 @@ export default function VistaPreviaMueble({
               <span className="h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
                 <span className="block h-full rounded-full" style={{ width: `${a.pct}%`, background: color }} />
               </span>
+              <p className="text-xs text-slate-500">
+                Última entrega: <span className="font-medium tabular-nums text-slate-700">{diaCorto(a.ultimaEntrega) || "sin entregas"}</span>
+              </p>
             </div>
 
             {a.procesos.length > 0 && (
@@ -138,15 +134,9 @@ export default function VistaPreviaMueble({
               </ol>
             )}
 
-            <dl className="grid grid-cols-3 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-slate-50 text-center">
-              <Dato etiqueta="Sin entregar" valor={`${a.sinEntregar}${unidad}`} />
-              <Dato etiqueta="En taller" valor={a.diasEnTaller > 0 ? `${a.diasEnTaller} d` : "Hoy"} />
-              <Dato etiqueta="Última entrega" valor={diaCorto(a.ultimaEntrega) || "—"} />
-            </dl>
-
             <div className="flex flex-col gap-2 border-t border-slate-200 pt-3">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-slate-900">Pase de lista</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Bitácora</h3>
                 <MarcaSeleccionable
                   asignacionId={asignacionId}
                   inicial={marca}
@@ -156,7 +146,6 @@ export default function VistaPreviaMueble({
                   alGuardar={alGuardar}
                 />
               </div>
-              <PaseDeLista key={version} asignacionId={asignacionId} />
             </div>
           </div>
         </section>
@@ -168,12 +157,6 @@ export default function VistaPreviaMueble({
             </Opcion>
             <Opcion href={t.hrefPm} icono="M7 3h8l4 4v14H7zM15 3v4h4M10 12h6M10 16h6">
               Abrir el pedido {t.pmCorto}
-            </Opcion>
-            <Opcion
-              href={`/produccion/bitacora?vista=historial&q=${encodeURIComponent(t.modelo)}`}
-              icono="M9 4h6v3H9zM6 6h3M15 6h3M6 6v14h12V6M9 12l2 2 4-4M9 17h6"
-            >
-              Ver todo el pase de lista
             </Opcion>
             <li>
               <button
@@ -215,40 +198,6 @@ function Opcion({ href, icono, children }: { href: string; icono: string; childr
   );
 }
 
-// Los últimos cambios de la marca de la asignación (quién y cuándo), leídos del historial que guarda la
-// base. Se vuelve a montar con cada marca (`key`), así que siempre lee el registro recién guardado.
-function PaseDeLista({ asignacionId }: { asignacionId: string }) {
-  const [eventos, setEventos] = useState<EventoMarca[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let vigente = true;
-    fetchJson<{ eventos?: EventoMarca[]; error?: string }>(`/api/produccion/marcas/historial?asignacionId=${asignacionId}`).then((r) => {
-      if (!vigente) return;
-      if (r.ok && r.data.eventos) setEventos(r.data.eventos);
-      else setError(r.error ?? "No se pudo leer el pase de lista.");
-    });
-    return () => {
-      vigente = false;
-    };
-  }, [asignacionId]);
-
-  if (error) return <p className="text-xs text-rose-700">{error}</p>;
-  if (eventos === null) return <p className="text-xs text-slate-500">Cargando…</p>;
-  if (eventos.length === 0) return <p className="text-xs text-slate-500">Todavía no se pasa lista. Marca la palomita o el tache.</p>;
-  return (
-    <ul className="flex flex-col gap-1.5">
-      {eventos.slice(0, ULTIMOS_PASES).map((e) => (
-        <li key={e.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600">
-          <span className={`rounded-full px-2 py-0.5 font-semibold ${claseMarca(e.esta)}`}>{textoMarca(e.esta)}</span>
-          <span className="tabular-nums">{formatoFechaHora(e.hecho_en)}</span>
-          <span className="truncate">{e.hecho_por_nombre ?? "—"}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 // Un proceso de la ruta, como un punto unido al siguiente por una línea: completo (palomita), en curso
 // (anillo con su %) o pendiente (vacío). La línea se pinta hasta donde ya se completó.
 function PasoDeRuta({ p, hayMas }: { p: ProcesoAvance; hayMas: boolean }) {
@@ -287,14 +236,5 @@ function PasoDeRuta({ p, hayMas }: { p: ProcesoAvance; hayMas: boolean }) {
         {p.etiqueta}
       </span>
     </li>
-  );
-}
-
-function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
-  return (
-    <div className="flex min-w-0 flex-col-reverse px-2 py-2">
-      <dt className="truncate text-[11px] text-slate-500">{etiqueta}</dt>
-      <dd className="truncate text-sm font-semibold tabular-nums text-slate-900">{valor}</dd>
-    </div>
   );
 }

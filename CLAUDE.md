@@ -210,9 +210,9 @@ de la página) y el PM que abre su pedido. En "Por asignar" va el botón **Asign
 edita Producción; sin palomita ni tache en la tarjeta) y una barra con "5 de 13 PZA" entregadas que abre la **vista previa
 flotante** (`vista-previa-mueble.tsx`, una ventana sobre la página con el fondo difuminado, Esc o tocar fuera la cierra): imagen del
 mueble, nombre, anillos de su modelo, avance, la ruta como línea de puntos con el % de cada proceso (`procesosDeMueble` de `inicio.ts`,
-el mismo avance de las columnas del panel), lo que falta (sin entregar, días en taller, última entrega), el **pase de lista** (la
-palomita y el tache, con los últimos 4 registros, quién y cuándo, leídos de `GET /api/produccion/marcas/historial`; el registro lo
-escribe solo el trigger de la base) y, debajo, un menú: panel de asignación, pedido y `/produccion/bitacora?vista=historial&q=<modelo>`.
+el mismo avance de las columnas del panel), la **Bitácora** (solo la palomita y el tache de la asignación, `MarcaSeleccionable`;
+sin tira de datos ni historial a la vista: el registro de cada cambio lo sigue escribiendo el trigger de la base) y, debajo, un
+menú: panel de asignación y pedido.
 **Entregar** abre una ventana mínima (`entregar-mueble.tsx`): % antes y después con barra, cantidad con − / +, "Entregar todo",
 folio de la hoja y fecha (hoy, con "Cambiar fecha"). Registra por la misma ruta que "Registrar entrega" del panel
 (`POST /api/produccion/entregas`, con cola sin conexión), así que al guardar la tarjeta y el panel se actualizan (`router.refresh`).
@@ -242,11 +242,10 @@ motivo, hasta 300 caracteres; al poner el tache se abre la ventana, se puede omi
 `historial_marcas_taller_produccion`, que escribe solo un trigger (nadie lo edita desde la app, sin llaves
 foráneas: sobrevive a que se borre el mueble o la asignación, y guarda copia del modelo, PM, O.T., equipo y
 nombre de quien lo hizo). La ventana de cada marca (`marca-seleccionable.tsx`) muestra sus últimos cambios
-(`GET /api/produccion/marcas/historial`). La pestaña **Bitácora** (`/produccion/bitacora`) tiene la *lista
-de control* (todos los muebles y asignaciones, lo que no está primero; filtros por marca y texto) y el
-*historial* (filtros por cambio, texto y fechas), con **Descargar Excel**
-(`/api/produccion/bitacora/exportar`) e **Imprimir**. Lógica en `control-taller.ts` y `historial-marcas.ts`,
-lectura en `control-taller-db.ts`.
+(`GET /api/produccion/marcas/historial`). La pantalla **Bitácora de taller** (`/produccion/bitacora`, con lista de
+control, historial, Excel e imprimir) se **quitó el 9 nov 2026** junto con su ruta de exportar y su lectura
+(`control-taller-db.ts`, `bitacora-excel.ts`): se recupera del historial de Git. Lógica que sigue en el repo en
+`control-taller.ts` y `historial-marcas.ts`.
 **Los motivos están apagados por ahora** (`MOTIVOS_ACTIVOS = false` en `historial-marcas.ts`): no se piden ni se
 muestran en pantalla ni en el Excel; la columna, el trigger y la ruta siguen listas, y para volver a verlos
 basta ponerlo en `true`. Lo entregado en los últimos 14 días también sale (`DIAS_BITACORA`). Las asignaciones

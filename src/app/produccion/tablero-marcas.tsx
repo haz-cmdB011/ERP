@@ -196,31 +196,28 @@ function Chevron({ className }: { className: string }) {
 }
 
 const ESTILO_BOTON_ENTREGAR =
-  "rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
+  "rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
 
 function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: string; puedeEditar: boolean }) {
-  // La vista previa flotante (con el pase de lista de la asignación) y la ventana de entrega. `marca` es la
-  // vigente (la que viene o la que se marcó en la vista previa); `version` cambia con cada marca para volver
-  // a leer el registro.
+  // La vista previa flotante (con la bitácora de la asignación) y la ventana de entrega. `marca` es la
+  // vigente (la que viene o la que se marcó en la vista previa).
   const [abierta, setAbierta] = useState(false);
   const [entregando, setEntregando] = useState(false);
   const [marca, setMarca] = useState(t.marca);
-  const [version, setVersion] = useState(0);
   const [ultimoPase, setUltimoPase] = useState<{ marca: boolean | null; en: string } | null>(null);
 
   function registrar(nueva: boolean | null) {
     setMarca(nueva);
-    setVersion((v) => v + 1);
     setUltimoPase({ marca: nueva, en: new Date().toISOString() });
   }
   const cerrar = () => setAbierta(false);
 
   return (
-    <li className={`flex items-start gap-2.5 rounded-lg border border-slate-200 ${franja} bg-white p-2.5 shadow-sm`}>
+    <li className={`flex items-start gap-3 rounded-lg border border-slate-200 ${franja} bg-white p-3 shadow-sm`}>
       {t.imagen ? (
-        <ImagenAmpliable url={t.imagen.url} urlGrande={t.imagen.urlGrande} alt={`Imagen de ${t.modelo}`} className="size-11" />
+        <ImagenAmpliable url={t.imagen.url} urlGrande={t.imagen.urlGrande} alt={`Imagen de ${t.modelo}`} className="size-14" />
       ) : (
-        <span aria-hidden="true" title="Sin imagen" className="size-11 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50" />
+        <span aria-hidden="true" title="Sin imagen" className="size-14 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50" />
       )}
 
       <div
@@ -232,13 +229,13 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
             <Link
               href={t.hrefModelo}
               title={`Ver ${t.modelo} en el panel de asignación`}
-              className="block truncate text-sm font-semibold text-slate-900 hover:underline"
+              className="block truncate text-base font-semibold text-slate-900 hover:underline"
             >
               {t.modelo}
             </Link>
-            {t.subtitulo && <p className="truncate text-xs text-slate-500">{t.subtitulo}</p>}
+            {t.subtitulo && <p className="truncate text-sm text-slate-500">{t.subtitulo}</p>}
           </div>
-          {t.conteos && <AnillosConcentricos conteos={t.conteos} tamano="size-14" />}
+          {t.conteos && <AnillosConcentricos conteos={t.conteos} tamano="size-16" />}
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
@@ -246,11 +243,11 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
             <Link
               href={t.hrefPm}
               title={`Abrir el pedido ${t.numeroPm}`}
-              className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-medium text-slate-700 transition-colors hover:border-brand-400 hover:text-slate-900"
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-medium text-slate-700 transition-colors hover:border-brand-400 hover:text-slate-900"
             >
               {t.pmCorto}
             </Link>
-            {!t.avance && <span className="text-xs tabular-nums text-slate-600">{t.piezas}</span>}
+            {!t.avance && <span className="text-sm tabular-nums text-slate-600">{t.piezas}</span>}
           </div>
 
           {t.avance && t.asignacionId
@@ -278,7 +275,7 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
                 <Link
                   href={t.hrefAsignar}
                   title={`Abrir ${t.modelo} en el panel de asignación`}
-                  className="rounded-md border border-brand-600 px-3 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                  className="rounded-md border border-brand-600 px-4 py-1.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
                 >
                   Asignar
                 </Link>
@@ -289,7 +286,7 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
           <>
             <ResumenAvance avance={t.avance} alAbrir={() => setAbierta(true)} />
             {ultimoPase && (
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600" role="status">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-slate-600" role="status">
                 <span className={`rounded-full px-2 py-0.5 font-semibold ${claseMarca(ultimoPase.marca)}`}>{textoMarca(ultimoPase.marca)}</span>
                 <span className="tabular-nums">Registrado {formatoFechaHora(ultimoPase.en)}</span>
               </p>
@@ -305,7 +302,6 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
               alCerrar={cerrar}
               marca={marca}
               puedeEditar={puedeEditar}
-              version={version}
               alGuardar={registrar}
             />
           </>
@@ -328,7 +324,7 @@ function ResumenAvance({ avance: a, alAbrir }: { avance: AvanceTarjeta; alAbrir:
       className="flex w-full items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
     >
       <Barra pct={a.pct} color={color} />
-      <span className="shrink-0 text-xs tabular-nums text-slate-700">
+      <span className="shrink-0 text-sm tabular-nums text-slate-700">
         <b className="font-semibold">{a.entregado}</b> de {a.total}
         {unidad}
       </span>
