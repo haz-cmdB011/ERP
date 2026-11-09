@@ -1,19 +1,19 @@
 // Tablero del inicio de Producción: dos columnas por O.T. con una tarjeta por mueble o asignación.
-// "Por asignar" junta lo que ya tiene equipo en taller, con la vista previa de cómo va; "Sin asignar",
-// los muebles liberados que esperan equipo, con su botón para asignar (lo que sigue por liberar no sale:
-// se libera antes, desde el carrito). La columna sale del estado, no se elige. Lo más reciente va primero
-// y el tablero puede mostrar solo lo último que se trabajó. Lógica sin base de datos ni navegador, para
+// "Por entregar" junta lo que ya tiene equipo en taller, con su botón para registrar la entrega; "Por
+// asignar", los muebles liberados que esperan equipo, con su botón para asignar (lo que sigue por liberar
+// no sale: se libera antes, desde el carrito). La columna sale del estado, no se elige. Lo más reciente va
+// primero y el tablero puede mostrar solo lo último que se trabajó. Lógica sin base de datos ni navegador, para
 // poder probarla; la pantalla vive en tablero-marcas.tsx.
 
 import { pmCorto } from "../planeacion/pm-corto";
 import type { RenglonControl } from "./control-taller";
 import { claveModelo, type Conteos, type ProcesoAvance } from "./inicio";
 
-export type Columna = "por_asignar" | "sin_asignar";
+export type Columna = "por_entregar" | "por_asignar";
 
 export const COLUMNAS_TABLERO: { valor: Columna; titulo: string }[] = [
+  { valor: "por_entregar", titulo: "Por entregar" },
   { valor: "por_asignar", titulo: "Por asignar" },
-  { valor: "sin_asignar", titulo: "Sin asignar" },
 ];
 
 // Tarjetas a la vista por columna antes de "Ver todas".
@@ -41,6 +41,10 @@ export interface AvanceTarjeta {
   diasEnTaller: number;
   // Cuándo fue su última entrega (ISO o día); null si no ha entregado.
   ultimaEntrega: string | null;
+  // Día en que se asignó (AAAA-MM-DD): la entrega no puede ser anterior. null si no se sabe.
+  fechaAsignacion: string | null;
+  // El mueble se entrega por partes de su despiece: no se registra desde la tarjeta sino en el panel.
+  porPartes: boolean;
   // Cómo va cada proceso del mueble (Armado, Barniz…); vacío si no se sabe.
   procesos: ProcesoAvance[];
 }
@@ -75,17 +79,20 @@ export interface TarjetaTablero {
   hrefModelo: string;
   hrefOt: string;
   hrefPm: string;
-  // Sin asignar: el panel de asignación con ese mueble abierto. null en las asignaciones.
+  // Por asignar: el panel de asignación con ese mueble abierto. null en las asignaciones.
   hrefAsignar: string | null;
-  // Por asignar: cómo va, para la vista previa. null en los muebles sin asignar.
+  // Por entregar: el panel de asignación con el mueble de la asignación (ahí se entrega por partes). null
+  // en los muebles por asignar.
+  hrefPanel: string | null;
+  // Por entregar: cómo va, para registrar la entrega y la vista previa. null en los muebles por asignar.
   avance: AvanceTarjeta | null;
 }
 
 // En qué columna cae un renglón, o null si no va en el tablero: una asignación entregada, un mueble por
 // liberar (se libera antes) o uno que ya tiene su trabajo en otro lado.
 function columnaDeRenglon(r: RenglonControl): Columna | null {
-  if (r.asignacionId) return r.enTaller ? "por_asignar" : null;
-  return r.estadoInicio === "por_asignar" ? "sin_asignar" : null;
+  if (r.asignacionId) return r.enTaller ? "por_entregar" : null;
+  return r.estadoInicio === "por_asignar" ? "por_asignar" : null;
 }
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
@@ -100,6 +107,8 @@ function avanceDe(r: RenglonControl, unidad: string): AvanceTarjeta {
     sinEntregar: redondear(r.tiene),
     diasEnTaller: r.diasEnTaller,
     ultimaEntrega: r.ultimaEntrega,
+    fechaAsignacion: r.fechaAsignacion,
+    porPartes: r.porPartes,
     procesos: r.procesos,
   };
 }
@@ -144,8 +153,9 @@ export function tarjetasDeControl(
       hrefModelo: `/produccion/panel?estado=todos&q=${encodeURIComponent(r.modelo)}`,
       hrefOt: r.ot && /^\d+-\d{2}$/.test(r.ot) ? `/produccion/ot/${r.ot}` : `/produccion/pedidos/${r.pedidoId}`,
       hrefPm: r.pedidoId ? `/produccion/pedidos/${r.pedidoId}` : r.ot && /^\d+-\d{2}$/.test(r.ot) ? `/produccion/ot/${r.ot}` : "/produccion/pedidos",
-      hrefAsignar: columna === "sin_asignar" && r.itemId ? `/produccion/panel?ids=${r.itemId}` : null,
-      avance: columna === "por_asignar" ? avanceDe(r, unidad) : null,
+      hrefAsignar: columna === "por_asignar" && r.itemId ? `/produccion/panel?ids=${r.itemId}` : null,
+      hrefPanel: columna === "por_entregar" && r.planeacionItemId ? `/produccion/panel?ids=${r.planeacionItemId}` : null,
+      avance: columna === "por_entregar" ? avanceDe(r, unidad) : null,
     });
   }
   return tarjetas.sort((a, b) => b.reciente.localeCompare(a.reciente));
@@ -213,5 +223,5 @@ export const enColumna = (tarjetas: TarjetaTablero[], columna: Columna): Tarjeta
 
 // Cuántas hay en cada columna.
 export function conteosColumnas(tarjetas: TarjetaTablero[]): Record<Columna, number> {
-  return { por_asignar: enColumna(tarjetas, "por_asignar").length, sin_asignar: enColumna(tarjetas, "sin_asignar").length };
+  return { por_entregar: enColumna(tarjetas, "por_entregar").length, por_asignar: enColumna(tarjetas, "por_asignar").length };
 }

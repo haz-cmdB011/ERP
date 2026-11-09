@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import { procesosDeMueble, type MuebleInicio, type TipoActividad } from "./inicio";
 import { cargarMueblesDePanel, listarLiberadosDePanel } from "./panel-db";
+import { partesParaEntrega } from "./entregas-partes";
 import type { MuebleDePanel } from "./panel";
 
 interface FilaPedido {
@@ -103,6 +104,7 @@ export function muebleInicioDeLiberado(m: MuebleDePanel, creadoEn: Map<string, s
     ot: m.ot,
     creadoEn: subido,
     procesos: procesosDeMueble(m.flujo),
+    entregaPorPartes: m.flujo.asignaciones.filter((a) => partesParaEntrega(m.flujo, a, undefined)).map((a) => a.id),
     ...ultimaActividad([
       [subido, "pm"],
       [m.liberadoEn, "liberacion"],

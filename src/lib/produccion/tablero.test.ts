@@ -9,7 +9,7 @@ import {
   tarjetasDeControl,
 } from "./tablero";
 
-// Por omisión, un mueble liberado que espera equipo (va en "Sin asignar").
+// Por omisión, un mueble liberado que espera equipo (va en "Por asignar").
 function renglon(clave: string, extra: Partial<RenglonControl> = {}): RenglonControl {
   const esAsignacion = clave.startsWith("asignacion:");
   return {
@@ -36,6 +36,8 @@ function renglon(clave: string, extra: Partial<RenglonControl> = {}): RenglonCon
     entregado: esAsignacion ? 5 : 0,
     diasEnTaller: esAsignacion ? 2 : 0,
     ultimaEntrega: null,
+    fechaAsignacion: esAsignacion ? "2026-11-03" : null,
+    porPartes: false,
     procesos: [],
     ...extra,
   };
@@ -47,10 +49,10 @@ describe("tablero de producción", () => {
     renglon("mueble:b", { modelo: "FXSV-14", ot: "010-26", numeroPm: "PM010-26" }),
   ]);
 
-  it("lo que tiene equipo en taller va en Por asignar y el mueble liberado sin equipo, en Sin asignar", () => {
+  it("lo que tiene equipo en taller va en Por entregar y el mueble liberado sin equipo, en Por asignar", () => {
     expect(tarjetas.map((t) => [t.clave, t.columna])).toEqual([
-      ["asignacion:a", "por_asignar"],
-      ["mueble:b", "sin_asignar"],
+      ["asignacion:a", "por_entregar"],
+      ["mueble:b", "por_asignar"],
     ]);
   });
 
@@ -65,17 +67,19 @@ describe("tablero de producción", () => {
     expect(t.map((x) => x.clave)).toEqual(["mueble:libre"]);
   });
 
-  it("Sin asignar lleva el botón que abre el panel con ese mueble y no trae vista previa", () => {
+  it("Por asignar lleva el botón que abre el panel con ese mueble y no trae avance", () => {
     const b = tarjetas.find((t) => t.clave === "mueble:b")!;
     expect(b.hrefAsignar).toBe("/produccion/panel?ids=b");
+    expect(b.hrefPanel).toBeNull();
     expect(b.avance).toBeNull();
     expect(b.subtitulo).toBeNull();
     expect(b.piezas).toBe("13 PZA");
   });
 
-  it("Por asignar lleva cómo va, sin botón de asignar", () => {
+  it("Por entregar lleva cómo va y el panel de su mueble, sin botón de asignar", () => {
     const a = tarjetas.find((t) => t.clave === "asignacion:a")!;
     expect(a.hrefAsignar).toBeNull();
+    expect(a.hrefPanel).toBe("/produccion/panel?ids=item-de-a");
     expect(a.subtitulo).toBe("Emilio · Armado");
     expect(a.marca).toBe(true);
     expect(a.avance).toEqual({
@@ -86,8 +90,15 @@ describe("tablero de producción", () => {
       sinEntregar: 8,
       diasEnTaller: 2,
       ultimaEntrega: null,
+      fechaAsignacion: "2026-11-03",
+      porPartes: false,
       procesos: [{ etiqueta: "Armado", pct: 38, estado: "en_proceso" }],
     });
+  });
+
+  it("dice si la entrega del mueble se hace por partes", () => {
+    const t = tarjetasDeControl([renglon("asignacion:p", { porPartes: true })]);
+    expect(t[0].avance?.porPartes).toBe(true);
   });
 
   it("el avance no pasa de 100% ni se rompe con una cantidad de cero", () => {
@@ -123,8 +134,8 @@ describe("tablero de producción", () => {
     ]);
     expect(secciones[0].hrefOt).toBe("/produccion/ot/102-24");
     expect(secciones[3].hrefOt).toBeNull();
-    expect(conteosColumnas(secciones[2].tarjetas)).toEqual({ por_asignar: 1, sin_asignar: 1 });
-    expect(enColumna(secciones[2].tarjetas, "por_asignar").map((t) => t.clave)).toEqual(["asignacion:d"]);
+    expect(conteosColumnas(secciones[2].tarjetas)).toEqual({ por_entregar: 1, por_asignar: 1 });
+    expect(enColumna(secciones[2].tarjetas, "por_entregar").map((t) => t.clave)).toEqual(["asignacion:d"]);
   });
 
   it("muestra solo el PM, o solo el SDC si lo hay, y deja el nombre completo aparte", () => {

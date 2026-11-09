@@ -2,14 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
-import { hoyMexico, type EquipoProduccion } from "@/lib/produccion/asignaciones";
-import { armarBitacora, repartirBitacora, sinAsignarPorModelo } from "@/lib/produccion/bitacora";
+import { hoyMexico } from "@/lib/produccion/asignaciones";
+import { armarBitacora } from "@/lib/produccion/bitacora";
 import { renglonesDeTablero } from "@/lib/produccion/control-taller";
 import { tarjetasDeControl, type TarjetaTablero } from "@/lib/produccion/tablero";
 import { cargarBitacora, cargarMarcasDeMuebles } from "@/lib/produccion/bitacora-db";
 import {
   ESTADOS_INICIO,
-  MAX_MODELOS_RECIENTES,
   contarInicio,
   modelosRecientes,
   otsConPendientes,
@@ -17,37 +16,20 @@ import {
 } from "@/lib/produccion/inicio";
 import { cargarMueblesInicio } from "@/lib/produccion/inicio-db";
 import AnilloEstados, { MuestraAnillo } from "./anillo-estados";
-import BitacoraTaller from "./bitacora-taller";
-import CambiarVista from "./cambiar-vista";
-import ListaModelos from "./lista-modelos";
 import TableroMarcas from "./tablero-marcas";
 
 // O.T. con pendientes a la vista (las más recientes); las demás se despliegan.
 const OTS_A_LA_VISTA = 4;
 
-// Inicio de Producción, como bitácora: los muebles más recientes por modelo, cada uno con quién lo
-// tiene (equipo, cuántos, en qué O.T./PM y si sigue en su taller) y, al final, qué O.T. tienen
-// pendientes. Cada bloque lleva a su pantalla.
-export default async function ProduccionInicioPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const params = await searchParams;
-  // El tablero es la vista por omisión; la lista queda a un clic (`?vista=lista`).
-  const vista = (Array.isArray(params.vista) ? params.vista[0] : params.vista) === "lista" ? "lista" : "tablero";
+// Inicio de Producción: el tablero de muebles por asignar y, al final, qué O.T. tienen pendientes.
+// (La lista de modelos con la bitácora de taller se quitó por ahora: `lista-modelos.tsx`,
+// `bitacora-taller.tsx` y `cambiar-vista.tsx` siguen en el repositorio por si se vuelve a poner.)
+export default async function ProduccionInicioPage() {
   const supabase = await createClient();
   const hoy = hoyMexico();
-  const [muebles, { asignaciones, plazos, ots: otsDePm, marcas }, { data: equiposActivos }, perfil] = await Promise.all([
+  const [muebles, { asignaciones, plazos, ots: otsDePm, marcas }, perfil] = await Promise.all([
     cargarMueblesInicio(supabase),
     cargarBitacora(supabase, hoy),
-    supabase
-      .from("equipos_produccion")
-      .select("id, nombre, es_planta")
-      .eq("activo", true)
-      .order("es_planta", { ascending: false })
-      .order("nombre")
-      .returns<Pick<EquipoProduccion, "id" | "nombre" | "es_planta">[]>(),
     getPerfilActual(supabase),
   ]);
   const puedeEditar = puedeEditarProduccion(perfil);
@@ -55,32 +37,20 @@ export default async function ProduccionInicioPage({
   const marcasDeMuebles = await cargarMarcasDeMuebles(supabase, muebles.map((m) => m.id));
   const conteos = contarInicio(muebles);
   const bitacora = armarBitacora(asignaciones, plazos, otsDePm, hoy, marcas);
-  // "Sin trabajo": los equipos que ni siquiera salen en la bitácora (nada en taller ni entregado hace poco).
-  const conFilas = new Set(bitacora.map((g) => g.equipoId));
-  const libres = (equiposActivos ?? []).filter((e) => !conFilas.has(e.id));
-  const modelos = modelosRecientes(muebles).slice(0, MAX_MODELOS_RECIENTES);
   const ots = otsConPendientes(muebles);
-  // Quién tiene cada modelo va dentro de su recuadro; lo que no coincide con ninguno queda en la bitácora.
-  const { porModelo, resto } = repartirBitacora(bitacora, modelos.map((m) => m.modelo));
-  // Los muebles sin ninguna asignación también llevan su palomita o su tache.
-  const sinAsignar = sinAsignarPorModelo(muebles, porModelo, modelos.map((m) => m.modelo), marcasDeMuebles);
 
-  // Tablero: una tarjeta por mueble o asignación, con la miniatura del mueble y cuándo fue lo último
-  // (las imágenes solo se piden si se ve el tablero).
-  let tarjetas: TarjetaTablero[] = [];
-  if (vista === "tablero") {
-    const renglones = renglonesDeTablero(muebles, bitacora, marcasDeMuebles);
-    const imagenesPorItem = await getImagenesConGrandePorItem(
-      supabase,
-      [...new Set(renglones.flatMap((r) => (r.planeacionItemId ? [r.planeacionItemId] : [])))]
-    );
-    const imagenes = Object.fromEntries(
-      [...imagenesPorItem].flatMap(([id, lista]) => (lista[0] ? [[id, lista[0]]] : []))
-    );
-    // Los mismos anillos de la lista: cuántos muebles de cada modelo hay en cada estado.
-    const conteosPorModelo = new Map(modelosRecientes(muebles).map((m) => [m.modelo, m.conteos]));
-    tarjetas = tarjetasDeControl(renglones, { imagenes, conteosPorModelo });
-  }
+  // Tablero: una tarjeta por mueble o asignación, con la miniatura del mueble y cuándo fue lo último.
+  const renglones = renglonesDeTablero(muebles, bitacora, marcasDeMuebles);
+  const imagenesPorItem = await getImagenesConGrandePorItem(
+    supabase,
+    [...new Set(renglones.flatMap((r) => (r.planeacionItemId ? [r.planeacionItemId] : [])))]
+  );
+  const imagenes = Object.fromEntries(
+    [...imagenesPorItem].flatMap(([id, lista]) => (lista[0] ? [[id, lista[0]]] : []))
+  );
+  // Los anillos de cada tarjeta: cuántos muebles de ese modelo hay en cada estado.
+  const conteosPorModelo = new Map(modelosRecientes(muebles).map((m) => [m.modelo, m.conteos]));
+  const tarjetas: TarjetaTablero[] = tarjetasDeControl(renglones, { imagenes, conteosPorModelo });
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
@@ -94,26 +64,8 @@ export default async function ProduccionInicioPage({
         <Leyenda />
       </div>
 
-      {/* Una sola tarjeta: los muebles recientes arriba y la bitácora de taller debajo. */}
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
-        {vista === "tablero" ? (
-          <TableroMarcas
-            tarjetas={tarjetas}
-            puedeEditar={puedeEditar}
-            acciones={<CambiarVista vista={vista} />}
-          />
-        ) : (
-          <>
-            <ListaModelos
-              modelos={modelos}
-              asignaciones={porModelo}
-              sinAsignar={sinAsignar}
-              puedeEditar={puedeEditar}
-              acciones={<CambiarVista vista={vista} />}
-            />
-            <BitacoraTaller grupos={resto} libres={libres} puedeEditar={puedeEditar} embebido />
-          </>
-        )}
+        <TableroMarcas tarjetas={tarjetas} puedeEditar={puedeEditar} />
       </div>
 
       <Seccion

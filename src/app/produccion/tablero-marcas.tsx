@@ -18,19 +18,19 @@ import {
   type TarjetaTablero,
 } from "@/lib/produccion/tablero";
 import { COLOR_ESTADO, AnillosConcentricos } from "./anillo-estados";
-import MarcaSeleccionable from "./marca-seleccionable";
+import EntregarMueble from "./entregar-mueble";
 import VistaPreviaMueble, { claseMarca } from "./vista-previa-mueble";
 
 // Cada columna se distingue de un vistazo: caja teñida con borde marcado, encabezado de color sólido y
 // una franja del mismo color en el borde izquierdo de sus tarjetas.
 const ESTILO_COLUMNA: Record<Columna, { caja: string; cabecera: string; cuenta: string; franja: string }> = {
-  por_asignar: {
+  por_entregar: {
     caja: "border-2 border-emerald-400 bg-emerald-100",
     cabecera: "bg-emerald-600 text-white",
     cuenta: "bg-white text-emerald-800",
     franja: "border-l-4 border-l-emerald-500",
   },
-  sin_asignar: {
+  por_asignar: {
     caja: "border-2 border-rose-400 bg-rose-100",
     cabecera: "bg-rose-600 text-white",
     cuenta: "bg-white text-rose-800",
@@ -40,10 +40,11 @@ const ESTILO_COLUMNA: Record<Columna, { caja: string; cabecera: string; cuenta: 
 
 // Tablero separado por O.T.: cada O.T. es una sección que se pliega, con sus dos columnas, y cada
 // tarjeta dice de qué PM es (solo "PM009-26" o "SDC-1"). Cada mueble (o asignación) es una tarjeta con
-// su miniatura (que se amplía al tocarla), su nombre y los anillos de su modelo. En "Sin asignar" lleva
-// el botón que abre el panel de asignación con ese mueble; en "Por asignar", el pase de lista del equipo
-// y una vista previa de cómo va, que se abre en la misma tarjeta. Por omisión muestra lo más reciente
-// que se trabajó; "Todos" lo muestra completo.
+// su miniatura (que se amplía al tocarla), su nombre y los anillos de su modelo. En "Por asignar" lleva
+// el botón que abre el panel de asignación con ese mueble; en "Por entregar", el botón Entregar (abre la
+// ventana para registrar la entrega, o el panel si el mueble se entrega por partes) y una vista previa de
+// cómo va, que se abre en la misma tarjeta. Por omisión muestra lo más reciente que se trabajó; "Todos" lo
+// muestra completo.
 export default function TableroMarcas({
   tarjetas,
   puedeEditar,
@@ -102,7 +103,7 @@ export default function TableroMarcas({
         )}
 
         {secciones.length === 0 && (
-          <p className="px-1 py-6 text-center text-sm text-slate-500">No hay muebles en taller ni por asignar.</p>
+          <p className="px-1 py-6 text-center text-sm text-slate-500">No hay muebles por entregar ni por asignar.</p>
         )}
 
         <div className="flex flex-col gap-4">
@@ -194,13 +195,16 @@ function Chevron({ className }: { className: string }) {
   );
 }
 
+const ESTILO_BOTON_ENTREGAR =
+  "rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
+
 function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: string; puedeEditar: boolean }) {
-  // La vista previa flotante y el pase de lista de la asignación. `marca` es la vigente (la de la tarjeta o la
-  // que se marcó en la vista previa); `claveMarca` cambia al cerrarla para que la palomita de la tarjeta tome
-  // lo marcado allá; `version` cambia con cada marca para volver a leer el registro.
+  // La vista previa flotante (con el pase de lista de la asignación) y la ventana de entrega. `marca` es la
+  // vigente (la que viene o la que se marcó en la vista previa); `version` cambia con cada marca para volver
+  // a leer el registro.
   const [abierta, setAbierta] = useState(false);
+  const [entregando, setEntregando] = useState(false);
   const [marca, setMarca] = useState(t.marca);
-  const [claveMarca, setClaveMarca] = useState(0);
   const [version, setVersion] = useState(0);
   const [ultimoPase, setUltimoPase] = useState<{ marca: boolean | null; en: string } | null>(null);
 
@@ -209,10 +213,7 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
     setVersion((v) => v + 1);
     setUltimoPase({ marca: nueva, en: new Date().toISOString() });
   }
-  function cerrar() {
-    setAbierta(false);
-    setClaveMarca((k) => k + 1);
-  }
+  const cerrar = () => setAbierta(false);
 
   return (
     <li className={`flex items-start gap-2.5 rounded-lg border border-slate-200 ${franja} bg-white p-2.5 shadow-sm`}>
@@ -252,27 +253,36 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
             {!t.avance && <span className="text-xs tabular-nums text-slate-600">{t.piezas}</span>}
           </div>
 
-          {t.avance && t.asignacionId ? (
-            <MarcaSeleccionable
-              key={claveMarca}
-              asignacionId={t.asignacionId}
-              inicial={marca}
-              notaInicial={t.nota}
-              puedeEditar={puedeEditar}
-              titulo={`${t.modelo}${t.subtitulo ? ` · ${t.subtitulo}` : ""}`}
-              alGuardar={registrar}
-            />
-          ) : (
-            t.hrefAsignar && (
-              <Link
-                href={t.hrefAsignar}
-                title={`Abrir ${t.modelo} en el panel de asignación`}
-                className="rounded-md border border-brand-600 px-3 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-              >
-                Asignar
-              </Link>
-            )
-          )}
+          {t.avance && t.asignacionId
+            ? puedeEditar &&
+              (t.avance.porPartes && t.hrefPanel ? (
+                <Link
+                  href={t.hrefPanel}
+                  title="Este mueble se entrega por partes: se abre el panel de asignación"
+                  className={ESTILO_BOTON_ENTREGAR}
+                >
+                  Entregar
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEntregando(true)}
+                  aria-haspopup="dialog"
+                  title={`Registrar la entrega de ${t.modelo}`}
+                  className={ESTILO_BOTON_ENTREGAR}
+                >
+                  Entregar
+                </button>
+              ))
+            : t.hrefAsignar && (
+                <Link
+                  href={t.hrefAsignar}
+                  title={`Abrir ${t.modelo} en el panel de asignación`}
+                  className="rounded-md border border-brand-600 px-3 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                >
+                  Asignar
+                </Link>
+              )}
         </div>
 
         {t.avance && t.asignacionId && (
@@ -283,6 +293,9 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
                 <span className={`rounded-full px-2 py-0.5 font-semibold ${claseMarca(ultimoPase.marca)}`}>{textoMarca(ultimoPase.marca)}</span>
                 <span className="tabular-nums">Registrado {formatoFechaHora(ultimoPase.en)}</span>
               </p>
+            )}
+            {entregando && (
+              <EntregarMueble t={t} avance={t.avance} asignacionId={t.asignacionId} alCerrar={() => setEntregando(false)} />
             )}
             <VistaPreviaMueble
               t={t}

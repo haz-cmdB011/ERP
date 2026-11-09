@@ -195,4 +195,13 @@ describe("renglones del tablero", () => {
     const a = renglones.find((r) => r.clave === "asignacion:a");
     expect(a).toMatchObject({ enTaller: true, entregado: 5, tiene: 8, ultimaEntrega: "2026-11-04", procesos });
   });
+
+  it("dice desde cuándo se asignó y si su entrega se hace por partes del despiece", () => {
+    expect(renglones.find((r) => r.clave === "asignacion:a")).toMatchObject({ fechaAsignacion: "2026-11-01", porPartes: false });
+    const conPartes = renglonesDeTablero(
+      [mueble("item-a", { estado: "en_proceso", entregaPorPartes: ["a"] })],
+      grupos
+    );
+    expect(conPartes.find((r) => r.clave === "asignacion:a")?.porPartes).toBe(true);
+  });
 });

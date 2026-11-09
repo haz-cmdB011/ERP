@@ -35,6 +35,8 @@ export interface MuebleInicio {
   actividadTipo?: TipoActividad;
   // Cómo va cada proceso de su ruta (Armado, Barniz…). Solo los liberados lo traen.
   procesos?: ProcesoAvance[];
+  // Ids de sus asignaciones cuya entrega se hace por partes del despiece (ver partesParaEntrega).
+  entregaPorPartes?: string[];
 }
 
 // Un proceso del mueble (Armado, Barniz 2…) con su avance en % y su estado.

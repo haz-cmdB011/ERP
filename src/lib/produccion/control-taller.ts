@@ -63,6 +63,9 @@ export interface RenglonControl {
   entregado: number;
   diasEnTaller: number;
   ultimaEntrega: string | null;
+  // Día en que se asignó (null en un mueble sin asignación) y si su entrega se hace por partes del despiece.
+  fechaAsignacion: string | null;
+  porPartes: boolean;
   // Cómo va cada proceso del mueble (vacío si no se sabe).
   procesos: ProcesoAvance[];
 }
@@ -80,11 +83,12 @@ export function armarControl(
   const renglones: RenglonControl[] = [];
   const conFila = new Set<string>();
   const procesosPorMueble = new Map(muebles.map((m) => [m.id, m.procesos ?? []]));
+  const porPartes = asignacionesPorPartes(muebles);
 
   for (const g of grupos) {
     for (const f of g.filas) {
       if (f.planeacion_item_id) conFila.add(f.planeacion_item_id);
-      renglones.push(renglonDeAsignacion(f, procesosPorMueble.get(f.planeacion_item_id ?? "") ?? []));
+      renglones.push(renglonDeAsignacion(f, procesosPorMueble.get(f.planeacion_item_id ?? "") ?? [], porPartes.has(f.id)));
     }
   }
   for (const m of muebles) {
@@ -109,14 +113,20 @@ export function renglonesDeTablero(
   marcasDeMuebles: ReadonlyMap<string, { esta: boolean; nota: string | null }> = new Map()
 ): RenglonControl[] {
   const procesosPorMueble = new Map(muebles.map((m) => [m.id, m.procesos ?? []]));
+  const porPartes = asignacionesPorPartes(muebles);
   return [
     ...grupos.flatMap((g) =>
       g.filas
         .filter((f) => f.estaEnTaller)
-        .map((f) => renglonDeAsignacion(f, procesosPorMueble.get(f.planeacion_item_id ?? "") ?? []))
+        .map((f) => renglonDeAsignacion(f, procesosPorMueble.get(f.planeacion_item_id ?? "") ?? [], porPartes.has(f.id)))
     ),
     ...muebles.filter((m) => m.estado === "por_asignar").map((m) => renglonDeMueble(m, marcasDeMuebles)),
   ];
+}
+
+// Las asignaciones cuya entrega se hace por partes del despiece (ver partesParaEntrega).
+function asignacionesPorPartes(muebles: MuebleInicio[]): Set<string> {
+  return new Set(muebles.flatMap((m) => m.entregaPorPartes ?? []));
 }
 
 function renglonDeMueble(
@@ -147,11 +157,13 @@ function renglonDeMueble(
     entregado: 0,
     diasEnTaller: 0,
     ultimaEntrega: null,
+    fechaAsignacion: null,
+    porPartes: false,
     procesos: [],
   };
 }
 
-function renglonDeAsignacion(f: FilaBitacora, procesos: ProcesoAvance[]): RenglonControl {
+function renglonDeAsignacion(f: FilaBitacora, procesos: ProcesoAvance[], porPartes: boolean): RenglonControl {
   return {
     clave: `asignacion:${f.id}`,
     asignacionId: f.id,
@@ -176,6 +188,8 @@ function renglonDeAsignacion(f: FilaBitacora, procesos: ProcesoAvance[]): Renglo
     entregado: Number(f.entregado),
     diasEnTaller: f.diasEnTaller,
     ultimaEntrega: f.ultima_entrega ?? null,
+    fechaAsignacion: f.fecha_asignacion ?? null,
+    porPartes,
     procesos,
   };
 }
