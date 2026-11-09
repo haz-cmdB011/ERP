@@ -62,12 +62,13 @@ export function MuestraAnillo({ estado }: { estado: keyof Conteos }) {
 // Anillos concéntricos, uno por estado (por liberar afuera, terminados al centro): cada arco,
 // con puntas redondas, mide la parte de los muebles que está en ese estado. Arrancan en
 // ángulos distintos para que se lean como una espiral y no como un reloj.
-export function AnillosConcentricos({ conteos }: { conteos: Conteos }) {
+// `tamano`: clase de Tailwind del lado (por omisión el de los recuadros); el dibujo no cambia.
+export function AnillosConcentricos({ conteos, tamano = "size-28" }: { conteos: Conteos; tamano?: string }) {
   const total = ESTADOS_INICIO.reduce((s, e) => s + conteos[e.valor], 0);
   const texto = ESTADOS_INICIO.map((e) => `${conteos[e.valor]} ${e.etiqueta.toLowerCase()}`).join(", ");
   const grosor = 4.5;
   return (
-    <svg viewBox="0 0 64 64" role="img" aria-label={texto} className="size-28 shrink-0">
+    <svg viewBox="0 0 64 64" role="img" aria-label={texto} className={`${tamano} shrink-0`}>
       <title>{texto}</title>
       {ESTADOS_INICIO.map((e, i) => {
         const r = 28.5 - i * 7;

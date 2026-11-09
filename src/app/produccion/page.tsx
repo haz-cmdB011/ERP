@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { PROCESO_LABELS, hoyMexico, type EquipoProduccion } from "@/lib/produccion/asignaciones";
-import { esAlerta, resumirTaller, type ResumenEquipo } from "@/lib/produccion/atrasos";
-import { cargarTaller } from "@/lib/produccion/cargar-taller";
+import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
+import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import { hoyMexico, type EquipoProduccion } from "@/lib/produccion/asignaciones";
+import { armarBitacora, repartirBitacora, sinAsignarPorModelo } from "@/lib/produccion/bitacora";
+import { renglonesDeTablero } from "@/lib/produccion/control-taller";
+import { tarjetasDeControl, type TarjetaTablero } from "@/lib/produccion/tablero";
+import { cargarBitacora, cargarMarcasDeMuebles } from "@/lib/produccion/bitacora-db";
 import {
   ESTADOS_INICIO,
   MAX_MODELOS_RECIENTES,
@@ -13,24 +17,30 @@ import {
 } from "@/lib/produccion/inicio";
 import { cargarMueblesInicio } from "@/lib/produccion/inicio-db";
 import AnilloEstados, { MuestraAnillo } from "./anillo-estados";
-import CarruselModelos from "./carrusel-modelos";
-import ChipPlazo from "./chip-plazo";
+import BitacoraTaller from "./bitacora-taller";
+import CambiarVista from "./cambiar-vista";
+import ListaModelos from "./lista-modelos";
+import TableroMarcas from "./tablero-marcas";
 
-// Filas por sección: lo demás está a un clic en su pantalla.
-const MAX_FILAS = 8;
-// Asignaciones a la vista por equipo (las más atrasadas); el resto, en el taller.
-const ASIGNACIONES_POR_EQUIPO = 3;
 // O.T. con pendientes a la vista (las más recientes); las demás se despliegan.
 const OTS_A_LA_VISTA = 4;
 
-// Inicio de Producción: los muebles más recientes por modelo, qué
-// tiene cada equipo y qué O.T. tienen pendientes. Cada bloque lleva a su pantalla.
-export default async function ProduccionInicioPage() {
+// Inicio de Producción, como bitácora: los muebles más recientes por modelo, cada uno con quién lo
+// tiene (equipo, cuántos, en qué O.T./PM y si sigue en su taller) y, al final, qué O.T. tienen
+// pendientes. Cada bloque lleva a su pantalla.
+export default async function ProduccionInicioPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  // El tablero es la vista por omisión; la lista queda a un clic (`?vista=lista`).
+  const vista = (Array.isArray(params.vista) ? params.vista[0] : params.vista) === "lista" ? "lista" : "tablero";
   const supabase = await createClient();
   const hoy = hoyMexico();
-  const [muebles, { asignaciones, plazos }, { data: equiposActivos }] = await Promise.all([
+  const [muebles, { asignaciones, plazos, ots: otsDePm, marcas }, { data: equiposActivos }, perfil] = await Promise.all([
     cargarMueblesInicio(supabase),
-    cargarTaller(supabase, hoy),
+    cargarBitacora(supabase, hoy),
     supabase
       .from("equipos_produccion")
       .select("id, nombre, es_planta")
@@ -38,14 +48,39 @@ export default async function ProduccionInicioPage() {
       .order("es_planta", { ascending: false })
       .order("nombre")
       .returns<Pick<EquipoProduccion, "id" | "nombre" | "es_planta">[]>(),
+    getPerfilActual(supabase),
   ]);
+  const puedeEditar = puedeEditarProduccion(perfil);
 
+  const marcasDeMuebles = await cargarMarcasDeMuebles(supabase, muebles.map((m) => m.id));
   const conteos = contarInicio(muebles);
-  const taller = resumirTaller(asignaciones, plazos, hoy);
-  const ocupados = new Set(taller.equipos.map((e) => e.equipoId));
-  const libres = (equiposActivos ?? []).filter((e) => !ocupados.has(e.id));
+  const bitacora = armarBitacora(asignaciones, plazos, otsDePm, hoy, marcas);
+  // "Sin trabajo": los equipos que ni siquiera salen en la bitácora (nada en taller ni entregado hace poco).
+  const conFilas = new Set(bitacora.map((g) => g.equipoId));
+  const libres = (equiposActivos ?? []).filter((e) => !conFilas.has(e.id));
   const modelos = modelosRecientes(muebles).slice(0, MAX_MODELOS_RECIENTES);
   const ots = otsConPendientes(muebles);
+  // Quién tiene cada modelo va dentro de su recuadro; lo que no coincide con ninguno queda en la bitácora.
+  const { porModelo, resto } = repartirBitacora(bitacora, modelos.map((m) => m.modelo));
+  // Los muebles sin ninguna asignación también llevan su palomita o su tache.
+  const sinAsignar = sinAsignarPorModelo(muebles, porModelo, modelos.map((m) => m.modelo), marcasDeMuebles);
+
+  // Tablero: una tarjeta por mueble o asignación, con la miniatura del mueble y cuándo fue lo último
+  // (las imágenes solo se piden si se ve el tablero).
+  let tarjetas: TarjetaTablero[] = [];
+  if (vista === "tablero") {
+    const renglones = renglonesDeTablero(muebles, bitacora, marcasDeMuebles);
+    const imagenesPorItem = await getImagenesConGrandePorItem(
+      supabase,
+      [...new Set(renglones.flatMap((r) => (r.planeacionItemId ? [r.planeacionItemId] : [])))]
+    );
+    const imagenes = Object.fromEntries(
+      [...imagenesPorItem].flatMap(([id, lista]) => (lista[0] ? [[id, lista[0]]] : []))
+    );
+    // Los mismos anillos de la lista: cuántos muebles de cada modelo hay en cada estado.
+    const conteosPorModelo = new Map(modelosRecientes(muebles).map((m) => [m.modelo, m.conteos]));
+    tarjetas = tarjetasDeControl(renglones, { imagenes, conteosPorModelo });
+  }
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
@@ -59,32 +94,30 @@ export default async function ProduccionInicioPage() {
         <Leyenda />
       </div>
 
-      <CarruselModelos modelos={modelos} />
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <Seccion
-          titulo="En taller por equipo"
-          detalle="Lo que tiene cada equipo, lo atrasado primero."
-          vacio="No hay nada en taller ahora."
-          total={taller.equipos.length}
-          verTodo={{ href: "/produccion/panel", etiqueta: "Panel de asignación" }}
-          pie={
-            libres.length > 0 && (
-              <p className="border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">
-                <span className="font-medium text-slate-700">Sin trabajo:</span>{" "}
-                {libres.map((e) => e.nombre + (e.es_planta ? " (planta)" : "")).join(", ")}
-              </p>
-            )
-          }
-        >
-          {taller.equipos.slice(0, MAX_FILAS).map((e) => (
-            <EquipoEnTaller key={e.equipoId} e={e} />
-          ))}
-        </Seccion>
+      {/* Una sola tarjeta: los muebles recientes arriba y la bitácora de taller debajo. */}
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {vista === "tablero" ? (
+          <TableroMarcas
+            tarjetas={tarjetas}
+            puedeEditar={puedeEditar}
+            acciones={<CambiarVista vista={vista} />}
+          />
+        ) : (
+          <>
+            <ListaModelos
+              modelos={modelos}
+              asignaciones={porModelo}
+              sinAsignar={sinAsignar}
+              puedeEditar={puedeEditar}
+              acciones={<CambiarVista vista={vista} />}
+            />
+            <BitacoraTaller grupos={resto} libres={libres} puedeEditar={puedeEditar} embebido />
+          </>
+        )}
+      </div>
 
       <Seccion
         titulo="O.T. con pendientes"
-        detalle="Lo que falta liberar, asignar o sigue en el taller."
         vacio="Ninguna O.T. tiene pendientes."
         total={ots.length}
         verTodo={{ href: "/produccion/pedidos", etiqueta: "Pedidos" }}
@@ -112,7 +145,6 @@ export default async function ProduccionInicioPage() {
           </li>
         )}
       </Seccion>
-      </div>
     </main>
   );
 }
@@ -141,82 +173,19 @@ function FilaOt({ o }: { o: OtPendiente }) {
   );
 }
 
-// Un equipo con sus asignaciones en taller: las más atrasadas a la vista, cada una con su
-// avance (entregado de lo asignado) y su plazo; tocarla abre las asignaciones del PM.
-function EquipoEnTaller({ e }: { e: ResumenEquipo }) {
-  const visibles = e.filas.slice(0, ASIGNACIONES_POR_EQUIPO);
-  return (
-    <li className="px-4 py-3 text-sm">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="min-w-0 truncate font-semibold text-slate-900">{e.equipo}</span>
-        <span className="shrink-0 text-xs text-slate-500 tabular-nums">
-          {e.atrasadas > 0 && <span className="mr-2 font-semibold text-rose-700">{e.atrasadas} atrasada{e.atrasadas === 1 ? "" : "s"}</span>}
-          {e.filas.length} asignaci{e.filas.length === 1 ? "ón" : "ones"}
-        </span>
-      </div>
-      <ul className="mt-2 flex flex-col gap-1">
-        {visibles.map((f) => {
-          const cantidad = Number(f.cantidad);
-          const avance = cantidad > 0 ? Math.min(1, Number(f.entregado) / cantidad) : 0;
-          const contenido = (
-            <>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-slate-800">{f.modelo ?? `Ítem ${f.item_code}`}</span>
-                <span className="block truncate text-xs text-slate-500">
-                  {f.numero_pedido} · {PROCESO_LABELS[f.proceso]} · {f.diasEnTaller} d en taller
-                </span>
-              </span>
-              <span className="flex w-24 shrink-0 flex-col items-end gap-1">
-                <span className="text-xs tabular-nums text-slate-600">
-                  {Number(f.entregado)}/{cantidad} {f.unidad ?? ""}
-                </span>
-                <span className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-                  <span className="block h-full rounded-full bg-brand-600" style={{ width: `${avance * 100}%` }} />
-                </span>
-              </span>
-              {esAlerta(f.plazo) && (
-                <span className="shrink-0">
-                  <ChipPlazo plazo={f.plazo} />
-                </span>
-              )}
-            </>
-          );
-          const clase = "-mx-2 flex items-center gap-3 rounded-md px-2 py-1.5";
-          return (
-            <li key={f.id}>
-              {f.pedido_id ? (
-                <Link href={`/produccion/pedidos/${f.pedido_id}/asignaciones`} className={`${clase} transition-colors hover:bg-brand-50`}>
-                  {contenido}
-                </Link>
-              ) : (
-                <div className={clase}>{contenido}</div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {e.filas.length > visibles.length && (
-        <p className="mt-1 text-xs text-slate-500">y {e.filas.length - visibles.length} más</p>
-      )}
-    </li>
-  );
-}
-
 function Seccion({
   titulo,
   detalle,
   vacio,
   total,
   verTodo,
-  pie,
   children,
 }: {
   titulo: string;
-  detalle: string;
+  detalle?: string;
   vacio: string;
   total: number;
   verTodo: { href: string; etiqueta: string };
-  pie?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -227,7 +196,7 @@ function Seccion({
             {titulo}
             {total > 0 && <span className="ml-1.5 font-normal text-slate-500">({total})</span>}
           </h2>
-          <p className="text-xs text-slate-500">{detalle}</p>
+          {detalle && <p className="text-xs text-slate-500">{detalle}</p>}
         </div>
         <Link href={verTodo.href} className="shrink-0 text-xs font-medium text-brand-700 hover:underline">
           {verTodo.etiqueta} →
@@ -238,7 +207,6 @@ function Seccion({
       ) : (
         <ul className="divide-y divide-slate-100">{children}</ul>
       )}
-      {pie}
     </section>
   );
 }

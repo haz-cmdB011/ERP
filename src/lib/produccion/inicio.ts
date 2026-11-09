@@ -3,7 +3,7 @@
 // tienen trabajo pendiente. Sin base de datos ni navegador, para poder probarlo; la lectura
 // vive en inicio-db.ts.
 
-import type { EstadoMueble } from "./flujo-mueble";
+import { avanceColumna, columnasMueble, type EstadoMueble, type EstadoProceso, type MuebleFlujo } from "./flujo-mueble";
 
 export type EstadoInicio = "por_liberar" | EstadoMueble;
 
@@ -22,13 +22,46 @@ export interface MuebleInicio {
   pedidoId: string;
   numeroPm: string;
   ot: string | null;
+  // Cuántas piezas pide el PM de este mueble y su unidad (para la bitácora de taller).
+  cantidad?: number;
+  unidad?: string | null;
   // Cuándo se subió su PM (ISO): lo más reciente sale primero.
   creadoEn: string;
   // Lo último que le pasó al mueble (ISO): subida del PM, liberación, asignación o entrega. Ordena
   // "Muebles recientes", para que un mueble con movimiento suba aunque su PM sea viejo. Sin
   // dato, cuenta la subida del PM.
   actividad?: string;
+  // De qué fue esa actividad (por omisión, la subida del PM).
+  actividadTipo?: TipoActividad;
+  // Cómo va cada proceso de su ruta (Armado, Barniz…). Solo los liberados lo traen.
+  procesos?: ProcesoAvance[];
 }
+
+// Un proceso del mueble (Armado, Barniz 2…) con su avance en % y su estado.
+export interface ProcesoAvance {
+  etiqueta: string;
+  pct: number;
+  estado: EstadoProceso;
+}
+
+// Cómo va cada proceso de un mueble liberado, en el orden sugerido (el mismo avance de las columnas del
+// panel de asignación). Vacío si su ruta no lleva ninguno.
+export function procesosDeMueble(m: MuebleFlujo): ProcesoAvance[] {
+  return columnasMueble(m).map((c) => {
+    const a = avanceColumna(m, c);
+    return { etiqueta: c.etiqueta, pct: a.pct, estado: a.estado };
+  });
+}
+
+// Qué fue lo último que le pasó a un mueble: se subió su PM, se liberó, se asignó o se entregó algo.
+export type TipoActividad = "pm" | "liberacion" | "asignacion" | "entrega";
+
+export const ETIQUETA_ACTIVIDAD: Record<TipoActividad, string> = {
+  pm: "PM subido",
+  liberacion: "Liberado a producción",
+  asignacion: "Asignado a un equipo",
+  entrega: "Entrega registrada",
+};
 
 export type Conteos = Record<EstadoInicio, number>;
 
@@ -56,14 +89,15 @@ export interface ModeloReciente {
   muebles: number;
   pms: PmDeModelo[];
   conteos: Conteos;
-  // Lo último que le pasó a alguno de sus muebles (ver MuebleInicio.actividad).
+  // Lo último que le pasó a alguno de sus muebles (ver MuebleInicio.actividad) y de qué fue.
   reciente: string;
+  tipoReciente: TipoActividad;
 }
 
 // Modelos en "Muebles recientes" (inicio y panel de asignación): los de los PM más recientes.
 export const MAX_MODELOS_RECIENTES = 30;
 
-const claveModelo =(m: string | null) => (m ?? "").replace(/\s+/g, " ").trim().toUpperCase();
+export const claveModelo = (m: string | null) => (m ?? "").replace(/\s+/g, " ").trim().toUpperCase();
 const natural = (a: string, b: string) => a.localeCompare(b, "es", { numeric: true });
 const masReciente = (a: string, b: string) => (b > a ? b : a);
 
@@ -84,13 +118,18 @@ export function modelosRecientes(muebles: MuebleInicio[]): ModeloReciente[] {
         pms: [],
         conteos: vacio(),
         reciente: m.actividad ?? m.creadoEn,
+        tipoReciente: m.actividadTipo ?? "pm",
         idsPm: new Set(),
       };
       porModelo.set(clave, g);
     }
     g.muebles += 1;
     g.conteos[m.estado] += 1;
-    g.reciente = masReciente(g.reciente, m.actividad ?? m.creadoEn);
+    const cuando = m.actividad ?? m.creadoEn;
+    if (cuando > g.reciente) {
+      g.reciente = cuando;
+      g.tipoReciente = m.actividadTipo ?? "pm";
+    }
     if (!g.idsPm.has(m.pedidoId)) {
       g.idsPm.add(m.pedidoId);
       g.pms.push({ pedidoId: m.pedidoId, numeroPm: m.numeroPm, ot: m.ot, creadoEn: m.creadoEn });
@@ -103,6 +142,7 @@ export function modelosRecientes(muebles: MuebleInicio[]): ModeloReciente[] {
       muebles: g.muebles,
       conteos: g.conteos,
       reciente: g.reciente,
+      tipoReciente: g.tipoReciente,
       pms: g.pms.sort((a, b) => b.creadoEn.localeCompare(a.creadoEn) || natural(b.numeroPm, a.numeroPm)),
     }))
     .sort((a, b) => b.reciente.localeCompare(a.reciente) || b.pms.length - a.pms.length || natural(a.modelo, b.modelo));

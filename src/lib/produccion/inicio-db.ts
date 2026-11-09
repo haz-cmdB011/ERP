@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { paginarTodo } from "@/lib/supabase/paginar";
-import type { MuebleInicio } from "./inicio";
+import { procesosDeMueble, type MuebleInicio, type TipoActividad } from "./inicio";
 import { cargarMueblesDePanel } from "./panel-db";
 import type { MuebleDePanel } from "./panel";
 
@@ -13,6 +13,8 @@ interface FilaPorLiberar {
   id: string;
   modelo: string | null;
   descripcion: string | null;
+  cantidad_total: number | string | null;
+  unidad: string | null;
   pedido_versiones: {
     pedido_id: string;
     pedidos: { numero_pedido: string; orden_trabajo: string | null } | null;
@@ -29,7 +31,7 @@ export async function cargarMueblesInicio(supabase: SupabaseClient): Promise<Mue
       (desde, hasta) =>
         supabase
           .from("planeacion_items")
-          .select("id, modelo, descripcion, pedido_versiones!inner ( pedido_id, pedidos!inner ( numero_pedido, orden_trabajo ) )")
+          .select("id, modelo, descripcion, cantidad_total, unidad, pedido_versiones!inner ( pedido_id, pedidos!inner ( numero_pedido, orden_trabajo ) )")
           .eq("tipo_registro", "MO")
           .eq("estado_liberacion", "pendiente")
           .is("eliminacion_solicitada_en", null)
@@ -54,6 +56,8 @@ export async function cargarMueblesInicio(supabase: SupabaseClient): Promise<Mue
               id: f.id,
               modelo: f.modelo,
               descripcion: f.descripcion,
+              cantidad: Number(f.cantidad_total ?? 0),
+              unidad: f.unidad,
               estado: "por_liberar" as const,
               pedidoId: f.pedido_versiones.pedido_id,
               numeroPm: f.pedido_versiones.pedidos.numero_pedido,
@@ -91,15 +95,32 @@ export function muebleInicioDeLiberado(m: MuebleDePanel, creadoEn: Map<string, s
     id: m.flujo.id,
     modelo: m.flujo.modelo,
     descripcion: m.descripcion,
+    cantidad: m.flujo.cantidad,
+    unidad: m.flujo.unidad,
     estado: m.estado,
     pedidoId: m.pedidoId,
     numeroPm: m.numeroPm,
     ot: m.ot,
     creadoEn: subido,
-    actividad: [
-      subido,
-      m.liberadoEn,
-      ...m.flujo.asignaciones.flatMap((a) => [a.creado_en, a.ultima_entrega]),
-    ].reduce<string>((max, f) => (f && f > max ? f : max), ""),
+    procesos: procesosDeMueble(m.flujo),
+    ...ultimaActividad([
+      [subido, "pm"],
+      [m.liberadoEn, "liberacion"],
+      ...m.flujo.asignaciones.flatMap<[string | null | undefined, TipoActividad]>((a) => [
+        [a.creado_en, "asignacion"],
+        [a.ultima_entrega, "entrega"],
+      ]),
+    ]),
   };
+}
+
+// Lo más reciente de una lista de movimientos (fecha y de qué fue); si ninguno tiene fecha, vacío.
+function ultimaActividad(
+  movimientos: [string | null | undefined, TipoActividad][]
+): { actividad: string; actividadTipo: TipoActividad } {
+  let mejor: { actividad: string; actividadTipo: TipoActividad } = { actividad: "", actividadTipo: "pm" };
+  for (const [fecha, tipo] of movimientos) {
+    if (fecha && fecha > mejor.actividad) mejor = { actividad: fecha, actividadTipo: tipo };
+  }
+  return mejor;
 }
