@@ -123,7 +123,7 @@ export default function MarcaSeleccionable({
   }, [abierta, puedeEditar]);
 
   const base =
-    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed";
+    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors pointer-coarse:h-11 pointer-coarse:w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed";
   const sinCambios = nota === (borrador.trim() === "" ? null : borrador.trim());
   return (
     <>
@@ -131,7 +131,7 @@ export default function MarcaSeleccionable({
         role="group"
         aria-label="¿Está en el taller?"
         title={error ?? (puedeEditar ? undefined : "Solo Producción puede marcarlo")}
-        className={`inline-flex items-center gap-1 rounded-full p-0.5 ${error ? "ring-2 ring-rose-400" : ""} ${className}`}
+        className={`inline-flex items-center gap-1 rounded-full p-0.5 pointer-coarse:gap-2 ${error ? "ring-2 ring-rose-400" : ""} ${className}`}
       >
         <button
           type="button"
@@ -145,7 +145,7 @@ export default function MarcaSeleccionable({
               : "border-slate-300 bg-white text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:hover:border-slate-300 disabled:hover:text-slate-400"
           }`}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 pointer-coarse:h-5 pointer-coarse:w-5" aria-hidden="true">
             <path d="m5 12 5 5 9-10" />
           </svg>
           <span className="sr-only">Sí está</span>
@@ -162,7 +162,7 @@ export default function MarcaSeleccionable({
               : "border-slate-300 bg-white text-slate-400 hover:border-rose-500 hover:text-rose-600 disabled:hover:border-slate-300 disabled:hover:text-slate-400"
           }`}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 pointer-coarse:h-5 pointer-coarse:w-5" aria-hidden="true">
             <path d="M6 6l12 12M18 6 6 18" />
           </svg>
           <span className="sr-only">No está</span>
@@ -179,7 +179,7 @@ export default function MarcaSeleccionable({
                 : "border-slate-300 bg-white text-slate-400 hover:border-slate-400 hover:text-slate-600"
             }`}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 pointer-coarse:h-5 pointer-coarse:w-5" aria-hidden="true">
               <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
             </svg>
           </button>

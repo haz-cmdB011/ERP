@@ -131,12 +131,14 @@ export default function Avisos() {
   }, [programarCierre]);
 
   return (
-    // Abajo al centro en pantallas angostas (celular/tablet vertical), abajo a
-    // la derecha en las anchas. Los avisos de error se anuncian de inmediato a
-    // los lectores de pantalla; los demás, cuando terminan de hablar.
+    // Arriba al centro en pantallas angostas (celular/tablet vertical): abajo
+    // tapaban por varios segundos la barra de "Guardar" y los botones del pie, y
+    // el toque caía en el aviso. Abajo a la derecha en las anchas. Los avisos de
+    // error se anuncian de inmediato a los lectores de pantalla; los demás,
+    // cuando terminan de hablar.
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:items-end print:hidden"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex flex-col items-center gap-2 p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:top-auto sm:bottom-0 sm:items-end sm:pt-4 print:hidden"
     >
       {avisos.map((aviso) => {
         const estilo = ESTILO[aviso.tipo];
@@ -173,7 +175,7 @@ export default function Avisos() {
                   cerrar(aviso.id);
                   void aviso.accion?.alHacer();
                 }}
-                className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+                className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 pointer-coarse:py-2"
               >
                 {aviso.accion.etiqueta}
               </button>

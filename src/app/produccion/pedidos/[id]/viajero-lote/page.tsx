@@ -113,9 +113,10 @@ export default async function ViajeroLotePage({
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6 print:max-w-none print:p-0">
-      <div className="flex items-center justify-between gap-3 print:hidden">
+      {/* En celular los botones bajan: junto a las migas no cabían y se encimaban sobre ellas. */}
+      <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
         <MigasPedido pedidoId={id} cola={[{ etiqueta: "Hoja de viajero" }]} className="min-w-0" />
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <DescargarPdfButton nombreArchivo={nombreArchivo} />
           <ImprimirButton sufijo={` (${items.length} ítems)`} />
         </div>

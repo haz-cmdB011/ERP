@@ -408,8 +408,9 @@ function TarjetaVista({ t, puedeEditar, ancho }: { t: TarjetaTablero; puedeEdita
           <Link
             href={t.hrefPm}
             title={`Abrir el pedido ${t.numeroPm}`}
-            // 44 px de alto para el dedo sin mover el renglón (el margen negativo lo compensa).
-            className="-my-3 inline-flex min-h-11 items-center text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline"
+            // Más alto para el dedo sin mover el renglón (el margen negativo lo compensa). Solo crece
+            // hacia abajo: hacia arriba tapaba la orilla del nombre del mueble.
+            className="-mb-3 inline-block pb-3 text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline"
           >
             {t.pmCorto}
           </Link>

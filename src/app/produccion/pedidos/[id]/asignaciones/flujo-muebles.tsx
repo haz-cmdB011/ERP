@@ -532,12 +532,12 @@ function CeldaRuta({
             inicial={{ parte: parte?.id ?? null, paso: i }}
             asignar={asignar}
             titulo={`Asignar ${dueno} en ${c.etiqueta} (${fmt(a.disponible)} ${unidad} por asignar)`}
-            className="grid size-6 shrink-0 place-items-center rounded-md bg-brand-500 text-sm sm:size-7 sm:text-base font-bold text-on-brand transition-colors hover:bg-brand-400"
+            className="grid size-6 shrink-0 place-items-center rounded-md bg-brand-500 text-sm sm:size-7 sm:text-base font-bold text-on-brand transition-colors hover:bg-brand-400 pointer-coarse:size-10"
           >
             +
           </BotonAsignar>
         ) : (
-          asignar && <span aria-hidden className="size-6 shrink-0 sm:size-7" />
+          asignar && <span aria-hidden className="size-6 shrink-0 sm:size-7 pointer-coarse:size-10" />
         )}
         <span
           className="text-xs font-medium text-slate-900 sm:text-sm"

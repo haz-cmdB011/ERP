@@ -8,6 +8,7 @@ import BarraProgreso from "@/components/barra-progreso";
 import FondoMobiliario from "@/components/fondo-mobiliario";
 import EstadoEnvios from "@/components/estado-envios";
 import SalidasSuaves from "@/components/salidas-suaves";
+import ToqueDeshabilitado from "@/components/toque-deshabilitado";
 
 // Tipografía del estilo clásico (y de "Vidrio").
 const geistSans = Geist({
@@ -96,6 +97,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Avisos />
         <EstadoEnvios />
         <SalidasSuaves />
+        <ToqueDeshabilitado />
       </body>
     </html>
   );
