@@ -13,7 +13,7 @@ import TarjetaPendientesCuenta, { type PendienteMostrado } from "./tarjeta-pendi
 // completa, si la persona ya lo ocultó o si todavía no tiene rol asignado (a
 // esas cuentas ya se les muestra el aviso de cuenta pendiente).
 export default async function PendientesCuenta({
-  href = "/planeacion/cuenta",
+  href = "/cuenta",
   enPerfil = false,
 }: {
   href?: string;

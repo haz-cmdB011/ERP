@@ -10,5 +10,5 @@ export default function ErrorQr({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
-  return <ErrorLectura error={error} retry={retry} hrefInicio="/planeacion" etiquetaInicio="Ir al inicio" />;
+  return <ErrorLectura error={error} retry={retry} hrefInicio="/" etiquetaInicio="Ir al inicio" />;
 }

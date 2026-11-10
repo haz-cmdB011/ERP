@@ -43,6 +43,13 @@ describe("enlaces", () => {
     expect(hrefModelo("abc", "MS 01/A")).toBe("/planeacion/pedidos/abc?modelo=MS%2001%2FA");
     expect(hrefRecibo("armado", "A 12/3")).toBe("/estimaciones/recibos/armado/recibo/A%2012%2F3");
   });
+
+  it("la O.T. y el modelo abren en el área del usuario (Producción y Calidad tienen la suya)", () => {
+    expect(hrefOrdenTrabajo("009-26", "calidad")).toBe("/calidad/ot/009-26");
+    expect(hrefOrdenTrabajo("009-26", "produccion")).toBe("/produccion/ot/009-26");
+    expect(hrefModelo("abc", "MS 01", "produccion")).toBe("/produccion/pedidos/abc");
+    expect(hrefModelo("abc", "MS 01", "planeacion")).toBe("/planeacion/pedidos/abc?modelo=MS%2001");
+  });
 });
 
 describe("atajosCoincidentes", () => {

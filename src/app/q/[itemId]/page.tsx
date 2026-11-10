@@ -8,7 +8,7 @@ import {
   puedeEditarProduccion,
   puedeEvaluarCalidad,
 } from "@/lib/auth/get-perfil";
-import { inicioDeRol } from "@/lib/auth/acceso";
+import { inicioDePerfil } from "@/lib/auth/acceso";
 import { destinoDeLogin } from "@/lib/seguridad/ruta-protegida";
 import SinAcceso from "@/components/sin-acceso";
 import ChipPlazo from "@/app/produccion/chip-plazo";
@@ -136,7 +136,7 @@ export default async function FichaMuebleQrPage({
       <SinAcceso
         titulo="Este QR es del personal interno"
         mensaje="Tu cuenta es de maquilador y solo tiene acceso a Estimaciones."
-        hrefInicio={inicioDeRol(perfil.rol)}
+        hrefInicio={inicioDePerfil(perfil)}
         etiquetaInicio="Ir a mis recibos"
       />
     );
@@ -146,7 +146,7 @@ export default async function FichaMuebleQrPage({
       <SinAcceso
         titulo="Tu cuenta está pendiente de aprobación"
         mensaje="Un administrador debe asignarte un rol y un área para que puedas ver este mueble."
-        hrefInicio="/planeacion/cuenta"
+        hrefInicio="/cuenta"
         etiquetaInicio="Ir a mi perfil"
       />
     );
