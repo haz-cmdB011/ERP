@@ -38,6 +38,7 @@ function renglon(clave: string, extra: Partial<RenglonControl> = {}): RenglonCon
     ultimaEntrega: null,
     fechaAsignacion: esAsignacion ? "2026-11-03" : null,
     porPartes: false,
+    faltaAsignar: null,
     procesos: [],
     ...extra,
   };
@@ -94,6 +95,15 @@ describe("tablero de producción", () => {
       porPartes: false,
       procesos: [{ etiqueta: "Armado", pct: 38, estado: "en_proceso" }],
     });
+  });
+
+  it("un mueble asignado a medias dice cuánto falta por asignar del paso en que va", () => {
+    const t = tarjetasDeControl([
+      renglon("mueble:a", { faltaAsignar: { cantidad: 8, total: 13, etiqueta: "Armado" } }),
+      renglon("mueble:b", { faltaAsignar: { cantidad: 13, total: 13, etiqueta: "Armado" } }),
+      renglon("mueble:c"),
+    ]);
+    expect(t.map((x) => x.piezas)).toEqual(["Faltan 8 de 13 PZA · Armado", "13 PZA", "13 PZA"]);
   });
 
   it("dice si la entrega del mueble se hace por partes", () => {

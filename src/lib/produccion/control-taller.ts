@@ -5,7 +5,7 @@
 import { etiquetaProceso } from "./asignaciones";
 import type { FilaBitacora, GrupoBitacora } from "./bitacora";
 import { diaMexico, type EventoMarca } from "./historial-marcas";
-import type { EstadoInicio, MuebleInicio, ProcesoAvance } from "./inicio";
+import type { EstadoInicio, FaltaAsignar, MuebleInicio, ProcesoAvance } from "./inicio";
 
 export type FiltroMarca = "todas" | "no" | "sin" | "si";
 
@@ -66,6 +66,8 @@ export interface RenglonControl {
   // Día en que se asignó (null en un mueble sin asignación) y si su entrega se hace por partes del despiece.
   fechaAsignacion: string | null;
   porPartes: boolean;
+  // Lo que falta por asignar del paso en que va el mueble (null en una asignación o si no se sabe).
+  faltaAsignar: FaltaAsignar | null;
   // Cómo va cada proceso del mueble (vacío si no se sabe).
   procesos: ProcesoAvance[];
 }
@@ -105,8 +107,13 @@ export function armarControl(
   );
 }
 
-// Los renglones del tablero: las asignaciones que siguen en taller y todos los muebles liberados que
-// esperan equipo, aunque ya tengan un proceso entregado (el que sigue está por asignar).
+// Un mueble va en "Por asignar" si espera equipo (aunque ya tenga un proceso entregado: el que sigue está por
+// asignar) o si el paso en que va todavía tiene piezas sin equipo (asignado a medias).
+export function esPorAsignar(m: MuebleInicio): boolean {
+  return m.estado === "por_asignar" || (m.estado === "en_proceso" && (m.faltaAsignar?.cantidad ?? 0) > 0);
+}
+
+// Los renglones del tablero: las asignaciones que siguen en taller y los muebles liberados con piezas por asignar.
 export function renglonesDeTablero(
   muebles: MuebleInicio[],
   grupos: GrupoBitacora[],
@@ -120,7 +127,7 @@ export function renglonesDeTablero(
         .filter((f) => f.estaEnTaller)
         .map((f) => renglonDeAsignacion(f, procesosPorMueble.get(f.planeacion_item_id ?? "") ?? [], porPartes.has(f.id)))
     ),
-    ...muebles.filter((m) => m.estado === "por_asignar").map((m) => renglonDeMueble(m, marcasDeMuebles)),
+    ...muebles.filter(esPorAsignar).map((m) => renglonDeMueble(m, marcasDeMuebles)),
   ];
 }
 
@@ -159,6 +166,7 @@ function renglonDeMueble(
     ultimaEntrega: null,
     fechaAsignacion: null,
     porPartes: false,
+    faltaAsignar: m.faltaAsignar ?? null,
     procesos: [],
   };
 }
@@ -190,6 +198,7 @@ function renglonDeAsignacion(f: FilaBitacora, procesos: ProcesoAvance[], porPart
     ultimaEntrega: f.ultima_entrega ?? null,
     fechaAsignacion: f.fecha_asignacion ?? null,
     porPartes,
+    faltaAsignar: null,
     procesos,
   };
 }

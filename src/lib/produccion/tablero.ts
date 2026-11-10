@@ -59,6 +59,7 @@ export interface TarjetaTablero {
   modelo: string;
   // Equipo y proceso de la asignación; null si ningún equipo lo tiene.
   subtitulo: string | null;
+  // En Por asignar, cuánto falta ("13 PZA" o "Faltan 8 de 13 PZA · Armado" si ya se asignó una parte).
   piezas: string;
   ot: string | null;
   numeroPm: string;
@@ -134,6 +135,12 @@ export function tarjetasDeControl(
     const columna = columnaDeRenglon(r);
     if (!columna) continue;
     const unidad = (r.unidad ?? "").trim();
+    // Un mueble asignado a medias dice cuánto falta del paso en que va; si no, su cantidad del PM.
+    const falta = columna === "por_asignar" ? r.faltaAsignar : null;
+    const piezas =
+      falta && falta.cantidad < falta.total
+        ? `Faltan ${falta.cantidad} de ${falta.total} ${unidad}`.trim() + (falta.etiqueta ? ` · ${falta.etiqueta}` : "")
+        : `${r.cantidad} ${unidad}`.trim();
     tarjetas.push({
       clave: r.clave,
       columna,
@@ -141,7 +148,7 @@ export function tarjetasDeControl(
       itemId: r.itemId,
       modelo: r.modelo,
       subtitulo: r.equipo ? `${r.equipo}${r.proceso ? ` · ${r.proceso}` : ""}` : null,
-      piezas: `${r.cantidad} ${unidad}`.trim(),
+      piezas,
       ot: r.ot,
       numeroPm: r.numeroPm,
       pmCorto: pmCorto(r.numeroPm),

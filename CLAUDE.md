@@ -201,7 +201,10 @@ por O.T.** (la de movimiento más reciente primero, "Sin O.T." al final; cuando 
 pliegan; el título abre la pantalla de la O.T. y trae cuántas hay en cada columna), cada una con **dos columnas que salen del
 estado, no se arrastran** (`renglonesDeTablero` en `control-taller.ts`, `columnaDeRenglon` en `tablero.ts`): **"Por entregar"**
 (asignaciones que siguen en taller, con lo que falta entregar) y **"Por asignar"** (todo mueble liberado en estado por asignar, tenga o
-no un proceso ya entregado; es el mismo "Por asignar" de la leyenda de colores). Lo que sigue por liberar no sale: se
+no un proceso ya entregado, **y el asignado a medias**: el paso en que va aún tiene piezas sin equipo; es el mismo "Por asignar" de la
+leyenda de colores). Su tarjeta dice cuánto falta: "13 PZA" si no se ha asignado nada o "Faltan 8 de 13 PZA · Armado" si ya se asignó una
+parte (`faltaPorAsignar` de `inicio.ts`, el mismo tope por paso de `crear_asignacion_produccion`; `esPorAsignar` en `control-taller.ts`).
+Un mueble que va por partes del despiece no entra por esta vía. Lo que sigue por liberar no sale: se
 libera antes, desde el carrito. Cada tarjeta lleva miniatura que se amplía con el visor de siempre (`ImagenAmpliable`), nombre que
 abre el panel, **los mismos anillos concéntricos de la lista** (`AnillosConcentricos`: cuántos muebles de su modelo hay por
 liberar, por asignar, en taller y terminados; `conteosPorModelo` sale de `modelosRecientes`, y la leyenda de colores de arriba
@@ -222,8 +225,8 @@ Al marcar desde la ventana de vista previa, la tarjeta muestra "Registrado" con 
 último movimiento de la asignación o del mueble, `reciente`) y por omisión el tablero muestra solo las 30 tarjetas más recientes
 (`MAX_TARJETAS_RECIENTES`; el botón "Todos" muestra el resto). **El PM siempre se ve corto** (`pmCorto`,
 `src/lib/planeacion/pm-corto.ts`): solo "PM009-26" o, si hay SDC, solo "SDC-1"; el nombre completo queda en el `title`. 8 tarjetas
-por columna y "Ver todas". No cubre un mueble repartido a medias (algo asignado y el resto sin equipo) ni uno cuyo paso
-sigue en proceso sin asignación en taller: esos se ven en el panel. Lógica en `src/lib/produccion/tablero.ts`, pantalla en
+por columna y "Ver todas". No cubre un mueble por partes ni uno cuyo paso sigue en proceso con todo asignado y sin
+asignación en taller (casos raros): esos se ven en el panel. No se actualiza en vivo: se recalcula al cargar y tras entregar desde la tarjeta. Lógica en `src/lib/produccion/tablero.ts`, pantalla en
 `tablero-marcas.tsx`.
 
 **Bitácora de taller** (nov 2026; esta lista del inicio está **quitada por ahora**, ver Tablero): se llamaba "Bitácora de producción" (`lista-modelos.tsx`, 8 a la vista y
