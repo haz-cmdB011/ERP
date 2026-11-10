@@ -141,14 +141,14 @@ export default function TableroMarcas({
                 </div>
 
                 {!plegada && (
-                  <div className="grid gap-3 border-t border-slate-100 p-3 sm:grid-cols-2">
+                  <div className="grid gap-3 border-t border-slate-100 p-2 sm:grid-cols-2 sm:p-3">
                     {COLUMNAS_TABLERO.map((c) => {
                       const lista = enColumna(sec.tarjetas, c.valor);
                       const llave = `${sec.clave}|${c.valor}`;
                       const visibles = abiertas[llave] ? lista : lista.slice(0, TARJETAS_POR_COLUMNA);
                       const estilo = ESTILO_COLUMNA[c.valor];
                       return (
-                        <div key={c.valor} className={`flex min-h-32 min-w-0 flex-col gap-2 rounded-xl p-2.5 ${estilo.caja}`}>
+                        <div key={c.valor} className={`flex min-h-32 min-w-0 flex-col gap-2 rounded-xl p-2 sm:p-2.5 ${estilo.caja}`}>
                           <div className={`flex items-center justify-between rounded-lg px-3 py-1.5 ${estilo.cabecera}`}>
                             <h4 className="text-sm font-semibold">{c.titulo}</h4>
                             <span className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${estilo.cuenta}`}>{lista.length}</span>
@@ -213,11 +213,11 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
   const cerrar = () => setAbierta(false);
 
   return (
-    <li className={`flex items-start gap-3 rounded-lg border border-slate-200 ${franja} bg-white p-3 shadow-sm`}>
+    <li className={`flex items-start gap-2.5 rounded-lg border border-slate-200 ${franja} bg-white p-2.5 shadow-sm sm:gap-3 sm:p-3`}>
       {t.imagen ? (
-        <ImagenAmpliable url={t.imagen.url} urlGrande={t.imagen.urlGrande} alt={`Imagen de ${t.modelo}`} className="size-14" />
+        <ImagenAmpliable url={t.imagen.url} urlGrande={t.imagen.urlGrande} alt={`Imagen de ${t.modelo}`} className="size-12 sm:size-14" />
       ) : (
-        <span aria-hidden="true" title="Sin imagen" className="size-14 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50" />
+        <span aria-hidden="true" title="Sin imagen" className="size-12 shrink-0 sm:size-14 rounded border border-dashed border-slate-200 bg-slate-50" />
       )}
 
       <div
@@ -229,13 +229,13 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
             <Link
               href={t.hrefModelo}
               title={`Ver ${t.modelo} en el panel de asignación`}
-              className="block truncate text-base font-semibold text-slate-900 hover:underline"
+              className="line-clamp-2 break-words text-base font-semibold leading-snug text-slate-900 hover:underline"
             >
               {t.modelo}
             </Link>
-            {t.subtitulo && <p className="truncate text-sm text-slate-500">{t.subtitulo}</p>}
+            {t.subtitulo && <p className="line-clamp-2 break-words text-sm text-slate-500">{t.subtitulo}</p>}
           </div>
-          {t.conteos && <AnillosConcentricos conteos={t.conteos} tamano="size-16" />}
+          {t.conteos && <AnillosConcentricos conteos={t.conteos} tamano="size-12 sm:size-16" />}
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
