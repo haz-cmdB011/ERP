@@ -355,7 +355,8 @@ export function FilaMueble({
             aria-expanded={abierto}
             className="min-w-0 text-left"
           >
-            <span className="block truncate text-base font-semibold text-slate-900">
+            {/* Hasta dos renglones: en celular el botón de la derecha deja poco ancho y el modelo se cortaba. */}
+            <span className="line-clamp-2 break-words text-base font-semibold leading-snug text-slate-900">
               <span className="font-normal text-slate-400 tabular-nums">{m.item_code}</span> {m.modelo ?? "Sin modelo"}
             </span>
             <span className="block text-sm text-slate-500 tabular-nums">
@@ -372,8 +373,12 @@ export function FilaMueble({
           </button>
         </div>
 
-        {/* La ruta: en celular baja a su propia línea, debajo del nombre. */}
-        <ol className={`col-span-2 row-start-2 flex min-w-0 items-start ${columnas[1]} ${columnas[2]} ${columnas[3]}`}>
+        {/* La ruta: en celular baja a su propia línea, debajo del nombre. Si la ruta es larga (cinco
+            pasos o más) se desliza de lado en vez de salirse de la tarjeta; el pt-1 deja ver el "!" de
+            los rechazos, que asoma por arriba del anillo. */}
+        <ol
+          className={`col-span-2 row-start-2 -mt-1 -ml-1 flex min-w-0 items-start overflow-x-auto pt-1 pl-1 ${columnas[1]} ${columnas[2]} ${columnas[3]}`}
+        >
           {anillos.map((a, j) => (
             <li key={a.clave} className="flex flex-1 items-start last:flex-none">
               <button
@@ -388,7 +393,7 @@ export function FilaMueble({
                 // A la altura del centro del círculo (mitad de size-10, menos la mitad del grosor).
                 <span
                   aria-hidden
-                  className="mx-0.5 mt-[19px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
+                  className="mt-[19px] h-0.5 min-w-1 flex-1 rounded-full transition-colors sm:mx-0.5 sm:min-w-2"
                   style={{
                     background: a.estado === "terminado" ? COLOR.terminado : "var(--color-slate-200)",
                   }}

@@ -43,7 +43,7 @@ export default function ListaPedidos({
             >
               {f.titulo}
             </EnlaceFila>
-            <p className="truncate text-sm text-slate-700">
+            <p className="line-clamp-2 break-words text-sm text-slate-700">
               {[f.proyecto, f.cliente, f.pedidos > 1 ? `${f.pedidos} pedidos` : null].filter(Boolean).join(" · ")}
             </p>
           </div>

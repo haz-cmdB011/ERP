@@ -185,16 +185,17 @@ export default async function PanelAsignacionPage({
 
 
       <div className="flex flex-wrap items-center gap-3">
+        {/* En celular, dos por renglón a todo lo ancho: los cuatro en fila no caben y el último se cortaba. */}
         <nav
           aria-label="Filtrar por estado"
-          className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm"
+          className="grid w-full grid-cols-2 gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 text-sm sm:inline-flex sm:w-auto sm:gap-0"
         >
           {segmentos.map((f) => (
             <Link
               key={f.valor}
               href={href({ estado: f.valor })}
               aria-current={filtro === f.valor ? "true" : undefined}
-              className={`rounded-md px-3 py-1.5 whitespace-nowrap transition-colors ${
+              className={`flex min-h-11 items-center justify-center gap-1 rounded-md px-3 py-1.5 whitespace-nowrap transition-colors sm:min-h-0 ${
                 filtro === f.valor
                   ? "bg-slate-900 font-medium text-white"
                   : "text-slate-600 hover:bg-slate-100"

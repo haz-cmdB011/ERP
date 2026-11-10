@@ -174,7 +174,7 @@ export default function PanelAsignacion({
                 className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-100"
               >
                 <Chevron abierto={desplegado} className="h-4 w-4 shrink-0 text-slate-400" />
-                <span className="truncate text-base font-semibold text-slate-900">{pm.numeroPm}</span>
+                <span className="min-w-0 break-words text-base font-semibold leading-snug text-slate-900">{pm.numeroPm}</span>
                 {ot && <span className="hidden shrink-0 text-sm text-slate-400 sm:inline">O.T. {ot}</span>}
               </button>
               <span className="flex shrink-0 items-center gap-3 text-sm text-slate-600">

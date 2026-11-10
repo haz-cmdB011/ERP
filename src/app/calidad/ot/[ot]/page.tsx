@@ -194,7 +194,67 @@ export default async function OrdenTrabajoCalidadPage({
             </span>
             PM con muebles en producción
           </h2>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white shadow-sm">
+          {/* Celular: una tarjeta por PM con sus cinco conteos a la vista (la tabla mide más del doble
+              de la pantalla y había que deslizarla de lado para ver lo aprobado). */}
+          <ul className="flex flex-col gap-3 sm:hidden">
+            {pmsVisibles.map((p) => {
+              const activa = versionActiva.get(p.id);
+              const a = activa ? avancePorVersion.get(activa.id) : undefined;
+              const sinEvaluar = a ? a.enviados - a.aprobados - a.rechazados : 0;
+              const pctAprobado = a && a.enviados > 0 ? Math.round((a.aprobados / a.enviados) * 100) : 0;
+              const conteos: [string, number, string][] = [
+                ["En Calidad", a?.enviados ?? 0, "bg-sky-100 text-sky-900"],
+                ["Aprobados", a?.aprobados ?? 0, "bg-emerald-100 text-emerald-800"],
+                ["Rechazados", a?.rechazados ?? 0, "bg-rose-100 text-rose-800"],
+                ["Sin evaluar", sinEvaluar, "bg-amber-100 text-amber-800"],
+                ["En taller", a?.enTaller ?? 0, "bg-slate-100 text-slate-700"],
+              ];
+              return (
+                <li
+                  key={p.id}
+                  className="relative flex flex-col gap-3 rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white p-4 shadow-sm focus-within:bg-brand-50"
+                >
+                  <div className="flex flex-col gap-1">
+                    {/* El enlace cubre toda la tarjeta (after:inset-0). */}
+                    <EnlaceFila
+                      href={`/calidad/pedidos/${p.id}`}
+                      className="text-base font-semibold break-words text-slate-900 outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-brand-600 focus-visible:after:ring-inset"
+                    >
+                      {p.numero_pedido}
+                    </EnlaceFila>
+                    <p className="text-sm text-slate-600">
+                      {p.proyectos?.nombre ?? "—"}
+                      {p.cancelado_en && (
+                        <span className="ml-2 rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                          Cancelado
+                        </span>
+                      )}
+                    </p>
+                    {a && a.enviados > 0 && (
+                      <div className="flex items-center gap-2" title={`${a.aprobados} de ${a.enviados} aprobados`}>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pctAprobado}%` }} />
+                        </div>
+                        <span className="text-xs font-medium tabular-nums text-slate-500">{pctAprobado}%</span>
+                      </div>
+                    )}
+                  </div>
+                  <dl className="grid grid-cols-5 gap-1 text-center">
+                    {conteos.map(([etiqueta, valor, tono]) => (
+                      // La cifra arriba de su nombre (dt antes de dd, como pide <dl>).
+                      <div key={etiqueta} className="flex flex-col-reverse items-center justify-end gap-1">
+                        <dt className="text-[11px] leading-tight text-slate-500">{etiqueta}</dt>
+                        <dd>
+                          <Cifra valor={valor} tono={tono} />
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 border-t-4 border-t-brand-500 bg-white shadow-sm sm:block">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-slate-50 text-xs font-normal text-slate-600">

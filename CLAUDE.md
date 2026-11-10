@@ -499,6 +499,17 @@ de Producción y Calidad siguen yendo directo a su pantalla; las hojas viejas (d
   `src/lib/trazabilidad/pago-maquilador.ts` (+ `-db.ts`, `pago-qr.tsx`): el pago del maquilador va a
   cambiar y debe tocarse solo ahí.
 
+## Vista de celular
+
+En pantallas táctiles (`pointer: coarse`) `src/app/globals.css` da a todo botón, enlace, `summary`, pestaña y
+casilla con su texto una zona de toque de al menos 44 × 44 px con un `::after` invisible (no mueve el diseño), y
+los campos y `select` miden 44 px de alto. No la reciben los controles dentro de algo que se desliza de lado
+(`overflow-x-auto`: tablas, tiras del tablero), porque volvía desplazable el contenedor unos píxeles y atrapaba el
+dedo; ahí se agrandan en su pantalla (`pointer-coarse:min-h-11`, `min-h-11 sm:min-h-9`). Tampoco los que ya
+dibujan su `::after` (`after:` de Tailwind). Para que nada se corte a 375 px: filtros segmentados a todo lo ancho
+(2 × 2 o con texto que parte renglón), `line-clamp-2` en vez de `truncate` cuando hay espacio abajo, y tablas
+anchas como tarjetas en celular (ejemplo: Calidad › O.T.).
+
 ## Capturas sin conexión
 
 En el taller a veces se cae el Wi-Fi. La **entrega de Producción** se guarda en el

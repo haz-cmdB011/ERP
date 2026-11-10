@@ -89,7 +89,7 @@ const claseSelect = "rounded-lg border border-slate-200 bg-white px-2 py-1.5 tex
 const claseBotonPrimario =
   "rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-on-brand hover:bg-brand-400";
 const claseBotonFlecha =
-  "inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-brand-50";
+  "inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-brand-50 sm:min-h-9";
 
 // Dashboard del análisis de pagos (sustituye "Estimaciones SEM nn" y "FORMATO
 // MAQUILA"): recibos PAGADOS de las tres áreas, por semana, mes o año. En la
