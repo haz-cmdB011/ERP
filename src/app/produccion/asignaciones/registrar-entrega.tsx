@@ -162,7 +162,7 @@ export default function RegistrarEntrega({
       <button
         type="button"
         onClick={abrir}
-        className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 sm:px-3 sm:py-1.5 sm:text-xs"
+        className="rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
         Registrar entrega
       </button>

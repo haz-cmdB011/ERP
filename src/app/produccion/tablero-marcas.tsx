@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ImagenAmpliable from "@/components/imagen-ampliable";
-import { formatoFechaHora, textoMarca } from "@/lib/produccion/historial-marcas";
 import {
   COLUMNAS_TABLERO,
   MAX_TARJETAS_RECIENTES,
@@ -19,32 +18,24 @@ import {
 } from "@/lib/produccion/tablero";
 import { COLOR_ESTADO, AnillosConcentricos } from "./anillo-estados";
 import EntregarMueble from "./entregar-mueble";
-import VistaPreviaMueble, { claseMarca } from "./vista-previa-mueble";
+import VistaPreviaMueble from "./vista-previa-mueble";
 
-// Cada columna se distingue de un vistazo: caja teñida con borde marcado, encabezado de color sólido y
-// una franja del mismo color en el borde izquierdo de sus tarjetas.
-const ESTILO_COLUMNA: Record<Columna, { caja: string; cabecera: string; cuenta: string; franja: string }> = {
-  por_entregar: {
-    caja: "border-2 border-emerald-400 bg-emerald-100",
-    cabecera: "bg-emerald-600 text-white",
-    cuenta: "bg-white text-emerald-800",
-    franja: "border-l-4 border-l-emerald-500",
-  },
-  por_asignar: {
-    caja: "border-2 border-rose-400 bg-rose-100",
-    cabecera: "bg-rose-600 text-white",
-    cuenta: "bg-white text-rose-800",
-    franja: "border-l-4 border-l-rose-500",
-  },
+// Cada columna se distingue solo por un punto de color junto a su título: el resto es neutro, para que
+// el tablero no compita con los anillos de cada mueble (que son lo que lleva el color).
+const PUNTO_COLUMNA: Record<Columna, string> = {
+  por_entregar: "bg-emerald-500",
+  por_asignar: "bg-rose-400",
 };
 
-// Tablero separado por O.T.: cada O.T. es una sección que se pliega, con sus dos columnas, y cada
-// tarjeta dice de qué PM es (solo "PM009-26" o "SDC-1"). Cada mueble (o asignación) es una tarjeta con
-// su miniatura (que se amplía al tocarla), su nombre y los anillos de su modelo. En "Por asignar" lleva
-// el botón que abre el panel de asignación con ese mueble; en "Por entregar", el botón Entregar (abre la
-// ventana para registrar la entrega, o el panel si el mueble se entrega por partes) y una vista previa de
-// cómo va, que se abre en la misma tarjeta. Por omisión muestra lo más reciente que se trabajó; "Todos" lo
-// muestra completo.
+// Tablero separado por O.T.: cada O.T. es una sección que se pliega, con sus dos columnas ("Por entregar"
+// y "Por asignar"), una debajo de la otra. Cada columna es una tira de tarjetas que se desliza de lado
+// (con el dedo, o con las flechas en pantalla ancha), así que la altura de una O.T. no crece con la
+// cantidad de muebles. "Ver todos" abre una hoja con todos en cuadrícula. Cada mueble (o asignación) es
+// una tarjeta con su foto (que se amplía al tocarla) y los anillos de su modelo encima, su nombre, de qué
+// PM es (solo "PM009-26" o "SDC-1") y su botón: en "Por asignar", Asignar abre el panel de asignación con
+// ese mueble; en "Por entregar", Entregar abre la ventana para registrar la entrega (con un enlace al panel si el
+// mueble se entrega por partes, desde la misma ventana) y la barra de avance abre la vista previa. Por omisión muestra lo más
+// reciente que se trabajó; "Todos" lo muestra completo.
 export default function TableroMarcas({
   tarjetas,
   puedeEditar,
@@ -57,7 +48,8 @@ export default function TableroMarcas({
 }) {
   // Secciones plegadas por el usuario (por defecto todas abiertas si hay pocas; con muchas, solo la primera).
   const [plegadas, setPlegadas] = useState<Record<string, boolean>>({});
-  const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
+  // La columna cuya hoja "Ver todos" está abierta (clave de O.T. + columna).
+  const [hoja, setHoja] = useState<string | null>(null);
 
   // "Más recientes" muestra solo las tarjetas con movimiento más reciente; "Todos", el tablero completo.
   const [soloRecientes, setSoloRecientes] = useState(true);
@@ -73,115 +65,107 @@ export default function TableroMarcas({
 
   return (
     <section aria-label="Bitácora de producción" className="flex min-w-0 flex-col">
-      <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <h2 className="text-base font-semibold text-slate-900">Bitácora de producción</h2>
-        {acciones}
-      </header>
-      <div className="flex min-w-0 flex-col gap-3 p-4">
-        {hayMas && (
-          <div role="group" aria-label="Qué muebles ver" className="flex flex-wrap gap-2">
-            {[
-              { activo: true, etiqueta: "Más recientes", cuantos: MAX_TARJETAS_RECIENTES },
-              { activo: false, etiqueta: "Todos", cuantos: tarjetas.length },
-            ].map((o) => (
-              <button
-                key={o.etiqueta}
-                type="button"
-                onClick={() => setSoloRecientes(o.activo)}
-                aria-pressed={soloRecientes === o.activo}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
-                  soloRecientes === o.activo
-                    ? "border-slate-800 bg-slate-800 text-white"
-                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {o.etiqueta}
-                <span className="text-xs tabular-nums opacity-75">{o.cuantos}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {secciones.length === 0 && (
-          <p className="px-1 py-6 text-center text-sm text-slate-500">No hay muebles por entregar ni por asignar.</p>
-        )}
-
-        <div className="flex flex-col gap-4">
-          {secciones.map((sec, i) => {
-            const cuentas = conteosColumnas(sec.tarjetas);
-            const plegada = estaPlegada(sec, i);
-            return (
-              <section key={sec.clave} aria-label={sec.titulo} className="min-w-0 rounded-xl border border-slate-200 bg-white">
-                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPlegadas((p) => ({ ...p, [sec.clave]: !plegada }))}
-                      aria-expanded={!plegada}
-                      aria-label={`${plegada ? "Abrir" : "Plegar"} ${sec.titulo}`}
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-slate-300 text-slate-600 hover:bg-brand-50"
-                    >
-                      <Chevron className={`h-4 w-4 transition-transform ${plegada ? "-rotate-90" : ""}`} />
-                    </button>
-                    {sec.hrefOt ? (
-                      <Link href={sec.hrefOt} className="truncate text-base font-bold text-slate-900 hover:underline">
-                        {sec.titulo}
-                      </Link>
-                    ) : (
-                      <h3 className="truncate text-base font-bold text-slate-900">{sec.titulo}</h3>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 gap-1.5 text-xs font-semibold tabular-nums" aria-label="Cuántas hay en cada columna">
-                    {COLUMNAS_TABLERO.map((c) => (
-                      <span key={c.valor} className={`rounded-full px-2 py-0.5 ${ESTILO_COLUMNA[c.valor].cabecera}`} title={c.titulo}>
-                        {cuentas[c.valor]}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {!plegada && (
-                  <div className="grid gap-3 border-t border-slate-100 p-3 sm:grid-cols-2">
-                    {COLUMNAS_TABLERO.map((c) => {
-                      const lista = enColumna(sec.tarjetas, c.valor);
-                      const llave = `${sec.clave}|${c.valor}`;
-                      const visibles = abiertas[llave] ? lista : lista.slice(0, TARJETAS_POR_COLUMNA);
-                      const estilo = ESTILO_COLUMNA[c.valor];
-                      return (
-                        <div key={c.valor} className={`flex min-h-32 min-w-0 flex-col gap-2 rounded-xl p-2.5 ${estilo.caja}`}>
-                          <div className={`flex items-center justify-between rounded-lg px-3 py-1.5 ${estilo.cabecera}`}>
-                            <h4 className="text-sm font-semibold">{c.titulo}</h4>
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${estilo.cuenta}`}>{lista.length}</span>
-                          </div>
-
-                          {lista.length === 0 ? (
-                            <p className="px-1 py-4 text-center text-xs font-medium text-slate-500">Nada por aquí</p>
-                          ) : (
-                            <ul className="flex flex-col gap-2">
-                              {visibles.map((t) => (
-                                <TarjetaVista key={t.clave} t={t} franja={estilo.franja} puedeEditar={puedeEditar} />
-                              ))}
-                            </ul>
-                          )}
-
-                          {lista.length > TARJETAS_POR_COLUMNA && (
-                            <button
-                              type="button"
-                              onClick={() => setAbiertas((a) => ({ ...a, [llave]: !a[llave] }))}
-                              className="rounded-md px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-white/70"
-                            >
-                              {abiertas[llave] ? "Ver menos" : `Ver todas (${lista.length})`}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            );
-          })}
+      {(hayMas || acciones) && (
+        <div className="flex items-center justify-between gap-3 px-5 pt-4">
+          {hayMas ? (
+            <div role="group" aria-label="Qué muebles ver" className="flex gap-4 text-sm">
+              {[
+                { activo: true, etiqueta: "Más recientes", cuantos: MAX_TARJETAS_RECIENTES },
+                { activo: false, etiqueta: "Todos", cuantos: tarjetas.length },
+              ].map((o) => (
+                <button
+                  key={o.etiqueta}
+                  type="button"
+                  onClick={() => setSoloRecientes(o.activo)}
+                  aria-pressed={soloRecientes === o.activo}
+                  className={`border-b pb-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+                    soloRecientes === o.activo
+                      ? "border-slate-900 font-medium text-slate-900"
+                      : "border-transparent text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  {o.etiqueta}
+                  <span className="ml-1.5 text-xs tabular-nums text-slate-400">{o.cuantos}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span />
+          )}
+          {acciones}
         </div>
+      )}
+
+      {secciones.length === 0 && (
+        <p className="px-5 py-10 text-center text-sm text-slate-500">No hay muebles por entregar ni por asignar.</p>
+      )}
+
+      <div className="flex flex-col divide-y divide-slate-100">
+        {secciones.map((sec, i) => {
+          const cuentas = conteosColumnas(sec.tarjetas);
+          const plegada = estaPlegada(sec, i);
+          return (
+            <section key={sec.clave} aria-label={sec.titulo} className="min-w-0 px-5">
+              <div className="flex flex-wrap items-center justify-between gap-2 py-4">
+                <div className="flex min-w-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPlegadas((p) => ({ ...p, [sec.clave]: !plegada }))}
+                    aria-expanded={!plegada}
+                    aria-label={`${plegada ? "Abrir" : "Plegar"} ${sec.titulo}`}
+                    className="-ml-1.5 grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition-colors hover:text-slate-900"
+                  >
+                    <Chevron className={`size-4 transition-transform motion-reduce:transition-none ${plegada ? "-rotate-90" : ""}`} />
+                  </button>
+                  {sec.hrefOt ? (
+                    <Link href={sec.hrefOt} className="truncate text-base font-medium text-slate-900 hover:underline">
+                      {sec.titulo}
+                    </Link>
+                  ) : (
+                    <h3 className="truncate text-base font-medium text-slate-900">{sec.titulo}</h3>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-4 text-sm tabular-nums text-slate-500" aria-label="Cuántas hay en cada columna">
+                  {COLUMNAS_TABLERO.map((c) => (
+                    <span key={c.valor} className="inline-flex items-center gap-1.5" title={c.titulo}>
+                      <span aria-hidden="true" className={`size-1.5 rounded-full ${PUNTO_COLUMNA[c.valor]}`} />
+                      {cuentas[c.valor]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {!plegada && (
+                <div className="flex flex-col gap-6 pb-6">
+                  {COLUMNAS_TABLERO.map((c) => {
+                    const lista = enColumna(sec.tarjetas, c.valor);
+                    const llave = `${sec.clave}|${c.valor}`;
+                    return (
+                      <Tira
+                        key={c.valor}
+                        columna={c.valor}
+                        titulo={c.titulo}
+                        lista={lista}
+                        puedeEditar={puedeEditar}
+                        alVerTodos={() => setHoja(llave)}
+                      >
+                        {hoja === llave && (
+                          <HojaTodos
+                            columna={c.valor}
+                            titulo={`${c.titulo} · ${sec.titulo}`}
+                            lista={lista}
+                            puedeEditar={puedeEditar}
+                            alCerrar={() => setHoja(null)}
+                          />
+                        )}
+                      </Tira>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })}
       </div>
     </section>
   );
@@ -195,123 +179,273 @@ function Chevron({ className }: { className: string }) {
   );
 }
 
-const ESTILO_BOTON_ENTREGAR =
-  "rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
+// Una columna de una O.T.: su título con cuántas hay y, debajo, la tira de tarjetas que se desliza de
+// lado. La tira llega hasta el borde de la pantalla y asoma la tarjeta siguiente, para que se note que
+// hay más. Con más de unas pocas tarjetas: "Ver todos" (abre la hoja) y, en pantalla ancha, flechas.
+function Tira({
+  columna,
+  titulo,
+  lista,
+  puedeEditar,
+  alVerTodos,
+  children,
+}: {
+  columna: Columna;
+  titulo: string;
+  lista: TarjetaTablero[];
+  puedeEditar: boolean;
+  alVerTodos: () => void;
+  children?: React.ReactNode;
+}) {
+  const pista = useRef<HTMLUListElement | null>(null);
 
-function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: string; puedeEditar: boolean }) {
+  function mover(sentido: 1 | -1) {
+    const el = pista.current;
+    if (!el) return;
+    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollBy({ left: sentido * el.clientWidth * 0.8, behavior: suave ? "smooth" : "auto" });
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col">
+      <div className="flex items-center gap-2 pb-3 text-sm text-slate-500">
+        <span aria-hidden="true" className={`size-1.5 rounded-full ${PUNTO_COLUMNA[columna]}`} />
+        <h4 className="font-medium text-slate-700">{titulo}</h4>
+        <span className="tabular-nums">{lista.length}</span>
+        {lista.length > 2 && (
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={alVerTodos}
+              aria-haspopup="dialog"
+              className="rounded px-1.5 py-0.5 text-slate-500 transition-colors hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              Ver todos
+            </button>
+            {lista.length > 4 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => mover(-1)}
+                  aria-label={`Anteriores de ${titulo}`}
+                  className="hidden size-7 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand-600 sm:grid"
+                >
+                  <Chevron className="size-4 rotate-90" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mover(1)}
+                  aria-label={`Siguientes de ${titulo}`}
+                  className="hidden size-7 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand-600 sm:grid"
+                >
+                  <Chevron className="size-4 -rotate-90" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {lista.length === 0 ? (
+        <p className="text-sm text-slate-500">Nada por aquí</p>
+      ) : (
+        <ul
+          ref={pista}
+          className="-mx-5 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain scroll-px-5 px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {lista.slice(0, TARJETAS_POR_COLUMNA).map((t) => (
+            <TarjetaVista
+              key={t.clave}
+              t={t}
+              puedeEditar={puedeEditar}
+              ancho="w-36 shrink-0 snap-start sm:w-44"
+            />
+          ))}
+        </ul>
+      )}
+      {children}
+    </div>
+  );
+}
+
+// Todos los muebles de una columna, en cuadrícula, sobre la página: sube desde abajo en celular y se
+// centra en pantalla ancha. Esc, la × o tocar fuera la cierran.
+function HojaTodos({
+  columna,
+  titulo,
+  lista,
+  puedeEditar,
+  alCerrar,
+}: {
+  columna: Columna;
+  titulo: string;
+  lista: TarjetaTablero[];
+  puedeEditar: boolean;
+  alCerrar: () => void;
+}) {
+  const cerrarAhora = useRef(alCerrar);
+  useEffect(() => {
+    cerrarAhora.current = alCerrar;
+  });
+  useEffect(() => {
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cerrarAhora.current();
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => {
+      window.removeEventListener("keydown", alTeclear);
+      document.body.style.overflow = overflow;
+    };
+  }, []);
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label={`Todos: ${titulo}`} className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+      <button
+        type="button"
+        aria-label="Cerrar"
+        tabIndex={-1}
+        onClick={alCerrar}
+        className="absolute inset-0 cursor-default bg-scrim/55 backdrop-blur-sm"
+      />
+      <div className="relative flex max-h-[88vh] w-full max-w-4xl flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
+        <header className="flex items-center gap-2 border-b border-slate-100 px-5 py-4 text-sm text-slate-500">
+          <span aria-hidden="true" className={`size-1.5 rounded-full ${PUNTO_COLUMNA[columna]}`} />
+          <h2 className="min-w-0 truncate text-base font-medium text-slate-900">{titulo}</h2>
+          <span className="tabular-nums">{lista.length}</span>
+          <button
+            type="button"
+            onClick={alCerrar}
+            aria-label="Cerrar"
+            className="ml-auto grid size-8 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand-600"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="size-4" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </header>
+        <ul className="grid grid-cols-2 gap-x-3 gap-y-6 overflow-y-auto p-5 sm:grid-cols-3 lg:grid-cols-4">
+          {lista.map((t) => (
+            <TarjetaVista key={t.clave} t={t} puedeEditar={puedeEditar} ancho="min-w-0" />
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// Los botones de la tarjeta tienen cuerpo propio para que se note que se presionan: Entregar, que cierra
+// el trabajo, va relleno de tinta; Asignar, que hay varios por columna, va con un relleno suave. Ocupan
+// todo el ancho de la tarjeta, al pie.
+const BOTON_BASE =
+  "inline-flex w-full items-center justify-center rounded-full px-4 py-1.5 text-sm font-medium transition-colors active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
+const ESTILO_ENTREGAR = `${BOTON_BASE} bg-slate-900 text-white hover:bg-slate-700`;
+const ESTILO_ASIGNAR = `${BOTON_BASE} bg-slate-100 text-slate-900 ring-1 ring-inset ring-slate-200 hover:bg-slate-200`;
+
+function TarjetaVista({ t, puedeEditar, ancho }: { t: TarjetaTablero; puedeEditar: boolean; ancho: string }) {
   // La vista previa flotante (con la bitácora de la asignación) y la ventana de entrega. `marca` es la
   // vigente (la que viene o la que se marcó en la vista previa).
   const [abierta, setAbierta] = useState(false);
   const [entregando, setEntregando] = useState(false);
   const [marca, setMarca] = useState(t.marca);
-  const [ultimoPase, setUltimoPase] = useState<{ marca: boolean | null; en: string } | null>(null);
-
-  function registrar(nueva: boolean | null) {
-    setMarca(nueva);
-    setUltimoPase({ marca: nueva, en: new Date().toISOString() });
-  }
   const cerrar = () => setAbierta(false);
 
+  const accion =
+    t.avance && t.asignacionId
+      ? puedeEditar && (
+          <button
+            type="button"
+            onClick={() => setEntregando(true)}
+            aria-haspopup="dialog"
+            title={`Registrar la entrega de ${t.modelo}`}
+            className={ESTILO_ENTREGAR}
+          >
+            Entregar
+          </button>
+        )
+      : t.hrefAsignar && (
+          <Link href={t.hrefAsignar} title={`Abrir ${t.modelo} en el panel de asignación`} className={ESTILO_ASIGNAR}>
+            Asignar
+          </Link>
+        );
+
   return (
-    <li className={`flex items-start gap-3 rounded-lg border border-slate-200 ${franja} bg-white p-3 shadow-sm`}>
-      {t.imagen ? (
-        <ImagenAmpliable url={t.imagen.url} urlGrande={t.imagen.urlGrande} alt={`Imagen de ${t.modelo}`} className="size-14" />
-      ) : (
-        <span aria-hidden="true" title="Sin imagen" className="size-14 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50" />
-      )}
+    <li className={`flex flex-col gap-2.5 ${ancho}`}>
+      <div className="relative">
+        {t.imagen ? (
+          <ImagenAmpliable
+            url={t.imagen.url}
+            urlGrande={t.imagen.urlGrande}
+            alt={`Imagen de ${t.modelo}`}
+            className="aspect-[4/3] w-full rounded-lg! p-1"
+            ajuste="contain"
+          />
+        ) : (
+          <span aria-hidden="true" title="Sin imagen" className="block aspect-[4/3] w-full rounded-lg bg-slate-100" />
+        )}
+        {t.conteos && (
+          <span className="pointer-events-none absolute right-1.5 top-1.5 rounded-full bg-white/90 p-0.5">
+            <AnillosConcentricos conteos={t.conteos} tamano="size-9" />
+          </span>
+        )}
+      </div>
 
       <div
         title={`${t.modelo} · ${t.ot ? `O.T. ${t.ot}` : "Sin O.T."} · ${t.numeroPm}`}
-        className="flex min-w-0 flex-1 flex-col gap-1.5"
+        className="flex min-w-0 flex-1 flex-col gap-0.5"
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <Link
-              href={t.hrefModelo}
-              title={`Ver ${t.modelo} en el panel de asignación`}
-              className="block truncate text-base font-semibold text-slate-900 hover:underline"
-            >
-              {t.modelo}
-            </Link>
-            {t.subtitulo && <p className="truncate text-sm text-slate-500">{t.subtitulo}</p>}
-          </div>
-          {t.conteos && <AnillosConcentricos conteos={t.conteos} tamano="size-16" />}
+        <Link
+          href={t.hrefModelo}
+          title={`Ver ${t.modelo} en el panel de asignación`}
+          className="line-clamp-2 text-base font-medium leading-snug text-slate-900 hover:underline"
+        >
+          {t.modelo}
+        </Link>
+        {t.subtitulo && <p className="truncate text-sm text-slate-500">{t.subtitulo}</p>}
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
+          <Link
+            href={t.hrefPm}
+            title={`Abrir el pedido ${t.numeroPm}`}
+            className="text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline"
+          >
+            {t.pmCorto}
+          </Link>
+          {!t.avance && <span className="tabular-nums text-slate-500">{t.piezas}</span>}
         </div>
+      </div>
 
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <Link
-              href={t.hrefPm}
-              title={`Abrir el pedido ${t.numeroPm}`}
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm font-medium text-slate-700 transition-colors hover:border-brand-400 hover:text-slate-900"
-            >
-              {t.pmCorto}
-            </Link>
-            {!t.avance && <span className="text-sm tabular-nums text-slate-600">{t.piezas}</span>}
-          </div>
+      {t.avance && t.asignacionId && <ResumenAvance avance={t.avance} alAbrir={() => setAbierta(true)} />}
+      {accion && <div>{accion}</div>}
 
-          {t.avance && t.asignacionId
-            ? puedeEditar &&
-              (t.avance.porPartes && t.hrefPanel ? (
-                <Link
-                  href={t.hrefPanel}
-                  title="Este mueble se entrega por partes: se abre el panel de asignación"
-                  className={ESTILO_BOTON_ENTREGAR}
-                >
-                  Entregar
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setEntregando(true)}
-                  aria-haspopup="dialog"
-                  title={`Registrar la entrega de ${t.modelo}`}
-                  className={ESTILO_BOTON_ENTREGAR}
-                >
-                  Entregar
-                </button>
-              ))
-            : t.hrefAsignar && (
-                <Link
-                  href={t.hrefAsignar}
-                  title={`Abrir ${t.modelo} en el panel de asignación`}
-                  className="rounded-md border border-brand-600 px-4 py-1.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-                >
-                  Asignar
-                </Link>
-              )}
-        </div>
-
-        {t.avance && t.asignacionId && (
-          <>
-            <ResumenAvance avance={t.avance} alAbrir={() => setAbierta(true)} />
-            {ultimoPase && (
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-slate-600" role="status">
-                <span className={`rounded-full px-2 py-0.5 font-semibold ${claseMarca(ultimoPase.marca)}`}>{textoMarca(ultimoPase.marca)}</span>
-                <span className="tabular-nums">Registrado {formatoFechaHora(ultimoPase.en)}</span>
-              </p>
-            )}
-            {entregando && (
-              <EntregarMueble t={t} avance={t.avance} asignacionId={t.asignacionId} alCerrar={() => setEntregando(false)} />
-            )}
-            <VistaPreviaMueble
+      {t.avance && t.asignacionId && (
+        <>
+          {entregando && (
+            <EntregarMueble
               t={t}
               avance={t.avance}
               asignacionId={t.asignacionId}
-              abierta={abierta}
-              alCerrar={cerrar}
-              marca={marca}
-              puedeEditar={puedeEditar}
-              alGuardar={registrar}
+              hrefPartes={t.avance.porPartes ? t.hrefPanel : null}
+              alCerrar={() => setEntregando(false)}
             />
-          </>
-        )}
-      </div>
+          )}
+          <VistaPreviaMueble
+            t={t}
+            avance={t.avance}
+            asignacionId={t.asignacionId}
+            abierta={abierta}
+            alCerrar={cerrar}
+            marca={marca}
+            puedeEditar={puedeEditar}
+            alGuardar={setMarca}
+          />
+        </>
+      )}
     </li>
   );
 }
 
-// Lo entregado por el equipo (una barra y "5 de 13 PZA"). Al tocarla se abre la vista previa del mueble.
+// Lo entregado por el equipo ("5 de 13 PZA" y una barra). Al tocarlo se abre la vista previa del mueble.
 function ResumenAvance({ avance: a, alAbrir }: { avance: AvanceTarjeta; alAbrir: () => void }) {
   const color = a.pct >= 100 ? COLOR_ESTADO.terminado : COLOR_ESTADO.en_proceso;
   const unidad = a.unidad ? ` ${a.unidad}` : "";
@@ -321,23 +455,23 @@ function ResumenAvance({ avance: a, alAbrir }: { avance: AvanceTarjeta; alAbrir:
       onClick={alAbrir}
       aria-haspopup="dialog"
       title="Ver vista previa"
-      className="flex w-full items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+      className="group -mx-2 flex cursor-pointer flex-col gap-1.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
     >
-      <Barra pct={a.pct} color={color} />
-      <span className="shrink-0 text-sm tabular-nums text-slate-700">
-        <b className="font-semibold">{a.entregado}</b> de {a.total}
-        {unidad}
+      <span className="flex items-center justify-between text-sm tabular-nums text-slate-700">
+        <span>
+          <span className="font-medium text-slate-900">{a.entregado}</span> de {a.total}
+          {unidad}
+        </span>
+        <Chevron className="size-4 -rotate-90 text-slate-400 transition-colors group-hover:text-slate-900" />
       </span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-3.5 shrink-0 text-slate-500" aria-hidden="true">
-        <path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" />
-      </svg>
+      <Barra pct={a.pct} color={color} />
     </button>
   );
 }
 
 function Barra({ pct, color }: { pct: number; color: string }) {
   return (
-    <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+    <span className="block h-1.5 w-full overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
       <span className="block h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} />
     </span>
   );

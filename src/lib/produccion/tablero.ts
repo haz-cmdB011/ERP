@@ -43,7 +43,8 @@ export interface AvanceTarjeta {
   ultimaEntrega: string | null;
   // Día en que se asignó (AAAA-MM-DD): la entrega no puede ser anterior. null si no se sabe.
   fechaAsignacion: string | null;
-  // El mueble se entrega por partes de su despiece: no se registra desde la tarjeta sino en el panel.
+  // El mueble tiene despiece: además de entregarlo completo desde la tarjeta, se puede entregar por
+  // partes, y eso se hace en el panel.
   porPartes: boolean;
   // Cómo va cada proceso del mueble (Armado, Barniz…); vacío si no se sabe.
   procesos: ProcesoAvance[];
