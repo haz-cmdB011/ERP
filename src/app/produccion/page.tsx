@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
+import { plazosDePedidos } from "@/lib/produccion/cargar-taller";
+import { contarRechazosPorReasignar } from "@/lib/produccion/rechazos-pendientes-db";
 import { armarBitacora } from "@/lib/produccion/bitacora";
 import { renglonesDeTablero } from "@/lib/produccion/control-taller";
 import { tarjetasDeControl, type TarjetaTablero } from "@/lib/produccion/tablero";
@@ -15,6 +17,7 @@ import {
   type OtPendiente,
 } from "@/lib/produccion/inicio";
 import { cargarMueblesInicio } from "@/lib/produccion/inicio-db";
+import ActualizarSolo from "./actualizar-solo";
 import AnilloEstados, { MuestraAnillo } from "./anillo-estados";
 import TableroMarcas from "./tablero-marcas";
 
@@ -27,10 +30,12 @@ const OTS_A_LA_VISTA = 4;
 export default async function ProduccionInicioPage() {
   const supabase = await createClient();
   const hoy = hoyMexico();
-  const [muebles, { asignaciones, plazos, ots: otsDePm, marcas }, perfil] = await Promise.all([
+  const generadoEn = new Date().toISOString();
+  const [muebles, { asignaciones, plazos, ots: otsDePm, marcas }, perfil, rechazos] = await Promise.all([
     cargarMueblesInicio(supabase),
     cargarBitacora(supabase, hoy),
     getPerfilActual(supabase),
+    contarRechazosPorReasignar(supabase),
   ]);
   const puedeEditar = puedeEditarProduccion(perfil);
 
@@ -50,7 +55,13 @@ export default async function ProduccionInicioPage() {
   );
   // Los anillos de cada tarjeta: cuántos muebles de ese modelo hay en cada estado.
   const conteosPorModelo = new Map(modelosRecientes(muebles).map((m) => [m.modelo, m.conteos]));
-  const tarjetas: TarjetaTablero[] = tarjetasDeControl(renglones, { imagenes, conteosPorModelo });
+  // El plazo de cada PM (su fecha de entrega) para avisar lo atrasado y poner primero lo urgente.
+  const plazosDeTarjetas = await plazosDePedidos(
+    supabase,
+    renglones.flatMap((r) => (r.pedidoId ? [r.pedidoId] : [])),
+    hoy
+  );
+  const tarjetas: TarjetaTablero[] = tarjetasDeControl(renglones, { imagenes, conteosPorModelo, plazos: plazosDeTarjetas });
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
@@ -61,8 +72,25 @@ export default async function ProduccionInicioPage() {
             {muebles.length} muebles vigentes · {conteos.terminado} terminado{conteos.terminado === 1 ? "" : "s"}
           </p>
         </div>
-        <Leyenda />
+        <div className="flex flex-col items-start gap-1.5 sm:items-end">
+          <Leyenda />
+          <ActualizarSolo generadoEn={generadoEn} />
+        </div>
       </div>
+
+      {/* Lo que Calidad rechazó y Producción debe reasignar como retrabajo (se atiende en Rechazos). */}
+      {rechazos > 0 && (
+        <Link
+          href="/produccion/rechazos"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900 transition-colors hover:bg-rose-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+        >
+          <span>
+            <b className="tabular-nums">{rechazos}</b>{" "}
+            {rechazos === 1 ? "rechazo de Calidad espera" : "rechazos de Calidad esperan"} reasignación
+          </span>
+          <span className="font-semibold">Ver rechazos →</span>
+        </Link>
+      )}
 
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
         <TableroMarcas tarjetas={tarjetas} puedeEditar={puedeEditar} />

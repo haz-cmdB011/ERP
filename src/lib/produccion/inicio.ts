@@ -20,7 +20,7 @@ export type EstadoInicio = "por_liberar" | EstadoMueble;
 export const ESTADOS_INICIO: { valor: EstadoInicio; etiqueta: string }[] = [
   { valor: "por_liberar", etiqueta: "Por liberar" },
   { valor: "por_asignar", etiqueta: "Por asignar" },
-  { valor: "en_proceso", etiqueta: "En taller" },
+  { valor: "en_proceso", etiqueta: "Por entregar" },
   { valor: "terminado", etiqueta: "Terminados" },
 ];
 

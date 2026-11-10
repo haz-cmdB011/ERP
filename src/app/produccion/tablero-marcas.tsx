@@ -131,7 +131,12 @@ export default function TableroMarcas({
                       <h3 className="truncate text-base font-bold text-slate-900">{sec.titulo}</h3>
                     )}
                   </div>
-                  <div className="flex shrink-0 gap-1.5 text-xs font-semibold tabular-nums" aria-label="Cuántas hay en cada columna">
+                  <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold tabular-nums" aria-label="Cuántas hay en cada columna">
+                    {sec.atrasadas > 0 && (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-800" title="Con la fecha de entrega del PM vencida">
+                        {sec.atrasadas} atrasada{sec.atrasadas === 1 ? "" : "s"}
+                      </span>
+                    )}
                     {COLUMNAS_TABLERO.map((c) => (
                       <span key={c.valor} className={`rounded-full px-2 py-0.5 ${ESTILO_COLUMNA[c.valor].cabecera}`} title={c.titulo}>
                         {cuentas[c.valor]}
@@ -247,6 +252,16 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
             >
               {t.pmCorto}
             </Link>
+            {t.plazo && (
+              <span
+                className={`rounded-md px-2 py-1 text-sm font-semibold ${
+                  t.plazo.nivel === "vencido" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"
+                }`}
+                title="Según la fecha de entrega del PM"
+              >
+                {t.plazo.texto}
+              </span>
+            )}
             {!t.avance && <span className="text-sm tabular-nums text-slate-600">{t.piezas}</span>}
           </div>
 

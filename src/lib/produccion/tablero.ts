@@ -6,6 +6,7 @@
 // poder probarla; la pantalla vive en tablero-marcas.tsx.
 
 import { pmCorto } from "../planeacion/pm-corto";
+import { textoPlazo, type Plazo } from "./atrasos";
 import type { RenglonControl } from "./control-taller";
 import { claveModelo, type Conteos, type ProcesoAvance } from "./inicio";
 
@@ -49,6 +50,32 @@ export interface AvanceTarjeta {
   procesos: ProcesoAvance[];
 }
 
+// Aviso de plazo de una tarjeta, según la fecha de entrega de su PM: atrasada, vence hoy o vence pronto.
+export interface PlazoTarjeta {
+  texto: string;
+  nivel: "vencido" | "hoy" | "por-vencer";
+  // Menor = más urgente: las atrasadas (más días primero), hoy y las que vencen pronto (menos días primero).
+  orden: number;
+}
+
+export function plazoDeTarjeta(plazo: Plazo | undefined): PlazoTarjeta | null {
+  const texto = plazo ? textoPlazo(plazo) : null;
+  if (!plazo || !texto) return null;
+  if (plazo.tipo === "vencido") return { texto, nivel: "vencido", orden: -plazo.dias };
+  if (plazo.tipo === "hoy") return { texto, nivel: "hoy", orden: 0 };
+  if (plazo.tipo === "por-vencer") return { texto, nivel: "por-vencer", orden: plazo.dias };
+  return null;
+}
+
+// Menor = más urgente; lo que no tiene aviso va después de todo lo que sí.
+export const urgenciaDe = (t: Pick<TarjetaTablero, "plazo">): number => t.plazo?.orden ?? Number.POSITIVE_INFINITY;
+
+const porUrgencia = (a: Pick<TarjetaTablero, "plazo">, b: Pick<TarjetaTablero, "plazo">): number => {
+  const x = urgenciaDe(a);
+  const y = urgenciaDe(b);
+  return x === y ? 0 : x < y ? -1 : 1;
+};
+
 // Lo que necesita una tarjeta (solo datos simples: viaja del servidor al navegador).
 export interface TarjetaTablero {
   // asignacion:<id> o mueble:<id>
@@ -75,6 +102,8 @@ export interface TarjetaTablero {
   conteos: Conteos | null;
   // Lo último que le pasó (ISO o día; "" si no se sabe): ordena lo más reciente primero.
   reciente: string;
+  // Aviso de plazo del PM (atrasada, vence hoy, vence pronto); null si no hay nada que avisar. Lo urgente va primero.
+  plazo: PlazoTarjeta | null;
   // Los accesos de siempre: el nombre del modelo abre el panel de asignación y la O.T. y el PM abren sus
   // pantallas (la O.T. abre el pedido si no tiene O.T. con formato).
   hrefModelo: string;
@@ -121,14 +150,20 @@ export function diaCorto(fecha: string | null): string {
 }
 
 // `imagenes`: la miniatura de cada mueble, por su id; `conteosPorModelo`: los anillos de cada modelo, por su
-// clave (ver claveModelo). Las tarjetas salen con lo más reciente primero (a igual momento, en el orden en
-// que llegaron).
+// clave (ver claveModelo); `plazos`: el plazo de cada PM, por su id. Las tarjetas salen con lo urgente primero
+// (atrasadas, vencen hoy, vencen pronto) y, a igual urgencia, lo más reciente (a igual momento, en el orden
+// en que llegaron).
 export function tarjetasDeControl(
   renglones: RenglonControl[],
   {
     imagenes = {},
     conteosPorModelo = new Map(),
-  }: { imagenes?: Record<string, ImagenTarjeta>; conteosPorModelo?: ReadonlyMap<string, Conteos> } = {}
+    plazos = new Map(),
+  }: {
+    imagenes?: Record<string, ImagenTarjeta>;
+    conteosPorModelo?: ReadonlyMap<string, Conteos>;
+    plazos?: ReadonlyMap<string, Plazo>;
+  } = {}
 ): TarjetaTablero[] {
   const tarjetas: TarjetaTablero[] = [];
   for (const r of renglones) {
@@ -157,6 +192,7 @@ export function tarjetasDeControl(
       imagen: (r.planeacionItemId && imagenes[r.planeacionItemId]) || null,
       conteos: conteosPorModelo.get(claveModelo(r.modelo)) ?? null,
       reciente: r.reciente,
+      plazo: plazoDeTarjeta(r.pedidoId ? plazos.get(r.pedidoId) : undefined),
       hrefModelo: `/produccion/panel?estado=todos&q=${encodeURIComponent(r.modelo)}`,
       hrefOt: r.ot && /^\d+-\d{2}$/.test(r.ot) ? `/produccion/ot/${r.ot}` : `/produccion/pedidos/${r.pedidoId}`,
       hrefPm: r.pedidoId ? `/produccion/pedidos/${r.pedidoId}` : r.ot && /^\d+-\d{2}$/.test(r.ot) ? `/produccion/ot/${r.ot}` : "/produccion/pedidos",
@@ -165,15 +201,16 @@ export function tarjetasDeControl(
       avance: columna === "por_entregar" ? avanceDe(r, unidad) : null,
     });
   }
-  return tarjetas.sort((a, b) => b.reciente.localeCompare(a.reciente));
+  return tarjetas.sort((a, b) => porUrgencia(a, b) || b.reciente.localeCompare(a.reciente));
 }
 
-// Claves de las `n` tarjetas con movimiento más reciente (a igual momento, las primeras de la lista).
+// Claves de las `n` tarjetas que más importan: primero lo urgente (atrasadas, vencen hoy o pronto) y después lo
+// de movimiento más reciente (a igual momento, las primeras de la lista).
 export function clavesMasRecientes(tarjetas: TarjetaTablero[], n: number = MAX_TARJETAS_RECIENTES): Set<string> {
   return new Set(
     tarjetas
       .map((t, i) => ({ t, i }))
-      .sort((a, b) => b.t.reciente.localeCompare(a.t.reciente) || a.i - b.i)
+      .sort((a, b) => porUrgencia(a.t, b.t) || b.t.reciente.localeCompare(a.t.reciente) || a.i - b.i)
       .slice(0, n)
       .map(({ t }) => t.clave)
   );
@@ -191,6 +228,9 @@ export interface SeccionTablero {
   hrefOt: string | null;
   // Lo último que le pasó a alguna de sus tarjetas (vacío si no se sabe).
   reciente: string;
+  // Cuántas de sus tarjetas están atrasadas y la urgencia de la más urgente (ver urgenciaDe).
+  atrasadas: number;
+  urgencia: number;
   tarjetas: TarjetaTablero[];
 }
 
@@ -210,17 +250,22 @@ export function seccionesPorOt(tarjetas: TarjetaTablero[]): SeccionTablero[] {
         titulo: t.ot ? `O.T. ${t.ot}` : "Sin O.T.",
         hrefOt: t.ot && /^\d+-\d{2}$/.test(t.ot) ? t.hrefOt : null,
         reciente: "",
+        atrasadas: 0,
+        urgencia: Number.POSITIVE_INFINITY,
         tarjetas: [],
       };
       porClave.set(clave, s);
     }
     s.tarjetas.push(t);
     if (t.reciente > s.reciente) s.reciente = t.reciente;
+    if (t.plazo?.nivel === "vencido") s.atrasadas += 1;
+    s.urgencia = Math.min(s.urgencia, urgenciaDe(t));
   }
   return [...porClave.values()].sort((a, b) => {
     if (a.ot === null) return 1;
     if (b.ot === null) return -1;
-    return b.reciente.localeCompare(a.reciente) || natural(b.ot, a.ot);
+    const porSeccion = a.urgencia === b.urgencia ? 0 : a.urgencia < b.urgencia ? -1 : 1;
+    return porSeccion || b.reciente.localeCompare(a.reciente) || natural(b.ot, a.ot);
   });
 }
 
