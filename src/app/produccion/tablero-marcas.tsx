@@ -216,9 +216,13 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
     setUltimoPase({ marca: nueva, en: new Date().toISOString() });
   }
   const cerrar = () => setAbierta(false);
+  // Producción marcó "No está" (tache) en la bitácora de esa asignación: se ve en la tarjeta sin abrir nada.
+  const noEsta = !!t.asignacionId && marca === false;
 
   return (
-    <li className={`flex items-start gap-2.5 rounded-lg border border-slate-200 ${franja} bg-white p-2.5 shadow-sm sm:gap-3 sm:p-3`}>
+    <li
+      className={`flex items-start gap-2.5 rounded-lg border ${noEsta ? "border-rose-300 ring-1 ring-rose-300" : "border-slate-200"} ${franja} bg-white p-2.5 shadow-sm sm:gap-3 sm:p-3`}
+    >
       {t.imagen ? (
         <ImagenAmpliable url={t.imagen.url} urlGrande={t.imagen.urlGrande} alt={`Imagen de ${t.modelo}`} className="size-12 sm:size-14" />
       ) : (
@@ -252,6 +256,17 @@ function TarjetaVista({ t, franja, puedeEditar }: { t: TarjetaTablero; franja: s
             >
               {t.pmCorto}
             </Link>
+            {noEsta && (
+              <span
+                className="inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-1 text-sm font-semibold text-rose-800"
+                title="Producción marcó que no está en el taller (bitácora)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" className="size-3.5" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+                No está
+              </span>
+            )}
             {t.plazo && (
               <span
                 className={`rounded-md px-2 py-1 text-sm font-semibold ${
