@@ -135,8 +135,10 @@ export function CabeceraRenglon({
         {numero}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium text-slate-900">{titulo}</span>
-        <span className="block truncate text-xs text-slate-500">{detalle}</span>
+        {/* Hasta dos renglones cada uno: en celular el importe deja poco ancho y la familia y el
+            acabado se cortaban. */}
+        <span className="line-clamp-2 break-words font-medium text-slate-900">{titulo}</span>
+        <span className="line-clamp-2 break-words text-xs text-slate-500">{detalle}</span>
       </span>
       {extra}
       <span className="text-right">

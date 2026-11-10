@@ -971,14 +971,16 @@ export default function ItemsCalidadTable({
         // derecha, aprobar en bloque.
         <div className="flex flex-wrap items-center gap-3">
           {chips.length > 0 && (
-            <nav aria-label="Filtrar" className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
+            // En celular ocupa todo el ancho y cada opción parte su texto en dos renglones si no cabe
+            // ("Por reinspeccionar (3)"): en una sola fila sin partir, la última se salía de la pantalla.
+            <nav aria-label="Filtrar" className="flex w-full rounded-lg border border-slate-200 bg-white p-0.5 text-sm sm:inline-flex sm:w-auto">
               {chips.map(([valor, etiqueta]) => (
                 <button
                   key={valor}
                   type="button"
                   onClick={() => setFiltroCalidad(valor)}
                   aria-pressed={filtroCalidad === valor}
-                  className={`rounded-md px-3 py-1.5 whitespace-nowrap transition-colors max-md:min-h-11 ${
+                  className={`min-w-0 flex-1 rounded-md px-2 py-1.5 leading-tight text-balance transition-colors max-md:min-h-11 sm:flex-none sm:px-3 sm:whitespace-nowrap ${
                     filtroCalidad === valor ? "bg-slate-900 font-medium text-white" : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >

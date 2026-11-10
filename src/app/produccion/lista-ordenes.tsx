@@ -38,7 +38,7 @@ export default function ListaOrdenes({
             />
             <div className="min-w-0 sm:flex-1">
               <p className="font-mono text-base font-semibold text-slate-900">{titulo}</p>
-              <p className="truncate text-sm text-slate-700">
+              <p className="line-clamp-2 break-words text-sm text-slate-700">
                 {[
                   primero.proyectos?.nombre ?? "—",
                   fila.pedidos.length > 1 ? `${fila.pedidos.length} pedidos` : null,

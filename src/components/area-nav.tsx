@@ -178,7 +178,7 @@ export default async function AreaNav({
                 key={a.area}
                 href={a.href}
                 aria-current={area === a.area ? "page" : undefined}
-                className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 mob:rounded-full mob:px-3.5 mob:py-1.5 mob:font-medium ${
+                className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 pointer-coarse:min-h-11 mob:rounded-full mob:px-3.5 mob:py-1.5 mob:font-medium ${
                   area === a.area
                     ? // En Mobiliarium, fondo apenas más claro y el ícono en limón (acento, no relleno).
                       "bg-brand-500 text-on-brand mob:bg-nav-hover mob:text-on-nav mob:[&>svg]:text-brand-500"

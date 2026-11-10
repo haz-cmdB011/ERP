@@ -339,7 +339,7 @@ function HojaTodos({
 // el trabajo, va relleno de tinta; Asignar, que hay varios por columna, va con un relleno suave. Ocupan
 // todo el ancho de la tarjeta, al pie.
 const BOTON_BASE =
-  "inline-flex w-full items-center justify-center rounded-full px-4 py-1.5 text-sm font-medium transition-colors active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
+  "inline-flex min-h-11 w-full items-center justify-center rounded-full px-4 py-1.5 text-sm font-medium transition-colors sm:min-h-9 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
 const ESTILO_ENTREGAR = `${BOTON_BASE} bg-slate-900 text-white hover:bg-slate-700`;
 const ESTILO_ASIGNAR = `${BOTON_BASE} bg-slate-100 text-slate-900 ring-1 ring-inset ring-slate-200 hover:bg-slate-200`;
 
@@ -398,16 +398,18 @@ function TarjetaVista({ t, puedeEditar, ancho }: { t: TarjetaTablero; puedeEdita
         <Link
           href={t.hrefModelo}
           title={`Ver ${t.modelo} en el panel de asignación`}
-          className="line-clamp-2 text-base font-medium leading-snug text-slate-900 hover:underline"
+          className="-my-1.5 line-clamp-2 py-1.5 text-base font-medium leading-snug text-slate-900 hover:underline"
         >
           {t.modelo}
         </Link>
-        {t.subtitulo && <p className="truncate text-sm text-slate-500">{t.subtitulo}</p>}
+        {/* Equipo · proceso · parte: en dos renglones si hace falta (la tarjeta es angosta en celular). */}
+        {t.subtitulo && <p className="line-clamp-2 break-words text-sm text-slate-500">{t.subtitulo}</p>}
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
           <Link
             href={t.hrefPm}
             title={`Abrir el pedido ${t.numeroPm}`}
-            className="text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline"
+            // 44 px de alto para el dedo sin mover el renglón (el margen negativo lo compensa).
+            className="-my-3 inline-flex min-h-11 items-center text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline"
           >
             {t.pmCorto}
           </Link>

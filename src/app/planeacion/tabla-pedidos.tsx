@@ -37,7 +37,7 @@ export default function TablaPedidos({
               >
                 {p.numero_pedido}
               </EnlaceFila>
-              <p className="truncate text-sm text-slate-700">{p.proyectos?.nombre ?? "—"}</p>
+              <p className="line-clamp-2 break-words text-sm text-slate-700">{p.proyectos?.nombre ?? "—"}</p>
               <p className="text-xs text-slate-500">Entrega: {formatoFechaDMA(p.fecha_entrega)}</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end">

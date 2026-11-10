@@ -60,7 +60,7 @@ function TarjetaMueble({ m }: { m: MuebleEnCalidad }) {
           <Link href={`/q/${m.itemId}?area=estimaciones`} className="font-mono font-semibold text-slate-900 hover:underline">
             {m.modelo}
           </Link>
-          {m.descripcion && <p className="truncate text-sm text-slate-700">{m.descripcion}</p>}
+          {m.descripcion && <p className="line-clamp-2 break-words text-sm text-slate-700">{m.descripcion}</p>}
           <Link href={rutaOt(m.ot)} className="font-mono text-xs text-slate-500 hover:underline">
             O.T. {m.ot}
             {m.itemCodigo ? ` · ${m.itemCodigo}` : ""}
@@ -128,7 +128,7 @@ function TarjetaSuelta({ r }: { r: RenglonPorLlegar }) {
             Componente de <span className="font-mono">{r.padreModelo}</span>
           </p>
         )}
-        {r.descripcion && <p className="truncate text-sm text-slate-700">{r.descripcion}</p>}
+        {r.descripcion && <p className="line-clamp-2 break-words text-sm text-slate-700">{r.descripcion}</p>}
         <Link href={rutaOt(r.ot)} className="font-mono text-xs text-slate-500 hover:underline">
           O.T. {r.ot}
         </Link>

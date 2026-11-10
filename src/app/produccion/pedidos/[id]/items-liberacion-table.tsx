@@ -210,14 +210,14 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 lg:whitespace-nowrap text-sm font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
           <IconoCheck />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-sm font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 lg:whitespace-nowrap text-sm font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
         <IconoReloj />
         Pendiente
       </span>
@@ -350,7 +350,7 @@ export default function ItemsLiberacionTable({
             </span>
           )}
         </td>
-        <td className="px-3 py-3 lg:py-2">
+        <td className="px-2 py-3 sm:px-3 lg:py-2">
           <div className="flex flex-col items-center gap-2 lg:flex-row lg:flex-wrap">
             <EnlaceFila
               href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
