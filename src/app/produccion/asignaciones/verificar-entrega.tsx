@@ -31,7 +31,7 @@ export default function VerificarEntrega({ id }: { id: string }) {
         type="button"
         onClick={verificar}
         disabled={enviando}
-        className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+        className="rounded-full bg-slate-900 px-3.5 py-1 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
         {enviando ? "Guardando…" : "Cumple: mandar a Calidad"}
       </button>
