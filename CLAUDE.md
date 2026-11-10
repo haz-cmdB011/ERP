@@ -139,7 +139,7 @@ entrega nace verificada y pasa a Calidad, que es quien evalúa. Las entregas vie
 `ajustes_flujo`, hoy ENCENDIDO (migración `entrega_con_preaprobacion`). Apagado, Calidad evalúa todo
 ítem liberado aunque no haya entregas (un mueble sin entregas se evalúa completo) y las entregas nacen
 verificadas. Cómo apagarlo o encenderlo y qué anotar después: `docs/operacion.md` ("Si Calidad no puede
-evaluar un mueble"). La pantalla lee el ajuste con `src/lib/calidad/ajustes-flujo.ts`; si no puede
+evaluar un mueble"). La pantalla lee el ajuste con `src/lib/compartido/ajustes-flujo.ts`; si no puede
 leerlo asume el flujo con verificación.
 
 ## Ruta de Producción
@@ -226,7 +226,7 @@ Si la entrega del mueble se hace **por partes** del despiece (`partesParaEntrega
 Al marcar desde la ventana de vista previa, la tarjeta muestra "Registrado" con la hora. **Lo más reciente va primero** (por el
 último movimiento de la asignación o del mueble, `reciente`) y por omisión el tablero muestra solo las 30 tarjetas más recientes
 (`MAX_TARJETAS_RECIENTES`; el botón "Todos" muestra el resto). **El PM siempre se ve corto** (`pmCorto`,
-`src/lib/planeacion/pm-corto.ts`): solo "PM009-26" o, si hay SDC, solo "SDC-1"; el nombre completo queda en el `title`. 8 tarjetas
+`src/lib/compartido/pm-corto.ts`): solo "PM009-26" o, si hay SDC, solo "SDC-1"; el nombre completo queda en el `title`. 8 tarjetas
 por columna y "Ver todas". No cubre un mueble repartido a medias (algo asignado y el resto sin equipo) ni uno cuyo paso
 sigue en proceso sin asignación en taller: esos se ven en el panel. Lógica en `src/lib/produccion/tablero.ts`, pantalla en
 `tablero-marcas.tsx`.
@@ -443,7 +443,7 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   cobrar es lo que **Producción verificó** al registrar la entrega (`verificado_produccion_variante`, interna,
   mismas reglas que la de Calidad y sin retrabajos; un componente, en la proporción de su mueble). "Calidad
   aprobó" queda solo informativo. Apagado el ajuste, todo vuelve a medirse contra Calidad. La app lo lee con
-  `cobroSegunProduccion` (`src/lib/calidad/ajustes-flujo.ts`); si no puede, asume Calidad.
+  `cobroSegunProduccion` (`src/lib/compartido/ajustes-flujo.ts`); si no puede, asume Calidad.
 - **Listo para cobrar** = liberado − cobrado (filtro de la O.T. y del reporte; `liberadoArea` en
   `src/lib/estimaciones/pm-cobrado.ts`). Un recibo cobrado de más se **marca al revisarlo**
   (`recibo_contra_calidad`, que trae lo aprobado y lo verificado; `src/app/estimaciones/calidad-recibo.tsx`): es

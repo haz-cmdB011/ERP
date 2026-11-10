@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import MigasPedido from "../migas-pedido";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/site-url";
-import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesPorItem } from "@/lib/compartido/imagenes";
 import { nombreArchivoSeguro } from "@/lib/nombre-archivo";
 import ViajeroFicha, {
   type ViajeroFichaItem,

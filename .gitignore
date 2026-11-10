@@ -52,6 +52,9 @@ next-env.d.ts
 # trabajo temporal de sesiones de Claude
 /.scratch/
 
+# grafo del código generado con graphify (local, no se sube)
+/graphify-out/
+
 # Configuración personal de Claude Code
 .claude/settings.local.json
 /SKILL.md
