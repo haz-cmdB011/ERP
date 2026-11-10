@@ -55,7 +55,10 @@ export default function ViajeroFicha({
   const generadoEn = new Date().toLocaleString("es-MX");
 
   return (
-    <article data-viajero-ficha className="flex flex-col gap-6 bg-white p-2">
+    // @container: la imagen y el detalle van lado a lado según el ancho de la ficha, no de la
+    // pantalla. En celular se apilan (la imagen de 320 px empujaba el detalle fuera de la pantalla) y
+    // el PDF, que maqueta la ficha a 640 px aunque se descargue desde el celular, sale igual que siempre.
+    <article data-viajero-ficha className="@container flex flex-col gap-6 bg-white p-2">
       <header className="flex items-start justify-between gap-4 border-b border-gray-300 pb-3">
         <div>
           {/* Logotipo arriba a la izquierda. Archivo estático (no next/image)
@@ -89,21 +92,21 @@ export default function ViajeroFicha({
         </div>
       </header>
 
-      <section className="flex flex-row items-start gap-4">
+      <section className="flex flex-col items-start gap-4 @xl:flex-row">
         {imagenUrls.length > 0 && (
-          <div className="flex shrink-0 flex-wrap gap-3">
+          <div className="flex max-w-full shrink-0 flex-wrap gap-3">
             {imagenUrls.map((url) => (
               // eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image
               <img
                 key={url}
                 src={url}
                 alt={`Imagen del ítem ${item.item_code}`}
-                className="h-80 w-80 rounded border border-gray-200 object-contain print:h-72 print:w-72"
+                className="aspect-square w-80 max-w-full rounded border border-gray-200 object-contain @xl:h-80 print:h-72 print:w-72"
               />
             ))}
           </div>
         )}
-        <div className="flex-1">
+        <div className="w-full min-w-0 @xl:flex-1">
           <h2 className="text-sm font-semibold uppercase text-gray-500">
             Detalle de fabricación
           </h2>
