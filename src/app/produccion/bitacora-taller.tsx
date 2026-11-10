@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { pmCorto } from "@/lib/planeacion/pm-corto";
+import { pmCorto } from "@/lib/compartido/pm-corto";
 import { etiquetaProceso } from "@/lib/produccion/asignaciones";
 import { esAlerta } from "@/lib/produccion/atrasos";
 import { FILAS_POR_EQUIPO, hrefAsignarDeFila, type FilaBitacora, type GrupoBitacora } from "@/lib/produccion/bitacora";

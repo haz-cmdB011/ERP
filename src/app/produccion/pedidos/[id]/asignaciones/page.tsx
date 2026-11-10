@@ -28,7 +28,7 @@ import { disponibleDe, rutasDelFlujo, seAsignaCompleto, type MuebleFlujo } from 
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { cargarPartes } from "@/lib/produccion/partes-db";
 import { entregasPorParte, partesParaEntrega } from "@/lib/produccion/entregas-partes";
-import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
+import { revisionFinalActiva } from "@/lib/compartido/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import FlujoMuebles from "./flujo-muebles";
 import PestanasPedido from "../pestanas-pedido";

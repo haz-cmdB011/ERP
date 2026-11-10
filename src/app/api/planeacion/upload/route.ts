@@ -10,7 +10,7 @@ import {
   quitarImagenesDelExcel,
 } from "@/lib/planeacion/optimizar-almacenamiento";
 import { createHash } from "node:crypto";
-import { rutaImagenGrande, rutaImagenPorContenido } from "@/lib/planeacion/imagenes";
+import { rutaImagenGrande, rutaImagenPorContenido } from "@/lib/compartido/imagenes";
 import { validarContenidoExcel } from "@/lib/seguridad/excel";
 import { consumirLimite, respuestaLimite, segundosParaReabrir } from "@/lib/seguridad/limite-tasa";
 import { claveDeHoja, hojasParaCargar } from "@/lib/planeacion/hojas-carga";

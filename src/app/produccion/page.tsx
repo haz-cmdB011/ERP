@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
-import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem } from "@/lib/compartido/imagenes";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { armarBitacora } from "@/lib/produccion/bitacora";
 import { renglonesDeTablero } from "@/lib/produccion/control-taller";

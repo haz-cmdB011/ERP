@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { traerTodo } from "@/lib/supabase/traer-todo";
 import { ErrorLectura } from "@/lib/supabase/paginar";
 import { enTallerParaCalidad, listosParaCalidad } from "@/lib/calidad/estado-item";
-import { verificacionProduccionActiva } from "@/lib/calidad/ajustes-flujo";
+import { verificacionProduccionActiva } from "@/lib/compartido/ajustes-flujo";
 import { cargarMueblesPreaprobados } from "@/lib/calidad/preaprobados-db";
 
 interface PedidoOt {

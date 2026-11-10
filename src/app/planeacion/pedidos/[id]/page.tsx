@@ -9,7 +9,7 @@ import type { EstadoRevision } from "@/lib/planeacion/estado-revision";
 import CancelarPedido from "./cancelar-pedido";
 import EstadoVacio from "@/components/estado-vacio";
 import ItemsTabla, { type MuebleTabla } from "./items-tabla";
-import { getImagenesConGrandePorItem, type ImagenItemUrls } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem, type ImagenItemUrls } from "@/lib/compartido/imagenes";
 import { getPlanosPorItem, pmDePlanos, type PlanoLink } from "@/lib/planos/planos-por-item";
 import { resumirCancelacion, type ItemParaCancelar } from "@/lib/planeacion/resumen-cancelacion";
 import LineaTiempoPm from "./linea-tiempo-pm";

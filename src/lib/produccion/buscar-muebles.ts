@@ -1,5 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
-import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem } from "@/lib/compartido/imagenes";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 

@@ -41,7 +41,7 @@ import {
 import { etiquetaPaso, pasosDeTodasLasRutas } from "@/lib/produccion/ruta";
 import { cargarPartes } from "@/lib/produccion/partes-db";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
-import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
+import { revisionFinalActiva } from "@/lib/compartido/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import { lotesPorEvaluar, normalizarLote, type LoteCalidad } from "@/lib/calidad/lotes";
 import { getPlanosPorItem, pmDePlanos } from "@/lib/planos/planos-por-item";

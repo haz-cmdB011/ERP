@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { BUCKET_IMAGENES_ITEMS, rutaImagenGrande } from "./imagenes";
+import { BUCKET_IMAGENES_ITEMS, rutaImagenGrande } from "@/lib/compartido/imagenes";
 
 // Borrado DEFINITIVO de un pedido (PM), compartido por la ruta de uno y la de
 // varios. Si ninguno de sus ítems tiene folio de Calidad, borra en cascada sus

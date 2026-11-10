@@ -5,7 +5,7 @@
 // primero y el tablero puede mostrar solo lo último que se trabajó. Lógica sin base de datos ni navegador, para
 // poder probarla; la pantalla vive en tablero-marcas.tsx.
 
-import { pmCorto } from "../planeacion/pm-corto";
+import { pmCorto } from "../compartido/pm-corto";
 import type { RenglonControl } from "./control-taller";
 import { claveModelo, type Conteos, type ProcesoAvance } from "./inicio";
 

@@ -7,7 +7,7 @@ import {
   puedeEditarProduccion,
 } from "@/lib/auth/get-perfil";
 import { leer } from "@/lib/supabase/leer";
-import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem } from "@/lib/compartido/imagenes";
 import type { EncargadoEquipo, EquipoProduccion } from "@/lib/produccion/asignaciones";
 import { entregasPorAsignacion } from "@/lib/produccion/consultar-asignaciones";
 import { entregasPorParte, partesParaEntrega } from "@/lib/produccion/entregas-partes";
