@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { procesosOmitidosValidos } from "./despiece";
 import { ErrorLectura } from "@/lib/supabase/paginar";
 import type { ParteDespiece } from "./flujo-mueble";
+import { enParalelo, tandas } from "./tandas";
 
 // La tabla todavía no existe (la migración no se ha aplicado): Postgres responde 42P01
 // y PostgREST, PGRST205. Entonces ningún mueble tiene partes.
@@ -20,14 +21,14 @@ export async function cargarPartes(
 ): Promise<Map<string, ParteDespiece[]>> {
   const mapa = new Map<string, ParteDespiece[]>(itemIds.map((id) => [id, []]));
   if (itemIds.length === 0) return mapa;
-  // .in() con muchos ids rompe el largo de la dirección: de 100 en 100.
-  for (let i = 0; i < itemIds.length; i += 100) {
+  // .in() con muchos ids rompe el largo de la dirección: de 100 en 100, de a pocas tandas a la vez.
+  const lotes = await enParalelo(tandas(itemIds, 100), async (lote) => {
     const { data, error } = await supabase
       .from("partes_despiece")
       .select(
         "id, planeacion_item_id, descripcion, material, piezas_por_mueble, unidad, porcentaje, ruta_guardada_en, procesos_omitidos"
       )
-      .in("planeacion_item_id", itemIds.slice(i, i + 100))
+      .in("planeacion_item_id", lote)
       .is("retirada_en", null)
       .order("orden")
       .returns<
@@ -44,21 +45,25 @@ export async function cargarPartes(
         }[]
       >();
     if (error) {
-      if (tablaNoExiste(error)) return mapa;
+      // null = la tabla no existe todavía: ningún mueble tiene partes.
+      if (tablaNoExiste(error)) return null;
       throw new ErrorLectura(`No se pudo leer las partes del despiece: ${error.message}`);
     }
-    for (const p of data ?? []) {
-      mapa.get(p.planeacion_item_id)?.push({
-        id: p.id,
-        descripcion: p.descripcion,
-        material: p.material,
-        piezasPorMueble: Number(p.piezas_por_mueble),
-        unidad: p.unidad,
-        porcentaje: p.porcentaje == null ? null : Number(p.porcentaje),
-        rutaGuardada: p.ruta_guardada_en != null,
-        omitidos: procesosOmitidosValidos(p.procesos_omitidos),
-      });
-    }
+    return data ?? [];
+  });
+  if (lotes.some((l) => l === null)) return mapa;
+  for (const p of lotes.flat()) {
+    if (!p) continue;
+    mapa.get(p.planeacion_item_id)?.push({
+      id: p.id,
+      descripcion: p.descripcion,
+      material: p.material,
+      piezasPorMueble: Number(p.piezas_por_mueble),
+      unidad: p.unidad,
+      porcentaje: p.porcentaje == null ? null : Number(p.porcentaje),
+      rutaGuardada: p.ruta_guardada_en != null,
+      omitidos: procesosOmitidosValidos(p.procesos_omitidos),
+    });
   }
   return mapa;
 }

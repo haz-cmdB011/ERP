@@ -8,7 +8,7 @@ import { admiteSuperficieSolida } from "./superficie-solida";
 import { rutasDelFlujo, type MuebleFlujo } from "./flujo-mueble";
 import { cargarPartes } from "./partes-db";
 import { cargarRutas } from "./rutas-db";
-import { tandas } from "./tandas";
+import { enParalelo, tandas } from "./tandas";
 
 // Lo mínimo de un mueble padre (MO) para armar su flujo.
 export interface MuebleBase {
@@ -34,38 +34,34 @@ export async function cargarFlujoMuebles(
 
   const [componentes, asignaciones, rutas, finalActiva, partes] = await Promise.all([
     // Electrificación y Superficie Sólida también se detectan por lo que dicen los componentes.
-    Promise.all(
-      tandas(ids, 25).map((lote) =>
-        leer(
-          supabase
-            .from("planeacion_items")
-            .select("parent_item_id, descripcion, eliminacion_solicitada_en, estado_revision")
-            .in("parent_item_id", lote)
-            .eq("tipo_registro", "FU")
-            .returns<
-              {
-                parent_item_id: string | null;
-                descripcion: string | null;
-                eliminacion_solicitada_en: string | null;
-                estado_revision: string | null;
-              }[]
-            >(),
-          "los componentes"
-        )
+    enParalelo(tandas(ids, 25), (lote) =>
+      leer(
+        supabase
+          .from("planeacion_items")
+          .select("parent_item_id, descripcion, eliminacion_solicitada_en, estado_revision")
+          .in("parent_item_id", lote)
+          .eq("tipo_registro", "FU")
+          .returns<
+            {
+              parent_item_id: string | null;
+              descripcion: string | null;
+              eliminacion_solicitada_en: string | null;
+              estado_revision: string | null;
+            }[]
+          >(),
+        "los componentes"
       )
     ),
-    Promise.all(
-      tandas(ids, 25).map((lote) =>
-        leer(
-          supabase
-            .from("asignaciones_produccion_resumen")
-            .select("*")
-            .in("planeacion_item_id", lote)
-            .order("fecha_asignacion")
-            .order("creado_en")
-            .returns<AsignacionResumen[]>(),
-          "asignaciones_produccion_resumen"
-        )
+    enParalelo(tandas(ids, 25), (lote) =>
+      leer(
+        supabase
+          .from("asignaciones_produccion_resumen")
+          .select("*")
+          .in("planeacion_item_id", lote)
+          .order("fecha_asignacion")
+          .order("creado_en")
+          .returns<AsignacionResumen[]>(),
+        "asignaciones_produccion_resumen"
       )
     ),
     cargarRutas(supabase, ids),
@@ -76,9 +72,7 @@ export async function cargarFlujoMuebles(
   // Revisión final de Calidad (ajuste revision_final): solo si está encendida.
   const revisionFinal = finalActiva
     ? new Map(
-        (
-          await Promise.all(tandas(ids).map((lote) => cargarRevisionFinal(supabase, lote)))
-        ).flatMap((r) => [...r.resumen])
+        (await enParalelo(tandas(ids), (lote) => cargarRevisionFinal(supabase, lote))).flatMap((r) => [...r.resumen])
       )
     : null;
 
