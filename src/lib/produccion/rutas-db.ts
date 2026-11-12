@@ -7,6 +7,7 @@ import { leer } from "@/lib/supabase/leer";
 import { ErrorLectura } from "@/lib/supabase/paginar";
 import { esProceso } from "./asignaciones";
 import type { PasoRuta } from "./ruta";
+import { enParalelo } from "./tandas";
 
 export interface RutaGuardada {
   version: number;
@@ -62,24 +63,23 @@ export async function cargarRutas(
   const mapa = new Map<string, RutaGuardada>();
   if (itemIds.length === 0) return mapa;
 
-  const lotes = await Promise.all(
-    tandas(itemIds).map((lote) =>
-      Promise.all([
-        leerRutas(supabase, lote),
-        leer(
-          supabase
-            .from("pasos_ruta_produccion")
-            .select("id, planeacion_item_id, parte_id, orden, proceso")
-            .in("planeacion_item_id", lote)
-            .is("retirado_en", null)
-            .order("orden")
-            .returns<
-              { id: string; planeacion_item_id: string; parte_id: string | null; orden: number; proceso: string }[]
-            >(),
-          "los pasos de las rutas"
-        ),
-      ])
-    )
+  // De a pocas tandas a la vez: con miles de muebles, pedirlas todas juntas satura la base.
+  const lotes = await enParalelo(tandas(itemIds), (lote) =>
+    Promise.all([
+      leerRutas(supabase, lote),
+      leer(
+        supabase
+          .from("pasos_ruta_produccion")
+          .select("id, planeacion_item_id, parte_id, orden, proceso")
+          .in("planeacion_item_id", lote)
+          .is("retirado_en", null)
+          .order("orden")
+          .returns<
+            { id: string; planeacion_item_id: string; parte_id: string | null; orden: number; proceso: string }[]
+          >(),
+        "los pasos de las rutas"
+      ),
+    ])
   );
 
   for (const [rutas, pasos] of lotes) {

@@ -12,6 +12,7 @@
     "test:db": "node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.db.config.ts",
     "db:verificar": "node scripts/db/verificar-migraciones.mjs",
     "db:huerfanos": "node --env-file=.env.local --import tsx scripts/db/limpiar-huerfanos.mts",
+    "db:volumen": "node --env-file=.env.local --import tsx scripts/db/prueba-volumen.mts",
     "calidad:importar-incidencias": "node --env-file=.env.local --import tsx scripts/calidad/importar-incidencias.mts"
   },
   "dependencies": {
