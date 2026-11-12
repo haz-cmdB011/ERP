@@ -35,7 +35,7 @@ const PUNTO_COLUMNA: Record<Columna, string> = {
 // una tarjeta con su foto (que se amplía al tocarla) y los anillos de su modelo encima, su nombre, de qué
 // PM es (solo "PM009-26" o "SDC-1") y su botón: en "Por asignar", Asignar abre el panel de asignación con
 // ese mueble; en "Por entregar", Entregar abre la ventana para registrar la entrega (con un enlace al panel si el
-// mueble se entrega por partes, desde la misma ventana) y la barra de avance abre la vista previa. Por omisión muestra lo más
+// mueble se entrega por partes, desde la misma ventana) y toda la zona de texto con su avance (nombre, equipo, PM y barra) abre la vista previa. Por omisión muestra lo más
 // reciente que se trabajó; "Todos" lo muestra completo.
 export default function TableroMarcas({
   tarjetas,
@@ -361,6 +361,60 @@ function TarjetaVista({ t, puedeEditar, ancho }: { t: TarjetaTablero; puedeEdita
   // Producción la marcó con tache en la bitácora: se avisa en la tarjeta sin abrir la vista previa.
   const noEsta = !!t.asignacionId && marca === false;
 
+  // Una tarjeta con asignación en taller tiene vista previa: ahí el nombre y el PM no son enlaces (su zona
+  // entera abre la vista previa, que ya trae el acceso al panel y al pedido).
+  const conVista = !!(t.avance && t.asignacionId);
+  const textos = (
+    <>
+      {conVista ? (
+        <span className="line-clamp-2 text-base font-medium leading-snug text-slate-900 group-hover:underline">{t.modelo}</span>
+      ) : (
+        <Link
+          href={t.hrefModelo}
+          title={`Ver ${t.modelo} en el panel de asignación`}
+          className="-my-1.5 line-clamp-2 py-1.5 text-base font-medium leading-snug text-slate-900 hover:underline"
+        >
+          {t.modelo}
+        </Link>
+      )}
+      {/* Equipo · proceso · parte: en dos renglones si hace falta (la tarjeta es angosta en celular). */}
+      {t.subtitulo && <p className="line-clamp-2 break-words text-sm text-slate-500">{t.subtitulo}</p>}
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
+        {conVista ? (
+          <span className="text-slate-500">{t.pmCorto}</span>
+        ) : (
+          <Link
+            href={t.hrefPm}
+            title={`Abrir el pedido ${t.numeroPm}`}
+            // Más alto para el dedo sin mover el renglón (el margen negativo lo compensa). Solo crece
+            // hacia abajo: hacia arriba tapaba la orilla del nombre del mueble.
+            className="-mb-3 inline-block pb-3 text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline"
+          >
+            {t.pmCorto}
+          </Link>
+        )}
+        {!t.avance && <span className="tabular-nums text-slate-500">{t.piezas}</span>}
+      </div>
+      {(t.plazo || noEsta) && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-medium">
+          {t.plazo && (
+            <span
+              className={t.plazo.nivel === "vencido" ? "text-rose-700" : "text-amber-700"}
+              title="Según la fecha de entrega del PM"
+            >
+              {t.plazo.texto}
+            </span>
+          )}
+          {noEsta && (
+            <span className="text-rose-700" title="Producción marcó que no está en el taller">
+              ✕ No está
+            </span>
+          )}
+        </div>
+      )}
+    </>
+  );
+
   const accion =
     t.avance && t.asignacionId
       ? puedeEditar && (
@@ -401,51 +455,27 @@ function TarjetaVista({ t, puedeEditar, ancho }: { t: TarjetaTablero; puedeEdita
         )}
       </div>
 
-      <div
-        title={`${t.modelo} · ${t.ot ? `O.T. ${t.ot}` : "Sin O.T."} · ${t.numeroPm}`}
-        className="flex min-w-0 flex-1 flex-col gap-0.5"
-      >
-        <Link
-          href={t.hrefModelo}
-          title={`Ver ${t.modelo} en el panel de asignación`}
-          className="-my-1.5 line-clamp-2 py-1.5 text-base font-medium leading-snug text-slate-900 hover:underline"
+      {conVista && t.avance ? (
+        // Toda esta zona (nombre, equipo, PM y avance) abre la vista previa: no hace falta apuntar a la barra.
+        // El panel de asignación y el pedido se abren desde el menú de la vista previa.
+        <button
+          type="button"
+          onClick={() => setAbierta(true)}
+          aria-haspopup="dialog"
+          title={`Ver vista previa de ${t.modelo}`}
+          className="group -mx-2 flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         >
-          {t.modelo}
-        </Link>
-        {/* Equipo · proceso · parte: en dos renglones si hace falta (la tarjeta es angosta en celular). */}
-        {t.subtitulo && <p className="line-clamp-2 break-words text-sm text-slate-500">{t.subtitulo}</p>}
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
-          <Link
-            href={t.hrefPm}
-            title={`Abrir el pedido ${t.numeroPm}`}
-            // Más alto para el dedo sin mover el renglón (el margen negativo lo compensa). Solo crece
-            // hacia abajo: hacia arriba tapaba la orilla del nombre del mueble.
-            className="-mb-3 inline-block pb-3 text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline"
-          >
-            {t.pmCorto}
-          </Link>
-          {!t.avance && <span className="tabular-nums text-slate-500">{t.piezas}</span>}
+          {textos}
+          <AvanceResumen avance={t.avance} />
+        </button>
+      ) : (
+        <div
+          title={`${t.modelo} · ${t.ot ? `O.T. ${t.ot}` : "Sin O.T."} · ${t.numeroPm}`}
+          className="flex min-w-0 flex-1 flex-col gap-0.5"
+        >
+          {textos}
         </div>
-        {(t.plazo || noEsta) && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-medium">
-            {t.plazo && (
-              <span
-                className={t.plazo.nivel === "vencido" ? "text-rose-700" : "text-amber-700"}
-                title="Según la fecha de entrega del PM"
-              >
-                {t.plazo.texto}
-              </span>
-            )}
-            {noEsta && (
-              <span className="text-rose-700" title="Producción marcó que no está en el taller">
-                ✕ No está
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {t.avance && t.asignacionId && <ResumenAvance avance={t.avance} alAbrir={() => setAbierta(true)} />}
+      )}
       {accion && <div>{accion}</div>}
 
       {t.avance && t.asignacionId && (
@@ -475,18 +505,12 @@ function TarjetaVista({ t, puedeEditar, ancho }: { t: TarjetaTablero; puedeEdita
   );
 }
 
-// Lo entregado por el equipo ("5 de 13 PZA" y una barra). Al tocarlo se abre la vista previa del mueble.
-function ResumenAvance({ avance: a, alAbrir }: { avance: AvanceTarjeta; alAbrir: () => void }) {
+// Lo entregado por el equipo ("5 de 13 PZA" y una barra), al pie de la zona que abre la vista previa del mueble.
+function AvanceResumen({ avance: a }: { avance: AvanceTarjeta }) {
   const color = a.pct >= 100 ? COLOR_ESTADO.terminado : COLOR_ESTADO.en_proceso;
   const unidad = a.unidad ? ` ${a.unidad}` : "";
   return (
-    <button
-      type="button"
-      onClick={alAbrir}
-      aria-haspopup="dialog"
-      title="Ver vista previa"
-      className="group -mx-2 flex cursor-pointer flex-col gap-1.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-    >
+    <span className="mt-auto flex flex-col gap-1.5 pt-1.5">
       <span className="flex items-center justify-between text-sm tabular-nums text-slate-700">
         <span>
           <span className="font-medium text-slate-900">{a.entregado}</span> de {a.total}
@@ -495,7 +519,7 @@ function ResumenAvance({ avance: a, alAbrir }: { avance: AvanceTarjeta; alAbrir:
         <Chevron className="size-4 -rotate-90 text-slate-400 transition-colors group-hover:text-slate-900" />
       </span>
       <Barra pct={a.pct} color={color} />
-    </button>
+    </span>
   );
 }
 
