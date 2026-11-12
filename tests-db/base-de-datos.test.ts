@@ -390,7 +390,7 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
     it("cada mueble con ruta cuenta sus pasos vigentes de armado y de barniz", async (ctx) => {
       const { data: pasos, error } = await servicio
         .from("pasos_ruta_produccion")
-        .select("planeacion_item_id, proceso")
+        .select("planeacion_item_id, proceso, parte_id")
         .is("retirado_en", null)
         .limit(1000);
       expect(error).toBeNull();
@@ -398,18 +398,27 @@ describe.skipIf(!hayVariables)("base de datos de Supabase (solo lectura)", () =>
         console.warn("[test:db] Sin rutas guardadas: se omite el conteo de pasos.");
         return ctx.skip();
       }
-      const cuenta = new Map<string, { armado: number; barniz: number }>();
-      for (const p of pasos as { planeacion_item_id: string; proceso: string }[]) {
-        const c = cuenta.get(p.planeacion_item_id) ?? { armado: 0, barniz: 0 };
-        if (p.proceso === "armado") c.armado += 1;
-        if (p.proceso === "barniz") c.barniz += 1;
+      // Regla de cobro (veces_proceso_ruta): los pasos del mueble completo + los de la parte que más veces
+      // lleva el proceso (no la suma de todas las partes: cada parte trabaja su propia ruta).
+      const cuenta = new Map<string, { armado: { mueble: number; partes: Map<string, number> }; barniz: { mueble: number; partes: Map<string, number> } }>();
+      for (const p of pasos as { planeacion_item_id: string; proceso: string; parte_id: string | null }[]) {
+        if (p.proceso !== "armado" && p.proceso !== "barniz") continue;
+        const c = cuenta.get(p.planeacion_item_id) ?? {
+          armado: { mueble: 0, partes: new Map<string, number>() },
+          barniz: { mueble: 0, partes: new Map<string, number>() },
+        };
+        const de = c[p.proceso];
+        if (p.parte_id) de.partes.set(p.parte_id, (de.partes.get(p.parte_id) ?? 0) + 1);
+        else de.mueble += 1;
         cuenta.set(p.planeacion_item_id, c);
       }
+      const esperado = (de: { mueble: number; partes: Map<string, number> }) =>
+        Math.max(1, de.mueble + Math.max(0, ...de.partes.values()));
       for (const [item, c] of [...cuenta].slice(0, 20)) {
         const armado = await servicio.rpc("veces_proceso_ruta", { p_item_id: item, p_area: "armado" });
         const acabados = await servicio.rpc("veces_proceso_ruta", { p_item_id: item, p_area: "acabados" });
-        expect(armado.data, item).toBe(Math.max(1, c.armado));
-        expect(acabados.data, item).toBe(Math.max(1, c.barniz));
+        expect(armado.data, item).toBe(esperado(c.armado));
+        expect(acabados.data, item).toBe(esperado(c.barniz));
       }
     });
 
