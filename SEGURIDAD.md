@@ -38,6 +38,14 @@ Resumen de las defensas del sistema, qué hay que mantener al día y qué pasos 
    está bloqueada en toda la app salvo en `/produccion/escanear` y `/calidad/escanear` (escáner de QR de las hojas de
    viajero), donde `Permissions-Policy` la permite solo para el propio sitio; el escáner nunca abre
    la URL que lee, solo extrae los ids y navega a una ruta propia (`src/lib/produccion/qr-viajero.ts`).
+7. **Funciones auxiliares de la base.** Las funciones que cambian datos revisan el rol por dentro y
+   ninguna se puede ejecutar sin sesión (lo comprueba `tests-db`). El asesor de Supabase avisa de
+   funciones `SECURITY DEFINER` que cualquier sesión puede llamar por `/rest/v1/rpc/`; las tres
+   auxiliares que se podían cerrar sin romper nada se cerraron (migración `cerrar_ayudantes_de_calculo`).
+   Quedan abiertas `muebles_por_partes`, `piezas_verificadas_mueble` y `verificacion_produccion_activa`
+   porque las llaman funciones `SECURITY INVOKER`: solo devuelven cantidades o una bandera de un mueble.
+   Antes de cerrar otra, ver quién la llama (funciones, vistas y políticas) y probar con una sesión de
+   cada rol, sobre todo la del maquilador al guardar un recibo.
 7. **Redirecciones.** `/auth/callback` solo acepta destinos internos (`rutaInternaSegura`).
 8. **Verificación en dos pasos (opcional).** Cada persona la activa en *Mi perfil* con una app de
    autenticación. Quien la activa no puede usar la app ni `/api/*` hasta poner su código (se exige en
