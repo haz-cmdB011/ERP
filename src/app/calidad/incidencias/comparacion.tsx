@@ -30,7 +30,8 @@ function Anillo({
   let acumulado = 0;
   return (
     <div className={`flex flex-col items-center gap-3 ${principal ? "" : "opacity-75"}`}>
-      <div className="relative size-40 sm:size-44">
+      {/* En celular más chico: dos anillos de 160 px y el "contra" no cabían y el de la derecha se salía. */}
+      <div className="relative size-28 min-[400px]:size-36 sm:size-44">
         <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden>
           <circle cx="50" cy="50" r={RADIO} fill="none" stroke="var(--color-slate-100)" strokeWidth="12" />
           {c.total > 0 &&
@@ -55,7 +56,7 @@ function Anillo({
             })}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`text-4xl font-bold tabular-nums ${principal ? "text-slate-900" : "text-slate-600"}`}>
+          <span className={`text-3xl font-bold tabular-nums sm:text-4xl ${principal ? "text-slate-900" : "text-slate-600"}`}>
             {c.total}
           </span>
           <span className="text-xs text-slate-500">{c.total === 1 ? "reporte" : "reportes"}</span>
@@ -89,7 +90,7 @@ export default function Comparacion({
 
   return (
     <Tarjeta titulo="Comparación con el periodo anterior" descripcion={`${etiquetaActual} contra ${etiquetaAnterior}`}>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 sm:gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3 sm:gap-6">
         <Anillo etiqueta={etiquetaActual} c={actual} principal />
         <span className="self-center text-sm font-medium text-slate-400" aria-hidden>
           contra

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { comprimirImagenGrande, comprimirImagenItem } from "./optimizar-almacenamiento";
-import { rutaImagenGrande } from "./imagenes";
+import { rutaImagenGrande } from "@/lib/compartido/imagenes";
 
 // Imagen sintética de 3000x2000 (más grande que cualquier límite) con ruido,
 // para que la compresión no la reduzca a casi nada.

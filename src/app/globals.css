@@ -212,20 +212,38 @@ body {
 .aviso-entrada {
   animation: aviso-entrada 160ms ease-out;
 }
+/* En celular los avisos salen arriba (ver avisos.tsx): bajan en vez de subir. */
+@keyframes aviso-entrada-arriba {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (width < 40rem) {
+  .aviso-entrada {
+    animation-name: aviso-entrada-arriba;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .aviso-entrada {
     animation: none;
   }
 }
 
-/* Pantallas táctiles (tablets del taller): casillas y opciones más grandes
-   para atinarles con el dedo, y sin el zoom automático de iOS al enfocar un
-   campo (se activa con letra menor a 16 px). */
+/* Pantallas táctiles (celulares y tablets del taller): casillas, campos y
+   botones a la medida del dedo (44 px, lo que piden Apple y la WCAG), y sin el
+   zoom automático de iOS al enfocar un campo (se activa con letra menor a 16 px). */
 @media (pointer: coarse) {
   input[type="checkbox"],
   input[type="radio"] {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.375rem;
+    height: 1.375rem;
+    /* Junto a un texto largo en una fila flex se aplastaban en óvalo. */
+    flex-shrink: 0;
   }
   input:not([type="checkbox"]):not([type="radio"]),
   select,
@@ -233,31 +251,245 @@ body {
     font-size: max(16px, 1em);
   }
 
-  /* Área de toque de al menos 40 px en chips de filtro, botones de texto
-     chicos, resúmenes desplegables y el logo, sin mover nada del diseño: se
-     extiende con un ::after invisible. Los que ya traen pointer-coarse: se
-     dejan como están; los static pasan a relative para anclar el ::after. */
-  :is(a, button):is(
-      [class~="py-1"],
-      [class~="py-1.5"],
-      [class~="h-6"],
-      [class~="h-7"],
-      [aria-label="Mobiliarium, ir al inicio"]
-    ):not([class*="pointer-coarse:"], .absolute, .fixed, .sticky),
-  summary {
-    position: relative;
+  /* Campos de una línea y listas: 44 px de alto aunque la pantalla los haya
+     hecho más chicos (h-8, py-1, min-h-9...). Sin capa, para ganarle a esas
+     utilidades; :where() lo deja sin peso por si alguno necesita otra medida. */
+  :where(
+      input:not(
+          [type="checkbox"],
+          [type="radio"],
+          [type="range"],
+          [type="file"],
+          [type="color"],
+          [type="hidden"],
+          .sr-only
+        ),
+      select:not([multiple], [size])
+    ) {
+    min-height: 2.75rem;
   }
-  :is(a, button):is(
-      [class~="py-1"],
-      [class~="py-1.5"],
-      [class~="h-6"],
-      [class~="h-7"],
-      [aria-label="Mobiliarium, ir al inicio"]
-    ):not([class*="pointer-coarse:"])::after,
-  summary::after {
-    content: "";
-    position: absolute;
-    inset: -0.5rem -0.25rem;
+}
+
+/* Sin zoom por doble toque: dos toques rápidos seguidos (− y −, dos casillas,
+   "Siguiente" dos veces) cuentan como dos toques en vez de acercar la página y
+   perderse. Pellizcar para acercar sigue funcionando. touch-action no pasa de un
+   contenedor con scroll a lo que lleva dentro, por eso también va en cada
+   control (abajo). */
+html {
+  touch-action: manipulation;
+}
+
+/* Zona de toque de al menos 44 × 44 px en botones, enlaces, pestañas,
+   desplegables y casillas con su texto, sin mover nada del diseño: un ::after
+   invisible, centrado en el control, que mide lo mismo que el control o 44 px
+   si el control es más chico. Va en la capa base: lo que una pantalla ponga con
+   utilidades (absolute, sticky, sm:fixed...) gana sobre el position: relative
+   que lo ancla.
+
+   Solo en controles que NO llevan otro control dentro: el ::after se pinta
+   encima de su contenido, y en una fila que se despliega con botones adentro
+   (renglón del recibo, summary con acciones, casilla con un enlace) tapaba esos
+   botones: el toque abría o cerraba la fila en vez de hacer lo del botón. Esos
+   contenedores ya son grandes.
+
+   Se saltan también los que ya dibujan su propio ::after (enlaces que cubren
+   toda la tarjeta, subrayado de la pestaña activa, canto del estilo Vidrio) y
+   lo que vive dentro de algo que se desliza de lado (tablas y tiras con
+   overflow-x-auto): ahí el ::after que se asoma por arriba o por abajo volvía
+   desplazable el contenedor por unos píxeles y atrapaba el dedo al querer bajar
+   por la página. Esos controles se agrandan en su pantalla. Las ventanas
+   (aunque vivan dentro de una tira, como "Entregar" en el tablero) y los menús
+   que se desplazan hacia abajo sí lo llevan: tienen relleno a los lados y el
+   ::after no se sale. */
+@layer base {
+  @media (pointer: coarse) {
+    :where(
+        :is(
+            a[href],
+            button,
+            summary,
+            [role="button"],
+            [role="tab"],
+            [role="switch"],
+            [role="menuitem"],
+            [role="option"]
+          ):not(
+            :has(
+              a[href],
+              button,
+              input,
+              select,
+              textarea,
+              summary,
+              [role="button"],
+              [role="tab"],
+              [role="switch"],
+              [role="checkbox"],
+              [role="option"],
+              [role="menuitem"]
+            )
+          ),
+        label:has(> input:is([type="checkbox"], [type="radio"])):not(
+            :has(
+              a[href],
+              button,
+              select,
+              textarea,
+              summary,
+              input:not([type="checkbox"], [type="radio"]),
+              [role="button"]
+            )
+          )
+      ):where(
+        :not(
+          [class*="after:"],
+          .subrayado-activo,
+          .sr-only,
+          :root[data-estilo="vidrio"] :is(.bg-white, .bg-white\/95, .bg-white\/90, .bg-nav),
+          :is(
+              [class*="overflow-auto"],
+              [class*="overflow-x-auto"],
+              [class*="overflow-scroll"],
+              [class*="overflow-x-scroll"]
+            )
+            *:not(
+              :is(
+                  [class*="overflow-auto"],
+                  [class*="overflow-x-auto"],
+                  [class*="overflow-scroll"],
+                  [class*="overflow-x-scroll"]
+                )
+                :is([role="dialog"], dialog)
+                *
+            )
+        )
+      ) {
+      position: relative;
+    }
+    :where(
+        :is(
+            a[href],
+            button,
+            summary,
+            [role="button"],
+            [role="tab"],
+            [role="switch"],
+            [role="menuitem"],
+            [role="option"]
+          ):not(
+            :has(
+              a[href],
+              button,
+              input,
+              select,
+              textarea,
+              summary,
+              [role="button"],
+              [role="tab"],
+              [role="switch"],
+              [role="checkbox"],
+              [role="option"],
+              [role="menuitem"]
+            )
+          ),
+        label:has(> input:is([type="checkbox"], [type="radio"])):not(
+            :has(
+              a[href],
+              button,
+              select,
+              textarea,
+              summary,
+              input:not([type="checkbox"], [type="radio"]),
+              [role="button"]
+            )
+          )
+      ):where(
+        :not(
+          [class*="after:"],
+          .subrayado-activo,
+          .sr-only,
+          :root[data-estilo="vidrio"] :is(.bg-white, .bg-white\/95, .bg-white\/90, .bg-nav),
+          :is(
+              [class*="overflow-auto"],
+              [class*="overflow-x-auto"],
+              [class*="overflow-scroll"],
+              [class*="overflow-x-scroll"]
+            )
+            *:not(
+              :is(
+                  [class*="overflow-auto"],
+                  [class*="overflow-x-auto"],
+                  [class*="overflow-scroll"],
+                  [class*="overflow-x-scroll"]
+                )
+                :is([role="dialog"], dialog)
+                *
+            )
+        )
+      )::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 2.75rem);
+      height: max(100%, 2.75rem);
+      translate: -50% -50%;
+    }
+
+    /* Sin zoom por doble toque también dentro de tablas, ventanas y menús que se
+       desplazan (ver html, arriba). */
+    :where(
+        a[href],
+        button,
+        input,
+        select,
+        textarea,
+        label,
+        summary,
+        [role="button"],
+        [role="tab"],
+        [role="switch"],
+        [role="option"],
+        [role="menuitem"]
+      ) {
+      touch-action: manipulation;
+    }
+
+    /* Dejar el dedo un poco más en un botón no selecciona su texto (el toque se
+       perdía en una selección o en el menú de copiar). Los enlaces sí se pueden
+       seleccionar, para copiar folios. Nunca en algo que lleve un campo de texto
+       dentro: en iOS no se podría escribir en él. */
+    :where(
+        button,
+        summary,
+        [role="button"],
+        [role="tab"],
+        [role="switch"],
+        [role="option"],
+        [role="menuitem"],
+        label:has(> input:is([type="checkbox"], [type="radio"]))
+      ):not(:has(input:not([type="checkbox"], [type="radio"]), textarea, select, [contenteditable])) {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    /* Se nota que se presionó: el control se aclara mientras el dedo está encima
+       (el resaltado gris del navegador está apagado en body). Si la pantalla trae
+       su propio active: o una opacidad, gana la suya. */
+    :where(
+        a[href],
+        button,
+        summary,
+        [role="button"],
+        [role="tab"],
+        [role="switch"],
+        [role="option"],
+        [role="menuitem"],
+        label:has(> input:is([type="checkbox"], [type="radio"]))
+      ):not(:disabled, [aria-disabled="true"]):active {
+      opacity: 0.6;
+    }
   }
 }
 

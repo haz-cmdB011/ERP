@@ -8,7 +8,7 @@ import {
   puedeEditarProduccion,
   puedeEvaluarCalidad,
 } from "@/lib/auth/get-perfil";
-import { inicioDeRol } from "@/lib/auth/acceso";
+import { inicioDePerfil } from "@/lib/auth/acceso";
 import { destinoDeLogin } from "@/lib/seguridad/ruta-protegida";
 import SinAcceso from "@/components/sin-acceso";
 import ChipPlazo from "@/app/produccion/chip-plazo";
@@ -41,7 +41,7 @@ import {
 import { etiquetaPaso, pasosDeTodasLasRutas } from "@/lib/produccion/ruta";
 import { cargarPartes } from "@/lib/produccion/partes-db";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
-import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
+import { revisionFinalActiva } from "@/lib/compartido/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import { lotesPorEvaluar, normalizarLote, type LoteCalidad } from "@/lib/calidad/lotes";
 import { getPlanosPorItem, pmDePlanos } from "@/lib/planos/planos-por-item";
@@ -136,7 +136,7 @@ export default async function FichaMuebleQrPage({
       <SinAcceso
         titulo="Este QR es del personal interno"
         mensaje="Tu cuenta es de maquilador y solo tiene acceso a Estimaciones."
-        hrefInicio={inicioDeRol(perfil.rol)}
+        hrefInicio={inicioDePerfil(perfil)}
         etiquetaInicio="Ir a mis recibos"
       />
     );
@@ -146,7 +146,7 @@ export default async function FichaMuebleQrPage({
       <SinAcceso
         titulo="Tu cuenta está pendiente de aprobación"
         mensaje="Un administrador debe asignarte un rol y un área para que puedas ver este mueble."
-        hrefInicio="/planeacion/cuenta"
+        hrefInicio="/cuenta"
         etiquetaInicio="Ir a mi perfil"
       />
     );
@@ -523,9 +523,9 @@ export default async function FichaMuebleQrPage({
           {item.modelo ?? `Ítem ${item.item_code}`}
         </h1>
         {item.descripcion && (
-          <p className="line-clamp-1 text-sm text-slate-700">{item.descripcion.split("\n")[0]}</p>
+          <p className="line-clamp-2 break-words text-sm text-slate-700">{item.descripcion.split("\n")[0]}</p>
         )}
-        <p className="truncate text-xs text-slate-500">
+        <p className="break-words text-xs text-slate-500">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800">

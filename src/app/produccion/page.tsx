@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
-import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem } from "@/lib/compartido/imagenes";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { plazosDePedidos } from "@/lib/produccion/cargar-taller";
 import { contarRechazosPorReasignar } from "@/lib/produccion/rechazos-pendientes-db";
@@ -18,7 +18,7 @@ import {
 } from "@/lib/produccion/inicio";
 import { cargarMueblesInicio } from "@/lib/produccion/inicio-db";
 import ActualizarSolo from "./actualizar-solo";
-import AnilloEstados, { MuestraAnillo } from "./anillo-estados";
+import { MuestraAnillo } from "./anillo-estados";
 import TableroMarcas from "./tablero-marcas";
 
 // O.T. con pendientes a la vista (las más recientes); las demás se despliegan.
@@ -64,12 +64,12 @@ export default async function ProduccionInicioPage() {
   const tarjetas: TarjetaTablero[] = tarjetasDeControl(renglones, { imagenes, conteosPorModelo, plazos: plazosDeTarjetas });
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
+    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-8">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Producción</h1>
+          <h1 className="text-2xl font-medium tracking-tight text-slate-900">Producción</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {muebles.length} muebles vigentes · {conteos.terminado} terminado{conteos.terminado === 1 ? "" : "s"}
+            {muebles.length} muebles vigentes, {conteos.terminado} terminado{conteos.terminado === 1 ? "" : "s"}
           </p>
         </div>
         <div className="flex flex-col items-start gap-1.5 sm:items-end">
@@ -92,7 +92,7 @@ export default async function ProduccionInicioPage() {
         </Link>
       )}
 
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white pb-1">
         <TableroMarcas tarjetas={tarjetas} puedeEditar={puedeEditar} />
       </div>
 
@@ -109,7 +109,7 @@ export default async function ProduccionInicioPage() {
         {ots.length > OTS_A_LA_VISTA && (
           <li>
             <details className="group">
-              <summary className="flex cursor-pointer list-none items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-center gap-1.5 px-5 py-3 text-sm text-slate-500 transition-colors hover:text-slate-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
                 <span className="group-open:hidden">Ver más</span>
                 <span className="hidden group-open:inline">Ver menos</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">
@@ -134,14 +134,13 @@ function FilaOt({ o }: { o: OtPendiente }) {
     <li>
       <Link
         href={/^\d+-\d{2}$/.test(o.ot) ? `/produccion/ot/${o.ot}` : `/produccion/pedidos/${o.pedidoId}`}
-        className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-brand-50"
+        className="flex items-center gap-4 px-5 py-3.5 text-sm transition-colors hover:bg-slate-50"
       >
-        <AnilloEstados conteos={o.conteos} />
         <span className="min-w-0 flex-1">
-          <span className="font-semibold text-slate-900">O.T. {o.ot}</span>
-          <span className="ml-2 text-xs text-slate-500">{o.pms} PM</span>
+          <span className="font-medium text-slate-900">O.T. {o.ot}</span>
+          <span className="ml-3 text-slate-500">{o.pms} PM</span>
         </span>
-        <span className="flex flex-wrap justify-end gap-x-3 text-xs text-slate-600 tabular-nums">
+        <span className="flex flex-wrap justify-end gap-x-4 text-slate-500 tabular-nums">
           {ESTADOS_INICIO.filter((e) => e.valor !== "terminado" && o.conteos[e.valor] > 0).map((e) => (
             <span key={e.valor}>
               {o.conteos[e.valor]} {e.etiqueta.toLowerCase()}
@@ -170,20 +169,20 @@ function Seccion({
 }) {
   return (
     <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+      <header className="flex items-baseline justify-between gap-3 px-5 py-4">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-medium text-slate-900">
             {titulo}
-            {total > 0 && <span className="ml-1.5 font-normal text-slate-500">({total})</span>}
+            {total > 0 && <span className="ml-2 font-normal tabular-nums text-slate-500">{total}</span>}
           </h2>
-          {detalle && <p className="text-xs text-slate-500">{detalle}</p>}
+          {detalle && <p className="text-sm text-slate-500">{detalle}</p>}
         </div>
-        <Link href={verTodo.href} className="shrink-0 text-xs font-medium text-brand-700 hover:underline">
-          {verTodo.etiqueta} →
+        <Link href={verTodo.href} className="shrink-0 text-sm text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline">
+          {verTodo.etiqueta}
         </Link>
       </header>
       {total === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-slate-500">{vacio}</p>
+        <p className="px-5 pb-6 text-sm text-slate-500">{vacio}</p>
       ) : (
         <ul className="divide-y divide-slate-100">{children}</ul>
       )}
@@ -193,9 +192,9 @@ function Seccion({
 
 function Leyenda() {
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600" aria-label="Colores de los anillos">
+    <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500" aria-label="Colores de los anillos">
       {ESTADOS_INICIO.map((e) => (
-        <li key={e.valor} className="flex items-center gap-1.5">
+        <li key={e.valor} className="flex items-center gap-1">
           <MuestraAnillo estado={e.valor} />
           {e.etiqueta}
         </li>

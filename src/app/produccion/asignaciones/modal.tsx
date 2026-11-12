@@ -3,14 +3,21 @@
 import { useEffect } from "react";
 
 // Ventana para los formularios de asignaciones (asignar, entregar, cancelar).
+// `subtitulo` puede ser un texto o un bloque propio (p. ej. los datos del mueble ordenados). `grande`
+// da al título más peso, para ventanas cuyo título es el nombre de lo que se trabaja; `etiqueta` es lo
+// que lee un lector de pantalla si el título solo no dice qué hace la ventana.
 export default function Modal({
   titulo,
   subtitulo,
+  grande = false,
+  etiqueta,
   onCerrar,
   children,
 }: {
   titulo: string;
-  subtitulo?: string;
+  subtitulo?: React.ReactNode;
+  grande?: boolean;
+  etiqueta?: string;
   onCerrar: () => void;
   children: React.ReactNode;
 }) {
@@ -30,12 +37,17 @@ export default function Modal({
       className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/40 text-left text-base font-normal whitespace-normal sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={titulo}
+      aria-label={etiqueta ?? titulo}
     >
-      <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-lg sm:max-w-md sm:rounded-xl">
-        <h2 className="text-base font-semibold text-slate-900">{titulo}</h2>
-        {subtitulo && <p className="mt-0.5 text-sm text-slate-500">{subtitulo}</p>}
-        <div className="mt-4">{children}</div>
+      {/* El encabezado queda fijo y solo el contenido se desplaza, para que el título siempre se vea. */}
+      <div className="flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-lg sm:max-w-md sm:rounded-xl">
+        <div className="shrink-0 px-5 pt-5">
+          <h2 className={grande ? "text-xl font-semibold leading-snug text-slate-900" : "text-base font-semibold text-slate-900"}>
+            {titulo}
+          </h2>
+          {subtitulo && <div className="mt-0.5 text-sm text-slate-500">{subtitulo}</div>}
+        </div>
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-5 pb-5">{children}</div>
       </div>
     </div>
   );

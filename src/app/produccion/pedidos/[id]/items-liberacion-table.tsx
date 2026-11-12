@@ -57,6 +57,10 @@ function normalizar(texto: string): string {
     .trim();
 }
 
+function estaLiberado(item: { estado_liberacion: string }): boolean {
+  return item.estado_liberacion === "enviado_a_produccion";
+}
+
 export default function ItemsLiberacionTable({
   items,
   pedidoId,
@@ -139,8 +143,9 @@ export default function ItemsLiberacionTable({
     });
   }, [muebles, hijosPorPadre, filtroEstado, filtroMaterial, busqueda]);
 
-  // "Seleccionar todos" abarca todo lo que se ve con los filtros y la búsqueda actuales.
-  const idsFiltrados = useMemo(() => visibles.map((m) => m.id), [visibles]);
+  // "Seleccionar todos" abarca lo que se ve con los filtros y la búsqueda actuales y aún no
+  // está liberado: lo liberado ya no va al carrito (no se libera dos veces).
+  const idsFiltrados = useMemo(() => visibles.filter((m) => !estaLiberado(m)).map((m) => m.id), [visibles]);
   const todosFiltradosSeleccionados =
     idsFiltrados.length > 0 && idsFiltrados.every((id) => seleccionados.has(id));
 
@@ -167,7 +172,7 @@ export default function ItemsLiberacionTable({
   // Pasa los muebles marcados al carrito, que junta ítems de cualquier PM u O.T. para
   // liberarlos y asignarlos a equipos desde ahí.
   function agregarSeleccionAlCarrito() {
-    agregarMueblesAlCarrito(muebles.filter((i) => seleccionados.has(i.id)));
+    agregarMueblesAlCarrito(muebles.filter((i) => seleccionados.has(i.id) && !estaLiberado(i)));
     setSeleccionados(new Set());
   }
 
@@ -205,14 +210,14 @@ export default function ItemsLiberacionTable({
   function EstadoBadge({ item }: { item: ItemLiberacionRow }) {
     if (item.estado_liberacion === "enviado_a_produccion") {
       return (
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 lg:whitespace-nowrap text-sm font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
           <IconoCheck />
           Enviado a Producción
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-sm font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 lg:whitespace-nowrap text-sm font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
         <IconoReloj />
         Pendiente
       </span>
@@ -221,7 +226,8 @@ export default function ItemsLiberacionTable({
 
   function Fila({ item }: { item: ItemLiberacionRow }) {
     const enCarrito = idsEnCarrito.has(item.id);
-    const seleccionado = seleccionados.has(item.id);
+    const liberado = estaLiberado(item);
+    const seleccionado = !liberado && seleccionados.has(item.id);
     const componentes = hijosPorPadre.get(item.id)?.length ?? 0;
 
     return (
@@ -234,13 +240,16 @@ export default function ItemsLiberacionTable({
         }`}
       >
         <td className="px-2 py-3 sm:px-3 lg:py-2">
-          <input
-            type="checkbox"
-            checked={seleccionado}
-            onChange={() => alternarSeleccion(item.id)}
-            aria-label={`Seleccionar ítem ${item.item_code}`}
-            className="h-4 w-4 cursor-pointer"
-          />
+          {/* Lo liberado ya no se selecciona: no puede volver al carrito. */}
+          {!liberado && (
+            <input
+              type="checkbox"
+              checked={seleccionado}
+              onChange={() => alternarSeleccion(item.id)}
+              aria-label={`Seleccionar ítem ${item.item_code}`}
+              className="h-4 w-4 cursor-pointer"
+            />
+          )}
         </td>
         <td className="py-3 pr-1 lg:px-3 lg:py-2">
           {item.imagenUrl ? (
@@ -341,7 +350,7 @@ export default function ItemsLiberacionTable({
             </span>
           )}
         </td>
-        <td className="px-3 py-3 lg:py-2">
+        <td className="px-2 py-3 sm:px-3 lg:py-2">
           <div className="flex flex-col items-center gap-2 lg:flex-row lg:flex-wrap">
             <EnlaceFila
               href={`/produccion/pedidos/${pedidoId}/viajero/${item.id}`}
@@ -364,6 +373,7 @@ export default function ItemsLiberacionTable({
                 <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
               </svg>
             </EnlaceFila>
+            {!liberado && (
             <button
               type="button"
               onClick={() => agregarMueblesAlCarrito([item])}
@@ -390,6 +400,7 @@ export default function ItemsLiberacionTable({
                 <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" />
               </svg>
             </button>
+            )}
           </div>
         </td>
       </tr>
@@ -526,12 +537,10 @@ export default function ItemsLiberacionTable({
                     deshabilitada: idsListosPorLiberar.length === 0,
                     alHacer: () => setSeleccionados(new Set(idsListosPorLiberar)),
                   },
-                  // Sin selección imprime las de todos los muebles liberados.
+                  // Las etiquetas son de lo liberado, que ya no se selecciona: todas las del PM.
                   {
-                    etiqueta: seleccionados.size > 0 ? `Etiquetas QR (${seleccionados.size})` : "Etiquetas QR de los liberados",
-                    href: `/produccion/pedidos/${pedidoId}/etiquetas${
-                      seleccionados.size > 0 ? `?ids=${Array.from(seleccionados).join(",")}` : ""
-                    }`,
+                    etiqueta: "Etiquetas QR de los liberados",
+                    href: `/produccion/pedidos/${pedidoId}/etiquetas`,
                     target: "_blank",
                   },
                 ]}

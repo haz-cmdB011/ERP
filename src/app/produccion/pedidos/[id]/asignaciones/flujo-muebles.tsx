@@ -7,7 +7,6 @@ import Aparece from "@/components/aparece";
 import { usePathname, useSearchParams } from "next/navigation";
 import ImagenAmpliable from "@/components/imagen-ampliable";
 import {
-  ESTADO_ASIGNACION_ESTILOS,
   ESTADO_ASIGNACION_LABELS,
   formatoFecha,
   type AsignacionResumen,
@@ -221,12 +220,16 @@ export function FilaMueble({
   abierto,
   onAlternar,
   imagen,
+  marcado = false,
 }: {
   mueble: MuebleFlujo;
   asignar: AsignarDesdeFlujo | null;
   detalles: Record<string, ReactNode>;
   abierto: boolean;
   onAlternar: () => void;
+  // El mueble con el que se estaba trabajando (el panel lo recuerda al ir a un PM y volver): se
+  // distingue con un borde más marcado.
+  marcado?: boolean;
   // Miniatura del mueble, discreta y a la vista: con imagen se muestra (y se amplía al tocarla), con
   // null queda un cuadro vacío para que las filas no se desalineen y omitida no hay lugar para ella.
   imagen?: { url: string; urlGrande: string | null } | null;
@@ -316,7 +319,13 @@ export function FilaMueble({
     "@7xl": "@7xl:grid-cols-[minmax(9rem,16rem)_minmax(0,1fr)_auto] @7xl:col-span-1 @7xl:col-start-2 @7xl:row-start-1 @7xl:col-start-3",
   }[enLinea].split(" ");
   return (
-    <li className="@container rounded-xl border border-slate-200 bg-white">
+    <li
+      data-mueble-id={m.id}
+      aria-current={marcado ? "true" : undefined}
+      className={`@container scroll-mt-28 rounded-xl border bg-white transition-colors motion-reduce:transition-none ${
+        marcado ? "border-slate-900 ring-1 ring-slate-900/10" : "border-slate-200"
+      }`}
+    >
       <div
         // Tocar cualquier parte de la fila la abre o la cierra; los botones y enlaces
         // conservan su propia acción (y los diálogos en portal no cuentan).
@@ -346,7 +355,8 @@ export function FilaMueble({
             aria-expanded={abierto}
             className="min-w-0 text-left"
           >
-            <span className="block truncate text-base font-semibold text-slate-900">
+            {/* Hasta dos renglones: en celular el botón de la derecha deja poco ancho y el modelo se cortaba. */}
+            <span className="line-clamp-2 break-words text-base font-semibold leading-snug text-slate-900">
               <span className="font-normal text-slate-400 tabular-nums">{m.item_code}</span> {m.modelo ?? "Sin modelo"}
             </span>
             <span className="block text-sm text-slate-500 tabular-nums">
@@ -363,8 +373,12 @@ export function FilaMueble({
           </button>
         </div>
 
-        {/* La ruta: en celular baja a su propia línea, debajo del nombre. */}
-        <ol className={`col-span-2 row-start-2 flex min-w-0 items-start ${columnas[1]} ${columnas[2]} ${columnas[3]}`}>
+        {/* La ruta: en celular baja a su propia línea, debajo del nombre. Si la ruta es larga (cinco
+            pasos o más) se desliza de lado en vez de salirse de la tarjeta; el pt-1 deja ver el "!" de
+            los rechazos, que asoma por arriba del anillo. */}
+        <ol
+          className={`col-span-2 row-start-2 -mt-1 -ml-1 flex min-w-0 items-start overflow-x-auto pt-1 pl-1 ${columnas[1]} ${columnas[2]} ${columnas[3]}`}
+        >
           {anillos.map((a, j) => (
             <li key={a.clave} className="flex flex-1 items-start last:flex-none">
               <button
@@ -379,7 +393,7 @@ export function FilaMueble({
                 // A la altura del centro del círculo (mitad de size-10, menos la mitad del grosor).
                 <span
                   aria-hidden
-                  className="mx-0.5 mt-[19px] h-0.5 min-w-2 flex-1 rounded-full transition-colors"
+                  className="mt-[19px] h-0.5 min-w-1 flex-1 rounded-full transition-colors sm:mx-0.5 sm:min-w-2"
                   style={{
                     background: a.estado === "terminado" ? COLOR.terminado : "var(--color-slate-200)",
                   }}
@@ -518,12 +532,12 @@ function CeldaRuta({
             inicial={{ parte: parte?.id ?? null, paso: i }}
             asignar={asignar}
             titulo={`Asignar ${dueno} en ${c.etiqueta} (${fmt(a.disponible)} ${unidad} por asignar)`}
-            className="grid size-6 shrink-0 place-items-center rounded-md bg-brand-500 text-sm sm:size-7 sm:text-base font-bold text-on-brand transition-colors hover:bg-brand-400"
+            className="grid size-6 shrink-0 place-items-center rounded-md bg-brand-500 text-sm sm:size-7 sm:text-base font-bold text-on-brand transition-colors hover:bg-brand-400 pointer-coarse:size-10"
           >
             +
           </BotonAsignar>
         ) : (
-          asignar && <span aria-hidden className="size-6 shrink-0 sm:size-7" />
+          asignar && <span aria-hidden className="size-6 shrink-0 sm:size-7 pointer-coarse:size-10" />
         )}
         <span
           className="text-xs font-medium text-slate-900 sm:text-sm"
@@ -785,7 +799,16 @@ function Rutas({ mueble: m, asignar }: { mueble: MuebleFlujo; asignar: AsignarDe
   );
 }
 
-// Las asignaciones de un paso, con sus entregas y acciones.
+// Cómo se escribe el estado de una asignación: un punto de color y su nombre, sin cajita.
+const ESTADO_ASIGNACION_PUNTO: Record<AsignacionResumen["estado"], { punto: string; texto: string }> = {
+  en_proceso: { punto: "bg-sky-500", texto: "text-sky-700" },
+  parcial: { punto: "bg-sky-500", texto: "text-sky-700" },
+  entregada: { punto: "bg-emerald-500", texto: "text-emerald-700" },
+  cancelada: { punto: "bg-slate-300", texto: "text-slate-500" },
+};
+
+// Las asignaciones de un paso, una por línea: quién la tiene, cómo va y cuándo; al abrirla, sus
+// entregas y acciones. Plana, sin cajas dentro de cajas.
 function ListaAsignaciones({
   lista,
   detalles,
@@ -795,45 +818,51 @@ function ListaAsignaciones({
 }) {
   if (lista.length === 0) return null;
   return (
-    <ul className="flex flex-col divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+    <ul className="flex flex-col divide-y divide-slate-100 border-y border-slate-100">
       {lista.map((x) => {
         // Lo que sigue en taller se abre solo (registrar entrega); lo entregado o cancelado, no.
         const activa = x.estado === "en_proceso" || x.estado === "parcial";
+        const cancelada = x.estado === "cancelada";
+        const estado = ESTADO_ASIGNACION_PUNTO[x.estado];
         const fechas =
           x.ultima_entrega && x.ultima_entrega !== x.fecha_asignacion
-            ? `${formatoFecha(x.fecha_asignacion)} → ${formatoFecha(x.ultima_entrega)}`
+            ? `${formatoFecha(x.fecha_asignacion)} a ${formatoFecha(x.ultima_entrega)}`
             : formatoFecha(x.fecha_asignacion);
         return (
           <li key={x.id}>
             <details open={activa} className="group">
-              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 [&::-webkit-details-marker]:hidden">
-                <Chevron abierto={false} className="h-3.5 w-3.5 text-slate-400 group-open:rotate-90" />
-                <span className="font-medium text-slate-900">
+              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-0.5 py-2.5 [&::-webkit-details-marker]:hidden">
+                <Chevron abierto={false} className="h-3.5 w-3.5 shrink-0 text-slate-400 group-open:rotate-90" />
+                <span className={cancelada ? "font-medium text-slate-500" : activa ? "font-semibold text-slate-900" : "font-medium text-slate-700"}>
                   {x.equipo}
                   {x.encargado ? <span className="font-normal text-slate-500"> · {x.encargado}</span> : null}
                 </span>
-                <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${ESTADO_ASIGNACION_ESTILOS[x.estado]}`}>
+                <span className={`inline-flex items-center gap-1.5 ${estado.texto} ${activa ? "font-medium" : ""}`}>
+                  <span aria-hidden="true" className={`size-1.5 rounded-full ${estado.punto}`} />
                   {ESTADO_ASIGNACION_LABELS[x.estado]}
                 </span>
                 {(x.folio_rechazo || x.folio_revision_final) && (
-                  <span className="text-xs text-rose-700">Retrabajo{x.folio_revision_final ? ` ${x.folio_revision_final}` : ""}</span>
+                  <span className="text-rose-700">Retrabajo{x.folio_revision_final ? ` ${x.folio_revision_final}` : ""}</span>
                 )}
                 {x.adelantada && (
                   <span
-                    className="text-xs text-amber-700"
+                    className="text-amber-700"
                     title="Se asignó antes de que el paso anterior entregara esas piezas"
                   >
                     Adelantada
                   </span>
                 )}
-                <span className="ml-auto text-slate-500 tabular-nums">
-                  <span className="font-semibold text-slate-900">
-                    {Number(x.entregado)}/{Number(x.cantidad)}
-                  </span>{" "}
-                  · {fechas}
+                <span className="ml-auto flex items-baseline gap-3 tabular-nums">
+                  {/* Con una sola asignación, su cantidad ya es la del encabezado del proceso. */}
+                  {!cancelada && lista.length > 1 && (
+                    <span className="text-slate-600">
+                      <span className="font-medium text-slate-900">{Number(x.entregado)}</span> de {Number(x.cantidad)}
+                    </span>
+                  )}
+                  <span className="text-slate-500">{fechas}</span>
                 </span>
               </summary>
-              {detalles[x.id] && <div className="border-t border-slate-100 px-3 py-2">{detalles[x.id]}</div>}
+              {detalles[x.id] && <div className="pb-3 pl-6">{detalles[x.id]}</div>}
             </details>
           </li>
         );
@@ -859,25 +888,62 @@ function DetallePaso({
   const ruta = parte ? parte.ruta : m.ruta;
   const a = avanceEnRuta(m, indice, parte);
   const unidad = parte ? (parte.unidad ?? "pz") : (m.unidad ?? "pz");
+  // El peso visual va a lo que pide atención: el proceso en marcha (o con piezas rechazadas) lleva una
+  // marca de color al margen y un título más grande; el ya terminado se apaga y deja ver el siguiente.
+  const enMarcha = pasoEnMarcha(m, indice, parte);
+  const terminado = a.estado === "terminado";
+  const pct = a.total > 0 ? Math.min(100, Math.max(0, Math.round((100 * a.entregado) / a.total))) : 0;
   return (
-    <section className="flex flex-col gap-1.5 text-sm">
-      <div className="flex items-center gap-3">
-        <h4 className="font-semibold text-slate-800">{etiquetaPaso(ruta, indice)}</h4>
+    <section className="relative flex flex-col gap-2 text-sm">
+      {enMarcha && <span aria-hidden="true" className="absolute -left-2.5 bottom-0 top-0 w-0.5 rounded-full bg-sky-500" />}
+      {/* El proceso, lo que lleva entregado y, si queda algo, el enlace para asignarlo. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <h4
+          className={`flex items-center gap-1.5 ${
+            enMarcha
+              ? "text-lg font-semibold text-slate-900"
+              : terminado
+                ? "text-base font-medium text-slate-500"
+                : "text-base font-medium text-slate-900"
+          }`}
+        >
+          {terminado && (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="size-4 text-emerald-600" aria-label="Terminado">
+              <path d="m5 12 5 5 9-10" />
+            </svg>
+          )}
+          {etiquetaPaso(ruta, indice)}
+        </h4>
         {a.porReasignar > 0 && (
-          <Link href="/produccion/rechazos" className="text-xs font-medium text-rose-700 hover:underline">
+          <Link href="/produccion/rechazos" className="font-semibold text-rose-700 hover:underline">
             {fmt(a.porReasignar)} {unidad} rechazadas por reasignar
           </Link>
         )}
-        {!parte && porAsignar(m, indice, asignar) && (
-          <BotonAsignar
-            mueble={m}
-            inicial={{ parte: null, paso: indice }}
-            asignar={asignar}
-            className="ml-auto text-sm font-medium text-sky-700 hover:underline"
-          >
-            Asignar {fmt(a.disponible)} más
-          </BotonAsignar>
-        )}
+        <span className="ml-auto flex items-center gap-4 tabular-nums text-slate-500">
+          {!parte && porAsignar(m, indice, asignar) && (
+            <BotonAsignar
+              mueble={m}
+              inicial={{ parte: null, paso: indice }}
+              asignar={asignar}
+              className="font-medium text-sky-700 hover:underline"
+            >
+              Asignar {fmt(a.disponible)} más
+            </BotonAsignar>
+          )}
+          {/* Lo entregado, en grande, con una barra corta: es lo que se mira en cada proceso. */}
+          <span className="flex items-center gap-2.5">
+            <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+              <span
+                className="block h-full rounded-full"
+                style={{ width: `${pct}%`, background: terminado ? COLOR.terminado : COLOR.en_proceso }}
+              />
+            </span>
+            <span className={terminado ? "text-slate-500" : "text-slate-600"}>
+              <span className={`text-base font-semibold ${terminado ? "text-slate-600" : "text-slate-900"}`}>{fmt(a.entregado)}</span>{" "}
+              de {fmt(a.total)} {unidad}
+            </span>
+          </span>
+        </span>
       </div>
       <ListaAsignaciones lista={asignacionesDelPaso(m, indice, parte)} detalles={detalles} />
     </section>

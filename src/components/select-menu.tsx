@@ -87,7 +87,7 @@ export default function SelectMenu({
                 onChange(o.value);
                 setAbierto(false);
               }}
-              className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-brand-100 ${
+              className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-brand-100 pointer-coarse:py-3 ${
                 mono ? "font-mono" : ""
               } ${
                 o.value === value

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { pmCorto } from "@/lib/planeacion/pm-corto";
+import { pmCorto } from "@/lib/compartido/pm-corto";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ModeloReciente } from "@/lib/produccion/inicio";
 import { AnillosConcentricos } from "./anillo-estados";

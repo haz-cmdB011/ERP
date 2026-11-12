@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import Chevron from "@/components/chevron";
 import {
@@ -29,6 +29,35 @@ function paraLote(m: MuebleFlujo): MuebleParaLote {
 }
 
 const tieneTrabajo = (m: MuebleParaLote) => PROCESOS.some((p) => m.disponible[p] > 0);
+
+// El mueble abierto se guarda en la pestaña (sessionStorage) para recordarlo al volver de un PM. Si el
+// navegador no deja usarlo, se queda en memoria: el panel funciona igual, solo que no sobrevive a
+// recargar la página.
+const CLAVE_ABIERTO = "produccion-panel-mueble-abierto";
+const EVENTO_ABIERTO = "produccion-panel-mueble-abierto-cambio";
+let abiertoEnMemoria: string | null = null;
+
+function leerAbierto(): string | null {
+  try {
+    return window.sessionStorage.getItem(CLAVE_ABIERTO) ?? abiertoEnMemoria;
+  } catch {
+    return abiertoEnMemoria;
+  }
+}
+function guardarAbierto(id: string | null) {
+  abiertoEnMemoria = id;
+  try {
+    if (id) window.sessionStorage.setItem(CLAVE_ABIERTO, id);
+    else window.sessionStorage.removeItem(CLAVE_ABIERTO);
+  } catch {
+    // Sin almacenamiento: queda solo en memoria.
+  }
+  window.dispatchEvent(new Event(EVENTO_ABIERTO));
+}
+function suscribirAbierto(aviso: () => void) {
+  window.addEventListener(EVENTO_ABIERTO, aviso);
+  return () => window.removeEventListener(EVENTO_ABIERTO, aviso);
+}
 
 // Cuántos muebles se ven de entrada sin plegar nada; con más, solo se abren los primeros PM.
 const MUEBLES_SIN_PLEGAR = 12;
@@ -67,14 +96,32 @@ export default function PanelAsignacion({
   // Miniatura de cada mueble (por id), cuando tiene imagen.
   imagenes: Record<string, { url: string; urlGrande: string | null }>;
 }) {
-  const [abierto, setAbierto] = useState<string | null>(null);
   // Lo que la persona abrió o cerró a mano, por PM; el resto sigue la regla por omisión.
   const [manual, setManual] = useState<Record<string, boolean>>({});
 
   const pms = grupos.flatMap((g) => g.pms.map((pm) => ({ ot: g.ot, pm })));
+
+  // El mueble abierto se recuerda: al ir a un PM y volver, el panel lo vuelve a abrir, lo marca y lo trae
+  // a la vista (una sola vez por visita). Solo cuenta si ese mueble está en la lista que se muestra.
+  const guardado = useSyncExternalStore(suscribirAbierto, leerAbierto, () => null);
+  const pmDelAbierto = guardado ? pms.find((x) => x.pm.muebles.some((m) => m.flujo.id === guardado)) : undefined;
+  const abierto = pmDelAbierto ? guardado : null;
+  const traido = useRef(false);
+  useEffect(() => {
+    if (!abierto || traido.current) return;
+    traido.current = true;
+    document.querySelector(`[data-mueble-id="${abierto}"]`)?.scrollIntoView({ block: "center" });
+  }, [abierto]);
+  const alternarMueble = (id: string) => {
+    traido.current = true; // lo abrió la persona: no hay nada que traer a la vista
+    guardarAbierto(abierto === id ? null : id);
+  };
+
   const total = pms.reduce((n, x) => n + x.pm.muebles.length, 0);
   const plegarPorOmision = total > MUEBLES_SIN_PLEGAR;
-  const estaAbierto = (id: string, i: number) => manual[id] ?? (!plegarPorOmision || i < PM_ABIERTOS);
+  // El PM del mueble abierto siempre se ve desplegado, aunque por omisión estuviera plegado.
+  const estaAbierto = (id: string, i: number) =>
+    manual[id] ?? (id === pmDelAbierto?.pm.pedidoId || !plegarPorOmision || i < PM_ABIERTOS);
   const hayCerrados = pms.some((x, i) => !estaAbierto(x.pm.pedidoId, i));
   const fijarTodos = (valor: boolean) => setManual(Object.fromEntries(pms.map((x) => [x.pm.pedidoId, valor])));
 
@@ -127,7 +174,7 @@ export default function PanelAsignacion({
                 className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-100"
               >
                 <Chevron abierto={desplegado} className="h-4 w-4 shrink-0 text-slate-400" />
-                <span className="truncate text-base font-semibold text-slate-900">{pm.numeroPm}</span>
+                <span className="min-w-0 break-words text-base font-semibold leading-snug text-slate-900">{pm.numeroPm}</span>
                 {ot && <span className="hidden shrink-0 text-sm text-slate-400 sm:inline">O.T. {ot}</span>}
               </button>
               <span className="flex shrink-0 items-center gap-3 text-sm text-slate-600">
@@ -166,7 +213,8 @@ export default function PanelAsignacion({
                     detalles={detalles}
                     imagen={imagenes[m.flujo.id] ?? null}
                     abierto={abierto === m.flujo.id}
-                    onAlternar={() => setAbierto(abierto === m.flujo.id ? null : m.flujo.id)}
+                    marcado={abierto === m.flujo.id}
+                    onAlternar={() => alternarMueble(m.flujo.id)}
                   />
                 ))}
               </ul>

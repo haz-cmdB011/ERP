@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leer } from "@/lib/supabase/leer";
-import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
+import { revisionFinalActiva } from "@/lib/compartido/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import type { AsignacionResumen, Proceso } from "./asignaciones";
 import { admiteElectrificacion } from "./electrificacion";

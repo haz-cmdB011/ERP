@@ -26,7 +26,7 @@ import GrupoDesplegable from "@/components/grupo-desplegable";
 import BotonDesplegar from "@/components/boton-desplegar";
 import Chevron from "@/components/chevron";
 import ImagenAmpliable from "@/components/imagen-ampliable";
-import type { ImagenItemUrls } from "@/lib/planeacion/imagenes";
+import type { ImagenItemUrls } from "@/lib/compartido/imagenes";
 import { useFlip } from "@/lib/ui/use-flip";
 import { estiloMaterial } from "@/lib/ui/material";
 

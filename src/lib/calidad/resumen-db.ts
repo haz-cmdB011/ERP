@@ -7,7 +7,7 @@ import { paginarTodo } from "@/lib/supabase/paginar";
 import { resumirCalidad, type InformeBasico, type ItemLiberado, type ResumenCalidad } from "./resumen";
 import { lotesPorEvaluar, normalizarLote, type LoteCalidad } from "./lotes";
 import { enTallerParaCalidad, listosParaCalidad } from "./estado-item";
-import { verificacionProduccionActiva } from "./ajustes-flujo";
+import { verificacionProduccionActiva } from "../compartido/ajustes-flujo";
 import { cargarMueblesPreaprobados } from "./preaprobados-db";
 
 interface FilaItem {

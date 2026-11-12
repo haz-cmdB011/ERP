@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { avisar } from "@/components/avisos";
@@ -16,17 +17,19 @@ const porcentaje = (n: number, total: number) => (total > 0 ? Math.min(100, Math
 // Ventana para registrar la entrega de un mueble desde su tarjeta del tablero: cuánto avanza (con el % antes y
 // después), la cantidad, el folio de la hoja y la fecha (hoy, salvo que se cambie). Registra igual que "Registrar
 // entrega" del panel de asignación (misma ruta, misma cola sin conexión y misma regla de la base), así que
-// al guardar se actualizan los porcentajes de la tarjeta y del panel. La entrega por partes no se hace aquí:
-// la tarjeta manda al panel (ver `porPartes`).
+// al guardar se actualizan los porcentajes de la tarjeta y del panel. Aquí siempre se entregan muebles
+// completos; si el mueble tiene despiece, `hrefPartes` ofrece ir al panel a entregarlo por partes.
 export default function EntregarMueble({
   t,
   avance,
   asignacionId,
+  hrefPartes = null,
   alCerrar,
 }: {
   t: TarjetaTablero;
   avance: AvanceTarjeta;
   asignacionId: string;
+  hrefPartes?: string | null;
   alCerrar: () => void;
 }) {
   const router = useRouter();
@@ -60,6 +63,10 @@ export default function EntregarMueble({
       vigente = false;
     };
   }, [asignacionId, avance.sinEntregar]);
+
+  // `subtitulo` llega como "Equipo · Proceso · Detalle": se separa para ordenarlo en el encabezado.
+  const [equipo, proceso, ...resto] = (t.subtitulo ?? "").split(" · ");
+  const detalle = resto.join(" · ");
 
   const n = Number(cantidad);
   const valida = Number.isFinite(n) && n > 0 && n <= disponible;
@@ -107,8 +114,23 @@ export default function EntregarMueble({
 
   return (
     <Modal
-      titulo={`Entregar ${t.modelo}`}
-      subtitulo={[t.subtitulo, t.pmCorto].filter(Boolean).join(" · ")}
+      titulo={t.modelo}
+      etiqueta={`Entregar ${t.modelo}`}
+      grande
+      subtitulo={
+        <>
+          {/* El componente que se entrega (si es uno): casi el mismo peso que el nombre del modelo. */}
+          {detalle && <p className="text-lg font-semibold leading-snug text-slate-700">{detalle}</p>}
+          <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5">
+            <Dato etiqueta="O.T.">{t.ot ?? "Sin O.T."}</Dato>
+            <Dato etiqueta="Pedido">
+              <span title={t.numeroPm}>{t.pmCorto}</span>
+            </Dato>
+            {equipo && <Dato etiqueta="Equipo">{equipo}</Dato>}
+            {proceso && <Dato etiqueta="Proceso">{proceso}</Dato>}
+          </dl>
+        </>
+      }
       onCerrar={() => !enviando && alCerrar()}
     >
       <form onSubmit={enviar} className="flex flex-col gap-5">
@@ -118,32 +140,17 @@ export default function EntregarMueble({
           </p>
         )}
 
-        {/* Cómo va: el % de ahora (sólido) y lo que sumaría esta entrega (claro). */}
-        <div className="flex flex-col gap-2" aria-live="polite">
+        {/* Cuánto se entrega, con cómo quedaría el avance: lo de ahora (azul) y lo que suma esta entrega (verde). */}
+        <div className="flex flex-col gap-2.5">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-3xl font-semibold tabular-nums text-slate-900">
-              {despues}%
-              {despues !== antes && <span className="ml-2 text-sm font-medium text-slate-500">antes {antes}%</span>}
-            </p>
-            <p className="text-sm tabular-nums text-slate-600">
-              <b className="font-semibold text-slate-900">{redondear(avance.entregado + nuevas)}</b> de {avance.total}
+            <label htmlFor={`cantidad-${asignacionId}`} className="text-sm font-medium text-slate-900">
+              Cantidad que se entrega
+            </label>
+            <span className="text-sm tabular-nums text-slate-500">
+              Faltan {disponible}
               {unidad}
-            </p>
+            </span>
           </div>
-          <div className="flex h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
-            <span className="h-full" style={{ width: `${antes}%`, background: COLOR_ESTADO.en_proceso }} />
-            <span
-              className="h-full transition-[width] duration-200 motion-reduce:transition-none"
-              style={{ width: `${Math.max(0, despues - antes)}%`, background: COLOR_ESTADO.terminado }}
-            />
-          </div>
-        </div>
-
-        {/* Cuánto se entrega. */}
-        <div className="flex flex-col gap-2">
-          <label htmlFor={`cantidad-${asignacionId}`} className="text-sm font-medium text-slate-700">
-            Cantidad que se entrega
-          </label>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -174,17 +181,23 @@ export default function EntregarMueble({
               +
             </button>
           </div>
-          <p className="flex items-center justify-between text-xs text-slate-500">
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+            <span className="h-full" style={{ width: `${antes}%`, background: COLOR_ESTADO.en_proceso }} />
+            <span
+              className="h-full transition-[width] duration-200 motion-reduce:transition-none"
+              style={{ width: `${Math.max(0, despues - antes)}%`, background: COLOR_ESTADO.terminado }}
+            />
+          </div>
+          <p className="flex items-center justify-between gap-3 text-sm text-slate-500" aria-live="polite">
             <span className="tabular-nums">
-              Faltan {disponible}
-              {unidad}
-              {enCola > 0 && ` (${enCola} ya capturadas aquí, esperando red)`}
+              Quedará en {despues}%
+              {enCola > 0 && `, con ${enCola} ya capturadas aquí esperando red`}
             </span>
             {cantidad !== String(disponible) && disponible > 0 && (
               <button
                 type="button"
                 onClick={() => setCantidad(String(disponible))}
-                className="font-medium text-brand-700 hover:underline"
+                className="shrink-0 font-medium text-brand-700 hover:underline"
               >
                 Entregar todo
               </button>
@@ -192,22 +205,21 @@ export default function EntregarMueble({
           </p>
         </div>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Folio de la hoja de entrega
-          <input
-            type="text"
-            required
-            maxLength={500}
-            value={folios}
-            onChange={(e) => setFolios(e.target.value)}
-            placeholder="El que viene en la hoja de papel"
-            className={estiloCampo}
-          />
-        </label>
-
-        <div className="text-sm text-slate-600">
+        <div className="flex flex-col gap-1.5">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-900">
+            Folio de la hoja de entrega
+            <input
+              type="text"
+              required
+              maxLength={500}
+              value={folios}
+              onChange={(e) => setFolios(e.target.value)}
+              placeholder="El que viene en la hoja de papel"
+              className={estiloCampo}
+            />
+          </label>
           {cambiaFecha ? (
-            <label className="flex flex-col gap-1 font-medium text-slate-700">
+            <label className="flex flex-col gap-1.5 pt-2 text-sm font-medium text-slate-900">
               Fecha en que terminó
               <input
                 type="date"
@@ -220,8 +232,8 @@ export default function EntregarMueble({
               />
             </label>
           ) : (
-            <p>
-              Terminó hoy ·{" "}
+            <p className="text-sm text-slate-500">
+              Terminó hoy.{" "}
               <button type="button" onClick={() => setCambiaFecha(true)} className="font-medium text-brand-700 hover:underline">
                 Cambiar fecha
               </button>
@@ -231,15 +243,38 @@ export default function EntregarMueble({
 
         {error && <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</p>}
 
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={alCerrar} disabled={enviando} className={estiloBotonSecundario}>
-            Cancelar
-          </button>
-          <button type="submit" disabled={enviando || !valida || !folios.trim()} className={estiloBotonPrimario}>
-            {enviando ? "Guardando…" : valida ? `Entregar ${n}${unidad}` : "Entregar"}
-          </button>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {hrefPartes ? (
+            <Link
+              href={hrefPartes}
+              title="Este mueble tiene despiece: la entrega por partes se registra en el panel"
+              className="text-sm font-medium text-brand-700 hover:underline"
+            >
+              Entregar por partes
+            </Link>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <button type="button" onClick={alCerrar} disabled={enviando} className={estiloBotonSecundario}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={enviando || !valida || !folios.trim()} className={estiloBotonPrimario}>
+              {enviando ? "Guardando…" : valida ? `Entregar ${n}${unidad}` : "Entregar"}
+            </button>
+          </div>
         </div>
       </form>
     </Modal>
+  );
+}
+
+// Un dato del encabezado, en una línea: su nombre apagado y el valor un peldaño más fuerte (manda el nombre del mueble).
+function Dato({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 gap-1.5 text-sm">
+      <dt className="text-slate-500">{etiqueta}</dt>
+      <dd className="font-medium text-slate-800">{children}</dd>
+    </div>
   );
 }

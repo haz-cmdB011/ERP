@@ -5,7 +5,7 @@
 // primero y el tablero puede mostrar solo lo último que se trabajó. Lógica sin base de datos ni navegador, para
 // poder probarla; la pantalla vive en tablero-marcas.tsx.
 
-import { pmCorto } from "../planeacion/pm-corto";
+import { pmCorto } from "../compartido/pm-corto";
 import { textoPlazo, type Plazo } from "./atrasos";
 import type { RenglonControl } from "./control-taller";
 import { claveModelo, type Conteos, type ProcesoAvance } from "./inicio";
@@ -44,7 +44,8 @@ export interface AvanceTarjeta {
   ultimaEntrega: string | null;
   // Día en que se asignó (AAAA-MM-DD): la entrega no puede ser anterior. null si no se sabe.
   fechaAsignacion: string | null;
-  // El mueble se entrega por partes de su despiece: no se registra desde la tarjeta sino en el panel.
+  // El mueble tiene despiece: además de entregarlo completo desde la tarjeta, se puede entregar por
+  // partes, y eso se hace en el panel.
   porPartes: boolean;
   // Cómo va cada proceso del mueble (Armado, Barniz…); vacío si no se sabe.
   procesos: ProcesoAvance[];

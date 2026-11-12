@@ -79,7 +79,7 @@ export default function AccionConMotivo({
           setError(null);
           setAbierto(true);
         }}
-        className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100"
+        className="rounded px-1 py-1 text-sm text-slate-500 underline-offset-2 transition-colors hover:text-rose-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
         {conf.boton}
       </button>

@@ -7,7 +7,7 @@
 // porque se calcula al abrir el recibo.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { cobroSegunProduccion } from "@/lib/calidad/ajustes-flujo";
+import { cobroSegunProduccion } from "@/lib/compartido/ajustes-flujo";
 import type { BaseCobro } from "./pm-cobrado";
 import type { TipoCualquierRecibo } from "./revision-db";
 

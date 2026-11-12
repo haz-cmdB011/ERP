@@ -3,7 +3,7 @@ import Migas from "@/components/migas";
 import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem } from "@/lib/compartido/imagenes";
 import PestanasPedido from "./pestanas-pedido";
 import ItemsLiberacionTable, {
   type ItemLiberacionRow,

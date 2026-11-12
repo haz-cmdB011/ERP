@@ -62,12 +62,16 @@ export function hrefPedido(
   return `/${base}/pedidos/${pedidoId}`;
 }
 
-export function hrefOrdenTrabajo(ot: string): string {
-  return `/planeacion/ot/${encodeURIComponent(ot)}`;
+// La O.T. también se abre en la pantalla del área donde está el usuario.
+export function hrefOrdenTrabajo(ot: string, area: AreaBusqueda | null = null): string {
+  const base = area === "produccion" || area === "calidad" ? area : "planeacion";
+  return `/${base}/ot/${encodeURIComponent(ot)}`;
 }
 
-// El filtro por modelo solo existe en el detalle de Planeación.
-export function hrefModelo(pedidoId: string, modelo: string): string {
+// El filtro por modelo solo existe en el detalle de Planeación; desde Producción
+// y Calidad se abre su detalle del PM.
+export function hrefModelo(pedidoId: string, modelo: string, area: AreaBusqueda | null = null): string {
+  if (area === "produccion" || area === "calidad") return hrefPedido(area, pedidoId);
   return `/planeacion/pedidos/${pedidoId}?modelo=${encodeURIComponent(modelo)}`;
 }
 
@@ -166,7 +170,7 @@ const ATAJOS_INTERNOS: Atajo[] = [
   {
     titulo: "Mi cuenta",
     detalle: "Contraseña",
-    href: "/planeacion/cuenta",
+    href: "/cuenta",
     claves: "contrasena perfil",
   },
 ];

@@ -391,11 +391,12 @@ function FilaCarrito({
             descripcion={`el despiece del ítem ${item.itemCode}`}
           />
         ) : (
-          <span aria-hidden className="w-6 shrink-0" />
+          <span aria-hidden className="w-6 shrink-0 pointer-coarse:w-11" />
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
-            <p className="min-w-0 flex-1 truncate text-base font-semibold text-slate-900">
+            {/* Sin cortar: con la flecha y la ✕ a 44 px para el dedo, el modelo quedaba en "PG-…". */}
+            <p className="min-w-0 flex-1 break-words text-base font-semibold leading-snug text-slate-900">
               <span className="text-slate-400 tabular-nums">{item.itemCode}</span> {item.modelo ?? "Sin modelo"}
               {esHijo && <span className="ml-2 text-xs font-normal text-slate-500">Componente</span>}
             </p>
@@ -403,8 +404,10 @@ function FilaCarrito({
               {item.cantidad} <span className="text-xs font-normal text-slate-500">{item.unidad ?? ""}</span>
             </span>
           </div>
+          {/* En celular el estado va aquí, debajo del modelo: a la derecha le dejaba al modelo unos 50 px. */}
+          <Estado cargado={cargado} vigente={vigente} liberado={liberado} className="block sm:hidden" />
           {item.descripcion && (
-            <p className="truncate text-xs text-slate-500" title={item.descripcion}>
+            <p className="line-clamp-2 break-words text-xs text-slate-500" title={item.descripcion}>
               {item.descripcion.split("\n")[0]}
             </p>
           )}
@@ -444,13 +447,13 @@ function FilaCarrito({
             </div>
           )}
         </div>
-        <Estado cargado={cargado} vigente={vigente} liberado={liberado} />
+        <Estado cargado={cargado} vigente={vigente} liberado={liberado} className="hidden sm:inline" />
         <button
           type="button"
           onClick={alQuitar}
           aria-label={`Quitar el ítem ${item.itemCode} del carrito`}
           title="Quitar del carrito"
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 pointer-coarse:h-11 pointer-coarse:w-11"
         >
           ✕
         </button>
@@ -545,12 +548,14 @@ function Estado({
   cargado,
   vigente,
   liberado,
+  className = "",
 }: {
   cargado: boolean;
   vigente: boolean | undefined;
   liberado: boolean | undefined;
+  className?: string;
 }) {
-  const base = "shrink-0 whitespace-nowrap text-xs font-medium";
+  const base = `shrink-0 whitespace-nowrap text-xs font-medium ${className}`;
   if (!cargado) return <span className={`${base} text-slate-400`}>…</span>;
   if (vigente === undefined) return <span className={`${base} text-rose-700`}>Ya no existe</span>;
   if (!vigente) {

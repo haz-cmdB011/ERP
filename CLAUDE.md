@@ -78,7 +78,12 @@ lo que se cargue o borre en local afecta datos reales.
 Roles: `desarrollador` (acceso global), `administrador` y `trabajador` (ligados a
 un área), `usuario` (sin asignar), `maquilador` (externo, siempre de
 Estimaciones, con contratista y una o más áreas de maquila: acabados, armado,
-electrificación). Definidos en `src/lib/auth/roles.ts`. Las reglas reales viven
+electrificación). Definidos en `src/lib/auth/roles.ts`. **Cada quien ve solo sus áreas**
+(`src/lib/auth/acceso.ts`, `areasDePerfil`): el administrador y el trabajador, la suya; el maquilador,
+Estimaciones; el desarrollador, todas más Administración; el `usuario` sin área, solo su perfil. Cada
+layout de área muestra `SinAcceso` si no es suya, el menú solo pinta las propias y el buscador global
+quita lo que no puede abrir. El perfil vive en `/cuenta` (el maquilador, `/estimaciones/cuenta`;
+`/planeacion/cuenta` redirige desde `next.config.ts`). Las reglas reales viven
 en RLS y funciones SQL (`is_admin`, `is_admin_planeacion`, `is_admin_area`,
 `puede_capturar_tipo`); la UI no basta como control de acceso.
 
@@ -134,7 +139,7 @@ entrega nace verificada y pasa a Calidad, que es quien evalúa. Las entregas vie
 `ajustes_flujo`, hoy ENCENDIDO (migración `entrega_con_preaprobacion`). Apagado, Calidad evalúa todo
 ítem liberado aunque no haya entregas (un mueble sin entregas se evalúa completo) y las entregas nacen
 verificadas. Cómo apagarlo o encenderlo y qué anotar después: `docs/operacion.md` ("Si Calidad no puede
-evaluar un mueble"). La pantalla lee el ajuste con `src/lib/calidad/ajustes-flujo.ts`; si no puede
+evaluar un mueble"). La pantalla lee el ajuste con `src/lib/compartido/ajustes-flujo.ts`; si no puede
 leerlo asume el flujo con verificación.
 
 ## Ruta de Producción
@@ -209,7 +214,7 @@ libera antes, desde el carrito. Cada tarjeta lleva miniatura que se amplía con 
 abre el panel, **los mismos anillos concéntricos de la lista** (`AnillosConcentricos`: cuántos muebles de su modelo hay por
 liberar, por asignar, en taller y terminados; `conteosPorModelo` sale de `modelosRecientes`, y la leyenda de colores de arriba
 de la página) y el PM que abre su pedido. En "Por asignar" va el botón **Asignar**, que abre
-`/produccion/panel?ids=<mueble>` (el panel con ese mueble ya abierto). En "Por entregar" va el botón verde **Entregar** (solo quien
+`/produccion/panel?ids=<mueble>` (el panel con ese mueble ya abierto). En "Por entregar" va el botón **Entregar** (solo quien
 edita Producción; sin palomita ni tache en la tarjeta) y una barra con "5 de 13 PZA" entregadas que abre la **vista previa
 flotante** (`vista-previa-mueble.tsx`, una ventana sobre la página con el fondo difuminado, Esc o tocar fuera la cierra): imagen del
 mueble, nombre, anillos de su modelo, avance, la ruta como línea de puntos con el % de cada proceso (`procesosDeMueble` de `inicio.ts`,
@@ -220,18 +225,18 @@ menú: panel de asignación y pedido.
 folio de la hoja y fecha (hoy, con "Cambiar fecha"). Registra por la misma ruta que "Registrar entrega" del panel
 (`POST /api/produccion/entregas`, con cola sin conexión), así que al guardar la tarjeta y el panel se actualizan (`router.refresh`).
 Si la entrega del mueble se hace **por partes** del despiece (`partesParaEntrega`; `entregaPorPartes` de `MuebleInicio` →
-`porPartes` de la tarjeta), el botón es un enlace al panel de asignación con ese mueble (`hrefPanel`) y no abre la ventana.
-Al marcar desde la ventana de vista previa, la tarjeta muestra "Registrado" con la hora. **Lo urgente va primero**: cada tarjeta lleva un
+`porPartes` de la tarjeta), la ventana ofrece además el enlace al panel de asignación con ese mueble (`hrefPanel`) para entregar por partes.
+**Lo urgente va primero**: cada tarjeta lleva un
 chip de plazo según la fecha de entrega de su PM ("Atrasada 3 d", "Vence hoy", "Vence en 2 d"; `plazoDeTarjeta`, `plazosDePedidos`; sin
 fecha de entrega no hay chip), las tarjetas se ordenan por urgencia y después por lo más reciente (`reciente`), las O.T. con algo
 atrasado van primero y su encabezado dice cuántas ("2 atrasadas"). Por omisión el tablero muestra las 30 tarjetas que más importan
 (`MAX_TARJETAS_RECIENTES`: lo urgente y luego lo reciente; el botón "Todos" muestra el resto). **El PM siempre se ve corto** (`pmCorto`,
-`src/lib/planeacion/pm-corto.ts`): solo "PM009-26" o, si hay SDC, solo "SDC-1"; el nombre completo queda en el `title`. 8 tarjetas
+`src/lib/compartido/pm-corto.ts`): solo "PM009-26" o, si hay SDC, solo "SDC-1"; el nombre completo queda en el `title`. 8 tarjetas
 por columna y "Ver todas". No cubre un mueble por partes ni uno cuyo paso sigue en proceso con todo asignado y sin
 asignación en taller (casos raros): esos se ven en el panel. **Se actualiza sola** (`actualizar-solo.tsx`): vuelve a leer cada minuto con la pestaña a la vista y al regresar a ella; no lo hace sin
 conexión ni con una ventana abierta, y muestra "Actualizado hh:mm". Arriba, si hay **rechazos de Calidad por reasignar**
 (`contarRechazosPorReasignar`: lotes y revisión final, el mismo criterio de Rechazos), sale un aviso que lleva a `/produccion/rechazos`.
-La leyenda de colores llama "Por entregar" a lo que antes decía "En taller". Lógica en `src/lib/produccion/tablero.ts`, pantalla en
+Una asignación con tache en la Bitácora lleva en la tarjeta "✕ No está" (solo aviso). La leyenda de colores llama "Por entregar" a lo que antes decía "En taller". Lógica en `src/lib/produccion/tablero.ts`, pantalla en
 `tablero-marcas.tsx`.
 
 **Bitácora de taller** (nov 2026; esta lista del inicio está **quitada por ahora**, ver Tablero): se llamaba "Bitácora de producción" (`lista-modelos.tsx`, 8 a la vista y
@@ -446,7 +451,7 @@ modelo (código + descripción), lo que declaró Planeación, lo que Calidad apr
   cobrar es lo que **Producción verificó** al registrar la entrega (`verificado_produccion_variante`, interna,
   mismas reglas que la de Calidad y sin retrabajos; un componente, en la proporción de su mueble). "Calidad
   aprobó" queda solo informativo. Apagado el ajuste, todo vuelve a medirse contra Calidad. La app lo lee con
-  `cobroSegunProduccion` (`src/lib/calidad/ajustes-flujo.ts`); si no puede, asume Calidad.
+  `cobroSegunProduccion` (`src/lib/compartido/ajustes-flujo.ts`); si no puede, asume Calidad.
 - **Listo para cobrar** = liberado − cobrado (filtro de la O.T. y del reporte; `liberadoArea` en
   `src/lib/estimaciones/pm-cobrado.ts`). Un recibo cobrado de más se **marca al revisarlo**
   (`recibo_contra_calidad`, que trae lo aprobado y lo verificado; `src/app/estimaciones/calidad-recibo.tsx`): es
@@ -501,6 +506,36 @@ de Producción y Calidad siguen yendo directo a su pantalla; las hojas viejas (d
   descripción (Electrificación, por `planeacion_item_id`), la regla de "PM contra cobrado". Todo vive en
   `src/lib/trazabilidad/pago-maquilador.ts` (+ `-db.ts`, `pago-qr.tsx`): el pago del maquilador va a
   cambiar y debe tocarse solo ahí.
+
+## Vista de celular
+
+En pantallas táctiles (`pointer: coarse`) `src/app/globals.css` da a todo botón, enlace, `summary`, pestaña y
+casilla con su texto una zona de toque de al menos 44 × 44 px con un `::after` invisible (no mueve el diseño), y
+los campos y `select` miden 44 px de alto. No la reciben los controles dentro de algo que se desliza de lado
+(`overflow-x-auto`: tablas, tiras del tablero), porque volvía desplazable el contenedor unos píxeles y atrapaba el
+dedo; ahí se agrandan en su pantalla (`pointer-coarse:min-h-11`, `min-h-11 sm:min-h-9`). Tampoco los que ya
+dibujan su `::after` (`after:` de Tailwind) ni **los que llevan otro control dentro** (`:has(...)`): el `::after`
+se pinta encima del contenido y en una fila que se despliega con botones adentro (renglón del recibo, `summary`
+con acciones) tapaba esos botones y el toque abría la fila. Por eso, **un control dentro de otro no recibe la
+zona extra**: si es chico, se agranda en su pantalla. Dos controles chicos pegados (✓ y ✗ de la bitácora,
+filas de barras) se roban toques en la orilla: se les da 44 px reales con `pointer-coarse:` en vez de confiar en
+el `::after`.
+
+También en táctil: `touch-action: manipulation` (dos toques rápidos no hacen zoom ni se pierden), los botones no
+seleccionan su texto al dejar el dedo, y todo control se aclara mientras se presiona (`:active`, opacidad 0.6; un
+`active:` o una opacidad propia de la pantalla gana). Los avisos salen **arriba** en celular (abajo tapaban la
+barra de "Guardar"). **Tocar un botón deshabilitado ya responde** (`src/components/toque-deshabilitado.tsx`, en el
+layout raíz; lógica en `src/lib/ui/toque-deshabilitado.ts`): si es el de enviar y falta un campo obligatorio, el
+navegador lo marca y lo enfoca y sale "Falta llenar: …"; si no, sale como aviso su `title` (o `aria-description`
+/ `data-motivo`). Por eso, en un formulario, marcar `required` los campos obligatorios y poner en el `title` de un
+botón apagado el porqué. El visor de imágenes acepta pellizco y doble toque. Fichas que también se imprimen o se
+pasan a PDF (viajero) se acomodan con consultas de contenedor (`@container`, `@xl:`), no con `sm:`: el PDF las
+maqueta a 640 px aunque se descargue desde el celular.
+
+Para que nada se corte a 375 px: filtros segmentados a todo lo ancho (2 × 2 o con texto que parte renglón),
+`line-clamp-2` en vez de `truncate` cuando hay espacio abajo, y tablas anchas como tarjetas en celular (ejemplo:
+Calidad › O.T.). Para revisar una pantalla: a 375 px, en cada control visible `document.elementFromPoint` en su
+centro y orillas debe devolver el control o algo dentro de él.
 
 ## Capturas sin conexión
 

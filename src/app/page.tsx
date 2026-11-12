@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { inicioDeRol } from "@/lib/auth/acceso";
+import { inicioDePerfil } from "@/lib/auth/acceso";
 
-// Inicio del sitio: sin sesión al login; con sesión, a la pantalla de inicio de su rol (el
-// maquilador, a Estimaciones; los demás, a Planeación).
+// Inicio del sitio: sin sesión al login; con sesión, al inicio de su área (el maquilador, a sus
+// recibos; el desarrollador, a Planeación; quien no tiene área, a su perfil).
 export default async function Home() {
   const supabase = await createClient();
   const {
@@ -11,6 +11,6 @@ export default async function Home() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: perfil } = await supabase.from("perfiles").select("rol").eq("id", user.id).single();
-  redirect(inicioDeRol(perfil?.rol));
+  const { data: perfil } = await supabase.from("perfiles").select("rol, area").eq("id", user.id).single();
+  redirect(inicioDePerfil(perfil));
 }

@@ -102,11 +102,13 @@ export default function EquiposEditor({
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <dl className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* En celular, el resumen a todo lo ancho y el botón debajo: junto al botón, "Maquiladores"
+            no cabía en su recuadro. */}
+        <dl className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:flex-1 sm:grid-cols-4">
           {resumen.map((r) => (
-            <div key={r.etiqueta} className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+            <div key={r.etiqueta} className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
               <dd className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{r.valor}</dd>
-              <dt className="text-xs text-slate-500">{r.etiqueta}</dt>
+              <dt className="break-words text-xs text-slate-500">{r.etiqueta}</dt>
             </div>
           ))}
         </dl>
@@ -114,7 +116,7 @@ export default function EquiposEditor({
           <button
             type="button"
             onClick={() => editar(NUEVO)}
-            className={`${estiloBotonPrimario} inline-flex items-center gap-2 text-sm`}
+            className={`${estiloBotonPrimario} inline-flex w-full items-center justify-center gap-2 text-sm sm:w-auto`}
           >
             <svg
               viewBox="0 0 24 24"
