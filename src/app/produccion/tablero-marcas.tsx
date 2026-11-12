@@ -125,7 +125,12 @@ export default function TableroMarcas({
                     <h3 className="truncate text-base font-medium text-slate-900">{sec.titulo}</h3>
                   )}
                 </div>
-                <div className="flex shrink-0 gap-4 text-sm tabular-nums text-slate-500" aria-label="Cuántas hay en cada columna">
+                <div className="flex shrink-0 items-center gap-4 text-sm tabular-nums text-slate-500" aria-label="Cuántas hay en cada columna">
+                  {sec.atrasadas > 0 && (
+                    <span className="font-medium text-rose-700" title="Con la fecha de entrega del PM vencida">
+                      {sec.atrasadas} atrasada{sec.atrasadas === 1 ? "" : "s"}
+                    </span>
+                  )}
                   {COLUMNAS_TABLERO.map((c) => (
                     <span key={c.valor} className="inline-flex items-center gap-1.5" title={c.titulo}>
                       <span aria-hidden="true" className={`size-1.5 rounded-full ${PUNTO_COLUMNA[c.valor]}`} />
@@ -350,6 +355,8 @@ function TarjetaVista({ t, puedeEditar, ancho }: { t: TarjetaTablero; puedeEdita
   const [entregando, setEntregando] = useState(false);
   const [marca, setMarca] = useState(t.marca);
   const cerrar = () => setAbierta(false);
+  // Producción la marcó con tache en la bitácora: se avisa en la tarjeta sin abrir la vista previa.
+  const noEsta = !!t.asignacionId && marca === false;
 
   const accion =
     t.avance && t.asignacionId
@@ -416,6 +423,23 @@ function TarjetaVista({ t, puedeEditar, ancho }: { t: TarjetaTablero; puedeEdita
           </Link>
           {!t.avance && <span className="tabular-nums text-slate-500">{t.piezas}</span>}
         </div>
+        {(t.plazo || noEsta) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-medium">
+            {t.plazo && (
+              <span
+                className={t.plazo.nivel === "vencido" ? "text-rose-700" : "text-amber-700"}
+                title="Según la fecha de entrega del PM"
+              >
+                {t.plazo.texto}
+              </span>
+            )}
+            {noEsta && (
+              <span className="text-rose-700" title="Producción marcó que no está en el taller">
+                ✕ No está
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {t.avance && t.asignacionId && <ResumenAvance avance={t.avance} alAbrir={() => setAbierta(true)} />}

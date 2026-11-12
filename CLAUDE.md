@@ -206,12 +206,15 @@ por O.T.** (la de movimiento más reciente primero, "Sin O.T." al final; cuando 
 pliegan; el título abre la pantalla de la O.T. y trae cuántas hay en cada columna), cada una con **dos columnas que salen del
 estado, no se arrastran** (`renglonesDeTablero` en `control-taller.ts`, `columnaDeRenglon` en `tablero.ts`): **"Por entregar"**
 (asignaciones que siguen en taller, con lo que falta entregar) y **"Por asignar"** (todo mueble liberado en estado por asignar, tenga o
-no un proceso ya entregado; es el mismo "Por asignar" de la leyenda de colores). Lo que sigue por liberar no sale: se
+no un proceso ya entregado, **y el asignado a medias**: el paso en que va aún tiene piezas sin equipo; es el mismo "Por asignar" de la
+leyenda de colores). Su tarjeta dice cuánto falta: "13 PZA" si no se ha asignado nada o "Faltan 8 de 13 PZA · Armado" si ya se asignó una
+parte (`faltaPorAsignar` de `inicio.ts`, el mismo tope por paso de `crear_asignacion_produccion`; `esPorAsignar` en `control-taller.ts`).
+Un mueble que va por partes del despiece no entra por esta vía. Lo que sigue por liberar no sale: se
 libera antes, desde el carrito. Cada tarjeta lleva miniatura que se amplía con el visor de siempre (`ImagenAmpliable`), nombre que
 abre el panel, **los mismos anillos concéntricos de la lista** (`AnillosConcentricos`: cuántos muebles de su modelo hay por
 liberar, por asignar, en taller y terminados; `conteosPorModelo` sale de `modelosRecientes`, y la leyenda de colores de arriba
 de la página) y el PM que abre su pedido. En "Por asignar" va el botón **Asignar**, que abre
-`/produccion/panel?ids=<mueble>` (el panel con ese mueble ya abierto). En "Por entregar" va el botón verde **Entregar** (solo quien
+`/produccion/panel?ids=<mueble>` (el panel con ese mueble ya abierto). En "Por entregar" va el botón **Entregar** (solo quien
 edita Producción; sin palomita ni tache en la tarjeta) y una barra con "5 de 13 PZA" entregadas que abre la **vista previa
 flotante** (`vista-previa-mueble.tsx`, una ventana sobre la página con el fondo difuminado, Esc o tocar fuera la cierra): imagen del
 mueble, nombre, anillos de su modelo, avance, la ruta como línea de puntos con el % de cada proceso (`procesosDeMueble` de `inicio.ts`,
@@ -222,13 +225,18 @@ menú: panel de asignación y pedido.
 folio de la hoja y fecha (hoy, con "Cambiar fecha"). Registra por la misma ruta que "Registrar entrega" del panel
 (`POST /api/produccion/entregas`, con cola sin conexión), así que al guardar la tarjeta y el panel se actualizan (`router.refresh`).
 Si la entrega del mueble se hace **por partes** del despiece (`partesParaEntrega`; `entregaPorPartes` de `MuebleInicio` →
-`porPartes` de la tarjeta), el botón es un enlace al panel de asignación con ese mueble (`hrefPanel`) y no abre la ventana.
-Al marcar desde la ventana de vista previa, la tarjeta muestra "Registrado" con la hora. **Lo más reciente va primero** (por el
-último movimiento de la asignación o del mueble, `reciente`) y por omisión el tablero muestra solo las 30 tarjetas más recientes
-(`MAX_TARJETAS_RECIENTES`; el botón "Todos" muestra el resto). **El PM siempre se ve corto** (`pmCorto`,
+`porPartes` de la tarjeta), la ventana ofrece además el enlace al panel de asignación con ese mueble (`hrefPanel`) para entregar por partes.
+**Lo urgente va primero**: cada tarjeta lleva un
+chip de plazo según la fecha de entrega de su PM ("Atrasada 3 d", "Vence hoy", "Vence en 2 d"; `plazoDeTarjeta`, `plazosDePedidos`; sin
+fecha de entrega no hay chip), las tarjetas se ordenan por urgencia y después por lo más reciente (`reciente`), las O.T. con algo
+atrasado van primero y su encabezado dice cuántas ("2 atrasadas"). Por omisión el tablero muestra las 30 tarjetas que más importan
+(`MAX_TARJETAS_RECIENTES`: lo urgente y luego lo reciente; el botón "Todos" muestra el resto). **El PM siempre se ve corto** (`pmCorto`,
 `src/lib/compartido/pm-corto.ts`): solo "PM009-26" o, si hay SDC, solo "SDC-1"; el nombre completo queda en el `title`. 8 tarjetas
-por columna y "Ver todas". No cubre un mueble repartido a medias (algo asignado y el resto sin equipo) ni uno cuyo paso
-sigue en proceso sin asignación en taller: esos se ven en el panel. Lógica en `src/lib/produccion/tablero.ts`, pantalla en
+por columna y "Ver todas". No cubre un mueble por partes ni uno cuyo paso sigue en proceso con todo asignado y sin
+asignación en taller (casos raros): esos se ven en el panel. **Se actualiza sola** (`actualizar-solo.tsx`): vuelve a leer cada minuto con la pestaña a la vista y al regresar a ella; no lo hace sin
+conexión ni con una ventana abierta, y muestra "Actualizado hh:mm". Arriba, si hay **rechazos de Calidad por reasignar**
+(`contarRechazosPorReasignar`: lotes y revisión final, el mismo criterio de Rechazos), sale un aviso que lleva a `/produccion/rechazos`.
+Una asignación con tache en la Bitácora lleva en la tarjeta "✕ No está" (solo aviso). La leyenda de colores llama "Por entregar" a lo que antes decía "En taller". Lógica en `src/lib/produccion/tablero.ts`, pantalla en
 `tablero-marcas.tsx`.
 
 **Bitácora de taller** (nov 2026; esta lista del inicio está **quitada por ahora**, ver Tablero): se llamaba "Bitácora de producción" (`lista-modelos.tsx`, 8 a la vista y

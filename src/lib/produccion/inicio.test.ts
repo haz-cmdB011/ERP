@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AsignacionResumen } from "./asignaciones";
 import type { MuebleFlujo } from "./flujo-mueble";
-import { contarInicio, modelosRecientes, otsConPendientes, procesosDeMueble, type MuebleInicio } from "./inicio";
+import { contarInicio, faltaPorAsignar, modelosRecientes, otsConPendientes, procesosDeMueble, type MuebleInicio } from "./inicio";
 
 function mueble(id: string, extra: Partial<MuebleInicio> = {}): MuebleInicio {
   return {
@@ -117,5 +117,22 @@ describe("procesos de un mueble", () => {
       [0, "sin_asignar"],
       [0, "sin_asignar"],
     ]);
+  });
+
+  it("dice cuántas piezas faltan por asignar del paso en que va el mueble", () => {
+    // 4 de 10 asignadas en Armado: faltan 6 y el mueble sigue en ese paso.
+    const parcial = { ...armado, cantidad: 4, entregado: 0, verificado: 0 } as AsignacionResumen;
+    expect(faltaPorAsignar(flujo([parcial]))).toEqual({ cantidad: 6, total: 10, etiqueta: "Armado" });
+    // Sin asignar nada, falta todo.
+    expect(faltaPorAsignar(flujo([]))).toEqual({ cantidad: 10, total: 10, etiqueta: "Armado" });
+  });
+
+  it("no dice nada si el paso en que va ya está todo asignado", () => {
+    // 10 de 10 asignadas en Armado (4 entregadas): el paso en curso no tiene piezas sin equipo.
+    expect(faltaPorAsignar(flujo([armado]))).toBeNull();
+  });
+
+  it("no dice nada de un mueble que va por partes (se asigna en el panel)", () => {
+    expect(faltaPorAsignar({ ...flujo([]), porPartes: true })).toBeNull();
   });
 });

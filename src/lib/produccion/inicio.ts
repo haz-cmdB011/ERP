@@ -3,14 +3,24 @@
 // tienen trabajo pendiente. Sin base de datos ni navegador, para poder probarlo; la lectura
 // vive en inicio-db.ts.
 
-import { avanceColumna, columnasMueble, type EstadoMueble, type EstadoProceso, type MuebleFlujo } from "./flujo-mueble";
+import {
+  avanceColumna,
+  avancePaso,
+  columnasMueble,
+  indiceSiguiente,
+  partesConRuta,
+  type EstadoMueble,
+  type EstadoProceso,
+  type MuebleFlujo,
+} from "./flujo-mueble";
+import { etiquetaPaso } from "./ruta";
 
 export type EstadoInicio = "por_liberar" | EstadoMueble;
 
 export const ESTADOS_INICIO: { valor: EstadoInicio; etiqueta: string }[] = [
   { valor: "por_liberar", etiqueta: "Por liberar" },
   { valor: "por_asignar", etiqueta: "Por asignar" },
-  { valor: "en_proceso", etiqueta: "En taller" },
+  { valor: "en_proceso", etiqueta: "Por entregar" },
   { valor: "terminado", etiqueta: "Terminados" },
 ];
 
@@ -37,6 +47,17 @@ export interface MuebleInicio {
   procesos?: ProcesoAvance[];
   // Ids de sus asignaciones cuya entrega se hace por partes del despiece (ver partesParaEntrega).
   entregaPorPartes?: string[];
+  // Lo que todavía no se asigna del paso en que va (ver faltaPorAsignar); ausente si no hay o no se sabe.
+  faltaAsignar?: FaltaAsignar;
+}
+
+// Piezas del paso en que va un mueble que siguen sin equipo: de un mueble de 13 con 5 asignadas en Armado,
+// faltan 8 de 13. Es el mismo tope que aplica la base al asignar (crear_asignacion_produccion).
+export interface FaltaAsignar {
+  cantidad: number;
+  total: number;
+  // El paso ("Armado", "Barniz 2").
+  etiqueta: string;
 }
 
 // Un proceso del mueble (Armado, Barniz 2…) con su avance en % y su estado.
@@ -53,6 +74,17 @@ export function procesosDeMueble(m: MuebleFlujo): ProcesoAvance[] {
     const a = avanceColumna(m, c);
     return { etiqueta: c.etiqueta, pct: a.pct, estado: a.estado };
   });
+}
+
+// Lo que falta por asignar en el paso en que va el mueble completo (el primero que no está terminado), o
+// null si ya está todo asignado, si ya terminó o si va por partes (esos se ven y se asignan en el panel).
+export function faltaPorAsignar(m: MuebleFlujo): FaltaAsignar | null {
+  if (m.porPartes || partesConRuta(m).length > 0) return null;
+  const i = indiceSiguiente(m);
+  if (i === null) return null;
+  const a = avancePaso(m, i);
+  if (a.disponible <= 0) return null;
+  return { cantidad: a.disponible, total: a.total, etiqueta: etiquetaPaso(m.ruta, i) };
 }
 
 // Qué fue lo último que le pasó a un mueble: se subió su PM, se liberó, se asignó o se entregó algo.

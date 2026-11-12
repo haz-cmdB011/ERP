@@ -196,6 +196,18 @@ describe("renglones del tablero", () => {
     expect(a).toMatchObject({ enTaller: true, entregado: 5, tiene: 8, ultimaEntrega: "2026-11-04", procesos });
   });
 
+  it("un mueble asignado a medias sigue en Por asignar con lo que falta; uno asignado del todo, no", () => {
+    const hay = renglonesDeTablero(
+      [
+        mueble("item-a", { estado: "en_proceso", faltaAsignar: { cantidad: 8, total: 13, etiqueta: "Armado" } }),
+        mueble("item-b", { estado: "en_proceso", faltaAsignar: undefined }),
+      ],
+      armarBitacora([], sinPlazos, ots, HOY)
+    );
+    expect(hay.map((r) => r.clave)).toEqual(["mueble:item-a"]);
+    expect(hay[0].faltaAsignar).toEqual({ cantidad: 8, total: 13, etiqueta: "Armado" });
+  });
+
   it("dice desde cuándo se asignó y si su entrega se hace por partes del despiece", () => {
     expect(renglones.find((r) => r.clave === "asignacion:a")).toMatchObject({ fechaAsignacion: "2026-11-01", porPartes: false });
     const conPartes = renglonesDeTablero(

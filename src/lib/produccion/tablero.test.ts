@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { RenglonControl } from "./control-taller";
+import type { Plazo } from "./atrasos";
 import {
   clavesMasRecientes,
   conteosColumnas,
   diaCorto,
   enColumna,
+  plazoDeTarjeta,
   seccionesPorOt,
   tarjetasDeControl,
 } from "./tablero";
@@ -38,6 +40,7 @@ function renglon(clave: string, extra: Partial<RenglonControl> = {}): RenglonCon
     ultimaEntrega: null,
     fechaAsignacion: esAsignacion ? "2026-11-03" : null,
     porPartes: false,
+    faltaAsignar: null,
     procesos: [],
     ...extra,
   };
@@ -94,6 +97,15 @@ describe("tablero de producción", () => {
       porPartes: false,
       procesos: [{ etiqueta: "Armado", pct: 38, estado: "en_proceso" }],
     });
+  });
+
+  it("un mueble asignado a medias dice cuánto falta por asignar del paso en que va", () => {
+    const t = tarjetasDeControl([
+      renglon("mueble:a", { faltaAsignar: { cantidad: 8, total: 13, etiqueta: "Armado" } }),
+      renglon("mueble:b", { faltaAsignar: { cantidad: 13, total: 13, etiqueta: "Armado" } }),
+      renglon("mueble:c"),
+    ]);
+    expect(t.map((x) => x.piezas)).toEqual(["Faltan 8 de 13 PZA · Armado", "13 PZA", "13 PZA"]);
   });
 
   it("dice si la entrega del mueble se hace por partes", () => {
@@ -201,6 +213,81 @@ describe("tablero de producción", () => {
     const secciones = seccionesPorOt(t);
     expect(secciones.map((s) => s.titulo)).toEqual(["O.T. 009-26", "O.T. 102-24", "Sin O.T."]);
     expect(secciones[0].reciente).toBe("2026-11-05");
+  });
+});
+
+describe("plazos y urgencia del tablero", () => {
+  const plazos = new Map<string, Plazo>([
+    ["pAtrasado", { tipo: "vencido", dias: 5 }],
+    ["pMuyAtrasado", { tipo: "vencido", dias: 12 }],
+    ["pHoy", { tipo: "hoy" }],
+    ["pPronto", { tipo: "por-vencer", dias: 3 }],
+    ["pHolgado", { tipo: "a-tiempo", dias: 30 }],
+  ]);
+
+  it("avisa lo atrasado, lo que vence hoy y lo que vence pronto, y nada más", () => {
+    expect(plazoDeTarjeta({ tipo: "vencido", dias: 3 })).toMatchObject({ texto: "Atrasada 3 d", nivel: "vencido" });
+    expect(plazoDeTarjeta({ tipo: "hoy" })).toMatchObject({ texto: "Vence hoy", nivel: "hoy" });
+    expect(plazoDeTarjeta({ tipo: "por-vencer", dias: 2 })).toMatchObject({ texto: "Vence en 2 d", nivel: "por-vencer" });
+    expect(plazoDeTarjeta({ tipo: "a-tiempo", dias: 20 })).toBeNull();
+    expect(plazoDeTarjeta({ tipo: "sin-fecha" })).toBeNull();
+    expect(plazoDeTarjeta(undefined)).toBeNull();
+  });
+
+  const renglones = [
+    renglon("mueble:holgado", { pedidoId: "pHolgado", reciente: "2026-11-09" }),
+    renglon("mueble:pronto", { pedidoId: "pPronto", reciente: "2026-11-01" }),
+    renglon("mueble:sin-plazo", { pedidoId: "pOtro", reciente: "2026-11-08" }),
+    renglon("mueble:hoy", { pedidoId: "pHoy", reciente: "2026-11-02" }),
+    renglon("mueble:atrasado", { pedidoId: "pAtrasado", reciente: "2026-10-01" }),
+    renglon("mueble:muy-atrasado", { pedidoId: "pMuyAtrasado", reciente: "2026-10-02" }),
+  ];
+
+  it("pone primero lo más atrasado, luego lo que vence hoy y pronto, y después lo reciente", () => {
+    const t = tarjetasDeControl(renglones, { plazos });
+    expect(t.map((x) => x.clave)).toEqual([
+      "mueble:muy-atrasado",
+      "mueble:atrasado",
+      "mueble:hoy",
+      "mueble:pronto",
+      "mueble:holgado",
+      "mueble:sin-plazo",
+    ]);
+  });
+
+  it("sin plazos todo sigue como antes: lo más reciente primero", () => {
+    const t = tarjetasDeControl(renglones);
+    expect(t.map((x) => x.clave)).toEqual([
+      "mueble:holgado",
+      "mueble:sin-plazo",
+      "mueble:hoy",
+      "mueble:pronto",
+      "mueble:muy-atrasado",
+      "mueble:atrasado",
+    ]);
+  });
+
+  it("en Más recientes entra lo urgente aunque sea viejo", () => {
+    const t = tarjetasDeControl(renglones, { plazos });
+    expect([...clavesMasRecientes(t, 2)].sort()).toEqual(["mueble:atrasado", "mueble:muy-atrasado"]);
+  });
+
+  it("la O.T. con algo atrasado va primero y cuenta sus atrasadas", () => {
+    const t = tarjetasDeControl(
+      [
+        renglon("mueble:a", { ot: "009-26", pedidoId: "pHolgado", reciente: "2026-11-09" }),
+        renglon("mueble:b", { ot: "102-24", pedidoId: "pAtrasado", reciente: "2026-10-01" }),
+        renglon("mueble:c", { ot: "102-24", pedidoId: "pMuyAtrasado", reciente: "2026-10-02" }),
+        renglon("mueble:d", { ot: null, pedidoId: "pMuyAtrasado" }),
+      ],
+      { plazos }
+    );
+    const secciones = seccionesPorOt(t);
+    expect(secciones.map((s) => [s.titulo, s.atrasadas])).toEqual([
+      ["O.T. 102-24", 2],
+      ["O.T. 009-26", 0],
+      ["Sin O.T.", 1],
+    ]);
   });
 });
 
