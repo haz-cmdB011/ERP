@@ -232,12 +232,13 @@ abre el panel, **los mismos anillos concéntricos de la lista** (`AnillosConcent
 liberar, por asignar, en taller y terminados; `conteosPorModelo` sale de `modelosRecientes`, y la leyenda de colores de arriba
 de la página) y el PM que abre su pedido. En "Por asignar" va el botón **Asignar**, que abre
 `/produccion/panel?ids=<mueble>` (el panel con ese mueble ya abierto). En "Por entregar" va el botón **Entregar** (solo quien
-edita Producción; sin palomita ni tache en la tarjeta) y una barra con "5 de 13 PZA" entregadas que abre la **vista previa
+edita Producción; sin palomita ni tache en la tarjeta) y, **al tocar cualquier parte del texto de la tarjeta** (nombre, equipo,
+PM, "5 de 13 PZA" y su barra; ahí el nombre y el PM ya no son enlaces) se abre la **vista previa
 flotante** (`vista-previa-mueble.tsx`, una ventana sobre la página con el fondo difuminado, Esc o tocar fuera la cierra): imagen del
 mueble, nombre, anillos de su modelo, avance, la ruta como línea de puntos con el % de cada proceso (`procesosDeMueble` de `inicio.ts`,
 el mismo avance de las columnas del panel), la **Bitácora** (solo la palomita y el tache de la asignación, `MarcaSeleccionable`;
 sin tira de datos ni historial a la vista: el registro de cada cambio lo sigue escribiendo el trigger de la base) y, debajo, un
-menú: panel de asignación y pedido.
+menú: panel de asignación y pedido (por eso la tarjeta ya no los enlaza).
 **Entregar** abre una ventana mínima (`entregar-mueble.tsx`): % antes y después con barra, cantidad con − / +, "Entregar todo",
 folio de la hoja y fecha (hoy, con "Cambiar fecha"). Registra por la misma ruta que "Registrar entrega" del panel
 (`POST /api/produccion/entregas`, con cola sin conexión), así que al guardar la tarjeta y el panel se actualizan (`router.refresh`).
