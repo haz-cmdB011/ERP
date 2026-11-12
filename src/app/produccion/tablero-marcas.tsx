@@ -25,10 +25,11 @@ import VistaPreviaMueble from "./vista-previa-mueble";
 const PUNTO_COLUMNA: Record<Columna, string> = {
   por_entregar: "bg-emerald-500",
   por_asignar: "bg-rose-400",
+  en_calidad: "bg-violet-500",
 };
 
-// Tablero separado por O.T.: cada O.T. es una sección que se pliega, con sus dos columnas ("Por entregar"
-// y "Por asignar"), una debajo de la otra. Cada columna es una tira de tarjetas que se desliza de lado
+// Tablero separado por O.T.: cada O.T. es una sección que se pliega, con sus columnas ("Por entregar",
+// "Por asignar" y, solo si hay algo, "En Calidad"), una debajo de la otra. Cada columna es una tira de tarjetas que se desliza de lado
 // (con el dedo, o con las flechas en pantalla ancha), así que la altura de una O.T. no crece con la
 // cantidad de muebles. "Ver todos" abre una hoja con todos en cuadrícula. Cada mueble (o asignación) es
 // una tarjeta con su foto (que se amplía al tocarla) y los anillos de su modelo encima, su nombre, de qué
@@ -131,7 +132,7 @@ export default function TableroMarcas({
                       {sec.atrasadas} atrasada{sec.atrasadas === 1 ? "" : "s"}
                     </span>
                   )}
-                  {COLUMNAS_TABLERO.map((c) => (
+                  {COLUMNAS_TABLERO.filter((c) => c.valor !== "en_calidad" || cuentas.en_calidad > 0).map((c) => (
                     <span key={c.valor} className="inline-flex items-center gap-1.5" title={c.titulo}>
                       <span aria-hidden="true" className={`size-1.5 rounded-full ${PUNTO_COLUMNA[c.valor]}`} />
                       {cuentas[c.valor]}
@@ -144,6 +145,8 @@ export default function TableroMarcas({
                 <div className="flex flex-col gap-6 pb-6">
                   {COLUMNAS_TABLERO.map((c) => {
                     const lista = enColumna(sec.tarjetas, c.valor);
+                    // "En Calidad" solo sale cuando hay algo: no hace falta una tira vacía en cada O.T.
+                    if (c.valor === "en_calidad" && lista.length === 0) return null;
                     const llave = `${sec.clave}|${c.valor}`;
                     return (
                       <Tira

@@ -49,6 +49,19 @@ export interface MuebleInicio {
   entregaPorPartes?: string[];
   // Lo que todavía no se asigna del paso en que va (ver faltaPorAsignar); ausente si no hay o no se sabe.
   faltaAsignar?: FaltaAsignar;
+  // Piezas que esperan la revisión final de Calidad (ya entregadas y verificadas por Producción); ausente si
+  // no hay ninguna o no se sabe (ver conEnCalidad).
+  enCalidad?: number;
+}
+
+// Anota en cada mueble cuántas piezas suyas esperan a Calidad (`porMueble`: por id de mueble). Lo que no
+// aparece en el mapa queda sin la marca.
+export function conEnCalidad(muebles: MuebleInicio[], porMueble: ReadonlyMap<string, number>): MuebleInicio[] {
+  if (porMueble.size === 0) return muebles;
+  return muebles.map((m) => {
+    const n = porMueble.get(m.id);
+    return n && n > 0 ? { ...m, enCalidad: n } : m;
+  });
 }
 
 // Piezas del paso en que va un mueble que siguen sin equipo: de un mueble de 13 con 5 asignadas en Armado,

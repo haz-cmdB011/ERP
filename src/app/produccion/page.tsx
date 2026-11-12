@@ -5,12 +5,14 @@ import { getImagenesConGrandePorItem } from "@/lib/compartido/imagenes";
 import { hoyMexico } from "@/lib/produccion/asignaciones";
 import { plazosDePedidos } from "@/lib/produccion/cargar-taller";
 import { contarRechazosPorReasignar } from "@/lib/produccion/rechazos-pendientes-db";
+import { cargarEnCalidad } from "@/lib/produccion/en-calidad-db";
 import { armarBitacora } from "@/lib/produccion/bitacora";
 import { renglonesDeTablero } from "@/lib/produccion/control-taller";
 import { tarjetasDeControl, type TarjetaTablero } from "@/lib/produccion/tablero";
 import { cargarBitacora, cargarMarcasDeMuebles } from "@/lib/produccion/bitacora-db";
 import {
   ESTADOS_INICIO,
+  conEnCalidad,
   contarInicio,
   modelosRecientes,
   otsConPendientes,
@@ -31,11 +33,12 @@ export default async function ProduccionInicioPage() {
   const supabase = await createClient();
   const hoy = hoyMexico();
   const generadoEn = new Date().toISOString();
-  const [muebles, { asignaciones, plazos, ots: otsDePm, marcas }, perfil, rechazos] = await Promise.all([
+  const [muebles, { asignaciones, plazos, ots: otsDePm, marcas }, perfil, rechazos, enCalidad] = await Promise.all([
     cargarMueblesInicio(supabase),
     cargarBitacora(supabase, hoy),
     getPerfilActual(supabase),
     contarRechazosPorReasignar(supabase),
+    cargarEnCalidad(supabase),
   ]);
   const puedeEditar = puedeEditarProduccion(perfil);
 
@@ -45,7 +48,8 @@ export default async function ProduccionInicioPage() {
   const ots = otsConPendientes(muebles);
 
   // Tablero: una tarjeta por mueble o asignación, con la miniatura del mueble y cuándo fue lo último.
-  const renglones = renglonesDeTablero(muebles, bitacora, marcasDeMuebles);
+  // Con lo que cada mueble tiene esperando a Calidad (columna "En Calidad").
+  const renglones = renglonesDeTablero(conEnCalidad(muebles, enCalidad), bitacora, marcasDeMuebles);
   const imagenesPorItem = await getImagenesConGrandePorItem(
     supabase,
     [...new Set(renglones.flatMap((r) => (r.planeacionItemId ? [r.planeacionItemId] : [])))]

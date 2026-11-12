@@ -1,7 +1,8 @@
-// Tablero del inicio de Producción: dos columnas por O.T. con una tarjeta por mueble o asignación.
+// Tablero del inicio de Producción: columnas por O.T. con una tarjeta por mueble o asignación.
 // "Por entregar" junta lo que ya tiene equipo en taller, con su botón para registrar la entrega; "Por
 // asignar", los muebles liberados que esperan equipo, con su botón para asignar (lo que sigue por liberar
-// no sale: se libera antes, desde el carrito). La columna sale del estado, no se elige. Lo más reciente va
+// no sale: se libera antes, desde el carrito); "En Calidad", los muebles con piezas ya entregadas que esperan
+// la revisión final (solo informa: Producción ya hizo su parte). La columna sale del estado, no se elige. Lo más reciente va
 // primero y el tablero puede mostrar solo lo último que se trabajó. Lógica sin base de datos ni navegador, para
 // poder probarla; la pantalla vive en tablero-marcas.tsx.
 
@@ -10,11 +11,12 @@ import { textoPlazo, type Plazo } from "./atrasos";
 import type { RenglonControl } from "./control-taller";
 import { claveModelo, type Conteos, type ProcesoAvance } from "./inicio";
 
-export type Columna = "por_entregar" | "por_asignar";
+export type Columna = "por_entregar" | "por_asignar" | "en_calidad";
 
 export const COLUMNAS_TABLERO: { valor: Columna; titulo: string }[] = [
   { valor: "por_entregar", titulo: "Por entregar" },
   { valor: "por_asignar", titulo: "Por asignar" },
+  { valor: "en_calidad", titulo: "En Calidad" },
 ];
 
 // Tarjetas a la vista por columna antes de "Ver todas".
@@ -122,11 +124,19 @@ export interface TarjetaTablero {
 // En qué columna cae un renglón, o null si no va en el tablero: una asignación entregada, un mueble por
 // liberar (se libera antes) o uno que ya tiene su trabajo en otro lado.
 function columnaDeRenglon(r: RenglonControl): Columna | null {
+  if (r.enCalidad !== null) return "en_calidad";
   if (r.asignacionId) return r.enTaller ? "por_entregar" : null;
   return r.estadoInicio === "por_asignar" ? "por_asignar" : null;
 }
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
+
+// "3 de 13 PZA en revisión" (o "13 PZA en revisión" si es todo el mueble).
+export function textoEnCalidad(pendientes: number, total: number, unidad: string): string {
+  const u = unidad ? ` ${unidad}` : "";
+  const n = redondear(pendientes);
+  return total > 0 && n < total ? `${n} de ${total}${u} en revisión` : `${n}${u} en revisión`;
+}
 
 function avanceDe(r: RenglonControl, unidad: string): AvanceTarjeta {
   const total = r.cantidad;
@@ -173,8 +183,11 @@ export function tarjetasDeControl(
     const unidad = (r.unidad ?? "").trim();
     // Un mueble asignado a medias dice cuánto falta del paso en que va; si no, su cantidad del PM.
     const falta = columna === "por_asignar" ? r.faltaAsignar : null;
+    // En Calidad, lo que importa (cuántas piezas esperan) va en el subtítulo y no se repite junto al PM.
     const piezas =
-      falta && falta.cantidad < falta.total
+      columna === "en_calidad"
+        ? ""
+        : falta && falta.cantidad < falta.total
         ? `Faltan ${falta.cantidad} de ${falta.total} ${unidad}`.trim() + (falta.etiqueta ? ` · ${falta.etiqueta}` : "")
         : `${r.cantidad} ${unidad}`.trim();
     tarjetas.push({
@@ -183,7 +196,7 @@ export function tarjetasDeControl(
       asignacionId: r.asignacionId,
       itemId: r.itemId,
       modelo: r.modelo,
-      subtitulo: r.equipo ? `${r.equipo}${r.proceso ? ` · ${r.proceso}` : ""}` : null,
+      subtitulo: columna === "en_calidad" ? textoEnCalidad(r.enCalidad ?? 0, r.cantidad, unidad) : r.equipo ? `${r.equipo}${r.proceso ? ` · ${r.proceso}` : ""}` : null,
       piezas,
       ot: r.ot,
       numeroPm: r.numeroPm,
@@ -276,5 +289,9 @@ export const enColumna = (tarjetas: TarjetaTablero[], columna: Columna): Tarjeta
 
 // Cuántas hay en cada columna.
 export function conteosColumnas(tarjetas: TarjetaTablero[]): Record<Columna, number> {
-  return { por_entregar: enColumna(tarjetas, "por_entregar").length, por_asignar: enColumna(tarjetas, "por_asignar").length };
+  return {
+    por_entregar: enColumna(tarjetas, "por_entregar").length,
+    por_asignar: enColumna(tarjetas, "por_asignar").length,
+    en_calidad: enColumna(tarjetas, "en_calidad").length,
+  };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AsignacionResumen } from "./asignaciones";
 import type { MuebleFlujo } from "./flujo-mueble";
-import { contarInicio, faltaPorAsignar, modelosRecientes, otsConPendientes, procesosDeMueble, type MuebleInicio } from "./inicio";
+import { conEnCalidad, contarInicio, faltaPorAsignar, modelosRecientes, otsConPendientes, procesosDeMueble, type MuebleInicio } from "./inicio";
 
 function mueble(id: string, extra: Partial<MuebleInicio> = {}): MuebleInicio {
   return {
@@ -134,5 +134,19 @@ describe("procesos de un mueble", () => {
 
   it("no dice nada de un mueble que va por partes (se asigna en el panel)", () => {
     expect(faltaPorAsignar({ ...flujo([]), porPartes: true })).toBeNull();
+  });
+});
+
+describe("conEnCalidad", () => {
+  it("anota las piezas que esperan a Calidad solo en los muebles del mapa y deja el resto igual", () => {
+    const muebles = [mueble("a"), mueble("b"), mueble("c")];
+    const r = conEnCalidad(muebles, new Map([["a", 3], ["c", 0]]));
+    expect(r.map((m) => m.enCalidad)).toEqual([3, undefined, undefined]);
+    expect(r[1]).toBe(muebles[1]);
+  });
+
+  it("sin nada en Calidad devuelve la misma lista", () => {
+    const muebles = [mueble("a")];
+    expect(conEnCalidad(muebles, new Map())).toBe(muebles);
   });
 });

@@ -203,14 +203,21 @@ Lógica en `src/lib/produccion/inicio.ts`, lectura en `inicio-db.ts`.
 
 **Tablero** (única vista del inicio desde el 9 nov 2026: la lista se quitó "por el momento" y `?vista=lista` ya no hace nada; `lista-modelos.tsx`, `bitacora-taller.tsx` y `cambiar-vista.tsx` siguen en el repo sin usarse, por si se vuelve a poner): **una sección
 por O.T.** (la de movimiento más reciente primero, "Sin O.T." al final; cuando hay más de tres solo la primera empieza abierta, todas se
-pliegan; el título abre la pantalla de la O.T. y trae cuántas hay en cada columna), cada una con **dos columnas que salen del
+pliegan; el título abre la pantalla de la O.T. y trae cuántas hay en cada columna), cada una con **columnas que salen del
 estado, no se arrastran** (`renglonesDeTablero` en `control-taller.ts`, `columnaDeRenglon` en `tablero.ts`): **"Por entregar"**
 (asignaciones que siguen en taller, con lo que falta entregar) y **"Por asignar"** (todo mueble liberado en estado por asignar, tenga o
 no un proceso ya entregado, **y el asignado a medias**: el paso en que va aún tiene piezas sin equipo; es el mismo "Por asignar" de la
 leyenda de colores). Su tarjeta dice cuánto falta: "13 PZA" si no se ha asignado nada o "Faltan 8 de 13 PZA · Armado" si ya se asignó una
 parte (`faltaPorAsignar` de `inicio.ts`, el mismo tope por paso de `crear_asignacion_produccion`; `esPorAsignar` en `control-taller.ts`).
 Un mueble que va por partes del despiece no entra por esta vía. Lo que sigue por liberar no sale: se
-libera antes, desde el carrito. Cada tarjeta lleva miniatura que se amplía con el visor de siempre (`ImagenAmpliable`), nombre que
+libera antes, desde el carrito. Una **tercera columna, "En Calidad"**, junta los muebles con piezas que ya
+entregó Producción y esperan la revisión final de Calidad ("3 de 13 PZA en revisión"; vista
+`revision_final_muebles`, columna `pendientes`, que lee `en-calidad-db.ts` y `conEnCalidad` de `inicio.ts` anota
+en cada mueble). Solo informa, sin botón, y no sale si no hay nada (ni la tira ni su punto violeta en el encabezado
+de la O.T.); un mueble puede salir a la vez en Por asignar y en Calidad con piezas distintas. Un enlace a
+Calidad no se pone a propósito: quien es de Producción no abre esas pantallas. Si la lectura falla, la columna
+no sale y el inicio sigue (aviso en la consola del servidor). Con la revisión final apagada (`ajustes_flujo`) no
+sale nada: Calidad evaluaría entonces por entrega y no por mueble. Cada tarjeta lleva miniatura que se amplía con el visor de siempre (`ImagenAmpliable`), nombre que
 abre el panel, **los mismos anillos concéntricos de la lista** (`AnillosConcentricos`: cuántos muebles de su modelo hay por
 liberar, por asignar, en taller y terminados; `conteosPorModelo` sale de `modelosRecientes`, y la leyenda de colores de arriba
 de la página) y el PM que abre su pedido. En "Por asignar" va el botón **Asignar**, que abre
