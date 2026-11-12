@@ -9,6 +9,7 @@ import {
   plazoDeTarjeta,
   seccionesPorOt,
   tarjetasDeControl,
+  textoEnCalidad,
 } from "./tablero";
 
 // Por omisión, un mueble liberado que espera equipo (va en "Por asignar").
@@ -41,6 +42,7 @@ function renglon(clave: string, extra: Partial<RenglonControl> = {}): RenglonCon
     fechaAsignacion: esAsignacion ? "2026-11-03" : null,
     porPartes: false,
     faltaAsignar: null,
+    enCalidad: null,
     procesos: [],
     ...extra,
   };
@@ -146,7 +148,7 @@ describe("tablero de producción", () => {
     ]);
     expect(secciones[0].hrefOt).toBe("/produccion/ot/102-24");
     expect(secciones[3].hrefOt).toBeNull();
-    expect(conteosColumnas(secciones[2].tarjetas)).toEqual({ por_entregar: 1, por_asignar: 1 });
+    expect(conteosColumnas(secciones[2].tarjetas)).toEqual({ por_entregar: 1, por_asignar: 1, en_calidad: 0 });
     expect(enColumna(secciones[2].tarjetas, "por_entregar").map((t) => t.clave)).toEqual(["asignacion:d"]);
   });
 
@@ -288,6 +290,38 @@ describe("plazos y urgencia del tablero", () => {
       ["O.T. 009-26", 0],
       ["Sin O.T.", 1],
     ]);
+  });
+});
+
+describe("columna En Calidad", () => {
+  const enCalidad = renglon("calidad:x", { enCalidad: 3, estado: "En Calidad", estadoInicio: "en_proceso" });
+
+  it("un renglón con piezas esperando a Calidad cae en su columna, sin botón ni avance, y dice cuántas", () => {
+    const [t] = tarjetasDeControl([enCalidad]);
+    expect(t).toMatchObject({
+      columna: "en_calidad",
+      piezas: "",
+      subtitulo: "3 de 13 PZA en revisión",
+      hrefAsignar: null,
+      hrefPanel: null,
+      avance: null,
+    });
+  });
+
+  it("un mueble puede salir en Por asignar y en Calidad a la vez, y cada columna cuenta lo suyo", () => {
+    const t = tarjetasDeControl([
+      renglon("mueble:a"),
+      renglon("calidad:a", { enCalidad: 2, estadoInicio: "en_proceso" }),
+      renglon("asignacion:b"),
+    ]);
+    expect(conteosColumnas(t)).toEqual({ por_entregar: 1, por_asignar: 1, en_calidad: 1 });
+    expect(enColumna(t, "en_calidad").map((x) => x.clave)).toEqual(["calidad:a"]);
+  });
+
+  it("dice 'N PZA en revisión' si es todo el mueble y ajusta la unidad vacía", () => {
+    expect(textoEnCalidad(13, 13, "PZA")).toBe("13 PZA en revisión");
+    expect(textoEnCalidad(1, 13, "")).toBe("1 de 13 en revisión");
+    expect(textoEnCalidad(2.5, 13, "ML")).toBe("2.5 de 13 ML en revisión");
   });
 });
 

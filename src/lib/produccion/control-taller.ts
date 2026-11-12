@@ -68,6 +68,8 @@ export interface RenglonControl {
   porPartes: boolean;
   // Lo que falta por asignar del paso en que va el mueble (null en una asignación o si no se sabe).
   faltaAsignar: FaltaAsignar | null;
+  // Piezas del mueble que esperan la revisión final de Calidad; solo en el renglón "En Calidad" (null en el resto).
+  enCalidad: number | null;
   // Cómo va cada proceso del mueble (vacío si no se sabe).
   procesos: ProcesoAvance[];
 }
@@ -113,7 +115,9 @@ export function esPorAsignar(m: MuebleInicio): boolean {
   return m.estado === "por_asignar" || (m.estado === "en_proceso" && (m.faltaAsignar?.cantidad ?? 0) > 0);
 }
 
-// Los renglones del tablero: las asignaciones que siguen en taller y los muebles liberados con piezas por asignar.
+// Los renglones del tablero: las asignaciones que siguen en taller, los muebles liberados con piezas por asignar
+// y los muebles con piezas esperando la revisión final de Calidad (un mueble puede salir en varios a la vez:
+// lo suyo en taller, lo que falta asignar y lo que ya está en Calidad).
 export function renglonesDeTablero(
   muebles: MuebleInicio[],
   grupos: GrupoBitacora[],
@@ -128,7 +132,18 @@ export function renglonesDeTablero(
         .map((f) => renglonDeAsignacion(f, procesosPorMueble.get(f.planeacion_item_id ?? "") ?? [], porPartes.has(f.id)))
     ),
     ...muebles.filter(esPorAsignar).map((m) => renglonDeMueble(m, marcasDeMuebles)),
+    ...muebles.filter((m) => (m.enCalidad ?? 0) > 0).map(renglonEnCalidad),
   ];
+}
+
+// El renglón de lo que un mueble tiene esperando a Calidad: no es de ningún equipo ni lleva marca.
+function renglonEnCalidad(m: MuebleInicio): RenglonControl {
+  return {
+    ...renglonDeMueble(m, new Map()),
+    clave: `calidad:${m.id}`,
+    estado: "En Calidad",
+    enCalidad: m.enCalidad ?? 0,
+  };
 }
 
 // Las asignaciones cuya entrega se hace por partes del despiece (ver partesParaEntrega).
@@ -167,6 +182,7 @@ function renglonDeMueble(
     fechaAsignacion: null,
     porPartes: false,
     faltaAsignar: m.faltaAsignar ?? null,
+    enCalidad: null,
     procesos: [],
   };
 }
@@ -199,6 +215,7 @@ function renglonDeAsignacion(f: FilaBitacora, procesos: ProcesoAvance[], porPart
     fechaAsignacion: f.fecha_asignacion ?? null,
     porPartes,
     faltaAsignar: null,
+    enCalidad: null,
     procesos,
   };
 }
