@@ -46,6 +46,69 @@ test.describe("páginas públicas", () => {
   });
 });
 
+test.describe("instalar la app", () => {
+  test("/instalar abre sin sesión, ofrece instalar y entrar sin instalar", async ({ page }) => {
+    await page.goto("/instalar");
+    await expect(page.getByRole("heading", { name: "Instala la app" })).toBeVisible();
+    // El botón existe siempre; se activa cuando el navegador avisa que se puede instalar.
+    await expect(page.getByRole("button", { name: /Instalar app|Preparando/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Entrar sin instalar" })).toHaveAttribute("href", "/login");
+  });
+
+  test("al aceptar la instalación pasa al inicio de sesión", async ({ page }) => {
+    await page.goto("/instalar");
+    // Se simula el aviso que Chrome manda cuando la app se puede instalar y que el usuario acepte.
+    await page.evaluate(() => {
+      const aviso = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
+        prompt: () => Promise<void>;
+        userChoice: Promise<{ outcome: string }>;
+      };
+      aviso.prompt = async () => {};
+      aviso.userChoice = Promise.resolve({ outcome: "accepted" });
+      window.dispatchEvent(aviso);
+    });
+    await page.getByRole("button", { name: "Instalar app" }).click();
+    await expect(page.getByText(/La app quedó instalada/)).toBeVisible();
+    await page.waitForURL("**/login");
+    await expect(page.getByRole("heading", { name: "Iniciar sesión" })).toBeVisible();
+  });
+
+  test("si se rechaza la instalación avisa y deja volver a intentarlo", async ({ page }) => {
+    await page.goto("/instalar");
+    await page.evaluate(() => {
+      const aviso = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
+        prompt: () => Promise<void>;
+        userChoice: Promise<{ outcome: string }>;
+      };
+      aviso.prompt = async () => {};
+      aviso.userChoice = Promise.resolve({ outcome: "dismissed" });
+      window.dispatchEvent(aviso);
+    });
+    await page.getByRole("button", { name: "Instalar app" }).click();
+    await expect(page.getByText(/No se instaló/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Instalar app" })).toBeEnabled();
+  });
+
+  test("la hoja con el QR abre sin sesión y trae los tres pasos", async ({ page }) => {
+    await page.goto("/instalar/hoja");
+    await expect(page.getByRole("heading", { name: "Instala la app del ERP" })).toBeVisible();
+    await expect(page.getByRole("img", { name: /Código QR que abre .*\/instalar/ })).toBeVisible();
+    for (const paso of ["Escanea", "Instala", "Entra"]) {
+      await expect(page.getByText(paso, { exact: true })).toBeVisible();
+    }
+  });
+
+  test("el manifest permite instalar la app (nombre, íconos y pantalla completa)", async ({ request }) => {
+    const r = await request.get("/manifest.webmanifest");
+    expect(r.status()).toBe(200);
+    const m = await r.json();
+    expect(m.display).toBe("standalone");
+    expect(m.start_url).toBe("/");
+    expect(m.icons.some((i: { sizes: string }) => i.sizes === "192x192")).toBe(true);
+    expect(m.icons.some((i: { sizes: string }) => i.sizes === "512x512")).toBe(true);
+  });
+});
+
 test.describe("acceso protegido", () => {
   for (const ruta of ["/planeacion", "/produccion", "/calidad", "/estimaciones", "/admin/usuarios"]) {
     test(`${ruta} sin sesión manda al login`, async ({ page }) => {
@@ -107,7 +170,7 @@ test.describe("monitoreo", () => {
 });
 
 test.describe("diseño adaptable", () => {
-  for (const ruta of ["/login", "/registro", "/privacidad"]) {
+  for (const ruta of ["/login", "/registro", "/privacidad", "/instalar", "/instalar/hoja"]) {
     test(`${ruta} no se desborda horizontalmente`, async ({ page }) => {
       await page.goto(ruta);
       const desborda = await page.evaluate(
