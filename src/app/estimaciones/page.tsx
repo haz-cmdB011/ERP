@@ -3,17 +3,7 @@ import Chevron from "@/components/chevron";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import {
-  esMaquilador,
-  getPerfilActual,
-  puedeDecidirDiscrepancias,
-  puedeVerPrecioSugerido,
-} from "@/lib/auth/get-perfil";
-import { contarRecibosPorEstado, listarAntiguedadPendientes } from "@/lib/estimaciones/por-revisar";
-import { detallePendientes, resumirPendientes } from "@/lib/estimaciones/resumen-pendientes";
-import { contarPendientes, listarResumenDiscrepancias } from "@/lib/estimaciones/discrepancias-resumen";
-import { type TarjetaResumen } from "@/components/resumen-inicio";
-import { ResumenEnMenu } from "@/components/resumen-menu";
+import { esMaquilador, getPerfilActual, puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import ResumenPorLlegar, { ResumenPorLlegarCargando } from "./por-llegar/resumen-por-llegar";
 
 const TARJETAS: {
@@ -68,52 +58,11 @@ export default async function EstimacionesPage() {
     redirect("/estimaciones/recibos");
   }
 
-  // Números del panel. Solo quien ve el precio sugerido revisa recibos; solo
-  // quien decide discrepancias ve ese contador.
+  // Solo quien ve el precio sugerido revisa recibos y ve lo que Calidad ya aprobó.
   const reviso = puedeVerPrecioSugerido(perfil);
-  const [pendientes, porPagar, discrepancias] = await Promise.all([
-    // null = no se pudo contar: la tarjeta se omite en vez de mostrar un 0 falso.
-    reviso
-      ? listarAntiguedadPendientes(supabase)
-          .then((filas) => resumirPendientes(filas, new Date()))
-          .catch(() => null)
-      : null,
-    reviso ? contarRecibosPorEstado(supabase, "revisado").catch(() => null) : null,
-    puedeDecidirDiscrepancias(perfil)
-      ? listarResumenDiscrepancias(supabase).then(contarPendientes).catch(() => null)
-      : null,
-  ]);
-  const tarjetasResumen: TarjetaResumen[] = [];
-  if (pendientes !== null) {
-    tarjetasResumen.push({
-      valor: pendientes.total,
-      etiqueta: "Recibos por revisar",
-      detalle: detallePendientes(pendientes),
-      href: "/estimaciones/registro?estado=pendiente",
-      tono: "atencion",
-    });
-  }
-  if (porPagar !== null) {
-    tarjetasResumen.push({
-      valor: porPagar,
-      etiqueta: "Revisados sin pagar",
-      detalle: "listos para marcar como pagados",
-      href: "/estimaciones/registro?estado=revisado",
-    });
-  }
-  if (discrepancias !== null) {
-    tarjetasResumen.push({
-      valor: discrepancias,
-      etiqueta: "Discrepancias por decidir",
-      detalle: "cantidades que superan lo declarado",
-      href: "/estimaciones/discrepancias",
-      tono: "atencion",
-    });
-  }
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <ResumenEnMenu tarjetas={tarjetasResumen} />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Estimaciones</h1>
       </div>
