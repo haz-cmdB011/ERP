@@ -51,6 +51,17 @@ Resumen de las defensas del sistema, qué hay que mantener al día y qué pasos 
    autenticación. Quien la activa no puede usar la app ni `/api/*` hasta poner su código (se exige en
    `src/lib/supabase/middleware.ts`). Se recomienda para todas las cuentas de **desarrollador**.
 
+## Notificaciones al celular
+
+Web Push (`src/lib/notificaciones/`, rutas `/api/notificaciones/*`, service worker `public/sw.js`). Lo que no hay que
+romper: (1) el servidor solo manda avisos a direcciones de los servicios de push de los navegadores (lista en
+`esServicioDePush`): si se aceptara cualquiera, una suscripción falsa haría que el servidor pidiera direcciones internas
+(SSRF); (2) cada persona solo ve, agrega y quita sus suscripciones (RLS en `suscripciones_push`; sus llaves permiten
+mandarle avisos a ese aparato); la ruta de guardado escribe con la clave de servicio pero siempre con el id de quien tiene
+la sesión; (3) el enlace de un aviso solo apunta dentro del ERP (`rutaInternaSegura`) y el service worker lo vuelve a
+comprobar; (4) tope por persona en suscribir y en la prueba; (5) la llave privada `VAPID_PRIVATE_KEY` solo en el servidor.
+El service worker solo atiende `push` y `notificationclick`: no intercepta peticiones ni guarda nada en caché.
+
 ## Datos que se guardan en el aparato
 
 Cuando no hay red, la **entrega de Producción** (cantidad, fecha, folios de Calidad y la foto) se guarda en

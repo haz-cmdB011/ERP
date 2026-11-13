@@ -112,6 +112,19 @@ test.describe("instalar la app", () => {
     await expect(page.getByText("¿Ya tienes cuenta? Ingresa tus datos")).toBeVisible();
   });
 
+  test("el service worker de las notificaciones se sirve sin login, sin caché y como JavaScript", async ({ request }) => {
+    const r = await request.get("/sw.js", { maxRedirects: 0 });
+    expect(r.status()).toBe(200);
+    expect(r.headers()["content-type"]).toContain("javascript");
+    expect(r.headers()["cache-control"]).toMatch(/no-cache|no-store/);
+    expect(r.headers()["service-worker-allowed"]).toBe("/");
+    const codigo = await r.text();
+    expect(codigo).toContain('addEventListener("push"');
+    expect(codigo).toContain('addEventListener("notificationclick"');
+    // No intercepta peticiones ni guarda nada en caché: la app se comporta igual que sin él.
+    expect(codigo).not.toContain('addEventListener("fetch"');
+  });
+
   test("el manifest permite instalar la app (nombre, íconos y pantalla completa)", async ({ request }) => {
     const r = await request.get("/manifest.webmanifest");
     expect(r.status()).toBe(200);
@@ -135,6 +148,17 @@ test.describe("acceso protegido", () => {
     for (const ruta of ["/api/buscar?q=abc", "/api/estimaciones/reporte-semanal"]) {
       const r = await request.get(ruta, { maxRedirects: 0 });
       expect([401, 403, 307], `${ruta} respondió ${r.status()}`).toContain(r.status());
+    }
+  });
+
+  test("las rutas de notificaciones piden sesión", async ({ request }) => {
+    for (const [metodo, ruta] of [
+      ["POST", "/api/notificaciones/suscribir"],
+      ["DELETE", "/api/notificaciones/suscribir"],
+      ["POST", "/api/notificaciones/prueba"],
+    ] as const) {
+      const r = await request.fetch(ruta, { method: metodo, data: {}, maxRedirects: 0 });
+      expect(r.status(), `${metodo} ${ruta}`).toBe(401);
     }
   });
 });

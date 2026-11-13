@@ -568,6 +568,20 @@ cae al login de siempre (correo y contraseña). **`/instalar/hoja`** (pública) 
 Lógica sin navegador en `src/lib/ui/instalar-app.ts`; pruebas en `e2e/humo.spec.ts` ("instalar la app"). Solo se pide
 instalar: no se piden permisos del navegador (cámara, notificaciones) al instalar.
 
+## Notificaciones al celular (Web Push)
+
+Cada quien las activa en **/cuenta → Notificaciones** (`src/app/cuenta/notificaciones-form.tsx`; también en
+`/estimaciones/cuenta`): registra `public/sw.js` (solo atiende `push` y `notificationclick`, sin caché), pide el permiso
+y guarda la suscripción del aparato (`POST /api/notificaciones/suscribir`, tabla `suscripciones_push` con RLS: cada
+persona solo ve las suyas). "Enviar notificación de prueba" (`/api/notificaciones/prueba`) manda un aviso real a sus
+aparatos. En iPhone solo funcionan con la app instalada (`estadoNotificaciones` lo explica). **Para mandar avisos desde el
+servidor**: `enviarAUsuarios(ids, { titulo, cuerpo, url, etiqueta })` de `src/lib/notificaciones/enviar.ts` (lee con la clave
+de servicio, borra las suscripciones caducadas y nunca lanza). Hace falta configurar `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+`VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` (ver `.env.example` y `docs/operacion.md`); sin ellas todo sigue igual y la sección
+dice que no están configuradas. La dirección de cada suscripción solo se acepta si es de un servicio de push conocido
+(`esServicioDePush`, contra SSRF). **Pendiente (fase 2)**: conectar los avisos de cada área (liberar a Producción,
+entregas a Calidad, aprobado o rechazado, recibos) y la campanita dentro de la app.
+
 ## Capturas sin conexión
 
 En el taller a veces se cae el Wi-Fi. La **entrega de Producción** se guarda en el

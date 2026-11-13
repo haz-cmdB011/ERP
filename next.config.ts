@@ -74,6 +74,16 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: cabecerasSeguridad },
       { source: "/branding/:path*", headers: cacheEstaticos },
       { source: "/icons/:path*", headers: cacheEstaticos },
+      // Service worker de las notificaciones (public/sw.js): sin caché, para que un cambio llegue a todos al
+      // abrir la app, y con permiso para controlar todo el sitio.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
       // Escáner de QR (/produccion/escanear): la cámara en vivo solo se permite
       // aquí y solo para el propio sitio. Si dos reglas fijan la misma
       // cabecera gana la última, así que esta reemplaza a la de arriba.
