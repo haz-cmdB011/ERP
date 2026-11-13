@@ -2,9 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { urlAvatar } from "@/lib/cuenta/avatar";
 import PerfilForm from "@/app/cuenta/perfil-form";
 import MfaForm from "@/app/cuenta/mfa-form";
+import NotificacionesForm from "@/app/cuenta/notificaciones-form";
 import PendientesCuenta from "./pendientes-cuenta";
 
-// Pantalla "Mi perfil": foto, nombre y verificación en dos pasos. La contraseña ya no se cambia
+// Pantalla "Mi perfil": foto, nombre, verificación en dos pasos y notificaciones. La contraseña ya no se cambia
 // aquí: se restablece desde el login con "¿Olvidaste tu contraseña?" (/auth/restablecer). La comparten el perfil
 // (/cuenta, todo el personal) y Estimaciones (/estimaciones/cuenta, para los
 // maquiladores, que solo tienen esa área).
@@ -41,6 +42,13 @@ export default async function CuentaContenido() {
       >
         <h2 className="text-base font-semibold text-slate-900">Verificación en dos pasos</h2>
         <MfaForm />
+      </section>
+      <section
+        id="notificaciones"
+        className="flex scroll-mt-24 flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      >
+        <h2 className="text-base font-semibold text-slate-900">Notificaciones</h2>
+        <NotificacionesForm />
       </section>
     </main>
   );

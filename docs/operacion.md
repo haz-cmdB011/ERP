@@ -139,6 +139,20 @@ update public.ajustes_flujo set activo = false, actualizado_en = now()
   where clave = 'cobro_segun_produccion';
 ```
 
+## Notificaciones al celular
+
+Cada quien las activa en **Mi perfil → Notificaciones** (por aparato; en iPhone, con la app instalada). Para que
+funcionen el servidor necesita tres variables, en Vercel (Production) y en `.env.local` si se prueba en local:
+
+1. Generar las llaves, **una sola vez**: `npx web-push generate-vapid-keys`.
+2. `NEXT_PUBLIC_VAPID_PUBLIC_KEY` = la llave pública; `VAPID_PRIVATE_KEY` = la privada (solo servidor);
+   `VAPID_SUBJECT` = `mailto:` de quien administra el sistema.
+3. Aplicar la migración `suscripciones_push` (tabla con RLS) y volver a desplegar: la llave pública se incrusta al compilar.
+
+Si cambian las llaves, las suscripciones guardadas dejan de servir: cada persona debe tocar *Desactivar* y *Activar*
+otra vez. Si una notificación de prueba da 503, faltan las variables; 409, ese aparato no la tiene activada; 502, el
+servicio de push rechazó el envío (suscripción caducada: se limpia sola). Sin las llaves el ERP sigue funcionando igual.
+
 ## Cambios de base de datos
 
 Siempre como archivo nuevo en `supabase/migrations/`, aplicado por **una sola vía** y verificado con
