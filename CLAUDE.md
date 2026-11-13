@@ -555,6 +555,17 @@ Para que nada se corte a 375 px: filtros segmentados a todo lo ancho (2 × 2 o c
 Calidad › O.T.). Para revisar una pantalla: a 375 px, en cada control visible `document.elementFromPoint` en su
 centro y orillas debe devolver el control o algo dentro de él.
 
+## Instalar la app (PWA)
+
+La app se instala desde Chrome o Safari (manifest en `src/app/manifest.ts`, íconos en `public/icons`, sin service
+worker: Chrome ya no lo exige para instalar). **`/instalar`** (pública, `src/app/instalar/`): en Chrome un botón pide la
+instalación con el aviso `beforeinstallprompt` y, al aceptar (o con `appinstalled`), pasa solo a `/login`; en iPhone
+explica *Compartir → Agregar a inicio*; siempre queda "Entrar sin instalar". La app instalada abre en `/` y sin sesión
+cae al login de siempre (correo y contraseña). **`/instalar/hoja`** (pública) es la hoja carta con el QR y los tres pasos
+(Escanea, Instala, Entra); el QR lleva `getBaseUrl()` + `/instalar`, así que se imprime desde la dirección real del ERP.
+Lógica sin navegador en `src/lib/ui/instalar-app.ts`; pruebas en `e2e/humo.spec.ts` ("instalar la app"). Solo se pide
+instalar: no se piden permisos del navegador (cámara, notificaciones) al instalar.
+
 ## Capturas sin conexión
 
 En el taller a veces se cae el Wi-Fi. La **entrega de Producción** se guarda en el

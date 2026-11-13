@@ -4,6 +4,8 @@ import type { MetadataRoute } from "next";
 // pantalla completa, con el verde de la marca en la barra del sistema.
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    // Identidad estable de la app instalada: si algún día cambia el start_url, sigue siendo la misma.
+    id: "/",
     name: "ERP Mobiliarium",
     short_name: "ERP",
     description: "Sistema interno de Mobiliarium: Planeación, Producción, Calidad y Estimaciones.",

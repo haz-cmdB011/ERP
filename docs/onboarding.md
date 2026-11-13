@@ -77,7 +77,20 @@ Next solo lee `.env.local` al arrancar: reinicia `npm run dev` después de cambi
 asignar: no ve datos hasta que alguien le dé rol y área) · `maquilador` (externo, solo sus recibos).
 Definidos en `src/lib/auth/roles.ts`.
 
-## 7. Si algo sale mal mientras trabajas
+## 7. Instalar la app en el celular
+
+La app se instala desde Chrome (Android) o desde Safari (iPhone), sin tienda de aplicaciones:
+
+1. Imprime la **hoja con el QR** en `/instalar/hoja` (botón "Imprimir hoja", tamaño carta). Hazlo desde la
+   dirección real del ERP: el QR lleva la dirección con la que se abrió la hoja (o `NEXT_PUBLIC_SITE_URL`).
+2. Quien la recibe escanea el QR y llega a `/instalar`. En Android, el botón **Instalar app** pide la
+   instalación y, al aceptar, pasa solo al inicio de sesión. En iPhone la pantalla explica
+   *Compartir → Agregar a inicio*. Siempre queda el enlace "Entrar sin instalar".
+3. Se entra como siempre, con correo y contraseña. La app instalada abre en `/` y, sin sesión, cae al login.
+
+Lógica en `src/lib/ui/instalar-app.ts`, pantallas en `src/app/instalar/` y manifest en `src/app/manifest.ts`.
+
+## 8. Si algo sale mal mientras trabajas
 
 - Un cambio de datos por error: avisar enseguida; la auditoría (*Administración → Auditoría*) ayuda a ver
   qué pasó.
