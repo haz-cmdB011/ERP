@@ -153,6 +153,20 @@ Si cambian las llaves, las suscripciones guardadas dejan de servir: cada persona
 otra vez. Si una notificación de prueba da 503, faltan las variables; 409, ese aparato no la tiene activada; 502, el
 servicio de push rechazó el envío (suscripción caducada: se limpia sola). Sin las llaves el ERP sigue funcionando igual.
 
+### Avisos por área y campanita
+
+Con la migración `avisos_por_area` aplicada, la base crea sola un aviso cuando: se liberan muebles (→ Producción), Producción
+registra una entrega (→ Calidad), Calidad aprueba o rechaza (→ Producción), llega un recibo (→ Estimaciones) y cuando se revisa
+un recibo (→ quien lo capturó). Se ven en la **campanita** de la barra (cada área ve los suyos; el desarrollador, los del área
+en la que está) y, si la persona activó las notificaciones y las llaves están puestas, también le llegan al celular (al
+personal del área, no al desarrollador, y nunca a quien provocó el aviso).
+
+- La campanita no sale hasta que la migración esté aplicada. Los avisos al celular no salen sin las llaves.
+- Un aviso que no se pudo crear **no frena** la operación (liberar, entregar, evaluar…): solo no aparece.
+- Los avisos de más de 30 días ya no se muestran; no se borran solos. Para limpiar: `delete from public.avisos where creado_en < now() - interval '90 days';`
+- Para apagar los avisos sin quitar nada más: `alter table public.planeacion_items disable trigger trg_aviso_liberado;` y lo mismo con
+  `trg_aviso_entrega`, `trg_aviso_informe_calidad`, `trg_aviso_revision_final`, `trg_aviso_recibo_nuevo` y `trg_aviso_recibo_revisado` (cada una en su tabla; ver la migración).
+
 ## Cambios de base de datos
 
 Siempre como archivo nuevo en `supabase/migrations/`, aplicado por **una sola vía** y verificado con

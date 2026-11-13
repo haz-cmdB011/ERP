@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { esProceso, mensajeErrorRpc, type Proceso } from "@/lib/produccion/asignaciones";
 import { MAX_PASOS, pasosConIds, pasosParaGuardar } from "@/lib/produccion/ruta";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
+import { despacharAvisos } from "@/lib/notificaciones/despachar";
 
 export const runtime = "nodejs";
 
@@ -119,6 +120,9 @@ export async function POST(request: Request) {
       { status: 403 }
     );
   }
+
+  // El aviso "se liberaron N muebles" lo creó la base al liberar; aquí se manda al celular de Producción.
+  after(() => despacharAvisos(user.id));
 
   // La ruta que se eligió en el carrito: la base solo la guarda ya liberado. Si una falla, lo
   // liberado se queda liberado y se avisa (se corrige con "Ruta" en el panel).

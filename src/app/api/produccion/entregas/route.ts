@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { despacharAvisos } from "@/lib/notificaciones/despachar";
 import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
 import { leerCantidad, leerFecha, mensajeErrorRpc } from "@/lib/produccion/asignaciones";
 import {
@@ -88,6 +89,7 @@ export async function POST(request: Request) {
         { status: esRechazoDefinitivo(errorPartes) ? 400 : 500 }
       );
     }
+    after(() => despacharAvisos(perfil.userId));
     return NextResponse.json({ ok: true, completos: Number(completos ?? 0) });
   }
 
@@ -113,5 +115,7 @@ export async function POST(request: Request) {
     );
   }
 
+  // El aviso a Calidad lo creó la base al registrar la entrega; aquí se manda a su celular.
+  after(() => despacharAvisos(perfil.userId));
   return NextResponse.json({ ok: true, id: entregaId });
 }

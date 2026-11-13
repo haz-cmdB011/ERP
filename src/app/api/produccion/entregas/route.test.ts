@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("next/server", async (original) => ({
+  ...(await original<typeof import("next/server")>()),
+  after: (f: () => unknown) => void f(),
+}));
+vi.mock("@/lib/notificaciones/despachar", () => ({ despacharAvisos: async () => 0 }));
+
 const ASIGNACION = "11111111-1111-4111-8111-111111111111";
 const CLAVE = "0b0e7a4e-6c1c-4d1e-9c5e-2f6a3b9d8e11";
 
