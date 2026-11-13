@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AsignacionResumen } from "./asignaciones";
 import type { MuebleFlujo } from "./flujo-mueble";
-import { conEnCalidad, contarInicio, faltaPorAsignar, modelosRecientes, otsConPendientes, procesosDeMueble, type MuebleInicio } from "./inicio";
+import { conEnCalidad, conEnTaller, contarInicio, faltaPorAsignar, modelosRecientes, otsConPendientes, procesosDeMueble, type MuebleInicio } from "./inicio";
 
 function mueble(id: string, extra: Partial<MuebleInicio> = {}): MuebleInicio {
   return {
@@ -74,6 +74,67 @@ describe("inicio de Producción", () => {
       mueble("g", { pedidoId: "p9", numeroPm: "PM50-26", ot: "50-26", creadoEn: "2026-03-01T10:00:00Z", actividad: "2026-10-29T09:00:00Z" }),
     ]);
     expect(r.map((o) => o.ot)).toEqual(["50-26", "154-26", "149-26"]);
+  });
+});
+
+describe("fila de O.T. con pendientes: cuenta igual que el tablero", () => {
+  // La O.T. 009-26 de producción (13 nov 2026): 4 muebles en proceso, 2 con algo en el taller y 2 por partes del
+  // despiece con todo entregado y nada por asignar (no salen en ninguna columna del tablero).
+  const ot = { pedidoId: "p1", numeroPm: "PM009-26", ot: "009-26" };
+  const o009 = [
+    mueble("pg03", { ...ot, estado: "en_proceso" }),
+    mueble("psta01", { ...ot, estado: "en_proceso" }),
+    mueble("pg01", { ...ot, estado: "en_proceso" }),
+    mueble("fxsv14a", { ...ot, estado: "en_proceso" }),
+    mueble("x1", { ...ot, estado: "por_asignar" }),
+    mueble("l1", { ...ot, estado: "por_liberar" }),
+  ];
+  const fila = (muebles: MuebleInicio[]) => otsConPendientes(muebles).find((o) => o.ot === "009-26")!;
+
+  it("separa lo que tiene algo en el taller (por entregar) de lo que está en espera", () => {
+    const r = fila(conEnTaller(o009, new Set(["pg03", "psta01"])));
+    expect(r.conteos).toEqual({ por_liberar: 1, por_asignar: 1, en_proceso: 2, terminado: 0 });
+    expect(r.enEspera).toBe(2);
+    expect(r.enCalidad).toBe(0);
+  });
+
+  it("un mueble asignado a medias cuenta como por asignar (así lo pone el tablero)", () => {
+    const muebles = o009.map((m) => (m.id === "pg01" ? { ...m, faltaAsignar: { cantidad: 5, total: 13, etiqueta: "Barniz" } } : m));
+    const r = fila(conEnTaller(muebles, new Set(["pg03", "psta01"])));
+    expect(r.conteos.por_asignar).toBe(2);
+    expect(r.conteos.en_proceso).toBe(2);
+    expect(r.enEspera).toBe(1);
+  });
+
+  it("lo que espera a Calidad (y no tiene nada en el taller) cuenta en Calidad, no en espera", () => {
+    const muebles = o009.map((m) => (m.id === "fxsv14a" ? { ...m, enCalidad: 1 } : m));
+    const r = fila(conEnTaller(muebles, new Set(["pg03", "psta01"])));
+    expect(r.enCalidad).toBe(1);
+    expect(r.enEspera).toBe(1);
+  });
+
+  it("un mueble con algo en el taller cuenta por entregar aunque también tenga piezas en Calidad", () => {
+    const muebles = o009.map((m) => (m.id === "pg03" ? { ...m, enCalidad: 2 } : m));
+    const r = fila(conEnTaller(muebles, new Set(["pg03", "psta01"])));
+    expect(r.conteos.en_proceso).toBe(2);
+    expect(r.enCalidad).toBe(0);
+  });
+
+  it("cada mueble se cuenta una sola vez: la suma da el total de muebles de la O.T.", () => {
+    const r = fila(conEnTaller(o009, new Set(["pg03", "psta01"])));
+    const { por_liberar, por_asignar, en_proceso, terminado } = r.conteos;
+    expect(por_liberar + por_asignar + en_proceso + terminado + r.enCalidad + r.enEspera).toBe(o009.length);
+  });
+
+  it("sin saber qué tiene en el taller se cuenta como antes (todo en proceso es por entregar)", () => {
+    const r = fila(o009);
+    expect(r.conteos.en_proceso).toBe(4);
+    expect(r.enEspera).toBe(0);
+  });
+
+  it("una O.T. solo con muebles en espera sigue saliendo como pendiente", () => {
+    const solo = conEnTaller([mueble("a", { ...ot, estado: "en_proceso" })], new Set());
+    expect(fila(solo).enEspera).toBe(1);
   });
 });
 

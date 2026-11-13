@@ -52,6 +52,15 @@ export interface MuebleInicio {
   // Piezas que esperan la revisión final de Calidad (ya entregadas y verificadas por Producción); ausente si
   // no hay ninguna o no se sabe (ver conEnCalidad).
   enCalidad?: number;
+  // Si tiene alguna asignación que sigue en el taller (lo que el tablero pone en "Por entregar"); ausente = no se
+  // sabe (ver conEnTaller).
+  enTaller?: boolean;
+}
+
+// Anota en cada mueble si tiene alguna asignación en el taller (`conTaller`: ids de los muebles que sí). Es la
+// misma lista de la que sale la columna "Por entregar" del tablero, para que la fila de cada O.T. cuente igual.
+export function conEnTaller(muebles: MuebleInicio[], conTaller: ReadonlySet<string>): MuebleInicio[] {
+  return muebles.map((m) => ({ ...m, enTaller: conTaller.has(m.id) }));
 }
 
 // Anota en cada mueble cuántas piezas suyas esperan a Calidad (`porMueble`: por id de mueble). Lo que no
@@ -198,7 +207,15 @@ export function modelosRecientes(muebles: MuebleInicio[]): ModeloReciente[] {
 export interface OtPendiente {
   ot: string;
   pms: number;
+  // Muebles por estado. "En proceso" son los que tienen algo en el taller (lo que el tablero llama "Por entregar");
+  // "por asignar" incluye los asignados a medias, como el tablero.
   conteos: Conteos;
+  // Muebles en proceso sin nada en el taller ni piezas por asignar que esperan a Calidad (la columna "En Calidad").
+  enCalidad: number;
+  // Muebles en proceso que no tienen nada en el taller, ni piezas por asignar, ni piezas en Calidad: esperan al
+  // siguiente paso (por ejemplo los que van por partes del despiece, que se asignan en el panel). No salen en el
+  // tablero.
+  enEspera: number;
   // Un PM de la O.T. (para enlazar cuando no hay O.T. con formato).
   pedidoId: string;
   reciente: string;
@@ -212,15 +229,24 @@ export function otsConPendientes(muebles: MuebleInicio[]): OtPendiente[] {
     const ot = m.ot ?? m.numeroPm;
     let g = porOt.get(ot);
     if (!g) {
-      g = { ot, pms: 0, conteos: vacio(), pedidoId: m.pedidoId, reciente: m.creadoEn, idsPm: new Set() };
+      g = { ot, pms: 0, conteos: vacio(), enCalidad: 0, enEspera: 0, pedidoId: m.pedidoId, reciente: m.creadoEn, idsPm: new Set() };
       porOt.set(ot, g);
     }
-    g.conteos[m.estado] += 1;
+    // Un mueble en proceso se cuenta en una sola cosa, la primera que le toque según el tablero: algo en el taller,
+    // "por entregar"; piezas sin equipo, "por asignar"; piezas esperando a Calidad, "en Calidad"; ninguna de las
+    // tres, "en espera". Sin saber si tiene algo en el taller (enTaller ausente) se cuenta como antes, "por entregar".
+    if (m.estado === "en_proceso" && m.enTaller === false) {
+      if ((m.faltaAsignar?.cantidad ?? 0) > 0) g.conteos.por_asignar += 1;
+      else if ((m.enCalidad ?? 0) > 0) g.enCalidad += 1;
+      else g.enEspera += 1;
+    } else {
+      g.conteos[m.estado] += 1;
+    }
     g.reciente = masReciente(g.reciente, m.actividad ?? m.creadoEn);
     g.idsPm.add(m.pedidoId);
   }
   return [...porOt.values()]
     .map(({ idsPm, ...g }) => ({ ...g, pms: idsPm.size }))
-    .filter((g) => pendientesDe(g.conteos) > 0)
+    .filter((g) => pendientesDe(g.conteos) + g.enCalidad + g.enEspera > 0)
     .sort((a, b) => b.reciente.localeCompare(a.reciente) || natural(b.ot, a.ot));
 }
