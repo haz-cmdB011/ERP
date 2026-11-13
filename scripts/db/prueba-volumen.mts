@@ -9,8 +9,8 @@
 // Para simular más muebles repite los ids reales (las consultas cuestan lo mismo que con ids distintos).
 // Mide con la clave de servicio, que se salta RLS: con la sesión de una persona tarda algo más.
 //
-// Referencia (12 nov 2026, con tandas de a 6): 1000 muebles ≈ 4 s y 171 peticiones; 2000 ≈ 7 s y 341; nunca
-// más de ~31 peticiones a la vez. Hacia la pantalla viaja ~1.5 KB por tarjeta del tablero.
+// Referencia (13 nov 2026, tandas de 100 muebles con paginación, de a 6): 1000 muebles ≈ 2.7 s y 91 peticiones;
+// 2000 ≈ 4.5 s y 181; nunca más de ~31 peticiones a la vez. (Antes, con tandas de 25: 4.3 s y 171; 7 s y 341.) Hacia la pantalla viaja ~1.5 KB por tarjeta del tablero.
 
 import { createClient } from "@supabase/supabase-js";
 import { armarBitacora } from "../../src/lib/produccion/bitacora.ts";
