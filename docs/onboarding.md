@@ -86,7 +86,9 @@ La app se instala desde Chrome (Android) o desde Safari (iPhone), sin tienda de 
 2. Quien la recibe escanea el QR y llega a `/instalar`. En Android, el botón **Instalar app** pide la
    instalación y, al aceptar, pasa solo al inicio de sesión. En iPhone la pantalla explica
    *Compartir → Agregar a inicio*. Siempre queda el enlace "Entrar sin instalar".
-3. Se entra como siempre, con correo y contraseña. La app instalada abre en `/` y, sin sesión, cae al login.
+3. `/instalar` avisa que **primero hay que registrarse** (`/registro`; después un administrador asigna el área) y que
+   quien ya tiene cuenta ingresa sus datos. Al instalar, tras una pausa pasa al login, con los dos botones a un toque.
+   Se entra como siempre, con correo y contraseña. La app instalada abre en `/` y, sin sesión, cae al login.
 
 Lógica en `src/lib/ui/instalar-app.ts`, pantallas en `src/app/instalar/` y manifest en `src/app/manifest.ts`.
 

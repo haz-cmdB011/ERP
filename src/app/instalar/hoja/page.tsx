@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const PASOS: { n: number; titulo: string; lineas: string[] }[] = [
   { n: 1, titulo: "Escanea", lineas: ["el código con tu cámara"] },
   { n: 2, titulo: "Instala", lineas: ['Android: "Instalar app"', 'iPhone: Compartir → "Agregar a inicio"'] },
-  { n: 3, titulo: "Entra", lineas: ["con tu correo y tu contraseña"] },
+  { n: 3, titulo: "Entra", lineas: ["Primera vez: regístrate primero", "¿Ya tienes cuenta? Ingresa tus datos"] },
 ];
 
 export default async function HojaInstalarPage() {
@@ -69,7 +69,7 @@ export default async function HojaInstalarPage() {
       </ol>
 
       <p className="text-center text-sm text-slate-500">
-        Si no puedes entrar, pide a tu administrador que te asigne tu área. ¿Dudas? Pregúntale a él.
+        Después de registrarte, tu administrador te asigna tu área. ¿Dudas? Pregúntale a él.
       </p>
 
       <div className="print:hidden">

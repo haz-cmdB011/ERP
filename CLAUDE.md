@@ -559,7 +559,9 @@ centro y orillas debe devolver el control o algo dentro de él.
 
 La app se instala desde Chrome o Safari (manifest en `src/app/manifest.ts`, íconos en `public/icons`, sin service
 worker: Chrome ya no lo exige para instalar). **`/instalar`** (pública, `src/app/instalar/`): en Chrome un botón pide la
-instalación con el aviso `beforeinstallprompt` y, al aceptar (o con `appinstalled`), pasa solo a `/login`; en iPhone
+instalación con el aviso `beforeinstallprompt` y, al aceptar (o con `appinstalled`), muestra el aviso de **registrarse primero si es la primera vez / ingresar los datos si ya
+tiene cuenta** (botones "Registrarme" y "Ya tengo cuenta", y una pausa de `PAUSA_AL_INSTALAR_MS` que se cancela al tocarlos)
+y pasa solo a `/login`; en iPhone
 explica *Compartir → Agregar a inicio*; siempre queda "Entrar sin instalar". La app instalada abre en `/` y sin sesión
 cae al login de siempre (correo y contraseña). **`/instalar/hoja`** (pública) es la hoja carta con el QR y los tres pasos
 (Escanea, Instala, Entra); el QR lleva `getBaseUrl()` + `/instalar`, así que se imprime desde la dirección real del ERP.
