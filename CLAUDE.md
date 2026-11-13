@@ -200,6 +200,12 @@ pendientes (4 a la vista, "Ver más" despliega el resto); lo más reciente prime
 muebles padre vigentes: los liberados con el estado del panel de asignación (`cargarMueblesDePanel`) y los por liberar.
 Lógica en `src/lib/produccion/inicio.ts`, lectura en `inicio-db.ts`.
 
+**Fila de cada O.T. con pendientes** (13 nov 2026): cuenta igual que el tablero, cada mueble en una sola cosa: *por liberar*;
+*por asignar* (espera equipo o tiene piezas sin equipo en su paso); *por entregar* (tiene alguna asignación en el taller, la
+misma lista de la columna del tablero: `conEnTaller`); *en Calidad*; y *en espera* (en proceso sin nada de lo anterior, por
+ejemplo los muebles que van por partes del despiece con todo entregado, que se asignan en el panel y no salen en el tablero).
+Antes "por entregar" era todo mueble en proceso y no cuadraba con las tarjetas del tablero.
+
 **Volumen (medido el 13 nov 2026, `npm run db:volumen`, solo lectura):** el inicio lee el flujo de TODOS los muebles
 liberados cada vez que se abre o se actualiza, y eso crece en línea recta: con la clave de servicio, 1000 muebles
 tardan ~2.7 s (91 peticiones) y 2000, ~4.5 s (181); con la sesión de una persona (RLS) algo más. Las lecturas por

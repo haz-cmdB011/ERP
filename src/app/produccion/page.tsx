@@ -15,6 +15,7 @@ import {
   conEnCalidad,
   contarInicio,
   modelosRecientes,
+  conEnTaller,
   otsConPendientes,
   type OtPendiente,
 } from "@/lib/produccion/inicio";
@@ -44,7 +45,9 @@ export default async function ProduccionInicioPage() {
   const marcasDeMuebles = await cargarMarcasDeMuebles(supabase, muebles.map((m) => m.id));
   const conteos = contarInicio(muebles);
   const bitacora = armarBitacora(asignaciones, plazos, otsDePm, hoy, marcas);
-  const ots = otsConPendientes(muebles);
+  // La fila de cada O.T. cuenta igual que el tablero: "por entregar" son los muebles con alguna asignación en el taller.
+  const conTaller = new Set(bitacora.flatMap((g) => g.filas.filter((f) => f.estaEnTaller).flatMap((f) => (f.planeacion_item_id ? [f.planeacion_item_id] : []))));
+  const ots = otsConPendientes(conEnTaller(conEnCalidad(muebles, enCalidad), conTaller));
 
   // Tablero: una tarjeta por mueble o asignación, con la miniatura del mueble y cuándo fue lo último.
   // Con lo que cada mueble tiene esperando a Calidad (columna "En Calidad").
@@ -149,6 +152,12 @@ function FilaOt({ o }: { o: OtPendiente }) {
               {o.conteos[e.valor]} {e.etiqueta.toLowerCase()}
             </span>
           ))}
+          {o.enCalidad > 0 && <span>{o.enCalidad} en Calidad</span>}
+          {o.enEspera > 0 && (
+            <span title="En proceso, sin nada en el taller: esperan el siguiente paso (los que van por partes se asignan en el panel).">
+              {o.enEspera} en espera
+            </span>
+          )}
         </span>
       </Link>
     </li>
