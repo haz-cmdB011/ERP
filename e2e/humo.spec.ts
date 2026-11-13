@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // Lo que debe seguir funcionando en cada despliegue, sin base de datos ni sesión.
 
@@ -46,6 +46,23 @@ test.describe("páginas públicas", () => {
   });
 });
 
+// Simula el aviso que Chrome manda cuando la app se puede instalar y la respuesta de quien lo ve. Se reintenta hasta
+// que el botón se activa: si el aviso llega antes de que la página termine de cargar, nadie lo escucha todavía.
+async function simularAvisoDeChrome(page: Page, resultado: "accepted" | "dismissed") {
+  await expect(async () => {
+    await page.evaluate((r) => {
+      const aviso = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
+        prompt: () => Promise<void>;
+        userChoice: Promise<{ outcome: string }>;
+      };
+      aviso.prompt = async () => {};
+      aviso.userChoice = Promise.resolve({ outcome: r });
+      window.dispatchEvent(aviso);
+    }, resultado);
+    await expect(page.getByRole("button", { name: "Instalar app" })).toBeEnabled({ timeout: 1000 });
+  }).toPass({ timeout: 20000 });
+}
+
 test.describe("instalar la app", () => {
   test("/instalar abre sin sesión, ofrece instalar y entrar sin instalar", async ({ page }) => {
     await page.goto("/instalar");
@@ -55,35 +72,30 @@ test.describe("instalar la app", () => {
     await expect(page.getByRole("link", { name: "Entrar sin instalar" })).toHaveAttribute("href", "/login");
   });
 
+  test("/instalar avisa que primero hay que registrarse y que quien ya tiene cuenta ingresa sus datos", async ({ page }) => {
+    await page.goto("/instalar");
+    await expect(page.getByText("Para entrar necesitas una cuenta.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "regístrate primero" })).toHaveAttribute("href", "/registro");
+    await expect(page.getByText(/Si ya tienes cuenta, inicia sesión con tus datos/)).toBeVisible();
+  });
+
   test("al aceptar la instalación pasa al inicio de sesión", async ({ page }) => {
     await page.goto("/instalar");
-    // Se simula el aviso que Chrome manda cuando la app se puede instalar y que el usuario acepte.
-    await page.evaluate(() => {
-      const aviso = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
-        prompt: () => Promise<void>;
-        userChoice: Promise<{ outcome: string }>;
-      };
-      aviso.prompt = async () => {};
-      aviso.userChoice = Promise.resolve({ outcome: "accepted" });
-      window.dispatchEvent(aviso);
-    });
+    // Se simula el aviso de Chrome y que el usuario acepte.
+    await simularAvisoDeChrome(page, "accepted");
     await page.getByRole("button", { name: "Instalar app" }).click();
     await expect(page.getByText(/La app quedó instalada/)).toBeVisible();
+    // Mientras tanto se puede elegir: registrarse la primera vez o entrar con la cuenta de siempre.
+    await expect(page.getByText(/Si es tu primera vez, regístrate primero/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Registrarme (primera vez)" })).toHaveAttribute("href", "/registro");
+    await expect(page.getByRole("link", { name: "Ya tengo cuenta: iniciar sesión" })).toHaveAttribute("href", "/login");
     await page.waitForURL("**/login");
     await expect(page.getByRole("heading", { name: "Iniciar sesión" })).toBeVisible();
   });
 
   test("si se rechaza la instalación avisa y deja volver a intentarlo", async ({ page }) => {
     await page.goto("/instalar");
-    await page.evaluate(() => {
-      const aviso = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
-        prompt: () => Promise<void>;
-        userChoice: Promise<{ outcome: string }>;
-      };
-      aviso.prompt = async () => {};
-      aviso.userChoice = Promise.resolve({ outcome: "dismissed" });
-      window.dispatchEvent(aviso);
-    });
+    await simularAvisoDeChrome(page, "dismissed");
     await page.getByRole("button", { name: "Instalar app" }).click();
     await expect(page.getByText(/No se instaló/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Instalar app" })).toBeEnabled();
@@ -96,6 +108,8 @@ test.describe("instalar la app", () => {
     for (const paso of ["Escanea", "Instala", "Entra"]) {
       await expect(page.getByText(paso, { exact: true })).toBeVisible();
     }
+    await expect(page.getByText("Primera vez: regístrate primero")).toBeVisible();
+    await expect(page.getByText("¿Ya tienes cuenta? Ingresa tus datos")).toBeVisible();
   });
 
   test("el manifest permite instalar la app (nombre, íconos y pantalla completa)", async ({ request }) => {

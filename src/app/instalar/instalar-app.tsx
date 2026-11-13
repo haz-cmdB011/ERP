@@ -44,14 +44,23 @@ export default function InstalarApp() {
   const [fase, setFase] = useState<"esperando" | "instalando" | "instalada" | "rechazada">("esperando");
   const [sinAviso, setSinAviso] = useState(false);
   const yaPaso = useRef(false);
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Instalada (por el botón o desde el menú del navegador): se deja ver el aviso y se pasa al inicio de sesión.
   const alInstalar = useCallback(() => {
     if (yaPaso.current) return;
     yaPaso.current = true;
     setFase("instalada");
-    setTimeout(() => router.push("/login"), PAUSA_AL_INSTALAR_MS);
+    temporizador.current = setTimeout(() => router.push("/login"), PAUSA_AL_INSTALAR_MS);
   }, [router]);
+
+  // Si la persona toca "Registrarme" (o sale de la pantalla) antes de la pausa, no se la lleva al login después.
+  useEffect(
+    () => () => {
+      if (temporizador.current) clearTimeout(temporizador.current);
+    },
+    []
+  );
 
   useEffect(() => {
     const alAviso = (e: Event) => {
@@ -95,9 +104,8 @@ export default function InstalarApp() {
         <p className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
           Ya estás usando la app instalada.
         </p>
-        <Link href="/login" className={`${BOTON_AUTH} no-underline`}>
-          Iniciar sesión
-        </Link>
+        <AvisoCuenta />
+        <AccesosCuenta />
       </div>
     );
   }
@@ -106,6 +114,7 @@ export default function InstalarApp() {
   if (plataforma === "ios") {
     return (
       <div className="flex flex-col gap-5">
+        <AvisoCuenta />
         <ol className="flex flex-col gap-3 text-sm text-slate-700">
           <Paso n={1}>
             Toca <strong>Compartir</strong> (el cuadro con la flecha hacia arriba).
@@ -115,9 +124,7 @@ export default function InstalarApp() {
           </Paso>
           <Paso n={3}>Abre la app desde tu pantalla de inicio e inicia sesión.</Paso>
         </ol>
-        <Link href="/login" className={`${BOTON_AUTH} no-underline`}>
-          Ya la agregué: iniciar sesión
-        </Link>
+        <AccesosCuenta />
       </div>
     );
   }
@@ -125,11 +132,16 @@ export default function InstalarApp() {
   return (
     <div className="flex flex-col gap-4">
       {fase === "instalada" ? (
-        <p role="status" className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
-          ¡Listo! La app quedó instalada. Te llevamos a iniciar sesión…
-        </p>
+        <>
+          <p role="status" className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm leading-relaxed text-brand-900">
+            <strong>¡Listo! La app quedó instalada.</strong> Si es tu primera vez, regístrate primero. Si ya tienes cuenta,
+            ingresa tus datos. En un momento te llevamos a iniciar sesión.
+          </p>
+          <AccesosCuenta />
+        </>
       ) : (
         <>
+          <AvisoCuenta />
           <button
             type="button"
             onClick={instalar}
@@ -160,8 +172,40 @@ export default function InstalarApp() {
           )}
         </>
       )}
-      <Link href="/login" className={ENLACE_AUTH}>
-        Entrar sin instalar
+      {fase !== "instalada" && (
+        <Link href="/login" className={ENLACE_AUTH}>
+          Entrar sin instalar
+        </Link>
+      )}
+    </div>
+  );
+}
+
+// Para entrar hace falta una cuenta: quien viene por primera vez se registra antes, y quien ya la tiene entra con sus datos.
+function AvisoCuenta() {
+  return (
+    <p className="rounded-lg border border-slate-200 bg-white/70 px-4 py-3 text-sm leading-relaxed text-slate-700">
+      <strong>Para entrar necesitas una cuenta.</strong> Si es tu primera vez,{" "}
+      <Link href="/registro" className="font-medium text-brand-800 underline underline-offset-2">
+        regístrate primero
+      </Link>{" "}
+      (después tu administrador te asigna tu área). Si ya tienes cuenta, inicia sesión con tus datos.
+    </p>
+  );
+}
+
+// Los dos caminos, a un toque: registrarse la primera vez o entrar con la cuenta de siempre.
+function AccesosCuenta() {
+  return (
+    <div className="flex flex-col gap-2">
+      <Link href="/registro" className={`${BOTON_AUTH} no-underline`}>
+        Registrarme (primera vez)
+      </Link>
+      <Link
+        href="/login"
+        className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-base font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-brand-700"
+      >
+        Ya tengo cuenta: iniciar sesión
       </Link>
     </div>
   );

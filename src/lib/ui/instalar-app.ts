@@ -37,5 +37,6 @@ export function textoBoton(estado: EstadoInstalacion): string {
 
 // Segundos que se espera el aviso del navegador antes de mostrar la ayuda manual.
 export const ESPERA_AVISO_MS = 2500;
-// Tiempo que se deja ver "¡Listo!" antes de pasar al inicio de sesión.
-export const PAUSA_AL_INSTALAR_MS = 1200;
+// Tiempo que se deja ver "¡Listo!" (y el aviso de registrarse primero) antes de pasar al inicio de sesión. Se puede
+// tocar "Registrarme" o "Ya tengo cuenta" sin esperar.
+export const PAUSA_AL_INSTALAR_MS = 3500;
