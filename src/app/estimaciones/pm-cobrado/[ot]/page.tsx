@@ -25,7 +25,7 @@ import {
 import { AREA_RECIBO_LABELS } from "@/lib/estimaciones/discrepancias-db";
 import BarraAvance from "../barra-avance";
 
-export const metadata: Metadata = { title: "PM contra cobrado" };
+export const metadata: Metadata = { title: "PM de Producción contra cobrado" };
 
 const FILTROS: [string, string][] = [
   ["todos", "Todos"],
@@ -59,7 +59,7 @@ function Celda({ fila, area }: { fila: FilaPmCobrado; area: AreaCobro }) {
     <span className={`tabular-nums ${ESTILO_CELDA[estado]}`}>
       {base == null ? cobrado : `${cobrado} / ${base}`}
       {estado === "excedido" && base != null && (
-        <span className="ml-1 rounded bg-rose-50 px-1 text-[11px] ring-1 ring-rose-200">
+        <span className="ml-1 rounded bg-rose-50 px-1 text-xs ring-1 ring-rose-200">
           +{cobrado - base}
         </span>
       )}
@@ -67,7 +67,7 @@ function Celda({ fila, area }: { fila: FilaPmCobrado; area: AreaCobro }) {
       {/* Lo liberado para cobrar: solo donde hay algo que decir (liberado o cobrado). */}
       {liberado != null && (liberado > 0 || cobrado > 0) && (
         <span
-          className={`block text-[11px] font-normal ${
+          className={`block text-xs font-normal ${
             sobre > 0 ? "font-medium text-rose-700" : listo > 0 ? "font-medium text-emerald-700" : "text-slate-500"
           }`}
         >
@@ -77,7 +77,7 @@ function Celda({ fila, area }: { fila: FilaPmCobrado; area: AreaCobro }) {
         </span>
       )}
       {aprobado != null && aprobado > 0 && (
-        <span className="block text-[11px] font-normal text-slate-400">Calidad aprobó {aprobado}</span>
+        <span className="block text-xs font-normal text-slate-500">Calidad aprobó {aprobado}</span>
       )}
     </span>
   );
@@ -191,7 +191,7 @@ export default async function PmCobradoDetallePage({
             className={`rounded border px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
               filtro === valor
                 ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-brand-50"
             }`}
           >
             {etiqueta}
@@ -213,9 +213,14 @@ export default async function PmCobradoDetallePage({
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Modelo</th>
-                <th className="px-3 py-2.5 text-right">PM (O.T.)</th>
+                <th
+                  className="px-3 py-2.5 text-right"
+                  title="Muebles: lo del PM. Componentes: las partes del despiece de Producción, o los hijos del PM si usó el sugerido."
+                >
+                  PM de Producción
+                </th>
                 {AREAS_COBRO.map((a) => (
                   <th key={a} className="px-3 py-2.5 text-right">
                     {AREA_RECIBO_LABELS[a]}
@@ -230,13 +235,13 @@ export default async function PmCobradoDetallePage({
               {visibles.map((f, i) => (
                 <tr
                   key={`${f.esComponente ? "c" : "m"}|${f.modelo}|${f.descripcion ?? ""}|${i}`}
-                  className={`align-top transition-colors hover:bg-slate-50 ${f.esComponente ? "bg-slate-50/60" : ""}`}
+                  className={`align-top transition-colors hover:bg-brand-50 ${f.esComponente ? "bg-slate-50/60" : ""}`}
                 >
                   <td className="px-3 py-2">
                     {f.esComponente ? (
                       <div className="pl-5">
                         <span className="text-xs text-slate-500">
-                          <span className="mr-1 text-slate-400" aria-hidden>
+                          <span className="mr-1 text-slate-500" aria-hidden>
                             ↳
                           </span>
                           componente <span className="font-mono">{f.itemCodigo ?? f.modelo}</span>
@@ -249,7 +254,7 @@ export default async function PmCobradoDetallePage({
                           )}
                         </span>
                         {f.discrepanciasPendientes > 0 && (
-                          <span className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
+                          <span className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
                             {f.discrepanciasPendientes} sin decidir
                           </span>
                         )}
@@ -261,7 +266,7 @@ export default async function PmCobradoDetallePage({
                       <>
                         <span className="font-mono font-medium text-slate-900">{f.modelo}</span>
                         {f.discrepanciasPendientes > 0 && (
-                          <span className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
+                          <span className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
                             {f.discrepanciasPendientes} sin decidir
                           </span>
                         )}
@@ -280,14 +285,14 @@ export default async function PmCobradoDetallePage({
                       <>
                         {f.cantidadPm}
                         {f.cantidadPmIluminacion > 0 && f.cantidadPmIluminacion < f.cantidadPm && (
-                          <span className="block text-[11px] text-slate-500">
+                          <span className="block text-xs text-slate-500">
                             {f.cantidadPmIluminacion} con iluminación
                           </span>
                         )}
                         {areasRepetidas(f).map(([area, base]) => (
                           <span
                             key={area}
-                            className="block text-[11px] text-slate-500"
+                            className="block text-xs text-slate-500"
                             title="La ruta de Producción repite este proceso: cada pasada se cobra"
                           >
                             {area === "armado" ? "Armado" : "Acabados"} espera {base} (ruta)

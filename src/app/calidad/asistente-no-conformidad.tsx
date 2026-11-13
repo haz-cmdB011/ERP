@@ -166,6 +166,7 @@ interface FotoElegida {
 export default function AsistenteNoConformidad({
   titulo,
   subtitulo,
+  contexto = null,
   lote = null,
   origenLote = null,
   enviando,
@@ -175,6 +176,8 @@ export default function AsistenteNoConformidad({
 }: {
   titulo: string;
   subtitulo?: string;
+  // Debajo del título: p. ej. la ruta del mueble con el proceso que se revisa.
+  contexto?: React.ReactNode;
   // Con lote se pregunta primero el resultado; sin lote es un rechazo directo.
   lote?: { pendiente: number; unidad: string | null } | null;
   origenLote?: OrigenLote | null;
@@ -402,6 +405,7 @@ export default function AsistenteNoConformidad({
               ✕
             </button>
           </div>
+          {contexto && <div className="mt-2 flex justify-center">{contexto}</div>}
           {pasos.length > 1 && (
             <div className="mt-2 flex items-center gap-2">
               <div className="flex flex-1 gap-1" aria-hidden>

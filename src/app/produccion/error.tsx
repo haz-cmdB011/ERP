@@ -10,5 +10,5 @@ export default function ErrorProduccion({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
-  return <ErrorLectura error={error} retry={retry} hrefInicio="/produccion" etiquetaInicio="Ir a Pedidos" />;
+  return <ErrorLectura error={error} retry={retry} hrefInicio="/produccion" etiquetaInicio="Ir al inicio de Producción" />;
 }

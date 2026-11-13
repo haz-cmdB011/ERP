@@ -3,8 +3,8 @@
 //    función SQL descripcion_incluye_iluminacion), y
 //  - la palabra "electrificación" en el propio mueble o en alguno de sus
 //    componentes (ej. "CHAROLA ELECTRIFICACIÓN"; espejo de admite_electrificacion).
-// La base vuelve a exigirlo al asignar. Estimaciones conserva su regla (solo
-// iluminación del padre).
+// La base vuelve a exigirlo al asignar. Estimaciones usa la misma regla en los
+// recibos de Electrificación (migración electrificacion_estimaciones_por_componentes).
 
 const sinAcentos = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "");
 

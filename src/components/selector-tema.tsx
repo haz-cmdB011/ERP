@@ -62,7 +62,7 @@ function Icono({ tema }: { tema: Tema }) {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="h-[18px] w-[18px]"
+      className="h-[22px] w-[22px]"
       aria-hidden="true"
     >
       {tema === "claro" ? (

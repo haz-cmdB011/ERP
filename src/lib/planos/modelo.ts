@@ -70,3 +70,64 @@ export function elegirPlanos<T extends PlanoCandidato>(
   const anioReciente = Math.max(...exactos.map((p) => p.anio));
   return { planos: exactos.filter((p) => p.anio === anioReciente), deOtroPm: true };
 }
+
+// Un modelo de algún PM de la app, para buscar su PDF en cualquier carpeta
+// del servidor (no solo dentro de O. T´s./PM/INGENIERIA/MODELO/PLANOS).
+export interface ModeloDePm {
+  pm: string;
+  // Año del PM ("PM107-26" → 2026): desempata cuando un nombre coincide con
+  // modelos de varios PM.
+  anio: number;
+  modelo: string;
+}
+
+// Índice por nombre normalizado del modelo. Un mismo PM no aparece dos veces
+// para la misma clave (padre e hijos suelen traer el mismo modelo).
+export function indexarModelosDePm(modelos: ModeloDePm[]): Map<string, ModeloDePm[]> {
+  const indice = new Map<string, ModeloDePm[]>();
+  for (const m of modelos) {
+    const clave = normalizarModelo(m.modelo);
+    if (!clave) continue;
+    const lista = indice.get(clave) ?? [];
+    if (!lista.some((x) => x.pm === m.pm)) lista.push(m);
+    indice.set(clave, lista);
+  }
+  return indice;
+}
+
+export interface PlanoAsignado {
+  // "en_su_pm": el archivo está en la carpeta de un PM que tiene ese modelo.
+  // "unico": ningún PM lo reclama por carpeta y solo un PM tiene ese modelo.
+  tipo: "en_su_pm" | "unico";
+  pm: string;
+  anio: number;
+  modelo: string;
+}
+
+export type AsignacionPorNombre = PlanoAsignado | { tipo: "ambiguo"; pms: string[] };
+
+/**
+ * PM al que va un PDF fuera de la carpeta de OT, por su nombre sin .pdf
+ * ("FX-35.pdf" → modelo FX-35), con la forma normalizada, sin texto extra:
+ * - Si está dentro de la carpeta de un PM de la app que tiene ese modelo, es
+ *   de ese PM.
+ * - Si no, y solo un PM de la app tiene ese modelo, es de ese PM.
+ * - Si varios PM tienen ese modelo y el archivo no está en uno de ellos, es
+ *   ambiguo: no se asigna a nadie.
+ * `pmDeCarpeta` es el PM de la carpeta de proyecto donde está el archivo
+ * (null si no hay). Devuelve null si ningún modelo se llama así.
+ */
+export function asignarPlanoPorNombre(
+  nombreArchivo: string,
+  pmDeCarpeta: string | null,
+  indice: Map<string, ModeloDePm[]>
+): AsignacionPorNombre | null {
+  const base = nombreArchivo.replace(/\.pdf$/i, "");
+  const candidatos = indice.get(normalizarModelo(base));
+  if (!candidatos || candidatos.length === 0) return null;
+
+  const delPmDeCarpeta = pmDeCarpeta ? candidatos.find((c) => c.pm === pmDeCarpeta) : undefined;
+  if (delPmDeCarpeta) return { tipo: "en_su_pm", ...delPmDeCarpeta };
+  if (candidatos.length === 1) return { tipo: "unico", ...candidatos[0] };
+  return { tipo: "ambiguo", pms: candidatos.map((c) => c.pm) };
+}

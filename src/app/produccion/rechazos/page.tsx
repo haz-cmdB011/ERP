@@ -17,7 +17,7 @@ import { formatoFechaDMA } from "@/lib/resumen/entrega";
 import { DIAS_SIN_REASIGNAR, diasEsperando } from "@/lib/produccion/detenidos";
 import EstadoVacio from "@/components/estado-vacio";
 import ReasignarRetrabajo from "./reasignar-retrabajo";
-import PestanasSeccion from "@/app/produccion/pestanas-seccion";
+import { cargarPartesRechazadas } from "@/lib/produccion/partes-rechazadas";
 
 export const metadata: Metadata = { title: "Rechazos de Calidad" };
 
@@ -68,6 +68,10 @@ interface RechazoFinal {
   siguiente_proceso: Proceso | null;
   // De eso, lo que ya entregó el paso anterior (asignar más queda adelantado).
   listo_siguiente: number | string;
+  // Si ese paso es de una parte del despiece (cada parte tiene su ruta; migración
+  // rutas_por_parte): entonces va en piezas de la parte.
+  siguiente_parte?: string | null;
+  siguiente_parte_unidad?: string | null;
 }
 
 interface InformeComponente {
@@ -236,7 +240,11 @@ export default async function RechazosPage() {
     .map((it) => ({ item: it, informe: ultimoPorItem.get(it.id)! }))
     .sort((x, y) => x.informe.elaborado_en.localeCompare(y.informe.elaborado_en));
 
+  // Piezas de partes que Calidad no aprobó: se vuelven a entregar en la misma asignación.
+  const partesRechazadas = await cargarPartesRechazadas(supabase);
+
   const nada =
+    partesRechazadas.length === 0 &&
     porReasignar.length === 0 &&
     reasignados.length === 0 &&
     componentes.length === 0 &&
@@ -244,7 +252,6 @@ export default async function RechazosPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <PestanasSeccion seccion="taller" />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Rechazos de Calidad</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -256,7 +263,7 @@ export default async function RechazosPage() {
         <EstadoVacio
           titulo="Calidad no tiene rechazos pendientes"
           descripcion="Cuando Calidad rechace piezas de una entrega aparecerán aquí para reasignarlas."
-          accion={{ href: "/produccion/taller?vista=lista", etiqueta: "Ir al taller" }}
+          accion={{ href: "/produccion/panel", etiqueta: "Ir al panel de asignación" }}
         />
       )}
 
@@ -328,6 +335,62 @@ export default async function RechazosPage() {
         </section>
       )}
 
+      {partesRechazadas.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">
+              Partes por volver a entregar <span className="font-normal text-slate-500">({partesRechazadas.length})</span>
+            </h2>
+            <p className="text-sm text-slate-500">
+              Piezas de una entrega por partes que Calidad no aprobó. No se reasignan: el mismo equipo las corrige y
+              se registran otra vez en su entrega por partes.
+            </p>
+          </div>
+          <ul className="flex flex-col gap-3">
+            {partesRechazadas.map((r) => {
+              const desc = `${r.numeroPedido} · ${r.modelo ?? `ítem ${r.itemCode}`}`;
+              return (
+                <li key={r.asignacionId} className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm">
+                  <p className="font-medium text-slate-900">
+                    {r.pedidoId ? (
+                      <Link href={`/produccion/pedidos/${r.pedidoId}/asignaciones`} className="hover:text-brand-700 hover:underline">
+                        {desc}
+                      </Link>
+                    ) : (
+                      desc
+                    )}
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    {PROCESO_LABELS[r.proceso]} · {r.equipo}
+                  </p>
+                  <ul className="mt-2 flex flex-col gap-1 text-sm">
+                    {r.partes.map((p) => (
+                      <li key={p.parteId}>
+                        <strong className="text-rose-700">
+                          {p.porReentregar} {p.unidad}
+                        </strong>{" "}
+                        de {p.parte} por volver a entregar
+                        {p.rechazadas > p.porReentregar ? ` (de ${p.rechazadas} rechazadas)` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  {r.informes.length > 0 && (
+                    <ul className="mt-2 flex flex-col gap-0.5 text-xs text-slate-600">
+                      {r.informes.slice(0, 5).map((i) => (
+                        <li key={i.folio}>
+                          <span className="font-mono font-medium text-rose-700">{i.folio}</span> · {i.parte} · {i.cantidad}{" "}
+                          {i.motivo ? `· ${i.motivo}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {porReasignarFinal.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-base font-semibold text-slate-900">
@@ -346,6 +409,7 @@ export default async function RechazosPage() {
               const orden = r.siguiente_paso_orden ?? r.paso_orden;
               const listo = Number(r.listo_siguiente);
               const desc = `${r.numero_pedido} · ${r.modelo ?? `ítem ${r.item_code}`}`;
+              const unidad = r.siguiente_parte ? (r.siguiente_parte_unidad ?? "pz") : (r.unidad ?? "pz");
               return (
                 <li key={r.revision_id} className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -365,9 +429,10 @@ export default async function RechazosPage() {
                       </p>
                       <p className="text-sm text-slate-600">
                         <strong className="text-rose-700">
-                          {pendiente} {r.unidad ?? "pz"}
+                          {pendiente} {unidad}
                         </strong>{" "}
-                        por reasignar en el paso {orden} ({PROCESO_LABELS[proceso]})
+                        {r.siguiente_parte ? `de "${r.siguiente_parte}" ` : ""}por reasignar en el paso {orden} (
+                        {PROCESO_LABELS[proceso]})
                         {orden !== r.paso_orden ? ` · Calidad lo regresó al paso ${r.paso_orden}` : ""}
                       </p>
                       {!r.paso_retirado && listo < pendiente && (
@@ -399,7 +464,7 @@ export default async function RechazosPage() {
                         proceso={proceso}
                         equipoOriginalId=""
                         porReasignar={pendiente}
-                        unidad={r.unidad}
+                        unidad={unidad}
                         equipos={equipos}
                         revisionFinal
                       />

@@ -51,6 +51,8 @@ export interface RespuestaTransporte {
   status: number;
   /** Mensaje de error que mandó el servidor, si lo hubo. */
   error?: string;
+  /** Aviso del servidor para mostrar con el éxito (p. ej. "También quedó en 6 muebles..."). */
+  aviso?: string;
 }
 
 /** Manda un envío. Lanza si no hubo respuesta (sin red, tiempo agotado, corte). */
@@ -114,7 +116,7 @@ export function crearEnvio(datos: NuevoEnvio, ahora: number = Date.now()): Envio
 }
 
 export type ResultadoEnvio =
-  | { estado: "enviado" }
+  | { estado: "enviado"; aviso?: string }
   | { estado: "en-cola" }
   | { estado: "rechazado"; mensaje: string };
 
@@ -122,14 +124,14 @@ const MENSAJE_RECHAZO = "El servidor no aceptó el envío.";
 
 /** Intenta mandar el envío; devuelve cómo quedó sin tocar el almacén. */
 async function intentar(envio: Envio, transporte: Transporte): Promise<
-  | { tipo: "ok" }
+  | { tipo: "ok"; aviso?: string }
   | { tipo: "reintentable"; motivo: string; servidor: boolean }
   | { tipo: "rechazado"; mensaje: string }
 > {
   try {
     const r = await transporte(envio);
     const clase = clasificarEstado(r.status);
-    if (clase === "ok") return { tipo: "ok" };
+    if (clase === "ok") return { tipo: "ok", aviso: r.aviso };
     if (clase === "reintentable") {
       return { tipo: "reintentable", motivo: r.error ?? `Respuesta ${r.status}`, servidor: true };
     }
@@ -159,7 +161,7 @@ export async function enviarOEncolar(
   const envio = crearEnvio(datos, ahora);
   if (enLinea) {
     const r = await intentar(envio, transporte);
-    if (r.tipo === "ok") return { estado: "enviado" };
+    if (r.tipo === "ok") return { estado: "enviado", aviso: r.aviso };
     if (r.tipo === "rechazado") return { estado: "rechazado", mensaje: r.mensaje };
     envio.intentos = 1;
     envio.proximoIntento = ahora + esperaTras(1);

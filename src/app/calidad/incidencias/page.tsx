@@ -1,5 +1,4 @@
 import Link from "next/link";
-import PestanasSeccion from "@/app/calidad/pestanas-seccion";
 import { createClient } from "@/lib/supabase/server";
 import { paginarTodo } from "@/lib/supabase/paginar";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
@@ -8,7 +7,6 @@ import {
   COLUMNAS_INCIDENCIAS,
   SIN_FILTROS,
   TIPOS_INCIDENCIA,
-  desglosarPeriodo,
   filasDelPeriodo,
   filtrarIncidencias,
   hrefIncidencias,
@@ -22,26 +20,67 @@ import {
   resumirIncidencias,
   resumirPorAuditor,
   resumirPorSemana,
-  semanaDe,
   SIN_AUDITOR,
   type FiltrosIncidencias,
   type Incidencia,
   type ParametrosIncidencias,
-  type Subperiodo,
   type Vista,
 } from "@/lib/calidad/incidencias";
 import Barras from "./barras";
+import Comparacion from "./comparacion";
 import Semanas from "./semanas";
 import SelectorPeriodo from "./selector-periodo";
 import TablaAuditores from "./tabla-auditores";
 import Tarjeta from "./tarjeta";
 import NuevoReporte from "./nuevo-reporte";
 import Pendientes from "./pendientes";
+import Secciones from "./secciones";
 import TablaReportes from "./tabla-reportes";
 import type { OpcionesFormulario } from "./formulario-reporte";
-import { diaConSemana, etiquetaPeriodo, nombreMes, rangoCorto } from "./formato";
+import { etiquetaPeriodo } from "./formato";
 
 export const metadata = { title: "No conformidades" };
+
+type FilaMueble = {
+  modelo: string | null;
+  descripcion: string | null;
+  pedido_versiones: { pedidos: { proyectos: { nombre: string } | null } | null } | null;
+};
+
+// Modelo (o descripción) de cada mueble padre vigente, agrupado por el nombre de su proyecto.
+async function cargarMueblesPorProyecto(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<Record<string, string[]>> {
+  const filas = await paginarTodo<FilaMueble>(
+    (desde, hasta) =>
+      supabase
+        .from("planeacion_items")
+        .select(
+          "modelo, descripcion, pedido_versiones!inner ( pedidos!inner ( proyectos ( nombre ) ) )"
+        )
+        .eq("tipo_registro", "MO")
+        .is("eliminacion_solicitada_en", null)
+        .or("estado_revision.is.null,estado_revision.neq.cancelado")
+        .eq("pedido_versiones.es_version_activa", true)
+        .is("pedido_versiones.pedidos.eliminado_en", null)
+        .is("pedido_versiones.pedidos.cancelado_en", null)
+        .order("id", { ascending: true })
+        .range(desde, hasta)
+        .returns<FilaMueble[]>(),
+    { contexto: "los muebles de los proyectos" }
+  );
+  const mapa = new Map<string, Set<string>>();
+  for (const f of filas) {
+    const proyecto = f.pedido_versiones?.pedidos?.proyectos?.nombre?.trim();
+    const mueble = (f.modelo || f.descripcion || "").trim();
+    if (!proyecto || !mueble) continue;
+    if (!mapa.has(proyecto)) mapa.set(proyecto, new Set());
+    mapa.get(proyecto)!.add(mueble);
+  }
+  return Object.fromEntries(
+    [...mapa].map(([p, m]) => [p, [...m].sort((a, b) => a.localeCompare(b, "es", { numeric: true }))])
+  );
+}
 
 const BASE = "/calidad/incidencias";
 const FILAS_EN_LISTA = 100;
@@ -59,25 +98,20 @@ function descripcionFiltros(f: FiltrosIncidencias): string {
   return partes.join(", ");
 }
 
-// Nombre con el que se rotula cada parte de un periodo en la lista de barras.
-function etiquetaSubperiodo(s: Subperiodo): string {
-  if (s.vista === "dia") return diaConSemana(s.inicio);
-  if (s.vista === "semana") return `Sem ${semanaDe(s.inicio)?.numero} (${rangoCorto(s.inicio, s.fin)})`;
-  return nombreMes(s.inicio);
-}
-
-const TITULO_DESGLOSE: Record<Vista, string> = {
-  dia: "",
-  semana: "Por día",
-  mes: "Por semana",
-  anio: "Por mes",
+// Cada número del resumen lleva su color: una franja arriba y un fondo suave que se aclara hacia abajo.
+const TONO_NUMERO: Record<string, string> = {
+  Reportes: "border-t-brand-500",
+  Abiertos: "border-t-amber-400",
+  Cerrados: "border-t-emerald-400",
+  "Abiertos de +30 días": "border-t-rose-400",
 };
 
-const DE_QUE: Record<Vista, string> = {
-  dia: "del día",
-  semana: "de la semana",
-  mes: "del mes",
-  anio: "del año",
+// Con qué se compara el periodo que se mira (el inmediato anterior).
+const VS_ANTERIOR: Record<Vista, string> = {
+  dia: "el día anterior",
+  semana: "la semana anterior",
+  mes: "el mes anterior",
+  anio: "el año anterior",
 };
 
 export default async function IncidenciasPage({ searchParams }: { searchParams: Promise<ParametrosIncidencias> }) {
@@ -125,15 +159,19 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
   const pendientes = pendientesViejos(filtradas, hoy);
 
   const r = resumirIncidencias(delPeriodo);
+  const anteriorResumen = resumirIncidencias(filasDelPeriodo(filtradas, periodoDe(vista, periodo.anterior)));
   const auditores = resumirPorAuditor(delPeriodo);
-  const desglose = desglosarPeriodo(delPeriodo, periodo);
-  const porEtiqueta = new Map(desglose.map((s) => [etiquetaSubperiodo(s), s]));
   const semanasDelAnio = vista === "anio" ? resumirPorSemana(delPeriodo).semanas : [];
+
+  // Los muebles de cada proyecto (PM vigentes, versión activa), entregados o no: se puede
+  // reportar una falla de cualquiera aunque Producción aún no lo haya entregado.
+  const mueblesPorProyecto = await cargarMueblesPorProyecto(supabase);
 
   // Valores ya registrados: sugerencias del formulario de captura y edición.
   const resumenTodo = resumirIncidencias(todas);
   const opciones: OpcionesFormulario = {
-    proyectos: resumenTodo.porProyecto.map((p) => p.nombre),
+    proyectos: [...new Set([...resumenTodo.porProyecto.map((p) => p.nombre), ...Object.keys(mueblesPorProyecto)])],
+    mueblesPorProyecto,
     areas: [...new Set([...resumenTodo.porArea, ...resumenTodo.porAreaQueReporta].map((a) => a.nombre))].sort((a, b) =>
       a.localeCompare(b, "es")
     ),
@@ -150,9 +188,8 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
 
   return (
     <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
-      <PestanasSeccion seccion="revision" />
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">No conformidades</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">No conformidades</h1>
         <NuevoReporte opciones={opciones} hoy={hoy} sugerido={leerReporteSugerido(parametros)} />
       </div>
 
@@ -161,7 +198,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
         {/* El Excel lleva lo mismo que se ve: el periodo y los filtros puestos. */}
         <a
           href={hrefIncidencias("/api/calidad/incidencias/excel", filtros, { vista, ref: dia })}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 max-md:min-h-11"
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-brand-50 max-md:min-h-11"
         >
           Descargar Excel
         </a>
@@ -197,78 +234,144 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
               accion={{ href: ir(vista, refPorDefecto(todas, "9999-12-31", vista)), etiqueta: "Ir al último con reportes" }}
             />
           ) : (
-            <>
-              <TablaAuditores auditores={auditores} hrefDe={(nombre) => filtrarPor({ auditor: nombre })} />
-              {vista !== "dia" && (
-                <Barras
-                  titulo={TITULO_DESGLOSE[vista]}
-                  descripcion={`Cómo se reparten los ${r.total} reportes ${DE_QUE[vista]}`}
-                  filas={desglose.map((s) => ({ nombre: etiquetaSubperiodo(s), total: s.total, abiertas: s.abiertas }))}
-                  maximo={40}
-                  desplegable
-                  hrefDe={(nombre) => {
-                    const s = porEtiqueta.get(nombre);
-                    return s ? ir(s.vista, s.ref) : ir(vista, dia);
-                  }}
-                />
-              )}
+            <Secciones
+              secciones={[
+                {
+                  id: "resumen",
+                  titulo: "Resumen",
+                  icono: "panel",
+                  contenido: (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        {[
+                          ["Reportes", r.total, "text-slate-900", anteriorResumen.total, false],
+                          ["Abiertos", r.abiertas, "text-amber-700", anteriorResumen.abiertas, false],
+                          ["Cerrados", r.cerradas, "text-emerald-700", anteriorResumen.cerradas, true],
+                          ["Abiertos de +30 días", pendientes.total, "text-rose-700", null, false],
+                        ].map(([etiqueta, valor, color, antes, subirEsBueno]) => {
+                          const cambio = typeof antes === "number" ? Number(valor) - antes : null;
+                          const bueno = cambio !== null && (subirEsBueno ? cambio > 0 : cambio < 0);
+                          const malo = cambio !== null && (subirEsBueno ? cambio < 0 : cambio > 0);
+                          return (
+                            <div
+                              key={String(etiqueta)}
+                              className={`rounded-xl border border-slate-200 border-t-4 bg-white p-4 shadow-sm ${TONO_NUMERO[String(etiqueta)] ?? ""}`}
+                            >
+                              <p className={`text-4xl font-bold tabular-nums ${color}`}>{valor}</p>
+                              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{etiqueta}</p>
+                              {cambio !== null && (
+                                <p
+                                  className={`mt-1 text-xs font-medium tabular-nums ${
+                                    bueno ? "text-emerald-700" : malo ? "text-rose-700" : "text-slate-500"
+                                  }`}
+                                >
+                                  {cambio === 0
+                                    ? `Igual que ${VS_ANTERIOR[vista]}`
+                                    : `${Math.abs(cambio)} ${cambio > 0 ? "más" : "menos"} que ${VS_ANTERIOR[vista]}`}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <Comparacion
+                        actual={{ total: r.total, abiertas: r.abiertas, cerradas: r.cerradas }}
+                        anterior={{ total: anteriorResumen.total, abiertas: anteriorResumen.abiertas, cerradas: anteriorResumen.cerradas }}
+                        etiquetaActual={etiquetaPeriodo(periodo)}
+                        etiquetaAnterior={etiquetaPeriodo(periodoDe(vista, periodo.anterior))}
+                      />
+                      {vista === "anio" && <Semanas desplegable semanas={semanasDelAnio} hrefDe={(inicio) => ir("semana", inicio)} />}
+                    </>
+                  ),
+                },
+                {
+                  id: "auditores",
+                  titulo: "Auditores",
+                  icono: "usuarios",
+                  contenido: <TablaAuditores auditores={auditores} hrefDe={(nombre) => filtrarPor({ auditor: nombre })} />,
+                },
+                {
+                  id: "areas",
+                  titulo: "Áreas",
+                  icono: "equipos",
+                  contenido: (
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <Barras
+                        titulo="Áreas involucradas"
+                        descripcion="Dónde nace la no conformidad; un reporte cuenta en cada área que menciona"
+                        filas={r.porArea}
+                        maximo={10}
+                        hrefDe={(n) => filtrarPor({ area: n })}
+                      />
+                      <Barras titulo="Área que reporta" descripcion="Quién la detecta" filas={r.porAreaQueReporta} maximo={10} />
+                      <Barras
+                        titulo="Nace en → lo detecta"
+                        descripcion="Los cruces más repetidos entre el área donde nace y el área que la reporta"
+                        filas={r.cruceAreaReporta.map((c) => ({ nombre: `${c.area} → ${c.reporta}`, total: c.total, abiertas: 0 }))}
+                        maximo={10}
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  id: "motivos",
+                  titulo: "Motivos y tipos",
+                  icono: "incidencias",
+                  contenido: (
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <Barras
+                        titulo="Por tipo de reporte"
+                        filas={r.porTipo}
+                        hrefDe={(n) => filtrarPor({ tipo: TIPOS_INCIDENCIA.find((t) => t === n) ?? null })}
+                      />
+                      <Barras
+                        titulo="Por categoría del motivo"
+                        descripcion="Agrupación de los motivos escritos a mano"
+                        filas={r.porCategoria}
+                        maximo={9}
+                      />
+                      <Barras titulo="Motivos más repetidos" filas={r.porMotivo} maximo={10} />
+                      <Barras
+                        titulo="Por línea"
+                        filas={[
+                          { nombre: "Madera", total: r.porLinea.madera, abiertas: 0 },
+                          { nombre: "Metal", total: r.porLinea.metal, abiertas: 0 },
+                        ]}
+                        hrefDe={(n) => filtrarPor({ linea: n === "Madera" ? "madera" : "metal" })}
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  id: "proyectos",
+                  titulo: "Proyectos",
+                  icono: "pedidos",
+                  contenido: (
+                    <Barras
+                      titulo="Proyectos con más reportes"
+                      filas={r.porProyecto}
+                      maximo={10}
+                      hrefDe={(n) => filtrarPor({ proyecto: n })}
+                    />
+                  ),
+                },
+              ]}
+            />
+          )}
 
-              {vista === "anio" && <Semanas desplegable semanas={semanasDelAnio} hrefDe={(inicio) => ir("semana", inicio)} />}
-
-              <Tarjeta
-                titulo={`Detalle de ${etiquetaPeriodo(periodo)}`}
-                descripcion="Tipo, categoría, áreas, motivos y proyectos del periodo"
-                desplegable
-                abierto
-              >
-                <div className="grid gap-6 md:grid-cols-2">
-                  <Barras plana
-                    titulo="Por tipo de reporte"
-                    filas={r.porTipo}
-                    hrefDe={(n) => filtrarPor({ tipo: TIPOS_INCIDENCIA.find((t) => t === n) ?? null })}
-                  />
-                  <Barras plana
-                    titulo="Por categoría del motivo"
-                    descripcion="Agrupación de los motivos escritos a mano"
-                    filas={r.porCategoria}
-                    maximo={9}
-                  />
-                  <Barras plana
-                    titulo="Áreas involucradas"
-                    descripcion="Dónde nace la no conformidad; un reporte cuenta en cada área que menciona"
-                    filas={r.porArea}
-                    maximo={10}
-                    hrefDe={(n) => filtrarPor({ area: n })}
-                  />
-                  <Barras plana
-                    titulo="Área que reporta"
-                    descripcion="Quién la detecta"
-                    filas={r.porAreaQueReporta}
-                    maximo={10}
-                  />
-                  <Barras plana
- titulo="Motivos más repetidos" filas={r.porMotivo} maximo={10} />
-                  <Barras plana
-                    titulo="Proyectos con más reportes"
-                    filas={r.porProyecto}
-                    maximo={10}
-                    hrefDe={(n) => filtrarPor({ proyecto: n })}
-                  />
-                </div>
-              </Tarjeta>
-
-              <Tarjeta
-                titulo="Lista de reportes"
-                descripcion={
-                  delPeriodo.length > FILAS_EN_LISTA
-                    ? `Primeros ${FILAS_EN_LISTA} de ${delPeriodo.length}; elige un periodo más corto para ver el resto`
-                    : `${delPeriodo.length} ${delPeriodo.length === 1 ? "reporte" : "reportes"} del periodo`
-                }
-                desplegable
-              >
-                <TablaReportes filas={delPeriodo.slice(0, FILAS_EN_LISTA)} opciones={opciones} hoy={hoy} />
-              </Tarjeta>
-            </>
+          {/* Los desplegables van hasta abajo, en este orden: lista, pendientes y sin fecha. */}
+          {delPeriodo.length > 0 && (
+            <Tarjeta
+              titulo="Lista de reportes"
+              descripcion={
+                delPeriodo.length > FILAS_EN_LISTA
+                  ? `Primeros ${FILAS_EN_LISTA} de ${delPeriodo.length}; elige un periodo más corto para ver el resto`
+                  : `${delPeriodo.length} ${delPeriodo.length === 1 ? "reporte" : "reportes"} del periodo`
+              }
+              desplegable
+            >
+              <TablaReportes filas={delPeriodo.slice(0, FILAS_EN_LISTA)} opciones={opciones} hoy={hoy} />
+            </Tarjeta>
           )}
 
           <Pendientes datos={pendientes} dias={30} opciones={opciones} hoy={hoy} />

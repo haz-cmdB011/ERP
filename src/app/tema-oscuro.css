@@ -613,6 +613,62 @@
   }
 }
 
+/* Estilo "Mobiliarium" en oscuro: grises con tinte verde carbón. */
+@media screen and (prefers-color-scheme: dark) {
+  :root[data-estilo="mobiliarium"]:not([data-tema="claro"]) {
+    --color-white: oklch(19% 0.014 150);
+    --color-slate-50: oklch(12.9% 0.015 150);
+    --color-slate-100: oklch(20.8% 0.015 150);
+    --color-slate-200: oklch(27.9% 0.014 150);
+    --color-slate-300: oklch(37.2% 0.015 150);
+    --color-slate-400: oklch(44.6% 0.015 150);
+    --color-slate-500: oklch(55.4% 0.016 150);
+    --color-slate-600: oklch(70.4% 0.014 150);
+    --color-slate-700: oklch(86.9% 0.008 150);
+    --color-slate-800: oklch(92.9% 0.005 150);
+    --color-slate-900: oklch(96.8% 0.002 150);
+    --color-slate-950: oklch(98.4% 0.001 150);
+    --color-gray-50: oklch(13% 0.01 150);
+    --color-gray-100: oklch(21% 0.012 150);
+    --color-gray-200: oklch(27.8% 0.012 150);
+    --color-gray-300: oklch(37.3% 0.012 150);
+    --color-gray-400: oklch(44.6% 0.01 150);
+    --color-gray-500: oklch(55.1% 0.009 150);
+    --color-gray-600: oklch(70.7% 0.008 150);
+    --color-gray-700: oklch(87.2% 0.003 150);
+    --color-gray-800: oklch(92.8% 0.002 150);
+    --color-gray-900: oklch(96.7% 0.001 150);
+    --color-gray-950: oklch(98.5% 0.001 150);
+  }
+}
+@media screen {
+  :root[data-estilo="mobiliarium"][data-tema="oscuro"] {
+    --color-white: oklch(19% 0.014 150);
+    --color-slate-50: oklch(12.9% 0.015 150);
+    --color-slate-100: oklch(20.8% 0.015 150);
+    --color-slate-200: oklch(27.9% 0.014 150);
+    --color-slate-300: oklch(37.2% 0.015 150);
+    --color-slate-400: oklch(44.6% 0.015 150);
+    --color-slate-500: oklch(55.4% 0.016 150);
+    --color-slate-600: oklch(70.4% 0.014 150);
+    --color-slate-700: oklch(86.9% 0.008 150);
+    --color-slate-800: oklch(92.9% 0.005 150);
+    --color-slate-900: oklch(96.8% 0.002 150);
+    --color-slate-950: oklch(98.4% 0.001 150);
+    --color-gray-50: oklch(13% 0.01 150);
+    --color-gray-100: oklch(21% 0.012 150);
+    --color-gray-200: oklch(27.8% 0.012 150);
+    --color-gray-300: oklch(37.3% 0.012 150);
+    --color-gray-400: oklch(44.6% 0.01 150);
+    --color-gray-500: oklch(55.1% 0.009 150);
+    --color-gray-600: oklch(70.7% 0.008 150);
+    --color-gray-700: oklch(87.2% 0.003 150);
+    --color-gray-800: oklch(92.8% 0.002 150);
+    --color-gray-900: oklch(96.7% 0.001 150);
+    --color-gray-950: oklch(98.5% 0.001 150);
+  }
+}
+
 /* Fichas que se capturan como PDF (html2canvas) o se imprimen: siempre en
    claro, sin importar el modo del usuario. */
 [data-informe],

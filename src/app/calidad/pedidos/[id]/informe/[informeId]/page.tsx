@@ -4,7 +4,7 @@ import type { LoteCalidad } from "@/lib/calidad/lotes";
 import { etiquetaProceso } from "@/lib/produccion/asignaciones";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/site-url";
-import { getImagenesPorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesPorItem } from "@/lib/compartido/imagenes";
 import { nombreArchivoSeguro } from "@/lib/nombre-archivo";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
 import { firmarUrls } from "@/lib/storage/urls-firmadas";

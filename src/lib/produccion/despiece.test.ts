@@ -9,8 +9,18 @@ import {
   lineasConComponenteCaido,
   lineasDesdeJson,
   limpiarLineas,
+  dividirLinea,
+  nombresDePartes,
+  procesosOmitidosValidos,
+  sugerirPartes,
   mismasLineas,
+  repartirPorcentajes,
+  despieceParaOtroMueble,
+  firmaComponentes,
+  mismoContenido,
+  mismoModelo,
   sugerirDespiece,
+  tipoMaterial,
   totalLinea,
   trasladarLineas,
   validarLineas,
@@ -54,9 +64,9 @@ describe("sugerirDespiece", () => {
       hijo("b", { item_code: 13.02, descripcion: "ESTRUCTURA", tipo_material: "metal", unidad: "JUEGO", cantidad_x_mueble: 1, cantidad_total: 3, fila_excel_origen: 11 }),
     ]);
     expect(s.lineas).toEqual([
-      { descripcion: "TABLERO", material: "Madera", unidad: "PZA", piezas_por_mueble: 3, hijo_id: "a" },
-      { descripcion: "ESTRUCTURA", material: "Metal", unidad: "JUEGO", piezas_por_mueble: 1, hijo_id: "b" },
-      { descripcion: "SUPERFICIE", material: "Superficie sólida", unidad: "PZA", piezas_por_mueble: 1, hijo_id: "c" },
+      { descripcion: "TABLERO", material: "Madera", unidad: "PZA", piezas_por_mueble: 3, porcentaje: 33.33, hijo_id: "a" },
+      { descripcion: "ESTRUCTURA", material: "Metal", unidad: "JUEGO", piezas_por_mueble: 1, porcentaje: 33.33, hijo_id: "b" },
+      { descripcion: "SUPERFICIE", material: "Superficie sólida", unidad: "PZA", piezas_por_mueble: 1, porcentaje: 33.34, hijo_id: "c" },
     ]);
     expect(s.avisosPorLinea).toEqual([null, null, null]);
     expect(s.avisos).toEqual([]);
@@ -123,7 +133,7 @@ describe("sugerirDespiece", () => {
   it("un mueble sin componentes se propone completo, en una sola línea", () => {
     const s = sugerirDespiece(padre, []);
     expect(s.lineas).toEqual([
-      { descripcion: "MUEBLE DE PRUEBA", material: "Híbrido", unidad: "PZA", piezas_por_mueble: 1, hijo_id: null },
+      { descripcion: "MUEBLE DE PRUEBA", material: "Híbrido", unidad: "PZA", piezas_por_mueble: 1, porcentaje: 100, hijo_id: null },
     ]);
     expect(s.avisos[0]).toMatch(/no tiene componentes/);
   });
@@ -231,7 +241,7 @@ describe("limpiarLineas y mismasLineas", () => {
     expect(
       limpiarLineas([{ descripcion: "  TABLERO   MDF ", material: " ", unidad: "", piezas_por_mueble: 1.005, hijo_id: null }])
     ).toEqual([
-      { id: null, descripcion: "TABLERO MDF", material: null, unidad: null, piezas_por_mueble: 1.01, hijo_id: null },
+      { id: null, descripcion: "TABLERO MDF", material: null, unidad: null, piezas_por_mueble: 1.01, porcentaje: null, hijo_id: null },
     ]);
   });
 
@@ -256,6 +266,23 @@ describe("limpiarLineas y mismasLineas", () => {
   });
 });
 
+describe("porcentajes del despiece", () => {
+  it("reparte el 100 % en partes iguales y lo que sobra va en la última", () => {
+    expect(repartirPorcentajes(3)).toEqual([33.33, 33.33, 33.34]);
+    expect(repartirPorcentajes(1)).toEqual([100]);
+    expect(repartirPorcentajes(0)).toEqual([]);
+  });
+  it("exige el % en todas las líneas o en ninguna, y que sume 100", () => {
+    expect(validarLineas([lineaBase, { ...lineaBase, hijo_id: null }])).toBeNull();
+    expect(validarLineas([{ ...lineaBase, porcentaje: 60 }, { ...lineaBase, hijo_id: null, porcentaje: 40 }])).toBeNull();
+    expect(validarLineas([{ ...lineaBase, porcentaje: 60 }, { ...lineaBase, hijo_id: null }])).toMatch(/todas las líneas/);
+    expect(validarLineas([{ ...lineaBase, porcentaje: 60 }, { ...lineaBase, hijo_id: null, porcentaje: 30 }])).toMatch(/suman 90/);
+  });
+  it("un cambio de % cuenta como cambio del despiece", () => {
+    expect(mismasLineas([{ ...lineaBase, porcentaje: 50 }], [{ ...lineaBase, porcentaje: 60 }])).toBe(false);
+  });
+});
+
 describe("leerCantidad", () => {
   it("acepta coma o punto y devuelve NaN si no es un número", () => {
     expect(leerCantidad("2")).toBe(2);
@@ -275,8 +302,8 @@ describe("lineasDesdeJson", () => {
         { piezas_por_mueble: "2" },
       ])
     ).toEqual([
-      { id: "p1", descripcion: "TABLERO", material: "Madera", unidad: null, piezas_por_mueble: 3, hijo_id: "a" },
-      { id: null, descripcion: "", material: null, unidad: null, piezas_por_mueble: 2, hijo_id: null },
+      { id: "p1", descripcion: "TABLERO", material: "Madera", unidad: null, piezas_por_mueble: 3, porcentaje: null, hijo_id: "a" },
+      { id: null, descripcion: "", material: null, unidad: null, piezas_por_mueble: 2, porcentaje: null, hijo_id: null },
     ]);
     expect(lineasDesdeJson(null)).toEqual([]);
     expect(lineasDesdeJson({})).toEqual([]);
@@ -356,5 +383,118 @@ describe("trasladarLineas", () => {
     );
     expect(r.map((l) => l.hijo_id)).toEqual(["nuevo1", null, null, null]);
     expect(r[0].descripcion).toBe("TABLERO");
+  });
+});
+
+describe("tipoMaterial", () => {
+  it("reconoce el material y la electrificación por la descripción", () => {
+    expect(tipoMaterial("Madera")).toBe("madera");
+    expect(tipoMaterial("METAL")).toBe("metal");
+    expect(tipoMaterial("S.S.")).toBe("superficie_solida");
+    expect(tipoMaterial("Híbrido")).toBe("hibrido");
+    expect(tipoMaterial("Tapiz")).toBe("tapiz");
+    expect(tipoMaterial("Metal", "MARCO Y CHAROLA ELECTRIFICACIÓN")).toBe("electrificacion");
+    expect(tipoMaterial("Cristal")).toBe("vidrio");
+    expect(tipoMaterial("")).toBe("otro");
+  });
+});
+
+describe("despiece por modelo", () => {
+  const origen = [
+    { id: "o1", descripcion: "MÓDULO D", cantidad_x_mueble: 1 },
+    { id: "o2", descripcion: "Capelo", cantidad_x_mueble: 2 },
+  ];
+  const destino = [
+    { id: "d2", descripcion: "CAPELO ", cantidad_x_mueble: "2" },
+    { id: "d1", descripcion: "modulo  d", cantidad_x_mueble: 1 },
+  ];
+  const linea = (descripcion: string, hijo_id: string | null, id: string | null = null) => ({
+    id,
+    descripcion,
+    material: "Madera",
+    unidad: "PZA",
+    piezas_por_mueble: 1,
+    hijo_id,
+  });
+
+  it("la firma no depende del orden, mayúsculas ni acentos, pero sí de la cantidad", () => {
+    expect(firmaComponentes(origen)).toBe(firmaComponentes(destino));
+    expect(firmaComponentes(origen)).not.toBe(firmaComponentes([origen[0], { ...origen[1], cantidad_x_mueble: 3 }]));
+  });
+
+  it("mismo modelo sin importar mayúsculas ni espacios; sin modelo, nunca", () => {
+    expect(mismoModelo(" m-cont-m", "M-CONT-M")).toBe(true);
+    expect(mismoModelo("M-CONT-M", "M-CHK")).toBe(false);
+    expect(mismoModelo(null, "")).toBe(false);
+  });
+
+  it("lleva cada línea al componente igual del otro mueble, con sus partes", () => {
+    const r = despieceParaOtroMueble(
+      [linea("Capelo", "o2", "p-origen"), linea("Tornillería", null), linea("Módulo D", "o1")],
+      origen,
+      destino,
+      ["p-destino", null, null]
+    );
+    expect(r.map((l) => [l.id, l.hijo_id])).toEqual([
+      ["p-destino", "d2"],
+      [null, null],
+      [null, "d1"],
+    ]);
+  });
+
+  it("reconoce la copia sin cambios por su contenido, sin mirar ids ni componentes", () => {
+    expect(mismoContenido([linea("Capelo", "o2", "x")], [linea(" Capelo", "d2")])).toBe(true);
+    expect(mismoContenido([linea("Capelo", "o2")], [{ ...linea("Capelo", "o2"), piezas_por_mueble: 2 }])).toBe(false);
+  });
+});
+
+describe("dividir un componente en partes", () => {
+  it("sugiere las partes de una descripción compuesta", () => {
+    expect(sugerirPartes("PUERTA CON MARCO")).toEqual(["PUERTA", "MARCO"]);
+    expect(sugerirPartes("Cajón y frente")).toEqual(["Cajón", "frente"]);
+    expect(sugerirPartes("Tabla")).toEqual([]);
+  });
+
+  it("limpia lo escrito: sin vacíos, espacios de más ni repetidos", () => {
+    expect(nombresDePartes("Puerta,  Marco , ,puerta")).toEqual(["Puerta", "Marco"]);
+    expect(nombresDePartes("")).toEqual([]);
+  });
+
+  it("cada parte conserva piezas, material y unidad, y nace sin id ni componente", () => {
+    const linea = {
+      id: "p1",
+      descripcion: "PUERTA CON MARCO",
+      material: "MDF",
+      unidad: "PZA",
+      piezas_por_mueble: 2,
+      porcentaje: null,
+      hijo_id: "h1",
+    };
+    const partes = dividirLinea(linea, ["Puerta", "Marco"]);
+    expect(partes.map((p) => p.descripcion)).toEqual(["Puerta", "Marco"]);
+    expect(partes.every((p) => p.id === null && p.hijo_id === null)).toBe(true);
+    expect(partes.every((p) => p.piezas_por_mueble === 2 && p.material === "MDF" && p.unidad === "PZA")).toBe(true);
+  });
+});
+
+describe("procesos que lleva cada parte", () => {
+  it("solo conserva procesos conocidos, en el orden de siempre y sin repetir", () => {
+    expect(procesosOmitidosValidos(["barniz", "armado", "barniz", "otro"])).toEqual(["armado", "barniz"]);
+    expect(procesosOmitidosValidos(undefined)).toEqual([]);
+  });
+
+  it("viaja con la línea (guardar, leer y comparar)", () => {
+    const base = { descripcion: "Marco", material: null, unidad: null, piezas_por_mueble: 1, hijo_id: null };
+    const sinBarniz = lineasDesdeJson([{ ...base, procesos_omitidos: ["barniz"] }]);
+    expect(sinBarniz[0].procesos_omitidos).toEqual(["barniz"]);
+    expect(mismasLineas(sinBarniz, lineasDesdeJson([base]))).toBe(false);
+    expect(mismasLineas(sinBarniz, lineasDesdeJson([{ ...base, procesos_omitidos: ["barniz"] }]))).toBe(true);
+  });
+
+  it("una parte no puede omitir todos los procesos", () => {
+    const base = { descripcion: "Marco", material: null, unidad: null, piezas_por_mueble: 1, hijo_id: null };
+    const todos = ["armado", "barniz", "electrificacion", "superficie_solida"] as const;
+    expect(validarLineas([{ ...base, procesos_omitidos: [...todos] }])).toMatch(/al menos por un proceso/);
+    expect(validarLineas([{ ...base, procesos_omitidos: ["barniz"] }])).toBeNull();
   });
 });

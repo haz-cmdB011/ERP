@@ -33,19 +33,16 @@ export default async function AdminUsuariosPage() {
     .order("created_at", { ascending: true })
     .returns<PerfilRow[]>();
 
+  const lista = usuarios ?? [];
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Usuarios</h1>
-        <p className="text-sm text-gray-600">
-          Crea usuarios nuevos, asígnales rol y restablece contraseñas. Solo
-          desarrolladores pueden ver esta página.
-        </p>
+    <main className="mx-auto flex max-w-6xl flex-col gap-8 p-4 sm:p-6">
+      <div className="flex flex-col gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Usuarios</h1>
       </div>
 
       <CrearUsuarioForm />
 
-      <UsuariosTable usuarios={usuarios ?? []} miId={user.id} />
+      <UsuariosTable usuarios={lista} miId={user.id} />
     </main>
   );
 }

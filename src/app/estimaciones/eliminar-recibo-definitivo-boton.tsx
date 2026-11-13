@@ -54,7 +54,7 @@ export default function EliminarReciboDefinitivoBoton({
           disabled={trabajando}
           title="Eliminar recibo definitivamente"
           aria-label={`Eliminar el recibo ${folio} definitivamente`}
-          className="flex h-7 w-7 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50"
+          className="flex h-7 w-7 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
         >
           {trabajando ? "…" : <IconoPapelera />}
         </button>
@@ -68,7 +68,7 @@ export default function EliminarReciboDefinitivoBoton({
           {trabajando ? "Eliminando…" : "Eliminar recibo"}
         </button>
       )}
-      {error && <span className="max-w-[14rem] text-right text-[11px] text-rose-600">{error}</span>}
+      {error && <span className="max-w-[14rem] text-right text-xs text-rose-600">{error}</span>}
       <ConfirmDialog
         open={confirmando}
         title={`Eliminar definitivamente el recibo ${folio}`}

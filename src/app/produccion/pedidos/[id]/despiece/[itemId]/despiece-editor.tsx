@@ -1,20 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { rutaInternaSegura } from "@/lib/seguridad/redireccion";
 import { createClient } from "@/lib/supabase/client";
 import { avisar } from "@/components/avisos";
 import { formatoFechaHora } from "@/lib/resumen/entrega";
 import { enviarOGuardar, usuarioActualId } from "@/lib/offline/cola-navegador";
+import { PROCESOS, PROCESO_LABELS, type Proceso } from "@/lib/produccion/asignaciones";
 import {
   MATERIALES_SUGERIDOS,
   UNIDADES_SUGERIDAS,
   leerCantidad,
   limpiarLineas,
   mismasLineas,
+  repartirPorcentajes,
+  tipoMaterial,
   totalLinea,
   validarLineas,
   type LineaDespiece,
+  dividirLinea,
+  nombresDePartes,
+  sugerirPartes,
   type SugerenciaDespiece,
   type VersionHistorial,
 } from "@/lib/produccion/despiece";
@@ -23,6 +30,7 @@ import {
   estiloBotonSecundario,
   estiloCampo,
 } from "@/app/produccion/asignaciones/modal";
+import { COLORES_MATERIAL, InsigniaMaterial, luzMaterial } from "@/app/produccion/material-parte";
 
 interface Fila {
   clave: number;
@@ -31,6 +39,8 @@ interface Fila {
   unidad: string;
   piezas: string;
   hijoId: string | null;
+  // Procesos por los que la parte NO pasa (vacío = todos, lo normal).
+  omitidos: Proceso[];
   // La parte del despiece que es la línea (null si es nueva): con ella conserva sus asignaciones.
   parteId: string | null;
   aviso: string | null;
@@ -54,19 +64,24 @@ function filasDesde(lineas: LineaDespiece[], avisos: (string | null)[] = []): Fi
     // 0 = el Excel no traía la cantidad: se deja en blanco para que se escriba.
     piezas: l.piezas_por_mueble > 0 ? String(l.piezas_por_mueble) : "",
     hijoId: l.hijo_id,
+    omitidos: l.procesos_omitidos ?? [],
     parteId: l.id ?? null,
     aviso: avisos[i] ?? null,
   }));
 }
 
+// El % del mueble no se captura: cada línea vale lo mismo (partes iguales).
 function lineasDesde(filas: Fila[]): LineaDespiece[] {
-  return filas.map((f) => ({
+  const porcentajes = repartirPorcentajes(filas.length);
+  return filas.map((f, i) => ({
     id: f.parteId ?? null,
     descripcion: f.descripcion,
     material: f.material || null,
     unidad: f.unidad || null,
     piezas_por_mueble: leerCantidad(f.piezas),
+    porcentaje: porcentajes[i],
     hijo_id: f.hijoId,
+    ...(f.omitidos.length > 0 ? { procesos_omitidos: f.omitidos } : {}),
   }));
 }
 
@@ -75,6 +90,7 @@ function numero(n: number): string {
 }
 
 const GRID = "sm:grid-cols-[minmax(0,1fr)_6rem_6rem_7rem_2.5rem]";
+
 
 function claveBorrador(itemId: string): string {
   return `despiece-borrador-${itemId}`;
@@ -138,7 +154,6 @@ export default function DespieceEditor({
   itemId,
   version,
   muebles,
-  unidadMueble,
   sugerencia,
   guardado,
   historial,
@@ -148,6 +163,8 @@ export default function DespieceEditor({
   puedeEditar,
   motivoBloqueo,
   partesAsignadas = [],
+  alGuardar,
+  alRecargar,
 }: {
   itemId: string;
   // Versión guardada del despiece (0 = todavía no hay).
@@ -168,8 +185,14 @@ export default function DespieceEditor({
   // Partes con asignaciones vigentes: no se pueden quitar (la base tampoco deja bajar
   // su cantidad por mueble).
   partesAsignadas?: string[];
+  // Fuera de su página (la ventana del carrito): qué hacer al guardar y cómo traer la
+  // versión actual. Sin ellos se regresa a `?volver=` o se refresca la página.
+  alGuardar?: () => void;
+  alRecargar?: () => void;
 }) {
   const router = useRouter();
+  const volver = useSearchParams().get("volver");
+  const recargar = alRecargar ?? (() => router.refresh());
   const [filas, setFilas] = useState<Fila[]>(() =>
     guardado ? filasDesde(guardado.lineas) : filasDesde(sugerencia.lineas, sugerencia.avisosPorLinea)
   );
@@ -193,6 +216,8 @@ export default function DespieceEditor({
   const cambiado = !mismasLineas(actuales, base);
   const distintoDeLaSugerencia = !mismasLineas(actuales, sugerencia.lineas);
   const pendientesDeRevisar = filas.filter((f) => f.aviso && !revisadas.has(f.clave));
+  // Los materiales que hay en el despiece, para la leyenda de colores.
+  const tiposUsados = [...new Set(filas.map((f) => tipoMaterial(f.material, f.descripcion)))];
 
   // Borrador de un trabajo anterior sin guardar.
   useEffect(() => {
@@ -218,12 +243,13 @@ export default function DespieceEditor({
       guardarBorrador(itemId, {
         version,
         en: Date.now(),
-        filas: filas.map(({ descripcion, material, unidad, piezas, hijoId, parteId }) => ({
+        filas: filas.map(({ descripcion, material, unidad, piezas, hijoId, omitidos, parteId }) => ({
           descripcion,
           material,
           unidad,
           piezas,
           hijoId,
+          omitidos,
           parteId,
         })),
       });
@@ -274,12 +300,57 @@ export default function DespieceEditor({
   function agregar() {
     setFilas((prev) => [
       ...prev,
-      { clave: ++ultimaClave, descripcion: "", material: "", unidad: "", piezas: "1", hijoId: null, parteId: null, aviso: null },
+      {
+        clave: ++ultimaClave,
+        descripcion: "",
+        material: "",
+        unidad: "",
+        piezas: "1",
+        hijoId: null,
+        omitidos: [],
+        parteId: null,
+        aviso: null,
+      },
     ]);
   }
 
   function quitar(clave: number) {
     setFilas((prev) => (prev.length > 1 ? prev.filter((f) => f.clave !== clave) : prev));
+  }
+
+  // Dividir una línea en partes ("Puerta con marco" → Puerta y Marco): se abre el cuadro de la
+  // línea con los nombres sugeridos y, al aceptar, la línea se reemplaza por sus partes.
+  const [dividiendo, setDividiendo] = useState<{ clave: number; nombres: string } | null>(null);
+
+  function empezarDivision(f: Fila) {
+    setDividiendo({ clave: f.clave, nombres: sugerirPartes(f.descripcion).join(", ") });
+  }
+
+  function dividir() {
+    if (!dividiendo) return;
+    const nombres = nombresDePartes(dividiendo.nombres);
+    if (nombres.length < 2) return;
+    setFilas((prev) =>
+      prev.flatMap((f) => {
+        if (f.clave !== dividiendo.clave) return [f];
+        const [original] = lineasDesde([f]);
+        return filasDesde(dividirLinea(original, nombres));
+      })
+    );
+    setDividiendo(null);
+  }
+
+  // Marca si la parte pasa o no por un proceso (por omisión pasa por todos).
+  function alternarProceso(clave: number, proceso: Proceso) {
+    setFilas((prev) =>
+      prev.map((f) => {
+        if (f.clave !== clave) return f;
+        const omitidos = f.omitidos.includes(proceso)
+          ? f.omitidos.filter((p) => p !== proceso)
+          : PROCESOS.filter((p) => p === proceso || f.omitidos.includes(p));
+        return { ...f, omitidos };
+      })
+    );
   }
 
   function desvincular(clave: number) {
@@ -301,7 +372,13 @@ export default function DespieceEditor({
   function recuperarBorrador() {
     if (!borrador) return;
     // Los borradores de antes de las partes no traen parteId: la base reconoce la parte por su componente.
-    setFilas(borrador.filas.map((f) => ({ ...f, parteId: f.parteId ?? null, clave: ++ultimaClave, aviso: null })));
+    setFilas(borrador.filas.map((f) => ({
+        ...f,
+        omitidos: f.omitidos ?? [],
+        parteId: f.parteId ?? null,
+        clave: ++ultimaClave,
+        aviso: null,
+      })));
     setBorrador(null);
   }
 
@@ -369,8 +446,12 @@ export default function DespieceEditor({
         avisar("Sin conexión: el despiece quedó guardado en este aparato y se enviará solo.", "info");
         return;
       }
-      avisar("Despiece guardado");
-      router.refresh();
+      // El servidor dice si también quedó en otros muebles del mismo modelo.
+      avisar(resultado.aviso ? `Despiece guardado. ${resultado.aviso}` : "Despiece guardado");
+      // Si se llegó desde el panel de asignación (u otra pantalla), se regresa ahí.
+      if (alGuardar) alGuardar();
+      else if (volver) router.push(rutaInternaSegura(volver, "/produccion/panel"));
+      else router.refresh();
     } catch {
       setError("No se pudo guardar el despiece. Inténtalo de nuevo.");
     } finally {
@@ -388,15 +469,7 @@ export default function DespieceEditor({
           </p>
           {cambiado && puedeEditar && <p className="mt-1 text-amber-700">Tienes cambios sin guardar.</p>}
         </div>
-      ) : (
-        <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
-          <p className="font-medium">Sugerencia del sistema</p>
-          <p className="mt-1">
-            Armada con los componentes de este mueble en el PM. Todavía no está guardada: úsala tal cual o
-            ajústala como te sirva en el taller.
-          </p>
-        </div>
-      )}
+      ) : null}
 
       {enCola && (
         <p role="status" className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
@@ -412,7 +485,7 @@ export default function DespieceEditor({
             Si guardas ahora se rechazará. Tus cambios quedan como borrador en este aparato; carga la versión
             actual y recupéralos.
           </p>
-          <button type="button" onClick={() => router.refresh()} className={`${estiloBotonSecundario} mt-2`}>
+          <button type="button" onClick={recargar} className={`${estiloBotonSecundario} mt-2`}>
             Cargar la versión actual
           </button>
         </div>
@@ -468,13 +541,6 @@ export default function DespieceEditor({
         </div>
       )}
 
-      <p className="text-sm text-slate-600">
-        Cada línea es lo que lleva <strong className="font-semibold">un</strong> mueble.
-        {muebles > 0
-          ? ` Con ${numero(muebles)}${unidadMueble ? ` ${unidadMueble}` : ""} en el PM, el total de cada línea se multiplica por ${numero(muebles)}.`
-          : ""}
-      </p>
-
       {sugerencia.avisos.length > 0 && !guardado && (
         <ul className="flex flex-col gap-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           {sugerencia.avisos.map((a) => (
@@ -505,20 +571,117 @@ export default function DespieceEditor({
         </p>
       )}
 
+      {tiposUsados.length > 0 && (
+        <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600" aria-label="Materiales del despiece">
+          {tiposUsados.map((t) => (
+            <li key={t} className="flex items-center gap-1.5">
+              <InsigniaMaterial tipo={t} tamano="sm" />
+              {COLORES_MATERIAL[t].etiqueta}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="flex flex-col gap-3">
         {filas.map((f, i) => {
           const piezas = leerCantidad(f.piezas);
           const caido = !!f.hijoId && idsCaidos.has(f.hijoId);
           const asignada = !!f.parteId && partesAsignadas.includes(f.parteId);
+          const tipo = tipoMaterial(f.material, f.descripcion);
           return (
             <div
               key={f.clave}
-              className={`grid grid-cols-2 items-end gap-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0 ${GRID}`}
+              // La tarjeta se ilumina con el color de su material.
+              className="rounded-xl border p-3 transition-shadow"
+              style={luzMaterial(tipo)}
+              title={COLORES_MATERIAL[tipo].etiqueta}
             >
-              <Campo
-                etiqueta={`Línea ${i + 1} · Descripción${asignada ? " · asignada a un equipo" : ""}`}
-                className="col-span-full"
-              >
+            <div className={`grid grid-cols-2 items-end gap-2 ${GRID}`}>
+              <div className="col-span-full flex flex-wrap items-center gap-2 text-xs">
+                <InsigniaMaterial tipo={tipo} />
+                <span className="font-medium text-slate-700">{COLORES_MATERIAL[tipo].etiqueta}</span>
+                <span className="text-slate-500">· Parte {i + 1}</span>
+                {asignada && <span className="text-slate-500">· asignada a un equipo</span>}
+                {puedeEditar && (
+                  <button
+                    type="button"
+                    onClick={() => empezarDivision(f)}
+                    disabled={asignada}
+                    title={
+                      asignada
+                        ? "Ya está asignada a un equipo: no se puede dividir"
+                        : "Separar esta línea en dos o más partes que se entregan por aparte"
+                    }
+                    className="ml-auto font-medium text-sky-700 hover:underline disabled:text-slate-400 disabled:no-underline"
+                  >
+                    Dividir en partes
+                  </button>
+                )}
+              </div>
+              {dividiendo?.clave === f.clave && (
+                <div className="col-span-full flex flex-col gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3">
+                  <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+                    Nombres de las partes, separados por coma
+                    <input
+                      autoFocus
+                      value={dividiendo.nombres}
+                      onChange={(e) => setDividiendo({ clave: f.clave, nombres: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          dividir();
+                        }
+                      }}
+                      placeholder="Puerta, Marco"
+                      className={estiloCampo}
+                    />
+                  </label>
+                  <p className="text-xs text-slate-600">
+                    Cada parte lleva las mismas piezas por mueble, material y unidad. Se dejan de ligar al
+                    componente del PM y cada una se entrega por aparte.
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setDividiendo(null)} className={estiloBotonSecundario}>
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={dividir}
+                      disabled={nombresDePartes(dividiendo.nombres).length < 2}
+                      className={estiloBotonPrimario}
+                    >
+                      Dividir
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                <span className="font-medium text-slate-600">Pasa por</span>
+                {PROCESOS.map((p) => {
+                  const pasa = !f.omitidos.includes(p);
+                  // Una parte debe pasar al menos por un proceso: el último marcado no se quita.
+                  const ultimo = pasa && f.omitidos.length === PROCESOS.length - 1;
+                  return (
+                    <label
+                      key={p}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors ${
+                        pasa ? "border-slate-300 bg-white text-slate-800" : "border-dashed border-slate-300 text-slate-400 line-through"
+                      } ${puedeEditar && !ultimo ? "cursor-pointer" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={pasa}
+                        disabled={!puedeEditar || ultimo}
+                        onChange={() => alternarProceso(f.clave, p)}
+                        className="h-3.5 w-3.5"
+                      />
+                      {PROCESO_LABELS[p]}
+                    </label>
+                  );
+                })}
+                {f.omitidos.length === 0 && <span className="text-slate-500">todos, lo normal</span>}
+              </div>
+              <Campo etiqueta="Descripción" className="col-span-full">
                 <input
                   value={f.descripcion}
                   onChange={(e) => cambiar(f.clave, "descripcion", e.target.value)}
@@ -570,7 +733,7 @@ export default function DespieceEditor({
                   disabled={filas.length <= 1 || asignada}
                   aria-label={`Quitar la línea ${i + 1}`}
                   title={asignada ? "Ya está asignada a un equipo: no se puede quitar" : "Quitar la línea"}
-                  className="flex h-11 w-11 items-center justify-center justify-self-end rounded-lg border border-slate-300 text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 sm:h-10 sm:w-10"
+                  className="flex h-11 w-11 items-center justify-center justify-self-end rounded-lg border border-slate-300 text-slate-600 transition-colors hover:bg-brand-50 disabled:opacity-40 sm:h-10 sm:w-10"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -616,6 +779,7 @@ export default function DespieceEditor({
                 </div>
               )}
             </div>
+            </div>
           );
         })}
         <datalist id="materiales-despiece">
@@ -634,7 +798,7 @@ export default function DespieceEditor({
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           <p>{error}</p>
           {conflicto && (
-            <button type="button" onClick={() => router.refresh()} className={`${estiloBotonSecundario} mt-2`}>
+            <button type="button" onClick={recargar} className={`${estiloBotonSecundario} mt-2`}>
               Cargar la versión actual
             </button>
           )}

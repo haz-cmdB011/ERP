@@ -43,7 +43,7 @@ export default function TablaAuditores({
                     <Link href={hrefDe(a.nombre)} className="hover:underline">
                       {a.nombre}
                     </Link>
-                    {a.nombre === SIN_AUDITOR && <span className="ml-1 text-xs text-slate-400">(no consta)</span>}
+                    {a.nombre === SIN_AUDITOR && <span className="ml-1 text-xs text-slate-500">(no consta)</span>}
                   </td>
                   <td className="py-2 pr-3 text-right tabular-nums text-slate-900">{a.total}</td>
                   <td className="py-2 pr-3 text-right tabular-nums text-amber-700">{a.abiertas}</td>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePresencia } from "@/lib/ui/use-presencia";
 
 export interface OpcionSelect {
   value: string;
@@ -30,6 +31,7 @@ export default function SelectMenu({
   mono?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const { montado, saliendo } = usePresencia(abierto, 150);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,8 +77,8 @@ export default function SelectMenu({
           />
         </svg>
       </button>
-      {abierto && (
-        <div className="anim-menu absolute z-20 mt-1 max-h-60 w-full min-w-max overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+      {montado && (
+        <div data-saliendo={saliendo || undefined} className="anim-menu absolute z-20 mt-1 max-h-60 w-full min-w-max overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
           {todas.map((o) => (
             <button
               key={o.value || "__vacio__"}
@@ -85,7 +87,7 @@ export default function SelectMenu({
                 onChange(o.value);
                 setAbierto(false);
               }}
-              className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-100 ${
+              className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-brand-100 pointer-coarse:py-3 ${
                 mono ? "font-mono" : ""
               } ${
                 o.value === value

@@ -3,12 +3,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AreaNav from "@/components/area-nav";
 import SinAcceso from "@/components/sin-acceso";
-import { puedeEntrarAArea } from "@/lib/auth/acceso";
+import { areasDePerfil, avisoSinAcceso, puedeEntrarAArea } from "@/lib/auth/acceso";
 import { ResumenMenuProvider } from "@/components/resumen-menu";
 import SubnavLink from "@/components/subnav-link";
 import { puedeVerPrecioSugerido } from "@/lib/auth/get-perfil";
 import { contarPorRevisar } from "@/lib/estimaciones/por-revisar";
-import CuentaPendiente from "@/components/cuenta-pendiente";
 
 export const metadata: Metadata = {
   title: { default: "Calidad", template: "%s · Calidad" },
@@ -34,17 +33,10 @@ export default async function CalidadLayout({
     .eq("id", user.id)
     .single();
 
-  // El maquilador es externo: solo tiene acceso a Estimaciones. No se le mueve en silencio (un enlace
-  // a esta pantalla parecería no funcionar): se le avisa y se le ofrece ir a lo suyo.
-  if (!puedeEntrarAArea(perfil?.rol, "calidad")) {
-    return (
-      <SinAcceso
-        titulo="Esta pantalla es del personal interno"
-        mensaje="Tu cuenta es de maquilador y solo tiene acceso a Estimaciones."
-        hrefInicio="/estimaciones/recibos"
-        etiquetaInicio="Ir a mis recibos"
-      />
-    );
+  // Solo las áreas asignadas: quien abre un enlace de otra área ve por qué no puede entrar y
+  // cómo ir a la suya, en vez de moverlo en silencio.
+  if (!puedeEntrarAArea(perfil, "calidad")) {
+    return <SinAcceso {...avisoSinAcceso(perfil, "calidad")} />;
   }
 
   // Aviso de recibos por revisar en la pestaña Estimaciones (solo a quien los revisa).
@@ -58,23 +50,25 @@ export default async function CalidadLayout({
         email={user.email ?? ""}
         userId={user.id}
         avatarPath={user.app_metadata?.avatar_path}
-        esDesarrollador={perfil?.rol === "desarrollador"}
+        areas={areasDePerfil(perfil)}
         porRevisar={porRevisar}
       >
         <SubnavLink href="/calidad" icono="pedidos" tambien={["/calidad/pedidos", "/calidad/ot"]}>
           Pedidos
         </SubnavLink>
-        <SubnavLink href="/calidad/entregas" tambien={["/calidad/incidencias"]} icono="por_revisar">
-          Revisión
+        <SubnavLink href="/calidad/entregas" icono="por_revisar">
+          Entregas
         </SubnavLink>
-        <SubnavLink href="/calidad/escanear" icono="escanear">
-          Escanear QR
+        <SubnavLink href="/calidad/cancelados" icono="cancelados">
+          Cancelados
         </SubnavLink>
-        <SubnavLink href="/calidad/cancelados" tambien={["/calidad/folios"]} icono="archivo">
-          Archivo
+        <SubnavLink href="/calidad/folios" icono="folios">
+          Folios de calidad
+        </SubnavLink>
+        <SubnavLink href="/calidad/incidencias" icono="incidencias">
+          No conformidades
         </SubnavLink>
       </AreaNav>
-      {perfil?.rol === "usuario" && <CuentaPendiente />}
       {children}
     </div>
     </ResumenMenuProvider>

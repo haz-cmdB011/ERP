@@ -3,8 +3,12 @@ import type { EstadoMueble, MuebleFlujo } from "./flujo-mueble";
 import {
   agruparPanel,
   conteosPanel,
+  coincideTexto,
   filtrarPanel,
   leerFiltroPanel,
+  leerLimitePanel,
+  limitarPanel,
+  MUEBLES_POR_PAGINA,
   otsDePanel,
   pasaFiltro,
   resumenOt,
@@ -26,6 +30,7 @@ function mueble(
     numeroPm: "PM-1",
     ot: "102-24",
     proyecto: null,
+    cliente: null,
     ...resto,
   };
 }
@@ -99,7 +104,54 @@ describe("agrupación del panel de asignación", () => {
     expect(resumenOt(agruparPanel(lista)[0])).toEqual({ por_asignar: 1, en_proceso: 1, terminado: 1 });
   });
 
+  it("cada O.T. lleva el cliente de su primer PM y se puede buscar por él", () => {
+    const conCliente = [
+      mueble("a", "por_asignar", { pedidoId: "p2", numeroPm: "PM2", ot: "9-24", cliente: "HOTEL B" }),
+      mueble("b", "por_asignar", { pedidoId: "p1", numeroPm: "PM1", ot: "9-24", cliente: "HOTEL A" }),
+      mueble("c", "por_asignar", { pedidoId: "p3", numeroPm: "PM3", ot: "10-24" }),
+    ];
+    expect(agruparPanel(conCliente).map((g) => g.cliente)).toEqual(["HOTEL A", null]);
+    expect(filtrarPanel(conCliente, { filtro: "todos", ot: null, q: "hotel b" }).map((m) => m.flujo.id)).toEqual(["a"]);
+  });
+
   it("lista las O.T. presentes sin repetir", () => {
     expect(otsDePanel(lista)).toEqual(["9-24", "10-24"]);
+  });
+});
+
+describe("paginación del panel", () => {
+  it("el límite pedido es al menos una página y tiene tope", () => {
+    expect(leerLimitePanel(undefined)).toBe(MUEBLES_POR_PAGINA);
+    expect(leerLimitePanel("3")).toBe(MUEBLES_POR_PAGINA);
+    expect(leerLimitePanel("abc")).toBe(MUEBLES_POR_PAGINA);
+    expect(leerLimitePanel("80")).toBe(80);
+    expect(leerLimitePanel("999999")).toBe(2000);
+  });
+
+  it("corta en el orden en que se ven (O.T., PM, ítem), no en el de lectura", () => {
+    const lista = [
+      mueble("c", "por_asignar", { item_code: 3, ot: "103-24", pedidoId: "p2", numeroPm: "PM-2" }),
+      mueble("b", "por_asignar", { item_code: 2 }),
+      mueble("a", "por_asignar", { item_code: 1 }),
+    ];
+    expect(limitarPanel(lista, 2).map((m) => m.flujo.id)).toEqual(["a", "b"]);
+    expect(limitarPanel(lista, 0)).toEqual([]);
+    expect(limitarPanel(lista, 10)).toHaveLength(3);
+  });
+
+  it("busca en el texto de la fila antes de cargar el flujo", () => {
+    const fila = {
+      numeroPm: "PM-7",
+      ot: "102-24",
+      proyecto: "Pérgola Norte",
+      cliente: null,
+      modelo: "TIRAS",
+      descripcion: null,
+      itemCode: 12,
+    };
+    expect(coincideTexto(fila, "pergola")).toBe(true);
+    expect(coincideTexto(fila, "pm-7")).toBe(true);
+    expect(coincideTexto(fila, "sillón")).toBe(false);
+    expect(coincideTexto(fila, "")).toBe(true);
   });
 });

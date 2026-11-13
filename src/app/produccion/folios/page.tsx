@@ -296,7 +296,7 @@ export default async function BuscarFolioPage({
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-brand-50"
             }`}
           >
             {etiqueta} ({conteo[valor as keyof typeof conteo]})
@@ -322,7 +322,7 @@ export default async function BuscarFolioPage({
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Folio</th>
                 <th className="hidden px-3 py-2.5 lg:table-cell">Estado</th>
                 <th className="px-3 py-2.5">Pedido</th>
@@ -353,7 +353,7 @@ export default async function BuscarFolioPage({
                       {est.etiqueta}
                     </span>
                     {est.detalle && (
-                      <p className="mt-1 max-w-[180px] text-[11px] text-slate-500">{est.detalle}</p>
+                      <p className="mt-1 max-w-[180px] text-xs text-slate-500">{est.detalle}</p>
                     )}
                   </>
                 );
@@ -364,20 +364,20 @@ export default async function BuscarFolioPage({
                 ) : (
                   <>
                     <span
-                      className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium ${
+                      className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${
                         ultimo.aprobado ? TONOS.emerald : TONOS.rose
                       }`}
                     >
                       {ultimo.aprobado ? "Aprobado" : "No aprobado"}
                     </span>
-                    <p className="mt-1 font-mono text-[11px] text-slate-500">
+                    <p className="mt-1 font-mono text-xs text-slate-500">
                       {ultimo.folio}
                       {informes.length > 1 ? ` (+${informes.length - 1})` : ""}
                     </p>
                   </>
                 );
                 return (
-                  <tr key={f.id} className="align-top transition-colors hover:bg-slate-50">
+                  <tr key={f.id} className="align-top transition-colors hover:bg-brand-50">
                     <td className="px-3 py-3 lg:py-2">
                       <span className="font-mono text-sm text-slate-900">{f.folio}</span>
                       {/* Tablet y celular: las demás columnas apiladas aquí. */}
@@ -410,7 +410,7 @@ export default async function BuscarFolioPage({
                       ) : (
                         <span className="font-medium text-slate-900">{f.numero_pedido ?? "—"}</span>
                       )}
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         {f.proyecto ?? "—"} — {f.cliente ?? "—"}
                       </p>
                     </td>

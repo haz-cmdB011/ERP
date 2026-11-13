@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leer } from "@/lib/supabase/leer";
 import type { Proceso } from "./asignaciones";
-import { disponibleDe } from "./flujo-mueble";
+import { tipoMaterial, type TipoMaterial } from "./despiece";
+import { disponibleDe, partesConRuta, pasoConAsignaciones, seAsignaCompleto } from "./flujo-mueble";
+import type { PasoRuta } from "./ruta";
 import { cargarFlujoMuebles } from "./flujo-db";
+import { tandas } from "./tandas";
 
 // Lo que el carrito necesita saber de la base sobre cada ítem que lleva.
 export interface EstadoItemCarrito {
@@ -23,9 +26,34 @@ export interface MuebleCarrito {
   listo: Record<Proceso, number>;
 }
 
+// El despiece de un mueble del carrito: cuántos componentes vigentes tiene en el PM,
+// cuántas partes tiene su despiece guardado (0 = aún no se hace) y sus materiales (sin
+// repetir, en el orden del despiece).
+export interface DespieceCarrito {
+  componentes: number;
+  partes: number;
+  materiales: TipoMaterial[];
+}
+
+// La ruta del mueble completo en el carrito: la guardada o la sugerida (pasos con id null),
+// con lo que el editor necesita para cambiarla.
+export interface RutaCarrito {
+  pasos: PasoRuta[];
+  // Versión para el bloqueo optimista de guardar_ruta_produccion (0 = aún no se guarda).
+  version: number;
+  aplica: Record<Proceso, boolean>;
+  // Por paso: tiene asignaciones vigentes (no se quita).
+  bloqueados: boolean[];
+  // Ya trabajaba por partes con ruta propia (de antes): su ruta puede quedar vacía.
+  deAntes: boolean;
+}
+
 export interface DatosCarrito {
   estados: Record<string, EstadoItemCarrito>;
   muebles: MuebleCarrito[];
+  // Por mueble vigente del carrito (liberado o no).
+  despieces: Record<string, DespieceCarrito>;
+  rutas: Record<string, RutaCarrito>;
 }
 
 interface ItemFila {
@@ -51,7 +79,7 @@ export async function cargarDatosCarrito(
   supabase: SupabaseClient,
   itemIds: string[]
 ): Promise<DatosCarrito> {
-  if (itemIds.length === 0) return { estados: {}, muebles: [] };
+  if (itemIds.length === 0) return { estados: {}, muebles: [], despieces: {}, rutas: {} };
 
   const filas = await leer(
     supabase
@@ -65,7 +93,8 @@ export async function cargarDatosCarrito(
   );
 
   const estados: Record<string, EstadoItemCarrito> = {};
-  const asignables: ItemFila[] = [];
+  const asignables = new Set<string>();
+  const mueblesVigentes: ItemFila[] = [];
   for (const f of filas ?? []) {
     const pedido = f.pedido_versiones?.pedidos;
     const vigente =
@@ -77,17 +106,96 @@ export async function cargarDatosCarrito(
       !pedido.eliminado_en;
     const liberado = f.estado_liberacion === "enviado_a_produccion";
     estados[f.id] = { vigente, liberado };
-    if (vigente && liberado && f.tipo_registro === "MO") asignables.push(f);
+    if (vigente && f.tipo_registro === "MO") mueblesVigentes.push(f);
+    if (vigente && liberado && f.tipo_registro === "MO") asignables.add(f.id);
   }
 
-  const flujos = await cargarFlujoMuebles(supabase, asignables);
-  const muebles = flujos.map((m) => ({
-    id: m.id,
-    item_code: m.item_code,
-    modelo: m.modelo,
-    unidad: m.unidad,
-    ...disponibleDe(m),
-  }));
+  // El flujo de todos los muebles vigentes: la ruta se elige antes de liberar.
+  const [flujos, despieces] = await Promise.all([
+    cargarFlujoMuebles(supabase, mueblesVigentes),
+    cargarDespieces(supabase, mueblesVigentes.map((f) => f.id)),
+  ]);
+  const rutas: Record<string, RutaCarrito> = Object.fromEntries(
+    flujos.map((m) => [
+      m.id,
+      {
+        pasos: m.ruta,
+        version: m.versionRuta,
+        aplica: m.aplica,
+        bloqueados: m.ruta.map((_, i) => pasoConAsignaciones(m, i)),
+        deAntes: partesConRuta(m).length > 0,
+      },
+    ])
+  );
+  // Uno de antes que trabajaba por partes sigue en la lista (para abrirlo en el panel) pero
+  // sin nada que asignar completo desde aquí.
+  const muebles = flujos.filter((m) => asignables.has(m.id)).map((m) => {
+    const d = disponibleDe(m);
+    const vacio = Object.fromEntries(Object.keys(d.disponible).map((p) => [p, 0])) as typeof d.disponible;
+    return {
+      id: m.id,
+      item_code: m.item_code,
+      modelo: m.modelo,
+      unidad: m.unidad,
+      ...(seAsignaCompleto(m) ? d : { disponible: vacio, listo: vacio }),
+    };
+  });
 
-  return { estados, muebles };
+  return { estados, muebles, despieces, rutas };
+}
+
+// Componentes vigentes de cada mueble (los que piden despiece) y las partes de su despiece guardado.
+async function cargarDespieces(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<Record<string, DespieceCarrito>> {
+  if (ids.length === 0) return {};
+  const [componentes, guardados] = await Promise.all([
+    Promise.all(
+      tandas(ids, 25).map((lote) =>
+        leer(
+          supabase
+            .from("planeacion_items")
+            .select("parent_item_id")
+            .in("parent_item_id", lote)
+            .eq("tipo_registro", "FU")
+            .is("eliminacion_solicitada_en", null)
+            .or("estado_revision.is.null,estado_revision.neq.cancelado")
+            .returns<{ parent_item_id: string }[]>(),
+          "los componentes"
+        )
+      )
+    ),
+    Promise.all(
+      tandas(ids).map((lote) =>
+        leer(
+          supabase
+            .from("despieces_produccion")
+            .select("planeacion_item_id, lineas")
+            .in("planeacion_item_id", lote)
+            .returns<{ planeacion_item_id: string; lineas: unknown }[]>(),
+          "despieces_produccion"
+        )
+      )
+    ),
+  ]);
+  const resultado: Record<string, DespieceCarrito> = Object.fromEntries(
+    ids.map((id) => [id, { componentes: 0, partes: 0, materiales: [] }])
+  );
+  for (const c of componentes.flatMap((l) => l ?? [])) resultado[c.parent_item_id].componentes += 1;
+  for (const d of guardados.flatMap((l) => l ?? [])) {
+    const lineas = Array.isArray(d.lineas) ? (d.lineas as { material?: unknown; descripcion?: unknown }[]) : [];
+    resultado[d.planeacion_item_id].partes = lineas.length;
+    resultado[d.planeacion_item_id].materiales = [
+      ...new Set(
+        lineas.map((l) =>
+          tipoMaterial(
+            typeof l?.material === "string" ? l.material : null,
+            typeof l?.descripcion === "string" ? l.descripcion : null
+          )
+        )
+      ),
+    ];
+  }
+  return resultado;
 }

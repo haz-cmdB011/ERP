@@ -72,14 +72,14 @@ export default function ResultadosMuebles({
           <button
             type="button"
             onClick={() => setAbiertos(Object.fromEntries(conHijos.map((g) => [g.padre.id, true])))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-brand-50"
           >
             Mostrar componentes
           </button>
           <button
             type="button"
             onClick={() => setAbiertos(Object.fromEntries(conHijos.map((g) => [g.padre.id, false])))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-brand-50"
           >
             Ocultar componentes
           </button>
@@ -102,7 +102,7 @@ export default function ResultadosMuebles({
             <div
               onClick={alternar}
               className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-3 ${
-                desplegable ? "cursor-pointer hover:bg-slate-50" : ""
+                desplegable ? "cursor-pointer hover:bg-brand-50" : ""
               }`}
             >
               <div onClick={(e) => e.stopPropagation()}>
@@ -123,7 +123,7 @@ export default function ResultadosMuebles({
                 </span>
                 <span className="text-xs text-slate-600">{g.padre.descripcion ?? "—"}</span>
                 {desplegable && (
-                  <span className="mt-0.5 text-[11px] text-slate-500">
+                  <span className="mt-0.5 text-xs text-slate-500">
                     {g.hijos.length} componente{g.hijos.length === 1 ? "" : "s"}
                     {coincidentes > 0 ? ` (${coincidentes} coinciden)` : ""}
                   </span>
@@ -158,7 +158,7 @@ export default function ResultadosMuebles({
               <div className="overflow-x-auto border-t border-slate-200 bg-slate-50/50">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <th className="px-3 py-2">Imagen</th>
                       <th className="px-3 py-2">Item</th>
                       <th className="px-3 py-2">Material</th>

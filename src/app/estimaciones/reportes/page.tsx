@@ -89,7 +89,7 @@ const claseSelect = "rounded-lg border border-slate-200 bg-white px-2 py-1.5 tex
 const claseBotonPrimario =
   "rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-on-brand hover:bg-brand-400";
 const claseBotonFlecha =
-  "inline-flex min-h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50";
+  "inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-brand-50 sm:min-h-9";
 
 // Dashboard del análisis de pagos (sustituye "Estimaciones SEM nn" y "FORMATO
 // MAQUILA"): recibos PAGADOS de las tres áreas, por semana, mes o año. En la
@@ -309,7 +309,7 @@ export default async function ReportePage({
                 )}
                 {resumenesPm && (
                   <a href="#pm-cobrado" className="font-medium text-brand-700 hover:underline">
-                    Ir a PM contra cobrado ↓
+                    Ir a PM de Producción contra cobrado ↓
                   </a>
                 )}
               </div>
@@ -550,7 +550,7 @@ export default async function ReportePage({
                         <ul className="flex flex-col gap-1.5 text-sm text-slate-700">
                           {comparativa.hallazgos.map((h) => (
                             <li key={h} className="flex gap-2">
-                              <span aria-hidden="true" className="text-slate-400">
+                              <span aria-hidden="true" className="text-slate-500">
                                 •
                               </span>
                               <span>{h}</span>
@@ -649,7 +649,7 @@ export default async function ReportePage({
                       <CambiosDivergentes filas={cambiosMaquilador.slice(0, 8)} />
                       {cambiosMaquilador.length > 8 && (
                         <details className="group rounded-lg border border-slate-200">
-                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-brand-50">
                             Ver los {comparativa.porMaquilador.length} maquiladores
                             <span aria-hidden="true" className="text-slate-500 transition-transform group-open:rotate-180">
                               ▾
@@ -820,8 +820,8 @@ export default async function ReportePage({
                 {resumenesPm && (
                   <SeccionDesplegable
                     id="pm-cobrado"
-                    titulo="PM contra cobrado"
-                    descripcion="Lo declarado por Planeación en cada O.T. contra lo capturado en recibos vigentes."
+                    titulo="PM de Producción contra cobrado"
+                    descripcion="Lo que se espera de cada O.T. (muebles del PM y las partes de los despieces de Producción) contra lo capturado en recibos vigentes."
                     resumen={pm?.error ? "No se pudo leer" : `${resumenesPm.length} O.T.`}
                   >
                     <PanelPmCobrado

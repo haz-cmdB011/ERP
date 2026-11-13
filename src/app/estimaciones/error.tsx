@@ -36,7 +36,7 @@ export default function ErrorEstimaciones({
         </button>
         <Link
           href="/estimaciones"
-          className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-5 text-sm font-medium text-slate-700 transition hover:bg-brand-50"
         >
           Ir al panel
         </Link>

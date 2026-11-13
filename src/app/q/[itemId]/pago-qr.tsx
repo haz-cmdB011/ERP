@@ -26,7 +26,7 @@ function Recibos({ cobros, unidad }: { cobros: CobroMueble[]; unidad: string }) 
     <ul className="flex flex-col divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
       {cobros.map((c) => (
         <li key={c.reciboId}>
-          <Link href={hrefRecibo(c)} className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-slate-50">
+          <Link href={hrefRecibo(c)} className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-brand-50">
             <span className="min-w-0">
               <span className="font-mono text-xs font-medium text-slate-900">{c.folio}</span>{" "}
               <span className="text-slate-700">

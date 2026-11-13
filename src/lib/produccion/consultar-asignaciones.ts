@@ -154,12 +154,12 @@ export async function entregasPorAsignacion(
   const urlPorRuta = await firmarUrls(
     supabase,
     BUCKET_FOTOS_ENTREGA,
-    entregas.map((e) => e.foto_path)
+    entregas.flatMap((e) => (e.foto_path ? [e.foto_path] : []))
   );
 
   for (const e of entregas) {
     const lista = mapa.get(e.asignacion_id) ?? [];
-    lista.push({ ...e, fotoUrl: urlPorRuta.get(e.foto_path) ?? null, calidad: calidadPorEntrega.get(e.id) ?? [] });
+    lista.push({ ...e, fotoUrl: e.foto_path ? (urlPorRuta.get(e.foto_path) ?? null) : null, calidad: calidadPorEntrega.get(e.id) ?? [] });
     mapa.set(e.asignacion_id, lista);
   }
   return mapa;

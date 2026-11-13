@@ -3,7 +3,7 @@ import Migas from "@/components/migas";
 import { metadataPedido } from "@/lib/planeacion/titulo-pedido";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getImagenesConGrandePorItem } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem } from "@/lib/compartido/imagenes";
 import PestanasPedido from "./pestanas-pedido";
 import ItemsLiberacionTable, {
   type ItemLiberacionRow,
@@ -128,10 +128,10 @@ export default async function PedidoProduccionPage({
     : null;
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <Migas
         items={[
-          { etiqueta: "Pedidos", href: "/produccion" },
+          { etiqueta: "Pedidos", href: "/produccion/pedidos" },
           ...(pedido.orden_trabajo
             ? [{ etiqueta: `O.T. ${pedido.orden_trabajo}`, href: `/produccion/ot/${encodeURIComponent(pedido.orden_trabajo)}` }]
             : []),
@@ -139,10 +139,10 @@ export default async function PedidoProduccionPage({
         ]}
       />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           {pedido.numero_pedido}
         </h1>
-        <p className="text-sm text-slate-600">
+        <p className="text-base text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
         <p className="mt-1 text-xs font-medium text-slate-500">
@@ -165,7 +165,7 @@ export default async function PedidoProduccionPage({
                   className={`rounded px-3 py-1 font-medium transition-colors pointer-coarse:py-2 ${
                     versionSeleccionada?.id === v.id
                       ? "bg-brand-500 text-on-brand shadow-sm"
-                      : "text-slate-600 hover:bg-slate-200/70"
+                      : "text-slate-600 hover:bg-brand-100"
                   }`}
                 >
                   Versión {v.numero_version}

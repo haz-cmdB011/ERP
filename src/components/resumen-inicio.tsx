@@ -1,4 +1,9 @@
+"use client";
+
+import { useId, useState, type ReactNode } from "react";
 import Link from "next/link";
+import Chevron from "@/components/chevron";
+import Colapsable from "@/components/colapsable";
 
 export interface TarjetaResumen {
   valor: number;
@@ -15,7 +20,30 @@ export interface TarjetaResumen {
 
 // Fila de números al inicio de cada área: qué hay pendiente y un clic para
 // verlo. Con valor 0 la tarjeta se apaga (no hay nada que hacer).
-export default function ResumenInicio({ tarjetas }: { tarjetas: TarjetaResumen[] }) {
+// `despliegues` (por etiqueta de tarjeta) convierte esa tarjeta en un botón que abre su contenido
+// en una franja a todo lo ancho, bajo las tarjetas, en lugar de llevar a otra pantalla.
+export default function ResumenInicio({
+  tarjetas,
+  despliegues = {},
+}: {
+  tarjetas: TarjetaResumen[];
+  despliegues?: Record<string, ReactNode>;
+}) {
+  const [abierta, setAbierta] = useState<string | null>(null);
+  // La última tarjeta abierta sigue montada mientras el panel se pliega, para que cierre con animación;
+  // `veces` reinicia las animaciones de entrada del contenido en cada apertura.
+  const [ultima, setUltima] = useState<string | null>(null);
+  const [veces, setVeces] = useState(0);
+  const idPanel = useId();
+  function alternar(etiqueta: string) {
+    if (abierta === etiqueta) {
+      setAbierta(null);
+      return;
+    }
+    setAbierta(etiqueta);
+    setUltima(etiqueta);
+    setVeces((v) => v + 1);
+  }
   if (tarjetas.length === 0) return null;
   return (
     <section aria-label="Resumen" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -39,10 +67,31 @@ export default function ResumenInicio({ tarjetas }: { tarjetas: TarjetaResumen[]
             </span>
           </>
         );
-        const base = `flex h-full items-center gap-4 rounded-xl border bg-white p-4 ${
-          t.alerta ? "border-amber-300 ring-1 ring-amber-200" : activa ? "border-brand-300 ring-1 ring-brand-200" : "border-slate-200"
+        // La franja de arriba dice de qué se trata: ámbar si algo espera, rojo si pide atención,
+        // y el verde de la marca para lo demás.
+        const base = `flex h-full items-center gap-4 rounded-xl border border-t-4 p-4 ${
+          t.alerta
+            ? "border-amber-300 border-t-amber-400 bg-amber-50 ring-1 ring-amber-200"
+            : activa
+              ? "border-rose-200 border-t-rose-400 bg-rose-50 ring-1 ring-rose-100"
+              : "border-slate-200 border-t-brand-500 bg-white"
         }`;
-        const tarjeta = t.href ? (
+        const despliegue = despliegues[t.etiqueta];
+        const estaAbierta = abierta === t.etiqueta;
+        const tarjeta = despliegue ? (
+          <button
+            type="button"
+            onClick={() => alternar(t.etiqueta)}
+            aria-expanded={estaAbierta}
+            aria-controls={idPanel}
+            className={`${base} group w-full text-left transition-colors hover:border-brand-400 ${
+              estaAbierta ? "border-brand-400" : ""
+            }`}
+          >
+            {cuerpo}
+            <Chevron abierto={estaAbierta} className="ml-auto h-4 w-4 text-slate-500" />
+          </button>
+        ) : t.href ? (
           <Link
             href={t.href}
             className={`${base} group transition-colors hover:border-brand-400`}
@@ -56,6 +105,20 @@ export default function ResumenInicio({ tarjetas }: { tarjetas: TarjetaResumen[]
         );
         return <div key={t.etiqueta}>{tarjeta}</div>;
       })}
+      {ultima && despliegues[ultima] && (
+        <Colapsable
+          abierto={abierta !== null}
+          className={`transition-[margin] duration-300 sm:col-span-2 lg:col-span-4 ${abierta ? "" : "-mt-3"}`}
+        >
+          <div
+            id={idPanel}
+            key={veces}
+            className="rounded-xl border border-brand-200 bg-white p-4 shadow-sm"
+          >
+            {despliegues[ultima]}
+          </div>
+        </Colapsable>
+      )}
     </section>
   );
 }

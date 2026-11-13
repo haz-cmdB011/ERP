@@ -20,7 +20,7 @@
 // informativo. Con el ajuste apagado todo vuelve a medirse contra Calidad.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { cobroSegunProduccion } from "@/lib/calidad/ajustes-flujo";
+import { cobroSegunProduccion } from "@/lib/compartido/ajustes-flujo";
 
 export type AreaCobro = "acabados" | "armado" | "electrificacion";
 export const AREAS_COBRO: AreaCobro[] = ["acabados", "armado", "electrificacion"];

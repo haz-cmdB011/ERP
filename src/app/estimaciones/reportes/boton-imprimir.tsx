@@ -24,7 +24,7 @@ export default function BotonImprimir() {
     <button
       type="button"
       onClick={imprimir}
-      className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 print:hidden"
+      className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-brand-50 print:hidden"
     >
       Imprimir / PDF
     </button>

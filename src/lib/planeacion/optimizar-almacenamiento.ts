@@ -8,6 +8,10 @@ import { detectarFormatoImagen, LIMITE_PIXELES } from "@/lib/seguridad/imagen";
 // los 400 KB); en WebP quedan en unas decenas de KB.
 const LADO_MAXIMO_MINIATURA = 600;
 const CALIDAD_WEBP = 80;
+// Esfuerzo del codificador WebP (0–6, sharp usa 4): con 6 busca mejor la
+// compresión y la imagen queda 5–10 % más chica con la misma calidad, a cambio
+// de algo más de CPU al subir (cada imagen se comprime una sola vez).
+const ESFUERZO_WEBP = 6;
 
 // Recomprime una imagen extraída del Excel para guardarla en Storage:
 // redimensiona a tamaño de miniatura y la convierte a WebP. Si sharp no
@@ -31,7 +35,7 @@ export async function comprimirImagenItem(
         fit: "inside",
         withoutEnlargement: true,
       })
-      .webp({ quality: CALIDAD_WEBP })
+      .webp({ quality: CALIDAD_WEBP, effort: ESFUERZO_WEBP })
       .toBuffer();
     return { buffer: comprimida, extension: "webp" };
   } catch {
@@ -41,9 +45,10 @@ export async function comprimirImagenItem(
 
 // Versión para la vista ampliada con zoom: mucho más grande que la miniatura
 // pero acotada (un original embebido puede superar los 4000 px) para que el
-// bucket no se llene. Se guarda aparte de la miniatura, que sigue siendo la
-// única que carga en las tablas.
-const LADO_MAXIMO_GRANDE = 1600;
+// bucket no se llene (el plan gratuito de Supabase da 1 GB de Storage). Se
+// guarda aparte de la miniatura, que sigue siendo la única que carga en las
+// tablas.
+const LADO_MAXIMO_GRANDE = 1200;
 const CALIDAD_WEBP_GRANDE = 85;
 
 // Devuelve null si sharp no puede procesar la imagen: la versión grande es un
@@ -58,7 +63,7 @@ export async function comprimirImagenGrande(buffer: Buffer): Promise<Buffer | nu
         fit: "inside",
         withoutEnlargement: true,
       })
-      .webp({ quality: CALIDAD_WEBP_GRANDE })
+      .webp({ quality: CALIDAD_WEBP_GRANDE, effort: ESFUERZO_WEBP })
       .toBuffer();
   } catch {
     return null;

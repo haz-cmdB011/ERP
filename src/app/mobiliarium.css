@@ -1,0 +1,456 @@
+/* ---------------------------------------------------------------------------
+   Estilo "Mobiliarium". Es opcional, como "Vidrio": solo aplica con
+   <html data-estilo="mobiliarium">, que se elige en "Personalizar apariencia"
+   (src/components/personalizar-apariencia.tsx, src/lib/apariencia.ts). Sin ese
+   atributo la app usa el estilo clásico (globals.css) tal cual.
+
+   La idea es una ficha técnica de ebanista: serif fina en los títulos, esquinas
+   suaves, sombras largas y tenues, el verde limón solo como acento y movimiento
+   sereno. Casi todo sale de aquí sin tocar cada pantalla; lo que necesita otra
+   estructura (barra flotante, hoja de clientes, índice de Estimaciones,
+   pestañas que se deslizan...) va en los componentes con la variante `mob:`
+   (definida en globals.css).
+
+   Usa los colores del clásico (y su acento personalizado, marca-clasica.css).
+   El modo oscuro tiñe los grises de verde carbón: lo genera
+   scripts/generar-tema-oscuro.mjs en tema-oscuro.css.
+   --------------------------------------------------------------------------- */
+
+:root[data-estilo="mobiliarium"] {
+  /* Tipografía: Hanken Grotesk para el texto, Newsreader (serif) para títulos y
+     cifras grandes, IBM Plex Mono para folios y códigos (src/app/layout.tsx). */
+  --fuente-texto: var(--font-texto);
+  --fuente-titulo: var(--font-titulo);
+  --fuente-codigo: var(--font-codigo);
+
+  /* Esquinas más suaves: controles a 8–12 px, tarjetas a 16 px. */
+  --radius-sm: 0.3125rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.375rem;
+
+  /* Sombra de las tarjetas: un filo apenas visible y una caída muy larga. */
+  --sombra-pieza: 0 1px 2px rgb(16 24 40 / 0.04), 0 10px 24px -16px rgb(16 24 40 / 0.18);
+
+  /* Silla en trazo fino de los estados vacíos. */
+  --dibujo-silla: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='black' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 6l2 30M17 35h29v3H17zM21 38v18M43 38v18M21 49h22'/%3E%3Cpath d='M17 61h29M17 59v4M46 59v4' stroke-opacity='.6'/%3E%3C/svg%3E");
+}
+
+/* Fondo oscuro: carbón con un leve tinte verde, el de la barra superior. */
+@media (prefers-color-scheme: dark) {
+  :root[data-estilo="mobiliarium"]:not([data-tema="claro"]) {
+    --background: oklch(13.5% 0.012 150);
+  }
+}
+:root[data-estilo="mobiliarium"][data-tema="oscuro"] {
+  --background: oklch(13.5% 0.012 150);
+}
+
+:root[data-estilo="mobiliarium"] body {
+  /* Texto un poco más abierto y cifras alineadas en columnas en toda la app. */
+  letter-spacing: 0.003em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sombras: las utilidades de Tailwind traen su valor escrito (no leen la
+   variable del tema), así que se reemplazan aquí. */
+@layer utilities {
+  :root[data-estilo="mobiliarium"] {
+    .shadow-xs {
+      --tw-shadow: 0 1px 1px rgb(16 24 40 / 0.03);
+    }
+    .shadow-sm {
+      --tw-shadow: 0 1px 2px rgb(16 24 40 / 0.05);
+    }
+    .shadow {
+      --tw-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 12px -6px rgb(16 24 40 / 0.1);
+    }
+    .shadow-md,
+    .hover\:shadow-md:hover {
+      --tw-shadow: 0 1px 2px rgb(16 24 40 / 0.05), 0 8px 20px -10px rgb(16 24 40 / 0.16);
+    }
+    .shadow-lg,
+    .hover\:shadow-lg:hover {
+      --tw-shadow: 0 2px 4px rgb(16 24 40 / 0.04), 0 16px 32px -14px rgb(16 24 40 / 0.22);
+    }
+    .shadow-xl {
+      --tw-shadow: 0 2px 6px rgb(16 24 40 / 0.05), 0 24px 44px -18px rgb(16 24 40 / 0.28);
+    }
+    .shadow-2xl {
+      --tw-shadow: 0 4px 8px rgb(16 24 40 / 0.06), 0 32px 60px -20px rgb(16 24 40 / 0.34);
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Superficies: tarjetas con sombra fina, tres niveles, muescas en lugar de
+   franjas gruesas y encabezados en serif.
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  @media screen {
+    /* Tarjetas de primer nivel (las que el clásico rellena de blanco). */
+    :root[data-estilo="mobiliarium"]
+      :where(
+        :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
+      ) {
+      border-color: color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+      box-shadow: var(--sombra-pieza);
+    }
+    /* Tres niveles de superficie: la página sin marco, la sección en tarjeta
+       blanca con sombra, y lo que va dentro de una tarjeta en un fondo gris muy
+       tenue, sin borde ni sombra. Las tablas (y los recuadros punteados de
+       "no hay nada") se quedan en blanco con su borde. */
+    :root[data-estilo="mobiliarium"]
+      :where(
+        :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2)
+          :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"])
+      ) {
+      box-shadow: none;
+    }
+    :root[data-estilo="mobiliarium"]
+      :where(
+        :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2)
+          :is(div, section, article, aside, details, fieldset, form, nav, ul, ol):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl):is(.border, .border-2):not([class^="bg-"], [class*=" bg-"], .border-dashed, :has(> table))
+      ) {
+      background-color: color-mix(in oklab, var(--color-slate-100) 60%, var(--color-white));
+      border-color: transparent;
+    }
+    :root[data-estilo="mobiliarium"] .panel-vidrio {
+      border-color: color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+      box-shadow: var(--sombra-pieza);
+    }
+
+    /* Franja de color arriba de una tarjeta (border-t-4): en vez del borde grueso
+       que se curva con las esquinas, el borde normal y una muesca corta del
+       color al inicio, como la de los títulos de pantalla. Las que en este
+       estilo pierden el borde (mob:border-0) no la llevan. */
+    :root[data-estilo="mobiliarium"] :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4:not([class*="mob:border-0"]) {
+      --muesca: var(--color-brand-500);
+      border-top-width: 1px;
+      border-top-color: color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+      background-image: linear-gradient(var(--muesca), var(--muesca));
+      background-size: 2.5rem 3px;
+      background-position: 1.25rem 0;
+      background-repeat: no-repeat;
+    }
+    :root[data-estilo="mobiliarium"] :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4[class*="border-t-amber"] {
+      --muesca: var(--color-amber-400);
+    }
+    :root[data-estilo="mobiliarium"] :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4[class*="border-t-rose"] {
+      --muesca: var(--color-rose-400);
+    }
+    :root[data-estilo="mobiliarium"] :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4[class*="border-t-emerald"] {
+      --muesca: var(--color-emerald-400);
+    }
+    :root[data-estilo="mobiliarium"] :where(.rounded-xl, .rounded-2xl, .rounded-lg).border-t-4[class*="border-t-slate"] {
+      --muesca: var(--color-slate-500);
+    }
+
+    /* Encabezado de tarjeta: el título de la sección (h2 al inicio de una
+       tarjeta, o en su primer bloque) en la serif de los títulos. */
+    :root[data-estilo="mobiliarium"] :where(main)
+      :is(section, div, article, form, aside):is(.rounded-xl, .rounded-2xl):is(.border)
+      > :is(h2, :first-child > h2, header h2):not(.text-xs) {
+      font-family: var(--font-titulo), Georgia, serif;
+      font-optical-sizing: auto;
+      font-size: 1.1875rem;
+      font-weight: 500;
+      letter-spacing: -0.008em;
+      line-height: 1.3;
+    }
+
+    /* Encabezado de cada pantalla (el bloque hijo directo de <main> con
+       border-b border-slate-200 pb-4): el título sin el recuadro verde del
+       clásico, y en vez de la raya gris una línea fina con un tramo corto de la
+       marca al inicio. */
+    :root[data-estilo="mobiliarium"] :where(main) > div.border-b.border-slate-200.pb-4 {
+      border-bottom-color: transparent;
+      background:
+        linear-gradient(var(--color-brand-500), var(--color-brand-500)) left bottom / 2.5rem 2px no-repeat,
+        linear-gradient(var(--color-slate-300), var(--color-slate-300)) left bottom / 100% 1px no-repeat;
+    }
+    :root[data-estilo="mobiliarium"] :where(main) > div.border-b.border-slate-200.pb-4 h1 {
+      width: auto;
+      border-radius: 0;
+      padding: 0;
+      background-color: transparent;
+      color: inherit;
+    }
+
+    /* Botones secundarios con fondo verde claro (bg-brand-50/100): solo contorno
+       fino y texto, como los demás secundarios. Los que marcan una opción
+       elegida (aria-pressed, aria-current, aria-selected) conservan su fondo. */
+    :root[data-estilo="mobiliarium"] :where(main)
+      :is(button, a):is([class~="bg-brand-50"], [class~="bg-brand-100"]):not(
+        [aria-pressed="true"],
+        [aria-current],
+        [aria-selected="true"]
+      ) {
+      background-color: transparent;
+      box-shadow: inset 0 0 0 1px var(--color-brand-300);
+    }
+    :root[data-estilo="mobiliarium"] :where(main)
+      :is(button, a):is([class~="bg-brand-50"], [class~="bg-brand-100"]):not(
+        [aria-pressed="true"],
+        [aria-current],
+        [aria-selected="true"],
+        :disabled
+      ):hover {
+      background-color: var(--color-brand-50);
+    }
+
+    /* Tarjetas que se elevaban al señalarlas: se quedan quietas (solo cambian
+       de tono o de borde). */
+    :root[data-estilo="mobiliarium"] [class*="hover:-translate-y"]:hover {
+      translate: none;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Tipografía y formas: títulos en serif, encabezados de tabla sin mayúsculas,
+   botones en píldora. Con la especificidad justa para ganarle a la clase de
+   Tailwind que corrige (ej. .uppercase), no a las demás.
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  :root[data-estilo="mobiliarium"] {
+    /* Títulos de pantalla y de sección en Newsreader: serif fina, ópticamente
+       ajustada a su tamaño. Los h2 chicos (rótulos de tarjeta) siguen en sans. */
+    h1,
+    h2:is(.text-lg, .text-xl, .text-2xl, .text-3xl) {
+      font-family: var(--font-titulo), Georgia, "Times New Roman", serif;
+      font-optical-sizing: auto;
+      letter-spacing: -0.012em;
+    }
+    h1:is(.font-semibold, .font-bold),
+    h2:is(.text-lg, .text-xl, .text-2xl, .text-3xl):is(.font-semibold, .font-bold) {
+      font-weight: 500;
+    }
+    :where(main) > div.border-b.border-slate-200.pb-4 h1 {
+      font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem);
+      line-height: 1.15;
+    }
+    /* Sin la barrita verde antes del título (acentos.css). */
+    main h1::before {
+      display: none;
+    }
+
+    /* Rótulos en mayúsculas espaciadas (encabezados de tabla, etiquetas de
+       tarjeta): pasan a minúsculas normales, que se leen mejor y gritan menos.
+       Los códigos (font-mono) se quedan como están. */
+    .uppercase:is([class*="tracking-"], .text-xs, th, th *):not(.font-mono) {
+      text-transform: none;
+      letter-spacing: 0.005em;
+    }
+    thead th {
+      font-weight: 500;
+    }
+
+    /* Folios y códigos: IBM Plex Mono en negrita se ve de máquina de escribir;
+       a peso medio y un poco más junta, acompaña sin pesar. */
+    .font-mono {
+      letter-spacing: -0.02em;
+    }
+    .font-mono:is(.font-semibold, .font-bold) {
+      font-weight: 500;
+    }
+
+    /* Botones de acción en píldora: los rellenos de la marca y los de contorno.
+       Los íconos cuadrados quedan en círculo; las tarjetas que se pueden tocar
+       (display flex o block, como los accesos rápidos) no cambian. */
+    :is(button, a, [role="button"]):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl):not(.flex, .block, .grid):is(
+        [class~="bg-brand-500"],
+        [class~="bg-brand-600"],
+        [class~="bg-brand-700"],
+        [class~="bg-slate-900"],
+        [class~="bg-rose-600"],
+        [class~="bg-red-600"],
+        [class~="border-slate-300"]
+      ) {
+      border-radius: 9999px;
+    }
+
+    /* Campos de texto: borde más suave. */
+    :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), select, textarea):is(.border) {
+      border-color: color-mix(in oklab, var(--color-slate-300) 85%, transparent);
+    }
+
+    /* Etiquetas de estado con contorno (pastilla redonda con ring-1 y fondo suave
+       -50/-100): pierden el relleno y se quedan con el contorno fino y el texto. */
+    :where(main) span.rounded-full.ring-1:is([class*="-50 "], [class$="-50"], [class*="-100 "], [class$="-100"]) {
+      background-color: transparent;
+    }
+
+    /* Tablas: separadores casi invisibles entre filas y, al señalar una fila,
+       un tinte muy suave en toda ella (sin la barra verde del clásico). */
+    :where(main) tbody > tr {
+      border-color: color-mix(in oklab, var(--color-slate-200) 60%, transparent);
+    }
+    :where(main) tbody:not([data-sin-barra]) > tr:hover > td {
+      box-shadow: none;
+      background-color: color-mix(in oklab, var(--color-slate-100) 55%, transparent);
+    }
+
+    /* Cifras grandes (totales, conteos del inicio) en la serif de los títulos. */
+    :is(p, span, div, dd, strong):is(.text-2xl, .text-3xl, .text-4xl).tabular-nums {
+      font-family: var(--font-titulo), Georgia, serif;
+      font-optical-sizing: auto;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    /* Íconos de línea con un solo grosor fino en toda la app (los de 24×24 con
+       trazo del color del texto). El indicador de "cargando" se queda grueso. */
+    svg[viewBox="0 0 24 24"][stroke="currentColor"]:not(.anim-giro) {
+      stroke-width: 1.6;
+    }
+
+    /* Mensajes de "no hay nada" (párrafo centrado en recuadro punteado): llevan
+       arriba la silla en trazo fino y van sin el recuadro punteado. */
+    :where(main) p.border-dashed.text-center.p-6 {
+      border-color: transparent;
+      padding-top: 1.25rem;
+    }
+    :where(main) p.border-dashed.text-center.p-6::before {
+      content: "";
+      display: block;
+      width: 3.5rem;
+      height: 3.5rem;
+      margin: 0 auto 0.75rem;
+      background-color: var(--color-slate-400);
+      -webkit-mask: var(--dibujo-silla) center / contain no-repeat;
+      mask: var(--dibujo-silla) center / contain no-repeat;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   El verde limón es acento, no relleno. En modo claro los botones principales
+   (los que traen bg-brand-500) van en el verde oscuro de la barra superior con
+   texto claro; el limón queda para lo que señala algo: el área activa, la
+   línea bajo el título, el foco, las barras de avance. En modo oscuro el limón
+   relleno sí se lee bien sobre el fondo y se queda. No aplica dentro de la
+   barra superior.
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  @media screen and (prefers-color-scheme: light) {
+    :root[data-estilo="mobiliarium"]:not([data-tema="oscuro"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *) {
+      background-color: var(--color-nav);
+      color: var(--color-on-nav);
+    }
+    :root[data-estilo="mobiliarium"]:not([data-tema="oscuro"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *, :disabled):hover {
+      background-color: var(--color-nav-hover);
+    }
+    /* Textos de adentro que pedían el color sobre la marca (text-on-brand/80). */
+    :root[data-estilo="mobiliarium"]:not([data-tema="oscuro"])
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *)
+      [class*="text-on-brand"] {
+      color: var(--color-on-nav-suave);
+    }
+  }
+  @media screen {
+    :root[data-estilo="mobiliarium"][data-tema="claro"]
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *) {
+      background-color: var(--color-nav);
+      color: var(--color-on-nav);
+    }
+    :root[data-estilo="mobiliarium"][data-tema="claro"]
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *, :disabled):hover {
+      background-color: var(--color-nav-hover);
+    }
+    :root[data-estilo="mobiliarium"][data-tema="claro"]
+      :is(button, a, [role="button"])[class~="bg-brand-500"]:not(.bg-nav *)
+      [class*="text-on-brand"] {
+      color: var(--color-on-nav-suave);
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Movimiento sereno: sin rebotes, sacudidas ni latidos; los botones se
+   oscurecen al presionarlos en vez de hundirse; carga con un pulso lento.
+   --------------------------------------------------------------------------- */
+@keyframes aparece-suave {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+@keyframes respirar {
+  50% {
+    opacity: 0.55;
+  }
+}
+:root[data-estilo="mobiliarium"] {
+  /* El globo de recibos por revisar aparece una vez: se nota por su color, no
+     por moverse. */
+  .anim-aviso {
+    animation: aparece-suave 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .esqueleto {
+    background-image: none;
+    animation: respirar 1.8s ease-in-out infinite;
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  :root[data-estilo="mobiliarium"] {
+    .anim-icono {
+      animation: velo-entrada 280ms ease-out backwards;
+    }
+    .anim-sacudir,
+    .anim-rebote {
+      animation: aparece-suave 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+    /* Las listas aparecen juntas con un fundido breve. */
+    /* :nth-child(n) para ganarle a los retrasos escalonados del clásico. */
+    .lista-animada > li:nth-child(n) {
+      animation: velo-entrada 240ms ease-out backwards;
+      animation-delay: 0ms;
+    }
+    button:not(:disabled):active,
+    [role="button"]:not([aria-disabled="true"]):active,
+    .presionable:active {
+      animation: none;
+      filter: brightness(0.94);
+    }
+    .pestana-activa {
+      animation: velo-entrada 240ms ease-out;
+    }
+    .group:hover .acceso-icono {
+      scale: none;
+      rotate: none;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Inicio de sesión: la hoja de planos de muebles del estilo "Vidrio", en
+   trazo fino y muy tenue, detrás del formulario (que va en una tarjeta).
+   --------------------------------------------------------------------------- */
+@media screen {
+  :root[data-estilo="mobiliarium"]:has(main.con-plano) .fondo-mobiliario {
+    display: block;
+    --fondo-papel: var(--background);
+    --fondo-trazo: var(--color-brand-900);
+    --fondo-cota: var(--color-slate-500);
+    --fondo-op-trazo: 0.2;
+    --fondo-op-cota: 0.32;
+    --fondo-op-masa: 0.025;
+  }
+  :root[data-estilo="mobiliarium"]:has(main.con-plano) .fondo-mobiliario .luces {
+    display: none;
+  }
+  :root[data-estilo="mobiliarium"]:has(main.con-plano) .fondo-mobiliario::after {
+    display: none;
+  }
+  :root[data-estilo="mobiliarium"] main.con-plano .panel-auth {
+    border: 1px solid color-mix(in oklab, var(--color-slate-200) 70%, transparent);
+    border-radius: var(--radius-2xl);
+    background-color: var(--color-white);
+    box-shadow: 0 2px 6px rgb(16 24 40 / 0.05), 0 24px 44px -18px rgb(16 24 40 / 0.28);
+    padding: 2rem 1.75rem;
+  }
+}

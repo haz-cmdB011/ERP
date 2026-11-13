@@ -1,191 +1,208 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { buscarMuebles } from "@/lib/produccion/buscar-muebles";
-import { FiltrosOrdenesTrabajo } from "@/components/lista-ordenes-trabajo";
-import EstadoVacio from "@/components/estado-vacio";
+import { getPerfilActual, puedeEditarProduccion } from "@/lib/auth/get-perfil";
+import { getImagenesConGrandePorItem } from "@/lib/compartido/imagenes";
+import { hoyMexico } from "@/lib/produccion/asignaciones";
+import { plazosDePedidos } from "@/lib/produccion/cargar-taller";
+import { contarRechazosPorReasignar } from "@/lib/produccion/rechazos-pendientes-db";
+import { cargarEnCalidad } from "@/lib/produccion/en-calidad-db";
+import { armarBitacora } from "@/lib/produccion/bitacora";
+import { renglonesDeTablero } from "@/lib/produccion/control-taller";
+import { tarjetasDeControl, type TarjetaTablero } from "@/lib/produccion/tablero";
+import { cargarBitacora, cargarMarcasDeMuebles } from "@/lib/produccion/bitacora-db";
 import {
-  filtrarOrdenesTrabajo,
-  type PedidoConOt,
-} from "@/lib/planeacion/lista-ordenes-trabajo";
-import ResultadosMuebles from "./resultados-muebles";
-import Bienvenida from "@/components/bienvenida";
-import { avancePorPedido, sumarAvanceDe } from "@/lib/resumen/avance-items";
-import ListaOrdenes from "./lista-ordenes";
-import BuscadorOt from "./buscador-ot";
+  ESTADOS_INICIO,
+  conEnCalidad,
+  contarInicio,
+  modelosRecientes,
+  otsConPendientes,
+  type OtPendiente,
+} from "@/lib/produccion/inicio";
+import { cargarMueblesInicio } from "@/lib/produccion/inicio-db";
+import ActualizarSolo from "./actualizar-solo";
+import { MuestraAnillo } from "./anillo-estados";
+import TableroMarcas from "./tablero-marcas";
 
-function hrefLista(o: { q?: string; anio?: number | null; cliente?: string; porLiberar?: boolean }): string {
-  const params = new URLSearchParams();
-  if (o.q) params.set("q", o.q);
-  if (o.anio) params.set("anio", String(o.anio));
-  if (o.cliente) params.set("cliente", o.cliente);
-  if (o.porLiberar) params.set("f", "por-liberar");
-  const texto = params.toString();
-  return texto ? `/produccion?${texto}` : "/produccion";
-}
+// O.T. con pendientes a la vista (las más recientes); las demás se despliegan.
+const OTS_A_LA_VISTA = 4;
 
-// Igual que en Planeación: órdenes de trabajo con sus PM. Al entrar a una O.T.
-// se ven sus PM; el buscador además encuentra muebles y modelos en todos los
-// pedidos.
-export default async function ProduccionListPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; anio?: string; cliente?: string; f?: string }>;
-}) {
-  const { q, anio, cliente, f } = await searchParams;
-  const soloPorLiberar = f === "por-liberar";
-  const consulta = (q ?? "").trim();
-  const anioFiltro = anio && /^\d{4}$/.test(anio) ? Number(anio) : null;
-  const clienteFiltro = cliente?.trim().toUpperCase() ?? "";
+// Inicio de Producción: el tablero de muebles por asignar y, al final, qué O.T. tienen pendientes.
+// (La lista de modelos con la bitácora de taller se quitó por ahora: `lista-modelos.tsx`,
+// `bitacora-taller.tsx` y `cambiar-vista.tsx` siguen en el repositorio por si se vuelve a poner.)
+export default async function ProduccionInicioPage() {
   const supabase = await createClient();
-
-  // Búsqueda de muebles (con texto en el buscador se muestran también muebles/modelos
-  // de todos los pedidos), pedidos y avance de liberación por pedido no dependen entre sí:
-  // se piden a la vez.
-  const [busqueda, { data: pedidos, error }, avance] = await Promise.all([
-    consulta ? buscarMuebles(supabase, consulta) : Promise.resolve(null),
-    supabase
-      .from("pedidos")
-      .select("id, numero_pedido, orden_trabajo, fecha_pedido, fecha_entrega, created_at, proyectos ( nombre, cliente )")
-      .is("eliminado_en", null)
-      // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
-      .is("eliminado_definitivo_en", null)
-      .order("created_at", { ascending: false })
-      .returns<PedidoConOt[]>(),
-    avancePorPedido(supabase, { conCalidad: false }),
+  const hoy = hoyMexico();
+  const generadoEn = new Date().toISOString();
+  const [muebles, { asignaciones, plazos, ots: otsDePm, marcas }, perfil, rechazos, enCalidad] = await Promise.all([
+    cargarMueblesInicio(supabase),
+    cargarBitacora(supabase, hoy),
+    getPerfilActual(supabase),
+    contarRechazosPorReasignar(supabase),
+    cargarEnCalidad(supabase),
   ]);
+  const puedeEditar = puedeEditarProduccion(perfil);
 
-  const filtradas = filtrarOrdenesTrabajo(pedidos ?? [], {
-    anio: anioFiltro,
-    cliente: clienteFiltro,
-    busqueda: consulta,
-  });
-  const { aniosDisponibles, clientesDisponibles } = filtradas;
+  const marcasDeMuebles = await cargarMarcasDeMuebles(supabase, muebles.map((m) => m.id));
+  const conteos = contarInicio(muebles);
+  const bitacora = armarBitacora(asignaciones, plazos, otsDePm, hoy, marcas);
+  const ots = otsConPendientes(muebles);
 
-  const avanceDe = (fila: (typeof filtradas.filas)[number]) =>
-    sumarAvanceDe(avance, fila.pedidos.map((p) => p.id));
-  const otsConPendientes = filtradas.filas.filter((fila) => avanceDe(fila).porLiberar > 0).length;
-  const filas = filtradas.filas.filter((fila) => !soloPorLiberar || avanceDe(fila).porLiberar > 0);
-  const hayFiltros = !!(consulta || anioFiltro || clienteFiltro);
+  // Tablero: una tarjeta por mueble o asignación, con la miniatura del mueble y cuándo fue lo último.
+  // Con lo que cada mueble tiene esperando a Calidad (columna "En Calidad").
+  const renglones = renglonesDeTablero(conEnCalidad(muebles, enCalidad), bitacora, marcasDeMuebles);
+  const imagenesPorItem = await getImagenesConGrandePorItem(
+    supabase,
+    [...new Set(renglones.flatMap((r) => (r.planeacionItemId ? [r.planeacionItemId] : [])))]
+  );
+  const imagenes = Object.fromEntries(
+    [...imagenesPorItem].flatMap(([id, lista]) => (lista[0] ? [[id, lista[0]]] : []))
+  );
+  // Los anillos de cada tarjeta: cuántos muebles de ese modelo hay en cada estado.
+  const conteosPorModelo = new Map(modelosRecientes(muebles).map((m) => [m.modelo, m.conteos]));
+  // El plazo de cada PM (su fecha de entrega) para avisar lo atrasado y poner primero lo urgente.
+  const plazosDeTarjetas = await plazosDePedidos(
+    supabase,
+    renglones.flatMap((r) => (r.pedidoId ? [r.pedidoId] : [])),
+    hoy
+  );
+  const tarjetas: TarjetaTablero[] = tarjetasDeControl(renglones, { imagenes, conteosPorModelo, plazos: plazosDeTarjetas });
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida />
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Pedidos</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Abre una O.T. para liberar sus muebles y asignarlos a equipos.
-        </p>
-      </div>
-
-      <BuscadorOt
-        opciones={(pedidos ?? []).map((p) => ({
-          ot: p.orden_trabajo,
-          pm: p.numero_pedido,
-          pedidoId: p.id,
-          cliente: p.proyectos?.cliente ?? "—",
-          proyecto: p.proyectos?.nombre ?? "—",
-        }))}
-        consulta={consulta}
-        anio={anioFiltro}
-        cliente={clienteFiltro || undefined}
-      />
-
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-          <Link
-            href={hrefLista({ q: consulta, anio: anioFiltro, cliente: clienteFiltro })}
-            className={`rounded-md px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
-              !soloPorLiberar ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Todas
-          </Link>
-          <Link
-            href={hrefLista({ q: consulta, anio: anioFiltro, cliente: clienteFiltro, porLiberar: true })}
-            className={`rounded-md px-3 py-1.5 font-medium transition-colors pointer-coarse:py-2.5 ${
-              soloPorLiberar ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Con muebles por liberar ({otsConPendientes})
-          </Link>
-        </div>
-        {aniosDisponibles.length > 0 && (
-          <details open={!!(anioFiltro || clienteFiltro)} className="group">
-            <summary className="cursor-pointer select-none font-medium text-slate-600 hover:text-slate-900">
-              Filtrar por año o cliente
-              {anioFiltro || clienteFiltro ? " (activo)" : ""}
-            </summary>
-            <div className="mt-3">
-              <FiltrosOrdenesTrabajo
-                base="/produccion"
-                anios={aniosDisponibles}
-                anio={anioFiltro}
-                clientes={clientesDisponibles}
-                cliente={clienteFiltro}
-                q={consulta || undefined}
-              />
-            </div>
-          </details>
-        )}
-      </div>
-
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          No se pudieron cargar los pedidos: {error.message}
-        </p>
-      )}
-
-      {!error && (!pedidos || pedidos.length === 0) && (
-        <EstadoVacio
-          titulo="Todavía no hay pedidos"
-          descripcion="Aparecerán aquí cuando Planeación suba su Excel."
-        />
-      )}
-
-      {pedidos && pedidos.length > 0 && (
-        <section className="flex flex-col gap-3">
-          {consulta && (
-            <h2 className="text-sm font-semibold text-slate-600">
-              Órdenes de trabajo que coinciden con &ldquo;{consulta}&rdquo;
-            </h2>
-          )}
-          {filas.length === 0 ? (
-            <EstadoVacio
-              titulo={
-                soloPorLiberar
-                  ? "No hay muebles por liberar"
-                  : hayFiltros
-                    ? "Ninguna O.T. coincide"
-                    : "No hay pedidos"
-              }
-              descripcion={soloPorLiberar ? "Todo está al día." : hayFiltros ? "Prueba con otra búsqueda o quita los filtros." : undefined}
-              accion={
-                soloPorLiberar || hayFiltros
-                  ? { href: "/produccion", etiqueta: soloPorLiberar ? "Ver todas las O.T." : "Quitar filtros" }
-                  : undefined
-              }
-            />
-          ) : (
-            <ListaOrdenes filas={filas} avanceDe={avanceDe} />
-          )}
-        </section>
-      )}
-
-      {busqueda && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-slate-600">Muebles y modelos</h2>
-          <p className="text-sm text-slate-600">
-            {busqueda.totalGrupos === 0
-              ? `Ningún mueble ni modelo coincide con "${consulta}". Revisa la ortografía o busca por modelo o folio.`
-              : `${busqueda.totalGrupos} mueble${busqueda.totalGrupos === 1 ? "" : "s"} encontrado${
-                  busqueda.totalGrupos === 1 ? "" : "s"
-                } para "${consulta}"${
-                  busqueda.truncado ? " (primeros 40: afina la búsqueda)" : ""
-                }. Haz clic en uno para ver sus componentes.`}
+    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-8">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div>
+          <h1 className="text-2xl font-medium tracking-tight text-slate-900">Producción</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {muebles.length} muebles vigentes, {conteos.terminado} terminado{conteos.terminado === 1 ? "" : "s"}
           </p>
-          {busqueda.grupos.length > 0 && <ResultadosMuebles grupos={busqueda.grupos} />}
-        </section>
+        </div>
+        <div className="flex flex-col items-start gap-1.5 sm:items-end">
+          <Leyenda />
+          <ActualizarSolo generadoEn={generadoEn} />
+        </div>
+      </div>
+
+      {/* Lo que Calidad rechazó y Producción debe reasignar como retrabajo (se atiende en Rechazos). */}
+      {rechazos > 0 && (
+        <Link
+          href="/produccion/rechazos"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900 transition-colors hover:bg-rose-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+        >
+          <span>
+            <b className="tabular-nums">{rechazos}</b>{" "}
+            {rechazos === 1 ? "rechazo de Calidad espera" : "rechazos de Calidad esperan"} reasignación
+          </span>
+          <span className="font-semibold">Ver rechazos →</span>
+        </Link>
       )}
+
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white pb-1">
+        <TableroMarcas tarjetas={tarjetas} puedeEditar={puedeEditar} />
+      </div>
+
+      <Seccion
+        titulo="O.T. con pendientes"
+        vacio="Ninguna O.T. tiene pendientes."
+        total={ots.length}
+        verTodo={{ href: "/produccion/pedidos", etiqueta: "Pedidos" }}
+      >
+        {ots.slice(0, OTS_A_LA_VISTA).map((o) => (
+          <FilaOt key={o.ot} o={o} />
+        ))}
+        {/* Las demás, plegadas: se abren con el botón y se vuelven a cerrar. */}
+        {ots.length > OTS_A_LA_VISTA && (
+          <li>
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-center gap-1.5 px-5 py-3 text-sm text-slate-500 transition-colors hover:text-slate-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
+                <span className="group-open:hidden">Ver más</span>
+                <span className="hidden group-open:inline">Ver menos</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </summary>
+              <ul className="divide-y divide-slate-100 border-t border-slate-100">
+                {ots.slice(OTS_A_LA_VISTA).map((o) => (
+                  <FilaOt key={o.ot} o={o} />
+                ))}
+              </ul>
+            </details>
+          </li>
+        )}
+      </Seccion>
     </main>
+  );
+}
+
+function FilaOt({ o }: { o: OtPendiente }) {
+  return (
+    <li>
+      <Link
+        href={/^\d+-\d{2}$/.test(o.ot) ? `/produccion/ot/${o.ot}` : `/produccion/pedidos/${o.pedidoId}`}
+        className="flex items-center gap-4 px-5 py-3.5 text-sm transition-colors hover:bg-slate-50"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="font-medium text-slate-900">O.T. {o.ot}</span>
+          <span className="ml-3 text-slate-500">{o.pms} PM</span>
+        </span>
+        <span className="flex flex-wrap justify-end gap-x-4 text-slate-500 tabular-nums">
+          {ESTADOS_INICIO.filter((e) => e.valor !== "terminado" && o.conteos[e.valor] > 0).map((e) => (
+            <span key={e.valor}>
+              {o.conteos[e.valor]} {e.etiqueta.toLowerCase()}
+            </span>
+          ))}
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+function Seccion({
+  titulo,
+  detalle,
+  vacio,
+  total,
+  verTodo,
+  children,
+}: {
+  titulo: string;
+  detalle?: string;
+  vacio: string;
+  total: number;
+  verTodo: { href: string; etiqueta: string };
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <header className="flex items-baseline justify-between gap-3 px-5 py-4">
+        <div>
+          <h2 className="text-base font-medium text-slate-900">
+            {titulo}
+            {total > 0 && <span className="ml-2 font-normal tabular-nums text-slate-500">{total}</span>}
+          </h2>
+          {detalle && <p className="text-sm text-slate-500">{detalle}</p>}
+        </div>
+        <Link href={verTodo.href} className="shrink-0 text-sm text-slate-500 underline-offset-2 transition-colors hover:text-slate-900 hover:underline">
+          {verTodo.etiqueta}
+        </Link>
+      </header>
+      {total === 0 ? (
+        <p className="px-5 pb-6 text-sm text-slate-500">{vacio}</p>
+      ) : (
+        <ul className="divide-y divide-slate-100">{children}</ul>
+      )}
+    </section>
+  );
+}
+
+function Leyenda() {
+  return (
+    <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500" aria-label="Colores de los anillos">
+      {ESTADOS_INICIO.map((e) => (
+        <li key={e.valor} className="flex items-center gap-1">
+          <MuestraAnillo estado={e.valor} />
+          {e.etiqueta}
+        </li>
+      ))}
+    </ul>
   );
 }

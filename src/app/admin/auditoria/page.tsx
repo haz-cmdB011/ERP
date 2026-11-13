@@ -302,7 +302,7 @@ export default async function AuditoriaPage({
         </div>
         <button
           type="submit"
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-brand-50"
         >
           Buscar
         </button>
@@ -324,7 +324,7 @@ export default async function AuditoriaPage({
             className={`rounded border px-3 py-1 font-medium transition-colors ${
               filtro === valor
                 ? "border-brand-600 bg-brand-500 text-on-brand"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                : "border-slate-200 text-slate-600 hover:bg-brand-50"
             }`}
           >
             {etiqueta}
@@ -356,7 +356,7 @@ export default async function AuditoriaPage({
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2.5">Fecha</th>
                 <th className="px-3 py-2.5">Usuario</th>
                 <th className="px-3 py-2.5">Acción</th>
@@ -369,7 +369,7 @@ export default async function AuditoriaPage({
                 const { etiqueta, tono } = describirAccion(f.accion);
                 const d = f.detalle ?? {};
                 return (
-                  <tr key={f.id} className="align-top transition-colors hover:bg-slate-50">
+                  <tr key={f.id} className="align-top transition-colors hover:bg-brand-50">
                     <td className="whitespace-nowrap px-3 py-2 text-slate-500">
                       {new Date(f.en).toLocaleString("es-MX", {
                         dateStyle: "short",

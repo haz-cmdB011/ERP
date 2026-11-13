@@ -17,7 +17,7 @@ export default function LineaTiempoRecibo(props: FechasRecibo) {
           <li key={p.clave} className="flex flex-1 items-start gap-3 sm:flex-col sm:items-start sm:gap-1">
             <span
               aria-hidden
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                 cancelado
                   ? "bg-slate-300 text-white"
                   : hecho
@@ -31,7 +31,7 @@ export default function LineaTiempoRecibo(props: FechasRecibo) {
               <span className={`text-sm font-medium ${hecho ? "text-slate-900" : "text-slate-500"}`}>
                 {p.etiqueta}
                 {p.actual && !cancelado && (
-                  <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-800 ring-1 ring-brand-200">
+                  <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-800 ring-1 ring-brand-200">
                     Ahora
                   </span>
                 )}

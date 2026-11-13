@@ -75,7 +75,7 @@ export default function PanelPmCobrado({
 
       {error && (
         <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-          No se pudo cargar el PM contra cobrado: {error}
+          No se pudo cargar el PM de Producción contra cobrado: {error}
         </p>
       )}
 
@@ -118,7 +118,7 @@ export default function PanelPmCobrado({
               className={`rounded border px-3 py-1 text-sm font-medium pointer-coarse:py-2 ${
                 filtro === "todos"
                   ? "border-brand-600 bg-brand-500 text-on-brand"
-                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  : "border-slate-200 text-slate-600 hover:bg-brand-50"
               }`}
             >
               Todos ({resumenes.length})

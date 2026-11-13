@@ -1,28 +1,24 @@
-// Esqueleto con la forma de No conformidades: título, filtros, indicadores y gráficas.
+import { Bloque, PaginaEsqueleto, TituloEsqueleto } from "@/components/esqueleto";
+
+// Esqueleto de No conformidades: título con "Nuevo reporte", periodo, apartados, números y comparación.
 export default function Loading() {
-  const bloque = "esqueleto rounded-md";
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Cargando…</span>
-      <div className="flex flex-col gap-2 border-b border-slate-200 pb-4">
-        <div className={`${bloque} h-7 w-40`} />
-        <div className={`${bloque} h-4 w-full max-w-xl`} />
+    <PaginaEsqueleto ancho="max-w-7xl">
+      <TituloEsqueleto ayuda={false} ancho="w-72" derecha={<Bloque className="h-10 w-32" />} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Bloque className="h-10 w-64 rounded-xl" />
+          <Bloque className="h-9 w-96 max-w-full rounded-full" />
+        </div>
+        <Bloque className="h-10 w-36" />
       </div>
-      <div className="flex flex-wrap items-end gap-3">
-        {[36, 44, 32, 52, 52].map((w, i) => (
-          <div key={i} className={`${bloque} h-10`} style={{ width: `${w * 4}px` }} />
-        ))}
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <Bloque className="h-12 w-full max-w-lg rounded-2xl" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className={`${bloque} h-20`} />
+          <Bloque key={i} className="h-28 rounded-xl" />
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className={`${bloque} h-56`} />
-        ))}
-      </div>
-    </main>
+      <Bloque className="h-64 rounded-xl" />
+    </PaginaEsqueleto>
   );
 }

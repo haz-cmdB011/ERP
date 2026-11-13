@@ -32,7 +32,8 @@ export interface EntradaRuta {
   pasos: { etiqueta: string; estado: EstadoProceso; entregado: number }[];
   // null: la revisión final está apagada y no es un paso del recorrido.
   revisionFinal: { aprobadas: number; pendientes: number; liberado: boolean } | null;
-  pago: { estado: "sin_recibo" | "por_pagar" | "pagado"; cobrado: number; pagado: number };
+  // null: quien consulta no es de Estimaciones y no ve el pago al maquilador.
+  pago: { estado: "sin_recibo" | "por_pagar" | "pagado"; cobrado: number; pagado: number } | null;
 }
 
 const fmt = (n: number) => String(Math.round(n * 100) / 100);
@@ -60,12 +61,15 @@ export function resumenRuta(e: EntradaRuta): ResumenRuta {
       cifra: `${fmt(rf.aprobadas)}/${fmt(e.cantidad)}`,
     });
   }
-  tramos.push({
-    etiqueta: "Pago al maquilador",
-    estado: e.pago.estado === "pagado" ? "hecho" : e.pago.estado === "por_pagar" ? "en_curso" : "pendiente",
-    texto: e.pago.estado === "pagado" ? "Pagado" : e.pago.estado === "por_pagar" ? "Por pagar" : "Sin recibo",
-    cifra: e.pago.estado === "sin_recibo" ? null : `${fmt(e.pago.pagado)}/${fmt(e.pago.cobrado)}`,
-  });
+  const pago = e.pago;
+  if (pago) {
+    tramos.push({
+      etiqueta: "Pago al maquilador",
+      estado: pago.estado === "pagado" ? "hecho" : pago.estado === "por_pagar" ? "en_curso" : "pendiente",
+      texto: pago.estado === "pagado" ? "Pagado" : pago.estado === "por_pagar" ? "Por pagar" : "Sin recibo",
+      cifra: pago.estado === "sin_recibo" ? null : `${fmt(pago.pagado)}/${fmt(pago.cobrado)}`,
+    });
+  }
 
   if (!e.liberado) {
     return { titulo: "Sin liberar a Producción", detalle: "Planeación todavía no lo libera.", actual: null, tramos };
@@ -96,12 +100,90 @@ export function resumenRuta(e: EntradaRuta): ResumenRuta {
       tramos,
     };
   }
-  return e.pago.estado === "por_pagar"
+  return pago?.estado === "por_pagar"
     ? {
         titulo: "Por pagar al maquilador",
-        detalle: `Pagado ${fmt(e.pago.pagado)} de ${fmt(e.pago.cobrado)} ${u} cobradas`,
+        detalle: `Pagado ${fmt(pago.pagado)} de ${fmt(pago.cobrado)} ${u} cobradas`,
         actual: i,
         tramos,
       }
     : { titulo: "Por cobrar", detalle: "Ningún maquilador lo ha cobrado.", actual: i, tramos };
+}
+
+// Lo que ve cada área al escanear el QR: solo su tramo del recorrido. La ruta completa (los
+// pasos de Producción, la revisión final y el pago) es solo para el desarrollador, que usa
+// `resumenRuta`. Planeación ve su único paso: la liberación a Producción. Sin tramos (p. ej.
+// Calidad con la revisión final apagada) no hay nada que mostrar.
+export type AreaRuta = "produccion" | "calidad" | "estimaciones" | "planeacion";
+
+export function resumenRutaDeArea(e: EntradaRuta, area: AreaRuta): ResumenRuta {
+  const completa = resumenRuta(e);
+  const n = e.pasos.length;
+  const rf = e.revisionFinal;
+  const u = e.unidad;
+  const sinLiberar = { titulo: "Sin liberar a Producción", detalle: "Planeación todavía no lo libera." };
+  const actualDe = (tramos: TramoRuta[]) => {
+    const i = tramos.findIndex((t) => t.estado !== "hecho");
+    return i < 0 ? null : i;
+  };
+
+  if (area === "planeacion") {
+    const tramos: TramoRuta[] = [
+      {
+        etiqueta: "Liberación a Producción",
+        estado: e.liberado ? "hecho" : "en_curso",
+        texto: e.liberado ? "Liberado" : "Por liberar",
+        cifra: null,
+      },
+    ];
+    return e.liberado
+      ? { titulo: "Liberado a Producción", detalle: null, actual: null, tramos }
+      : { ...sinLiberar, actual: 0, tramos };
+  }
+
+  if (area === "produccion") {
+    const tramos = completa.tramos.slice(0, n);
+    if (!e.liberado) return { ...sinLiberar, actual: null, tramos };
+    const i = actualDe(tramos);
+    if (i === null) return { titulo: "Producción terminada", detalle: null, actual: null, tramos };
+    const p = e.pasos[i];
+    return p.estado === "sin_asignar"
+      ? { titulo: `Por asignar: ${p.etiqueta}`, detalle: null, actual: i, tramos }
+      : {
+          titulo: `En ${p.etiqueta}`,
+          detalle: `${fmt(p.entregado)} de ${fmt(e.cantidad)} ${u} entregadas`,
+          actual: i,
+          tramos,
+        };
+  }
+
+  if (area === "calidad") {
+    if (!rf) return { titulo: "", detalle: null, actual: null, tramos: [] };
+    const tramos = [completa.tramos[n]];
+    if (!e.liberado) return { ...sinLiberar, actual: null, tramos };
+    if (rf.liberado) return { titulo: "Liberado a obra", detalle: null, actual: null, tramos };
+    return {
+      titulo: rf.pendientes > 0 ? "En revisión final" : "Esperando piezas de Producción",
+      detalle:
+        rf.pendientes > 0
+          ? `${fmt(rf.pendientes)} ${u} listas para revisar`
+          : `Calidad aprobó ${fmt(rf.aprobadas)} de ${fmt(e.cantidad)} ${u}`,
+      actual: 0,
+      tramos,
+    };
+  }
+
+  const pago = e.pago;
+  if (!pago) return { titulo: "", detalle: null, actual: null, tramos: [] };
+  const tramos = [completa.tramos[completa.tramos.length - 1]];
+  if (!e.liberado) return { ...sinLiberar, actual: null, tramos };
+  if (pago.estado === "pagado") return { titulo: "Pagado", detalle: null, actual: null, tramos };
+  return pago.estado === "por_pagar"
+    ? {
+        titulo: "Por pagar al maquilador",
+        detalle: `Pagado ${fmt(pago.pagado)} de ${fmt(pago.cobrado)} ${u} cobradas`,
+        actual: 0,
+        tramos,
+      }
+    : { titulo: "Por cobrar", detalle: "Ningún maquilador lo ha cobrado.", actual: 0, tramos };
 }

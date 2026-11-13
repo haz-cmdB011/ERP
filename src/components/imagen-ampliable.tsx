@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePresencia } from "@/lib/ui/use-presencia";
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 8;
@@ -18,9 +19,10 @@ function acotar(escala: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, escala));
 }
 
-// Miniatura que, al hacer clic, se abre en grande sobre la página con zoom:
+// Miniatura que, al hacer clic o tocarla, se abre en grande sobre la página con zoom:
 // rueda del mouse para acercar/alejar (hacia donde apunta el cursor), arrastrar
-// para mover, doble clic para acercar/restablecer, y botones +, − y restablecer.
+// para mover, doble clic para acercar/restablecer, y botones +, − y restablecer. Con el dedo:
+// pellizcar para acercar y doble toque para acercar/restablecer.
 // Es solo para verla (sin acciones): se cierra con la ×, con clic fuera de la
 // imagen o con Escape. Los clics no se propagan a la fila/tarjeta que la
 // contiene, para no disparar sus propias acciones (p. ej. desplegar un mueble).
@@ -32,13 +34,18 @@ export default function ImagenAmpliable({
   urlGrande = null,
   alt = "",
   className = "h-10 w-10",
+  ajuste = "cover",
 }: {
   url: string;
   urlGrande?: string | null;
   alt?: string;
   className?: string;
+  // Cómo se acomoda la miniatura en su caja: "cover" la llena recortando lo que sobra (por omisión);
+  // "contain" la muestra completa, sin recortar.
+  ajuste?: "cover" | "contain";
 }) {
   const [abierta, setAbierta] = useState(false);
+  const { montado, saliendo } = usePresencia(abierta);
   const [vista, setVista] = useState<Vista>(VISTA_INICIAL);
   const [arrastrando, setArrastrando] = useState(false);
   const [grandeFalla, setGrandeFalla] = useState(false);
@@ -46,6 +53,14 @@ export default function ImagenAmpliable({
   const arrastre = useRef<{ px: number; py: number; x: number; y: number; movio: boolean } | null>(
     null
   );
+  // Con el dedo: los dedos que tocan la imagen (para pellizcar con dos), el pellizco en curso y el
+  // último toque (para reconocer el doble toque, que en iOS no siempre llega como doble clic).
+  const dedos = useRef(new Map<number, { x: number; y: number }>());
+  const pellizco = useRef<{ distancia: number; cx: number; cy: number; inicio: Vista } | null>(null);
+  const ultimoToque = useRef<{ t: number; x: number; y: number } | null>(null);
+  const tocoConDedo = useRef(false);
+  // El gesto actual tuvo pellizco: al levantar el último dedo no cuenta como toque.
+  const huboPellizco = useRef(false);
 
   const cerrar = useCallback(() => {
     setAbierta(false);
@@ -91,42 +106,109 @@ export default function ImagenAmpliable({
     return () => el.removeEventListener("wheel", alRodar);
   }, [abierta, hacerZoom]);
 
-  function alPresionarImagen(e: React.PointerEvent<HTMLImageElement>) {
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    arrastre.current = { px: e.clientX, py: e.clientY, x: vista.x, y: vista.y, movio: false };
-    setArrastrando(true);
-  }
-
-  function alMoverImagen(e: React.PointerEvent<HTMLImageElement>) {
-    const a = arrastre.current;
-    if (!a) return;
-    const dx = e.clientX - a.px;
-    const dy = e.clientY - a.py;
-    if (Math.abs(dx) + Math.abs(dy) > 3) a.movio = true;
-    setVista((v) => ({ ...v, x: a.x + dx, y: a.y + dy }));
-  }
-
-  function alSoltarImagen(e: React.PointerEvent<HTMLImageElement>) {
-    e.stopPropagation();
-    arrastre.current = null;
-    setArrastrando(false);
-  }
-
-  function alDobleClicImagen(e: React.MouseEvent<HTMLImageElement>) {
-    e.stopPropagation();
+  // Punto de la pantalla medido desde el centro del visor (de ahí escala la imagen).
+  function desdeCentro(x: number, y: number) {
     const caja = contenedor.current?.getBoundingClientRect();
-    if (!caja) return;
+    if (!caja) return { cx: 0, cy: 0 };
+    return { cx: x - caja.left - caja.width / 2, cy: y - caja.top - caja.height / 2 };
+  }
+
+  // Acerca al triple donde se tocó dos veces (o donde se hizo doble clic); si ya está acercada, la
+  // regresa a su tamaño.
+  function alternarZoom(x: number, y: number) {
     if (vista.escala > 1.05) {
       setVista(VISTA_INICIAL);
       return;
     }
-    hacerZoom(3, e.clientX - caja.left - caja.width / 2, e.clientY - caja.top - caja.height / 2);
+    const { cx, cy } = desdeCentro(x, y);
+    hacerZoom(3, cx, cy);
+  }
+
+  function empezarArrastre(x: number, y: number, desde: Vista) {
+    arrastre.current = { px: x, py: y, x: desde.x, y: desde.y, movio: false };
+    setArrastrando(true);
+  }
+
+  function alPresionarImagen(e: React.PointerEvent<HTMLImageElement>) {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    tocoConDedo.current = e.pointerType === "touch";
+    dedos.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (dedos.current.size === 2) {
+      // Segundo dedo: deja de mover y empieza a pellizcar desde el punto medio entre los dos.
+      const [a, b] = [...dedos.current.values()];
+      const { cx, cy } = desdeCentro((a.x + b.x) / 2, (a.y + b.y) / 2);
+      pellizco.current = { distancia: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx, cy, inicio: vista };
+      huboPellizco.current = true;
+      arrastre.current = null;
+      return;
+    }
+    if (dedos.current.size === 1) empezarArrastre(e.clientX, e.clientY, vista);
+  }
+
+  function alMoverImagen(e: React.PointerEvent<HTMLImageElement>) {
+    if (!dedos.current.has(e.pointerId)) return;
+    dedos.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = pellizco.current;
+    if (p && dedos.current.size >= 2) {
+      const [a, b] = [...dedos.current.values()];
+      const escala = acotar(p.inicio.escala * (Math.hypot(a.x - b.x, a.y - b.y) / p.distancia));
+      const k = escala / p.inicio.escala;
+      // El punto medio de los dedos se queda bajo los dedos, y se mueve con ellos.
+      const { cx, cy } = desdeCentro((a.x + b.x) / 2, (a.y + b.y) / 2);
+      setVista({ escala, x: cx - (p.cx - p.inicio.x) * k, y: cy - (p.cy - p.inicio.y) * k });
+      return;
+    }
+    const d = arrastre.current;
+    if (!d) return;
+    const dx = e.clientX - d.px;
+    const dy = e.clientY - d.py;
+    if (Math.abs(dx) + Math.abs(dy) > 3) d.movio = true;
+    setVista((v) => ({ ...v, x: d.x + dx, y: d.y + dy }));
+  }
+
+  function alSoltarImagen(e: React.PointerEvent<HTMLImageElement>) {
+    e.stopPropagation();
+    dedos.current.delete(e.pointerId);
+    const pellizcando = huboPellizco.current;
+    if (pellizco.current && dedos.current.size < 2) {
+      pellizco.current = null;
+      // Queda un dedo: sigue moviendo desde donde está, sin brincar.
+      const [resto] = [...dedos.current.values()];
+      if (resto) {
+        empezarArrastre(resto.x, resto.y, vista);
+        return;
+      }
+    }
+    const movio = arrastre.current?.movio ?? false;
+    arrastre.current = null;
+    setArrastrando(false);
+    if (dedos.current.size === 0) huboPellizco.current = false;
+    if (pellizcando) ultimoToque.current = null;
+    // Doble toque con el dedo: dos toques cortos, seguidos y en el mismo lugar.
+    if (e.pointerType === "touch" && e.type === "pointerup" && !movio && !pellizcando) {
+      const ahora = Date.now();
+      const u = ultimoToque.current;
+      if (u && ahora - u.t < 320 && Math.hypot(e.clientX - u.x, e.clientY - u.y) < 30) {
+        ultimoToque.current = null;
+        alternarZoom(e.clientX, e.clientY);
+      } else {
+        ultimoToque.current = { t: ahora, x: e.clientX, y: e.clientY };
+      }
+    }
+  }
+
+  function alDobleClicImagen(e: React.MouseEvent<HTMLImageElement>) {
+    e.stopPropagation();
+    // Con el dedo ya lo resolvió alSoltarImagen: si el navegador también manda el doble clic, se
+    // acercaría y se alejaría en el mismo gesto.
+    if (tocoConDedo.current) return;
+    alternarZoom(e.clientX, e.clientY);
   }
 
   const fuente = urlGrande && !grandeFalla ? urlGrande : url;
   const botonControl =
-    "flex h-9 min-w-9 items-center justify-center rounded bg-white/90 px-2 text-lg font-semibold text-slate-800 shadow hover:bg-white";
+    "flex h-9 min-w-9 items-center justify-center rounded bg-white/90 px-2 text-lg font-semibold text-slate-800 shadow hover:bg-white pointer-coarse:h-11 pointer-coarse:min-w-11";
 
   return (
     <>
@@ -141,12 +223,19 @@ export default function ImagenAmpliable({
         className={`block shrink-0 cursor-zoom-in overflow-hidden rounded border border-slate-200 bg-papel transition hover:border-slate-400 hover:shadow ${className}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- imagen en bucket privado vía signed URL, no next/image */}
-        <img src={url} alt={alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <img
+          src={url}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className={`h-full w-full ${ajuste === "contain" ? "object-contain" : "object-cover"}`}
+        />
       </button>
 
-      {abierta && (
+      {montado && (
         <div
           ref={contenedor}
+          data-saliendo={saliendo || undefined}
           role="dialog"
           aria-modal="true"
           aria-label="Imagen ampliada"
@@ -224,8 +313,9 @@ export default function ImagenAmpliable({
             </button>
           </div>
 
-          <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-scrim/55 px-3 py-1 text-xs text-on-scrim/90">
-            Rueda del mouse: zoom · Arrastra: mover · Doble clic: acercar · Esc: cerrar
+          <p className="pointer-events-none absolute bottom-4 left-1/2 w-max max-w-[calc(100%-2rem)] -translate-x-1/2 rounded bg-scrim/55 px-3 py-1 text-center text-xs text-on-scrim/90">
+            <span className="pointer-coarse:hidden">Rueda del mouse: zoom · Arrastra: mover · Doble clic: acercar · Esc: cerrar</span>
+            <span className="hidden pointer-coarse:inline">Pellizca o toca dos veces para acercar · Arrastra para mover</span>
           </p>
         </div>
       )}

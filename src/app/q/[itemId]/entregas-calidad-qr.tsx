@@ -30,7 +30,7 @@ export default function EntregasCalidadQr({ lotes, plegadas }: { lotes: LoteCali
     <details className="group rounded-lg border border-slate-200 bg-white shadow-sm">
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium text-slate-700 [&::-webkit-details-marker]:hidden">
         Revisar una entrega por proceso ({lotes.length})
-        <span aria-hidden="true" className="text-slate-400 transition-transform group-open:rotate-180">
+        <span aria-hidden="true" className="text-slate-500 transition-transform group-open:rotate-180">
           ▾
         </span>
       </summary>

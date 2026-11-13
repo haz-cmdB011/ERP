@@ -5,9 +5,11 @@ import BuscadorGlobal from "./buscador-global";
 import SelectorTema from "./selector-tema";
 import PersonalizarApariencia from "./personalizar-apariencia";
 import MenuArea from "./menu-area";
+import DesplazarAlActivo from "./desplazar-al-activo";
 import Marca from "./marca";
 import Avatar from "./avatar";
 import { urlAvatar } from "@/lib/cuenta/avatar";
+import { INICIO_DE_AREA, RUTA_CUENTA, type AreaApp } from "@/lib/auth/acceso";
 
 const INICIO_AREA = {
   planeacion: "/planeacion",
@@ -95,7 +97,7 @@ export default async function AreaNav({
   email,
   userId,
   avatarPath,
-  esDesarrollador = false,
+  areas,
   soloEstimaciones = false,
   porRevisar = 0,
   children,
@@ -105,9 +107,9 @@ export default async function AreaNav({
   // Para mostrar la foto de perfil (app_metadata.avatar_path del usuario).
   userId?: string;
   avatarPath?: unknown;
-  // Usuarios es un panel más, pero solo para desarrolladores (acceso
-  // global): las demás áreas no lo ven en su selector.
-  esDesarrollador?: boolean;
+  // Áreas que la persona puede abrir (areasDePerfil): solo esas salen en
+  // el selector. Usuarios (Administración) es solo del desarrollador.
+  areas: AreaApp[];
   // Maquilador (usuario externo): solo existe Estimaciones para él, así que
   // no se le muestran las demás áreas ni el enlace a la cuenta de Planeación.
   soloEstimaciones?: boolean;
@@ -116,19 +118,24 @@ export default async function AreaNav({
   porRevisar?: number;
   children?: React.ReactNode;
 }) {
-  const visibles = AREAS.filter((a) => {
-    if (soloEstimaciones) return a.area === "estimaciones";
-    if (a.area === "usuarios") return esDesarrollador;
-    return true;
-  });
+  const visibles = AREAS.filter((a) => areas.includes(a.area === "usuarios" ? "admin" : a.area));
   const inicial = (email.trim()[0] ?? "?").toUpperCase();
   const avatarUrl = userId ? await urlAvatar(userId, avatarPath) : null;
-  const hrefCuenta = soloEstimaciones ? "/estimaciones/cuenta" : "/planeacion/cuenta";
+  const hrefCuenta = soloEstimaciones ? "/estimaciones/cuenta" : RUTA_CUENTA;
+  const hrefInicio = soloEstimaciones
+    ? "/estimaciones/recibos"
+    : areas[0]
+      ? INICIO_DE_AREA[areas[0]]
+      : RUTA_CUENTA;
 
   return (
     <div className="print:hidden">
-      <header className="vt-cabecera border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav">
-        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6">
+      {/* En el estilo Mobiliarium (mob:) la barra es un tablero flotante,
+          separado del borde de la ventana, y en pantallas anchas (xl) va todo
+          en una fila: marca, áreas y sesión, esta solo con íconos (los textos
+          "Buscar…", el correo y "Cerrar sesión" vuelven en 2xl). */}
+      <header className="vt-cabecera border-b border-nav-line bg-nav pt-[env(safe-area-inset-top)] text-on-nav mob:mx-2 mob:mt-[max(0.5rem,env(safe-area-inset-top))] mob:rounded-2xl mob:border mob:pt-0 mob:shadow-lg mob:sm:mx-4 mob:sm:mt-[max(0.75rem,env(safe-area-inset-top))]">
+        <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 text-sm sm:px-6 mob:py-2 mob:sm:px-5 mob:xl:flex-nowrap mob:xl:gap-x-5">
           {/* Paneles del área (Pedidos, Cargar Excel...): menú lateral que se
               abre con las tres rayas. */}
           {children && (
@@ -137,15 +144,15 @@ export default async function AreaNav({
             </MenuArea>
           )}
           <Link
-            href={soloEstimaciones ? "/estimaciones/recibos" : "/planeacion"}
+            href={hrefInicio}
             className="shrink-0 rounded-lg focus-visible:outline-brand-500"
             aria-label="Mobiliarium, ir al inicio"
           >
-            <Marca sobreOscuro />
+            <Marca sobreOscuro className="h-8 sm:h-12 xl:h-14 mob:h-7 mob:sm:h-9 mob:xl:h-9" />
           </Link>
 
           {/* Acciones de sesión: a la derecha de la marca. */}
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5 mob:xl:order-3">
             <BuscadorGlobal area={area} />
             <PersonalizarApariencia />
             <SelectorTema />
@@ -159,20 +166,22 @@ export default async function AreaNav({
                 inicial={inicial}
                 tamano="h-7 w-7 sm:h-8 sm:w-8"
               />
-              <span className="sr-only xl:not-sr-only xl:max-w-44 xl:truncate">{email}</span>
+              <span className="sr-only xl:not-sr-only xl:max-w-44 xl:truncate mob:xl:sr-only mob:2xl:not-sr-only">{email}</span>
             </Link>
             <LogoutButton />
           </div>
 
-          <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5">
+          <div className="desplazable-sin-barra relative -mx-1 flex min-w-0 basis-full items-center gap-1 overflow-x-auto whitespace-nowrap px-1 py-0.5 mob:xl:order-2 mob:xl:mx-0 mob:xl:basis-auto mob:xl:flex-1">
+            <DesplazarAlActivo />
             {visibles.map((a) => (
               <Link
                 key={a.area}
                 href={a.href}
                 aria-current={area === a.area ? "page" : undefined}
-                className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 ${
+                className={`group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-colors focus-visible:outline-brand-500 pointer-coarse:min-h-11 mob:rounded-full mob:px-3.5 mob:py-1.5 mob:font-medium ${
                   area === a.area
-                    ? "bg-brand-500 text-on-brand"
+                    ? // En Mobiliarium, fondo apenas más claro y el ícono en limón (acento, no relleno).
+                      "bg-brand-500 text-on-brand mob:bg-nav-hover mob:text-on-nav mob:[&>svg]:text-brand-500"
                     : "text-on-nav-suave hover:bg-nav-hover hover:text-on-nav"
                 }`}
               >
@@ -183,7 +192,7 @@ export default async function AreaNav({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4 shrink-0"
+                  className="h-6 w-6 shrink-0 mob:h-5 mob:w-5"
                   aria-hidden="true"
                 >
                   {a.icono}
@@ -191,7 +200,7 @@ export default async function AreaNav({
                 {a.nombre}
                 {a.area === "estimaciones" && porRevisar > 0 && (
                   <span
-                    className="anim-aviso ml-0.5 min-w-5 rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white"
+                    className="anim-aviso ml-0.5 min-w-5 rounded-full bg-rose-600 px-1.5 py-0.5 text-center text-xs font-bold leading-none text-white"
                     title={`${porRevisar} recibo${porRevisar === 1 ? "" : "s"} por revisar`}
                   >
                     {porRevisar > 99 ? "99+" : porRevisar}
@@ -205,13 +214,10 @@ export default async function AreaNav({
       </header>
       {/* Debajo de las áreas y los paneles, a la altura del contenido: vuelve
           al panel anterior (oculto en el inicio del área). */}
-      {/* Planeación, Producción y Calidad usan migas de pan en cada pantalla (components/migas.tsx) en lugar de este botón. */}
-      {area !== "planeacion" && area !== "produccion" && area !== "calidad" && (
-        <BotonRegresar
-          inicioArea={soloEstimaciones ? "/estimaciones/recibos" : INICIO_AREA[area]}
-          maquilador={soloEstimaciones}
-        />
-      )}
+      <BotonRegresar
+        inicioArea={soloEstimaciones ? "/estimaciones/recibos" : INICIO_AREA[area]}
+        maquilador={soloEstimaciones}
+      />
     </div>
   );
 }

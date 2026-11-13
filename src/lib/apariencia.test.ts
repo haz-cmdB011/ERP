@@ -55,10 +55,11 @@ describe("variablesApariencia", () => {
 });
 
 describe("estilo", () => {
-  it("el predefinido es el clásico y solo acepta los dos estilos", () => {
+  it("el predefinido es el clásico y solo acepta los tres estilos", () => {
     expect(ESTILO_INICIAL).toBe("clasico");
     expect(esEstilo("vidrio")).toBe(true);
     expect(esEstilo("clasico")).toBe(true);
+    expect(esEstilo("mobiliarium")).toBe(true);
     expect(esEstilo("otro")).toBe(false);
     expect(esEstilo(null)).toBe(false);
   });

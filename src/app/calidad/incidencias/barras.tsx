@@ -32,7 +32,8 @@ export default function Barras({
           {visibles.map((f) => {
             const contenido = (
               <>
-                <span className="w-44 shrink-0 truncate text-xs text-slate-600 sm:w-52" title={f.nombre}>
+                {/* En celular el nombre va en su renglón (junto a la barra se cortaba a la mitad). */}
+                <span className="w-full truncate text-xs text-slate-600 sm:w-52 sm:shrink-0" title={f.nombre}>
                   {f.nombre}
                 </span>
                 <span className="flex h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
@@ -50,12 +51,16 @@ export default function Barras({
             );
             return (
               <li key={f.nombre}>
+                {/* Con dedo, cada fila mide 44 px: a 18 px, una pegada a la otra, el toque caía en la vecina. */}
                 {hrefDe ? (
-                  <Link href={hrefDe(f.nombre)} className="flex items-center gap-2 rounded hover:bg-slate-50">
+                  <Link
+                    href={hrefDe(f.nombre)}
+                    className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded py-0.5 hover:bg-brand-50 pointer-coarse:min-h-11 sm:flex-nowrap"
+                  >
                     {contenido}
                   </Link>
                 ) : (
-                  <div className="flex items-center gap-2">{contenido}</div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">{contenido}</div>
                 )}
               </li>
             );
@@ -63,7 +68,7 @@ export default function Barras({
         </ul>
       )}
       {filas.length > maximo && (
-        <p className="text-xs text-slate-400">y {filas.length - maximo} más; usa los filtros para verlos.</p>
+        <p className="text-xs text-slate-500">y {filas.length - maximo} más; usa los filtros para verlos.</p>
       )}
     </Tarjeta>
   );

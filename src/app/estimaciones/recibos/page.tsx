@@ -1,29 +1,35 @@
 import Link from "next/link";
+import Chevron from "@/components/chevron";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { esMaquilador, getPerfilActual, puedeCapturarTipo } from "@/lib/auth/get-perfil";
 import type { AreaMaquila } from "@/lib/auth/roles";
-import Bienvenida from "@/components/bienvenida";
 import EstadoVacio from "@/components/estado-vacio";
 
-const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string }[] = [
+const TIPOS: { tipo: AreaMaquila; titulo: string; descripcion: string; tono: string; letra: string; icono: React.ReactNode }[] = [
   {
     tipo: "acabados",
     titulo: "Acabados",
-    descripcion:
-      "Maquila de acabados: captura lo que propone el maquilador y compáralo contra el precio sugerido.",
+    icono: <path d="M18 3l3 3-9 9-3-3zM9 12c-2.5 0-4 1.5-4 4 0 1.5-1 2.5-2 3 3 1 7 .5 8-3 .3-1-.5-2.5-2-4z" />,
+    tono: "border-t-brand-500",
+    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
+    descripcion: "Pintura, laca y barniz de piezas.",
   },
   {
     tipo: "armado",
     titulo: "Armado",
-    descripcion:
-      "Maquila de armado (natural, laminado o colocación de herrajes): mismo control de precios que Acabados.",
+    icono: <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z" />,
+    tono: "border-t-brand-500",
+    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
+    descripcion: "Armado natural o laminado, y colocación de herrajes.",
   },
   {
     tipo: "electrificacion",
     titulo: "Electrificación",
-    descripcion:
-      "Maquila de electrificación: modelo, metros de LED y kit de charolas, comparado contra el precio sugerido.",
+    icono: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
+    tono: "border-t-brand-500",
+    letra: "bg-brand-100 text-brand-800 group-hover:bg-brand-500 group-hover:text-on-brand",
+    descripcion: "Tiras LED y charolas en muebles con iluminación.",
   },
 ];
 
@@ -39,12 +45,24 @@ export default async function GeneradorRecibosPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <Bienvenida />
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Generador de Recibos
-        </h1>
+    <main className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-6 p-4 sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-xl">
+          <h1 className="font-serif text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+            Nuevo recibo
+          </h1>
+          <p className="mt-2 text-base text-slate-600">
+            ¿Qué trabajo vas a cobrar? Elige uno y anota cada pieza con el precio que propones.
+          </p>
+        </div>
+        {esMaquilador(perfil) && (
+          <Link
+            href="/estimaciones/mis-recibos"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline"
+          >
+            Ver mis recibos
+          </Link>
+        )}
       </div>
 
       {disponibles.length === 0 ? (
@@ -53,20 +71,42 @@ export default async function GeneradorRecibosPage() {
           descripcion="Pide a un administrador que te asigne una para poder generar recibos."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        // En el estilo Mobiliarium, un índice: una hoja con una fila por tipo.
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mob:flex mob:flex-col mob:gap-0 mob:divide-y mob:divide-slate-200 mob:overflow-hidden mob:rounded-xl mob:border mob:border-slate-200 mob:bg-white mob:shadow-sm">
           {disponibles.map((t) => (
+            <li key={t.tipo} className="flex">
             <Link
-              key={t.tipo}
               href={`/estimaciones/recibos/${t.tipo}`}
-              className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"
+              className={`group flex flex-1 items-center gap-4 rounded-2xl border border-slate-200 border-t-4 bg-white p-4 shadow-sm sm:flex-col sm:items-start sm:p-6 transition duration-200 hover:border-brand-400 hover:shadow-md focus-visible:outline-2 focus-visible:outline-brand-600 mob:flex-row mob:items-center mob:rounded-none mob:border-0 mob:bg-transparent mob:px-5 mob:py-4 mob:shadow-none mob:hover:bg-slate-50 mob:hover:shadow-none ${t.tono}`}
             >
-              <h2 className="text-base font-semibold text-slate-900 group-hover:text-brand-700">
-                {t.titulo}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">{t.descripcion}</p>
+              <span
+                className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${t.letra} mob:h-6 mob:w-6 mob:rounded-none mob:bg-transparent mob:text-brand-700 mob:group-hover:bg-transparent mob:group-hover:text-brand-700`}
+                aria-hidden="true"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.75}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6"
+                >
+                  {t.icono}
+                </svg>
+              </span>
+              <span className="min-w-0 flex-1">
+                <h2 className="font-serif text-xl font-semibold text-slate-900 sm:text-2xl mob:text-lg mob:font-medium">{t.titulo}</h2>
+                <p className="mt-0.5 text-sm text-slate-600 sm:mt-1 sm:text-base mob:mt-0.5 mob:text-sm">{t.descripcion}</p>
+              </span>
+              <span className="hidden text-sm font-semibold text-brand-800 group-hover:underline group-hover:underline-offset-4 sm:inline mob:hidden">
+                Hacer recibo de {t.titulo}
+              </span>
+              <Chevron abierto={false} className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-slate-700 sm:hidden mob:block" />
             </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </main>
   );

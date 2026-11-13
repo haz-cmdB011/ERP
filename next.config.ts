@@ -88,6 +88,13 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      // El perfil se mudó de Planeación a /cuenta (cada quien ve solo sus áreas). Se
+      // redirige antes de entrar al área para que los enlaces viejos sirvan a todos.
+      { source: "/planeacion/cuenta", destination: "/cuenta", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

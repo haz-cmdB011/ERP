@@ -7,7 +7,7 @@
 //  - cargas de Excel que fallan: las imágenes se suben ANTES de ingerir el pedido
 //    (src/app/api/planeacion/upload/route.ts) y, si la ingestión falla, quedan sueltas.
 
-import { rutaImagenGrande } from "@/lib/planeacion/imagenes";
+import { rutaImagenGrande } from "@/lib/compartido/imagenes";
 
 export interface ObjetoStorage {
   /**

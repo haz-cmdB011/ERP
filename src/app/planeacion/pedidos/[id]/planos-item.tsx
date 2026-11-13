@@ -16,7 +16,7 @@ export default function PlanosItem({ planos }: { planos: PlanoLink[] }) {
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-800 hover:bg-brand-100"
+        className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800 hover:bg-brand-100"
       >
         Plano{planos.length > 1 ? `s (${planos.length})` : ""}
         {origen && <span className="font-normal text-slate-500"> · de {origen}</span>}
@@ -56,7 +56,7 @@ function PanelPlanos({ planos, onCerrar }: { planos: PlanoLink[]; onCerrar: () =
           <button
             type="button"
             onClick={onCerrar}
-            className="rounded px-2 py-1 text-slate-500 hover:bg-slate-100"
+            className="grid min-h-9 min-w-9 place-items-center rounded px-2 py-1 text-slate-500 hover:bg-brand-100 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
             aria-label="Cerrar"
           >
             ✕

@@ -58,7 +58,7 @@ export default function DecidirBotones({ id }: { id: string }) {
           Rechazar
         </button>
       </div>
-      {error && <span className="max-w-[14rem] text-right text-[11px] text-rose-600">{error}</span>}
+      {error && <span className="max-w-[14rem] text-right text-xs text-rose-600">{error}</span>}
     </div>
   );
 }

@@ -180,7 +180,7 @@ export default async function CambiosVersiones({
         {filtro !== "todos" && <input type="hidden" name="ver" value={filtro} />}
         <button
           type="submit"
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-brand-50"
         >
           Comparar
         </button>
@@ -229,7 +229,7 @@ export default async function CambiosVersiones({
                     className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                       activo
                         ? "border-brand-600 bg-brand-500 text-on-brand"
-                        : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                        : "border-slate-300 bg-white text-slate-600 hover:bg-brand-50"
                     }`}
                   >
                     {FILTROS[f]} ({cuenta})
@@ -346,7 +346,7 @@ function TarjetaMueble({ cambio }: { cambio: CambioMueble }) {
       className={`overflow-hidden rounded-xl border border-l-4 border-slate-200 bg-white shadow-sm ${estilo.borde}`}
     >
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${estilo.clase}`}>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${estilo.clase}`}>
           {estilo.texto}
         </span>
         <span className={`font-mono text-sm font-semibold text-slate-900 ${tachado}`}>
@@ -392,7 +392,7 @@ function TablaCampos({ campos }: { campos: CambioCampo[] }) {
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             <th className="w-40 py-1 pr-3">Campo</th>
             <th className="py-1 pr-3">Antes</th>
             <th className="py-1">Ahora</th>
@@ -453,7 +453,7 @@ function ListaComponentes({ componentes }: { componentes: CambioComponente[] }) 
             <div className="min-w-0 flex-1">
               <p>
                 {item.tipoMaterial && (
-                  <span className="mr-1.5 text-[11px] font-semibold uppercase text-slate-500">
+                  <span className="mr-1.5 text-xs font-semibold uppercase text-slate-500">
                     {item.tipoMaterial}
                   </span>
                 )}

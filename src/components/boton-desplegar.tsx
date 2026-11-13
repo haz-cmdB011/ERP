@@ -28,7 +28,7 @@ export default function BotonDesplegar({
       }}
       aria-expanded={abierto}
       aria-label={`${abierto ? "Ocultar" : "Mostrar"} ${descripcion}`}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-200/70 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-700"
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-500 transition-colors hover:bg-brand-100 pointer-coarse:h-11 pointer-coarse:w-11 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-700"
     >
       <Chevron abierto={abierto} className={className} />
     </button>

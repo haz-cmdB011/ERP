@@ -104,7 +104,7 @@ export default function BuscadorOt({
     <form
       ref={formulario}
       method="get"
-      action="/produccion"
+      action="/produccion/pedidos"
       className="flex flex-wrap items-center gap-2"
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAbierto(false);
@@ -167,7 +167,7 @@ export default function BuscadorOt({
                         // El valor se aplica al renderizar: se envía después.
                         setTimeout(() => formulario.current?.requestSubmit(), 0);
                       }}
-                      className="rounded-full border border-slate-300 px-3 py-1 font-mono text-xs text-slate-700 hover:bg-slate-50"
+                      className="rounded-full border border-slate-300 px-3 py-1 font-mono text-xs text-slate-700 hover:bg-brand-50"
                     >
                       {ej}
                     </button>
@@ -183,7 +183,7 @@ export default function BuscadorOt({
                   if (lista.length === 0) return null;
                   return (
                     <li key={grupo} role="presentation">
-                      <p className="bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      <p className="bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                         {grupo}
                       </p>
                       <ul role="presentation">
@@ -193,7 +193,7 @@ export default function BuscadorOt({
                             <li key={s.clave} role="option" aria-selected={resaltada}>
                               <Link
                                 href={s.href}
-                                className={`flex flex-col px-3 py-2 text-sm hover:bg-slate-50 ${
+                                className={`flex flex-col px-3 py-2 text-sm hover:bg-brand-50 ${
                                   resaltada ? "bg-brand-50" : ""
                                 }`}
                               >
@@ -210,7 +210,7 @@ export default function BuscadorOt({
                 <li role="presentation" className="border-t border-slate-100">
                   <button
                     type="submit"
-                    className="w-full px-3 py-2 text-left text-sm text-brand-700 hover:bg-slate-50"
+                    className="w-full px-3 py-2 text-left text-sm text-brand-700 hover:bg-brand-50"
                   >
                     Buscar &ldquo;{texto.trim()}&rdquo; también en muebles y modelos →
                   </button>

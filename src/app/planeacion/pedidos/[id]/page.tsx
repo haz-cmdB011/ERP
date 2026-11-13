@@ -9,7 +9,7 @@ import type { EstadoRevision } from "@/lib/planeacion/estado-revision";
 import CancelarPedido from "./cancelar-pedido";
 import EstadoVacio from "@/components/estado-vacio";
 import ItemsTabla, { type MuebleTabla } from "./items-tabla";
-import { getImagenesConGrandePorItem, type ImagenItemUrls } from "@/lib/planeacion/imagenes";
+import { getImagenesConGrandePorItem, type ImagenItemUrls } from "@/lib/compartido/imagenes";
 import { getPlanosPorItem, pmDePlanos, type PlanoLink } from "@/lib/planos/planos-por-item";
 import { resumirCancelacion, type ItemParaCancelar } from "@/lib/planeacion/resumen-cancelacion";
 import LineaTiempoPm from "./linea-tiempo-pm";
@@ -17,7 +17,7 @@ import { armarLineaTiempo, type LineaTiempo } from "@/lib/planeacion/linea-tiemp
 import { asignacionesDePedido, idsConInformeDeCalidad } from "@/lib/planeacion/linea-tiempo-db";
 import { cargarRutas, type RutaGuardada } from "@/lib/produccion/rutas-db";
 import { cargarPartes } from "@/lib/produccion/partes-db";
-import type { ParteMueble } from "@/lib/produccion/flujo-mueble";
+import type { ParteDespiece } from "@/lib/produccion/flujo-mueble";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 
 import { paginarTodo } from "@/lib/supabase/paginar";
@@ -176,14 +176,25 @@ export default async function PedidoDetailPage({
       // Es un resumen: sin rutas cuenta un paso por proceso en vez de tumbar la pantalla.
       cargarRutas(supabase, mueblesIds).catch(() => new Map<string, RutaGuardada>()),
       // Igual sin partes: cuenta las que ya tienen asignaciones.
-      cargarPartes(supabase, mueblesIds).catch(() => new Map<string, ParteMueble[]>()),
+      cargarPartes(supabase, mueblesIds).catch(() => new Map<string, ParteDespiece[]>()),
     ]);
     tiempo = armarLineaTiempo(
       items,
       asignaciones,
       conInforme,
-      new Map([...rutas].map(([itemId, r]) => [itemId, r.pasos.filter((p) => p.id !== null) as { id: string; proceso: string }[]])),
-      new Map([...partes].map(([itemId, ps]) => [itemId, ps.map((p) => p.id)]))
+      // Los pasos del mueble completo y los de cada parte (cada una tiene su ruta).
+      new Map(
+        [...rutas].map(([itemId, r]) => [
+          itemId,
+          [
+            ...r.pasos.flatMap((p) => (p.id ? [{ id: p.id, proceso: p.proceso, parteId: null }] : [])),
+            ...[...r.partes].flatMap(([parteId, ps]) =>
+              ps.flatMap((p) => (p.id ? [{ id: p.id, proceso: p.proceso, parteId }] : []))
+            ),
+          ],
+        ])
+      ),
+      new Map([...partes].map(([itemId, ps]) => [itemId, ps.map((p) => ({ id: p.id, piezasPorMueble: p.piezasPorMueble }))]))
     );
   }
 
@@ -250,7 +261,7 @@ export default async function PedidoDetailPage({
   );
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <Migas
         items={[
           { etiqueta: "Pedidos", href: "/planeacion" },
@@ -261,7 +272,7 @@ export default async function PedidoDetailPage({
         ]}
       />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{pedido.numero_pedido}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{pedido.numero_pedido}</h1>
         <p className="text-sm text-slate-600">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
@@ -339,7 +350,7 @@ export default async function PedidoDetailPage({
                           <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                             Versión {v.numero_version}
                             {v.es_version_activa && (
-                              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] font-semibold text-brand-800">
+                              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800">
                                 activa
                               </span>
                             )}
@@ -349,14 +360,14 @@ export default async function PedidoDetailPage({
                         <div className="flex flex-wrap gap-2">
                           <Link
                             href={`${base}?version=${v.numero_version}`}
-                            className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-brand-50"
                           >
                             Ver muebles
                           </Link>
                           {v.numero_version > 1 && (
                             <Link
                               href={`${base}/cambios?a=${v.numero_version}`}
-                              className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-brand-700 hover:bg-slate-50"
+                              className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-brand-700 hover:bg-brand-50"
                             >
                               Qué cambió
                             </Link>

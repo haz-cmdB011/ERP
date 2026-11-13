@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { usePresencia } from "@/lib/ui/use-presencia";
 
 // Opciones del menú "Más": lo secundario de una pantalla o de una fila, para que a la vista
 // quede solo la acción principal. Una opción es un enlace (`href`) o una acción (`alHacer`).
@@ -25,6 +26,7 @@ export default function MenuMas({
   compacto?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const { montado, saliendo } = usePresencia(abierto, 150);
   const [posicion, setPosicion] = useState<{ top: number; right: number } | null>(null);
   const botonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -75,7 +77,7 @@ export default function MenuMas({
         ? "cursor-not-allowed text-slate-300"
         : peligro
           ? "text-rose-700 hover:bg-rose-50"
-          : "text-slate-700 hover:bg-slate-50"
+          : "text-slate-700 hover:bg-brand-50"
     }`;
 
   return (
@@ -87,7 +89,7 @@ export default function MenuMas({
         aria-haspopup="menu"
         aria-expanded={abierto}
         aria-label={etiquetaAccesible}
-        className={`inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white font-medium text-slate-700 transition-colors hover:bg-slate-50 ${
+        className={`inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white font-medium text-slate-700 transition-colors hover:bg-brand-50 ${
           compacto ? "min-h-9 px-2 text-xs pointer-coarse:min-h-11 sm:px-2.5" : "min-h-10 px-3 text-sm"
         }`}
       >
@@ -105,12 +107,13 @@ export default function MenuMas({
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
-      {abierto && posicion && (
+      {montado && posicion && (
         <div
           ref={panelRef}
           role="menu"
+          data-saliendo={saliendo || undefined}
           style={{ position: "fixed", top: posicion.top, right: posicion.right }}
-          className="z-50 min-w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+          className="anim-menu z-50 min-w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
           onClick={(e) => e.stopPropagation()}
         >
           {opciones.map((o) =>

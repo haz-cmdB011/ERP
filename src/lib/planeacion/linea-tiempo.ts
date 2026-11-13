@@ -39,13 +39,22 @@ export interface AsignacionTiempo {
   parte_id?: string | null;
 }
 
-// Partes vigentes del despiece de cada mueble (sus ids). Un mueble que no aparece
-// cuenta las partes que ya tienen asignaciones.
-export type PartesPorMueble = ReadonlyMap<string, readonly string[]>;
+// Partes vigentes del despiece de cada mueble: su id o, con sus datos, las piezas por
+// mueble (sus asignaciones van en piezas). Solo el id = 1 pieza por mueble. Un mueble que
+// no aparece cuenta las partes que ya tienen asignaciones.
+export interface ParteTiempo {
+  id: string;
+  piezasPorMueble: number;
+}
+export type PartesPorMueble = ReadonlyMap<string, readonly (string | ParteTiempo)[]>;
 
-// Pasos vigentes de la ruta guardada de cada mueble, en orden. Un mueble sin
-// ruta guardada cuenta un paso por proceso.
-export type PasosPorMueble = ReadonlyMap<string, readonly { id: string; proceso: string }[]>;
+// Pasos vigentes de las rutas guardadas de cada mueble, en orden: los del mueble completo
+// (parteId null u omitido) y los de cada parte, que tiene su propia ruta (migración
+// rutas_por_parte). Un mueble sin ruta guardada cuenta un paso por proceso.
+export type PasosPorMueble = ReadonlyMap<
+  string,
+  readonly { id: string; proceso: string; parteId?: string | null }[]
+>;
 
 export interface LineaTiempo {
   muebles: number;
@@ -73,54 +82,71 @@ export function armarLineaTiempo(
   const liberados = vigentes.filter((i) => i.estado_liberacion === "enviado_a_produccion");
   const mueblesLiberados = liberados.filter((i) => i.tipo_registro === "MO");
 
-  // Los pasos de cada proceso en la ruta del mueble; sin ruta guardada, uno por
-  // proceso (con clave del proceso).
-  const pasosDe = (itemId: string, proceso: string): string[] => {
-    const ruta = pasos.get(itemId);
-    if (!ruta || ruta.length === 0) return [`proceso:${proceso}`];
-    return ruta.filter((p) => p.proceso === proceso).map((p) => p.id);
-  };
-
-  // Asignado y entregado por mueble y paso (sin lo cancelado ni los retrabajos).
-  // Una asignación cuyo paso no está en la ruta va al primer paso de su proceso.
-  // Por partes, cuenta lo del mueble completo más la parte más atrasada (como
-  // cobertura_por_partes en la base): un mueble está asignado cuando todas sus partes.
   const vigentesAsig = asignaciones.filter(
     (a) => !a.cancelada_en && a.planeacion_item_id && !a.informe_rechazo_id && !a.revision_final_rechazo_id
   );
-  const partesDe = (itemId: string): readonly string[] =>
-    partes.get(itemId) ??
-    [...new Set(vigentesAsig.flatMap((a) => (a.planeacion_item_id === itemId && a.parte_id ? [a.parte_id] : [])))];
-  const sumaPor = new Map<string, { mueble: { a: number; e: number }; partes: Map<string, { a: number; e: number }> }>();
-  for (const a of vigentesAsig) {
-    const itemId = a.planeacion_item_id as string;
-    const delProceso = pasosDe(itemId, a.proceso);
-    const paso = a.paso_id && delProceso.includes(a.paso_id) ? a.paso_id : delProceso[0];
-    if (!paso) continue;
-    const clave = `${itemId}|${paso}`;
-    const s = sumaPor.get(clave) ?? { mueble: { a: 0, e: 0 }, partes: new Map() };
-    const destino = a.parte_id ? (s.partes.get(a.parte_id) ?? { a: 0, e: 0 }) : s.mueble;
-    destino.a += Number(a.cantidad);
-    destino.e += Number(a.entregado);
-    if (a.parte_id) s.partes.set(a.parte_id, destino);
-    sumaPor.set(clave, s);
-  }
+  const partesDe = (itemId: string): ParteTiempo[] =>
+    (
+      partes.get(itemId) ??
+      [...new Set(vigentesAsig.flatMap((a) => (a.planeacion_item_id === itemId && a.parte_id ? [a.parte_id] : [])))]
+    ).map((p) => (typeof p === "string" ? { id: p, piezasPorMueble: 1 } : p));
+  const conRuta = (itemId: string) => (pasos.get(itemId)?.length ?? 0) > 0;
+
+  // Los pasos de un proceso en la ruta de su dueño (el mueble completo, parte "", o una
+  // parte); sin ruta guardada, uno por proceso (con clave del proceso).
+  const pasosDe = (itemId: string, parte: string, proceso: string): string[] => {
+    if (!conRuta(itemId)) return [`proceso:${proceso}`];
+    return (pasos.get(itemId) ?? [])
+      .filter((p) => (p.parteId ?? "") === parte && p.proceso === proceso)
+      .map((p) => p.id);
+  };
+
+  // Asignado y entregado por mueble, dueño y paso (sin lo cancelado ni los retrabajos), en
+  // muebles (lo de una parte, sus piezas ÷ piezas por mueble). Una asignación cuyo paso no
+  // está en la ruta va al primer paso de su proceso.
+  const piezasPor = (itemId: string, parte: string) =>
+    partesDe(itemId).find((p) => p.id === parte)?.piezasPorMueble ?? 1;
   const asignadoPor = new Map<string, number>();
   const entregadoPor = new Map<string, number>();
-  for (const [clave, s] of sumaPor) {
-    const ids = partesDe(clave.split("|")[0]);
-    const minimo = (campo: "a" | "e") => (ids.length ? Math.min(...ids.map((id) => s.partes.get(id)?.[campo] ?? 0)) : 0);
-    asignadoPor.set(clave, s.mueble.a + minimo("a"));
-    entregadoPor.set(clave, s.mueble.e + minimo("e"));
+  for (const a of vigentesAsig) {
+    const itemId = a.planeacion_item_id as string;
+    const parte = a.parte_id ?? "";
+    const delProceso = pasosDe(itemId, parte, a.proceso);
+    const paso = a.paso_id && delProceso.includes(a.paso_id) ? a.paso_id : delProceso[0];
+    if (!paso) continue;
+    const clave = `${itemId}|${parte}|${paso}`;
+    const ppm = parte ? piezasPor(itemId, parte) : 1;
+    asignadoPor.set(clave, (asignadoPor.get(clave) ?? 0) + Number(a.cantidad) / ppm);
+    entregadoPor.set(clave, (entregadoPor.get(clave) ?? 0) + Number(a.entregado) / ppm);
   }
 
+  // Un mueble cuenta en un proceso cuando cada paso del mueble completo con ese proceso y,
+  // en sus partes, cada vez que lo llevan (la parte más atrasada, como cobertura_partes_vez
+  // en la base) alcanzan su cantidad. Sin ruta guardada, lo del mueble completo más la parte
+  // más atrasada.
+  // Lo de una parte pasado a muebles se trunca a dos decimales, como en la base.
+  const enMuebles = (porClave: Map<string, number>, itemId: string, parte: string, paso: string) => {
+    const n = porClave.get(`${itemId}|${parte}|${paso}`) ?? 0;
+    return parte ? Math.floor(n * 100 + 1e-9) / 100 : n;
+  };
   const contar = (porClave: Map<string, number>, proceso: Proceso): number =>
     mueblesLiberados.filter((m) => {
-      const delProceso = pasosDe(m.id, proceso);
-      return (
-        delProceso.length > 0 &&
-        delProceso.every((p) => (porClave.get(`${m.id}|${p}`) ?? 0) + TOLERANCIA >= Number(m.cantidad_total))
-      );
+      const cantidad = Number(m.cantidad_total);
+      const alcanza = (n: number) => n + TOLERANCIA >= cantidad;
+      const ps = partesDe(m.id);
+      if (!conRuta(m.id)) {
+        const clave = `proceso:${proceso}`;
+        const minimo = ps.length ? Math.min(...ps.map((p) => enMuebles(porClave, m.id, p.id, clave))) : 0;
+        return alcanza(enMuebles(porClave, m.id, "", clave) + minimo);
+      }
+      const requisitos = pasosDe(m.id, "", proceso).map((paso) => enMuebles(porClave, m.id, "", paso));
+      const veces = ps.map((p) => ({ p, pasos: pasosDe(m.id, p.id, proceso) }));
+      for (let vez = 0; veces.some((x) => vez < x.pasos.length); vez++) {
+        requisitos.push(
+          Math.min(...veces.filter((x) => vez < x.pasos.length).map((x) => enMuebles(porClave, m.id, x.p.id, x.pasos[vez])))
+        );
+      }
+      return requisitos.length > 0 && requisitos.every(alcanza);
     }).length;
 
   return {

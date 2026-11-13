@@ -3,7 +3,7 @@
 // "@sitio-malo.com" o "//sitio-malo.com" pegado a `${origin}${next}` mandaba a la
 // persona a otro dominio justo después de iniciar sesión (redirección abierta,
 // útil para phishing).
-export function rutaInternaSegura(next: string | null | undefined, porDefecto = "/planeacion"): string {
+export function rutaInternaSegura(next: string | null | undefined, porDefecto = "/"): string {
   if (!next) return porDefecto;
   // Debe ser una ruta absoluta del sitio ("/algo"), no "//otro.com", "/\otro.com" ni "algo".
   if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return porDefecto;

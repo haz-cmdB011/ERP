@@ -10,9 +10,9 @@ describe("rutaInternaSegura", () => {
   });
 
   it("usa el destino por defecto si no hay valor", () => {
-    expect(rutaInternaSegura(null)).toBe("/planeacion");
+    expect(rutaInternaSegura(null)).toBe("/");
     expect(rutaInternaSegura(undefined, "/inicio")).toBe("/inicio");
-    expect(rutaInternaSegura("")).toBe("/planeacion");
+    expect(rutaInternaSegura("")).toBe("/");
   });
 
   it("rechaza todo lo que saldría del sitio", () => {
@@ -29,7 +29,7 @@ describe("rutaInternaSegura", () => {
       "/ruta\\con\\barras",
     ];
     for (const valor of peligrosos) {
-      expect(rutaInternaSegura(valor), valor).toBe("/planeacion");
+      expect(rutaInternaSegura(valor), valor).toBe("/");
     }
   });
 });

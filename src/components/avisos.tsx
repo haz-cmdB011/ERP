@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SALIDA_MS } from "@/lib/ui/use-presencia";
 
 export type TipoAviso = "exito" | "error" | "info";
 
@@ -77,10 +78,25 @@ export default function Avisos() {
     new Map<number, ReturnType<typeof setTimeout>>(),
   );
 
+  // Los que se están yendo: se deslizan hacia el borde y luego se quitan.
+  const [saliendo, setSaliendo] = useState<ReadonlySet<number>>(new Set());
+
   const cerrar = useCallback((id: number) => {
     clearTimeout(temporizadores.current.get(id));
     temporizadores.current.delete(id);
-    setAvisos((lista) => lista.filter((a) => a.id !== id));
+    setSaliendo((s) => new Set(s).add(id));
+    const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(
+      () => {
+        setAvisos((lista) => lista.filter((a) => a.id !== id));
+        setSaliendo((s) => {
+          const n = new Set(s);
+          n.delete(id);
+          return n;
+        });
+      },
+      sinMovimiento ? 0 : SALIDA_MS,
+    );
   }, []);
 
   const programarCierre = useCallback(
@@ -115,18 +131,21 @@ export default function Avisos() {
   }, [programarCierre]);
 
   return (
-    // Abajo al centro en pantallas angostas (celular/tablet vertical), abajo a
-    // la derecha en las anchas. Los avisos de error se anuncian de inmediato a
-    // los lectores de pantalla; los demás, cuando terminan de hablar.
+    // Arriba al centro en pantallas angostas (celular/tablet vertical): abajo
+    // tapaban por varios segundos la barra de "Guardar" y los botones del pie, y
+    // el toque caía en el aviso. Abajo a la derecha en las anchas. Los avisos de
+    // error se anuncian de inmediato a los lectores de pantalla; los demás,
+    // cuando terminan de hablar.
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:items-end print:hidden"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex flex-col items-center gap-2 p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:top-auto sm:bottom-0 sm:items-end sm:pt-4 print:hidden"
     >
       {avisos.map((aviso) => {
         const estilo = ESTILO[aviso.tipo];
         return (
           <div
             key={aviso.id}
+            data-saliendo={saliendo.has(aviso.id) || undefined}
             role={aviso.tipo === "error" ? "alert" : "status"}
             onMouseEnter={() =>
               clearTimeout(temporizadores.current.get(aviso.id))
@@ -156,7 +175,7 @@ export default function Avisos() {
                   cerrar(aviso.id);
                   void aviso.accion?.alHacer();
                 }}
-                className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+                className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 pointer-coarse:py-2"
               >
                 {aviso.accion.etiqueta}
               </button>
@@ -164,7 +183,7 @@ export default function Avisos() {
             <button
               type="button"
               onClick={() => cerrar(aviso.id)}
-              className="-m-1 rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              className="-m-1 rounded p-1 text-slate-500 transition-colors hover:bg-brand-100 hover:text-slate-700"
               aria-label="Cerrar aviso"
             >
               <svg

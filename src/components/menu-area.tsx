@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { AccionesDelMenu, ResumenDelMenu, useHayPendientesEnMenu } from "./resumen-menu";
+import { usePresencia } from "@/lib/ui/use-presencia";
 
 // Avisa a los enlaces del menú (SubnavLink) que cierren el cajón al elegir.
 const CerrarMenu = createContext<() => void>(() => {});
@@ -21,6 +22,8 @@ export default function MenuArea({
   const hayPendientes = useHayPendientesEnMenu();
   const boton = useRef<HTMLButtonElement>(null);
   const cajon = useRef<HTMLElement>(null);
+  // Al cerrar, el cajón se desliza de regreso antes de desmontarse.
+  const { montado, saliendo } = usePresencia(abierto);
 
   useEffect(() => {
     if (!abierto) return;
@@ -77,8 +80,9 @@ export default function MenuArea({
         )}
       </button>
 
-      {abierto && (
+      {montado && (
         <div
+          data-saliendo={saliendo || undefined}
           className="fixed inset-0 z-50 flex bg-scrim/30 print:hidden"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) cerrar();
@@ -101,7 +105,7 @@ export default function MenuArea({
                   cerrar();
                   boton.current?.focus();
                 }}
-                className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-brand-100 hover:text-slate-800"
                 aria-label="Cerrar menú"
               >
                 ✕

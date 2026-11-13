@@ -75,7 +75,7 @@ export default function DialogoMotivo({
             type="button"
             onClick={onCancelar}
             disabled={enviando}
-            className="rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 sm:py-2 sm:text-sm"
+            className="rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-700 transition-colors hover:bg-brand-50 disabled:opacity-50 sm:py-2 sm:text-sm"
           >
             Volver
           </button>

@@ -12,6 +12,7 @@ export default function FiltroCliente({
   q,
   anio,
   entrega,
+  estado,
 }: {
   base: string;
   clientes: string[];
@@ -19,6 +20,7 @@ export default function FiltroCliente({
   q?: string;
   anio?: string;
   entrega?: string;
+  estado?: string;
 }) {
   const router = useRouter();
   return (
@@ -27,7 +29,7 @@ export default function FiltroCliente({
       <select
         value={valor}
         onChange={(e) =>
-          router.push(hrefListaPedidos(base, { q, anio, entrega, cliente: e.target.value || undefined }))
+          router.push(hrefListaPedidos(base, { q, anio, entrega, estado, cliente: e.target.value || undefined }))
         }
         className="max-w-xs rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm focus:border-brand-600 focus:outline-none"
       >

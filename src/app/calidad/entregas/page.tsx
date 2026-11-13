@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import PestanasSeccion from "@/app/calidad/pestanas-seccion";
 import EnlaceFila from "@/components/enlace-fila";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEvaluarCalidad } from "@/lib/auth/get-perfil";
@@ -32,13 +31,13 @@ export default async function EntregasProduccionPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <PestanasSeccion seccion="revision" />
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Entregas de Producción</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Lo que Producción ya verificó, por fecha de entrega. Revisarlas aquí es opcional: úsalo si encuentras
-            una falla en un proceso. El mueble completo se revisa en la revisión final.
+            Cada entrega de un proceso, del mueble completo o de una de sus partes, por fecha. Apruébala o no
+            aquí; lo aprobado es lo que se le paga al maquilador. El mueble terminado también se revisa completo en
+            la revisión final.
           </p>
         </div>
         {lista.length > 0 && (
@@ -56,8 +55,7 @@ export default async function EntregasProduccionPage() {
         />
       ) : (
         <>
-          {/* Tarjetas (celular) */}
-          <ul className="flex flex-col gap-3 md:hidden">
+          <ul className="grid gap-3 md:grid-cols-2">
             {lista.map((l) => (
               <li key={l.entrega_id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
@@ -94,70 +92,6 @@ export default async function EntregasProduccionPage() {
               </li>
             ))}
           </ul>
-
-          {/* Tabla (pantallas anchas) */}
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm md:block">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">Entregada</th>
-                  <th className="px-4 py-3">PM</th>
-                  <th className="px-4 py-3">Mueble</th>
-                  <th className="px-4 py-3">Proceso y equipo</th>
-                  <th className="px-4 py-3">Sin revisar</th>
-                  <th className="px-4 py-3">Verificada</th>
-                  <th className="px-4 py-3">Origen</th>
-                  {puedeEvaluar && <th className="px-4 py-3" />}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {lista.map((l) => {
-                  return (
-                    <tr key={l.entrega_id} className="align-top transition-colors hover:bg-slate-50">
-                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
-                        {formatoFecha(l.fecha_entrega)}
-                      </td>
-                      <td className="px-4 py-3 text-slate-900">{l.numero_pedido}</td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {l.planeacion_item_id ? (
-                          <EnlaceFila
-                            href={`/calidad/escanear/${l.planeacion_item_id}`}
-                            className="hover:text-brand-700 hover:underline"
-                          >
-                            {l.modelo ?? "—"}
-                          </EnlaceFila>
-                        ) : (
-                          (l.modelo ?? "—")
-                        )}{" "}
-                        <span className="text-xs text-slate-500">· ítem {l.item_code}</span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {etiquetaProceso(l)}
-                        <span className="block text-xs text-slate-500">{l.equipo}</span>
-                        {l.folio_hoja && (
-                          <span className="block text-xs text-slate-500">Hoja: {l.folio_hoja}</span>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">
-                        {l.pendiente} de {l.cantidad} {l.unidad ?? ""}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {formatoFechaDMA(l.verificada_en)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Origen lote={l} />
-                      </td>
-                      {puedeEvaluar && (
-                        <td className="px-4 py-3 text-right">
-                          <EvaluarLote lote={l} />
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         </>
       )}
     </main>

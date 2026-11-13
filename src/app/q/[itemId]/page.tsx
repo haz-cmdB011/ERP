@@ -8,7 +8,7 @@ import {
   puedeEditarProduccion,
   puedeEvaluarCalidad,
 } from "@/lib/auth/get-perfil";
-import { inicioDeRol } from "@/lib/auth/acceso";
+import { inicioDePerfil } from "@/lib/auth/acceso";
 import { destinoDeLogin } from "@/lib/seguridad/ruta-protegida";
 import SinAcceso from "@/components/sin-acceso";
 import ChipPlazo from "@/app/produccion/chip-plazo";
@@ -27,10 +27,21 @@ import { enTaller } from "@/lib/produccion/atrasos";
 import { plazosDePedidos } from "@/lib/produccion/cargar-taller";
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
-import { avancePaso, indiceSiguiente, opcionesDePasos, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
-import { etiquetaPaso, rutaSugerida } from "@/lib/produccion/ruta";
+import {
+  avanceColumna,
+  columnasMueble,
+  partesConRuta,
+  requiereDespiece,
+  avancePaso,
+  opcionesAsignar,
+  rutasDelFlujo,
+  siguienteAsignable,
+  type MuebleFlujo,
+} from "@/lib/produccion/flujo-mueble";
+import { etiquetaPaso, pasosDeTodasLasRutas } from "@/lib/produccion/ruta";
+import { cargarPartes } from "@/lib/produccion/partes-db";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
-import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
+import { revisionFinalActiva } from "@/lib/compartido/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import { lotesPorEvaluar, normalizarLote, type LoteCalidad } from "@/lib/calidad/lotes";
 import { getPlanosPorItem, pmDePlanos } from "@/lib/planos/planos-por-item";
@@ -43,7 +54,7 @@ import {
   type AccionQr,
   type AreaQr,
 } from "@/lib/trazabilidad/areas-qr";
-import { resumenRuta } from "@/lib/trazabilidad/resumen-ruta";
+import { resumenRuta, resumenRutaDeArea, type EntradaRuta } from "@/lib/trazabilidad/resumen-ruta";
 import { lineaTiempoMueble } from "@/lib/trazabilidad/linea-tiempo-mueble";
 import { cargarLineaTiempo } from "@/lib/trazabilidad/linea-tiempo-db";
 import { cobrosDelMueble, resumenPago } from "@/lib/trazabilidad/pago-maquilador";
@@ -53,6 +64,7 @@ import RutaQr from "./ruta-qr";
 import RechazosQr, { type RechazoQr } from "./rechazos-qr";
 import EntregasCalidadQr from "./entregas-calidad-qr";
 import PagoQr from "./pago-qr";
+import { conLotesDePartes } from "@/lib/calidad/lotes-partes-db";
 
 export const metadata: Metadata = { title: "Mueble" };
 
@@ -90,7 +102,7 @@ interface ItemEscaneado {
 const ESTILO_PRINCIPAL =
   "flex min-h-12 w-full items-center justify-center rounded-xl bg-brand-500 px-4 py-3 text-base font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-400";
 const ESTILO_OPCION =
-  "flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50";
+  "flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-brand-50";
 
 // Destino del QR de la Hoja de Viajero: /q/<ítem>. El QR lleva solo el id del mueble (la
 // dirección completa de la hoja lleva dos ids y daba un código tan denso que el celular lo
@@ -124,7 +136,7 @@ export default async function FichaMuebleQrPage({
       <SinAcceso
         titulo="Este QR es del personal interno"
         mensaje="Tu cuenta es de maquilador y solo tiene acceso a Estimaciones."
-        hrefInicio={inicioDeRol(perfil.rol)}
+        hrefInicio={inicioDePerfil(perfil)}
         etiquetaInicio="Ir a mis recibos"
       />
     );
@@ -134,7 +146,7 @@ export default async function FichaMuebleQrPage({
       <SinAcceso
         titulo="Tu cuenta está pendiente de aprobación"
         mensaje="Un administrador debe asignarte un rol y un área para que puedas ver este mueble."
-        hrefInicio="/planeacion/cuenta"
+        hrefInicio="/cuenta"
         etiquetaInicio="Ir a mi perfil"
       />
     );
@@ -161,13 +173,22 @@ export default async function FichaMuebleQrPage({
   }
 
   const hoy = hoyMexico();
-  const [componentes, asignaciones, folio, plazos, rutas, finalActiva, planos, recibosOt] = await Promise.all([
+  const [componentes, asignaciones, folio, plazos, rutas, finalActiva, planos, recibosOt, partes] = await Promise.all([
     leer(
       supabase
         .from("planeacion_items")
-        .select("id, item_code, modelo, descripcion")
+        .select("id, item_code, modelo, descripcion, eliminacion_solicitada_en, estado_revision")
         .eq("parent_item_id", item.id)
-        .returns<{ id: string; item_code: number; modelo: string | null; descripcion: string | null }[]>(),
+        .returns<
+          {
+            id: string;
+            item_code: number;
+            modelo: string | null;
+            descripcion: string | null;
+            eliminacion_solicitada_en: string | null;
+            estado_revision: string | null;
+          }[]
+        >(),
       "los componentes del mueble"
     ),
     leer(
@@ -192,6 +213,8 @@ export default async function FichaMuebleQrPage({
     // Los datos del plano (especificación, acabados, notas): el PDF vive en el servidor de Ingeniería.
     getPlanosPorItem(supabase, pmDePlanos(pedido), [item]),
     cargarRecibosDeOt(supabase, pedido.orden_trabajo ?? pedido.numero_pedido),
+    // Partes del despiece: con componentes se asigna por partes.
+    cargarPartes(supabase, [item.id]),
   ]);
   const cobros = cobrosDelMueble(
     {
@@ -211,7 +234,7 @@ export default async function FichaMuebleQrPage({
     electrificacion: admiteElectrificacion(item.descripcion, hijos),
     superficie_solida: admiteSuperficieSolida(item.descripcion, hijos),
   };
-  const guardada = rutas.get(item.id);
+  const rutasMueble = rutasDelFlujo(rutas.get(item.id), aplica, partes.get(item.id) ?? []);
   const resumenFinal = finalActiva ? (await cargarRevisionFinal(supabase, [item.id])).resumen.get(item.id) : null;
   const todas = asignaciones ?? [];
   const flujo: MuebleFlujo = {
@@ -221,11 +244,21 @@ export default async function FichaMuebleQrPage({
     unidad: item.unidad,
     cantidad: Number(item.cantidad_total),
     aplica,
-    ruta: guardada && guardada.pasos.length > 0 ? guardada.pasos : rutaSugerida(aplica),
-    versionRuta: guardada?.version ?? 0,
+    ruta: rutasMueble.ruta,
+    versionRuta: rutas.get(item.id)?.version ?? 0,
+    porPartes: rutas.get(item.id)?.porPartes ?? false,
     asignaciones: todas,
     revisionFinal: finalActiva ? { aprobadas: resumenFinal?.aprobadas ?? 0 } : null,
+    partes: rutasMueble.partes,
+    conComponentes: (componentes ?? []).some(
+      (c) => !c.eliminacion_solicitada_en && c.estado_revision !== "cancelado"
+    ),
   };
+
+  const areas = areasQrDePerfil(perfil);
+  const area = areaQrElegida(areas, areaPedida);
+  // El pago al maquilador (en la ruta y en el historial) solo lo ve Estimaciones.
+  const verPago = area === "estimaciones";
 
   const eventos = lineaTiempoMueble(
     await cargarLineaTiempo(supabase, {
@@ -234,7 +267,7 @@ export default async function FichaMuebleQrPage({
       folio: folio ?? null,
       asignaciones: todas,
       ruta: flujo.ruta,
-      cobros,
+      cobros: verPago ? cobros : [],
     })
   );
 
@@ -243,23 +276,28 @@ export default async function FichaMuebleQrPage({
     !!pedido.cancelado_en || !!item.eliminacion_solicitada_en || item.estado_revision === "cancelado";
   const plazo = plazos.get(pedido.id);
   const unidad = item.unidad ?? "pz";
-  const siguiente = indiceSiguiente(flujo);
   const faltanEntregar =
     Math.round(todas.filter(enTaller).reduce((s, a) => s + Number(a.cantidad) - Number(a.entregado), 0) * 100) / 100;
-  // El paso que se ofrece al asignar: el que sigue en la ruta o, si ya está asignado completo,
-  // el primero que todavía tenga piezas por asignar.
-  const opciones = opcionesDePasos(flujo);
-  const sigue =
-    opciones.find((p) => p.indice === siguiente && p.disponible > 0) ?? opciones.find((p) => p.disponible > 0);
+  // Lo que se ofrece al asignar: lo que sigue (una parte o el mueble completo) o, si ya está
+  // asignado, lo primero que todavía tenga lugar.
+  const sigue = siguienteAsignable(flujo);
 
-  const ruta = resumenRuta({
+  const entradaRuta: EntradaRuta = {
     liberado,
     cantidad: flujo.cantidad,
     unidad,
-    pasos: flujo.ruta.map((_, i) => {
-      const a = avancePaso(flujo, i);
-      return { etiqueta: etiquetaPaso(flujo.ruta, i), estado: a.estado, entregado: a.entregado };
-    }),
+    // Con despiece, un tramo por proceso (todas sus partes y el mueble completo; lo entregado
+    // son los muebles completos que alcanza lo más atrasado); sin despiece, los pasos de su ruta.
+    pasos:
+      partesConRuta(flujo).length > 0
+        ? columnasMueble(flujo).map((c) => {
+            const a = avanceColumna(flujo, c);
+            return { etiqueta: c.etiqueta, estado: a.estado, entregado: a.muebles };
+          })
+        : flujo.ruta.map((_, i) => {
+            const a = avancePaso(flujo, i);
+            return { etiqueta: etiquetaPaso(flujo.ruta, i), estado: a.estado, entregado: a.entregado };
+          }),
     revisionFinal: resumenFinal
       ? {
           aprobadas: resumenFinal.aprobadas,
@@ -267,11 +305,13 @@ export default async function FichaMuebleQrPage({
           liberado: resumenFinal.liberado_a_obra,
         }
       : null,
-    pago: { estado: pago.estado, cobrado: pago.cobrado, pagado: pago.pagado },
-  });
+    pago: verPago ? { estado: pago.estado, cobrado: pago.cobrado, pagado: pago.pagado } : null,
+  };
 
-  const areas = areasQrDePerfil(perfil);
-  const area = areaQrElegida(areas, areaPedida);
+  // La ruta completa (Producción, revisión final y pago) es solo del desarrollador; cada área
+  // ve únicamente su tramo.
+  const rutaCompleta = perfil.rol === "desarrollador";
+  const ruta = rutaCompleta ? resumenRuta(entradaRuta) : area ? resumenRutaDeArea(entradaRuta, area) : null;
 
   // Asignar y reasignar desde el QR: solo en la pestaña de Producción y para quien puede
   // editar ahí (la base lo vuelve a revisar en crear_asignacion_produccion).
@@ -345,23 +385,26 @@ export default async function FichaMuebleQrPage({
   const lotesCalidad =
     area === "calidad" && liberado && puedeEvaluar
       ? lotesPorEvaluar(
-          (
-            (await leer(
-              supabase
-                .from("lotes_calidad")
-                .select("*")
-                .eq("planeacion_item_id", item.id)
-                .returns<LoteCalidad[]>(),
-              "lotes_calidad"
-            )) ?? []
-          ).map(normalizarLote)
+          await conLotesDePartes(
+            supabase,
+            (
+              (await leer(
+                supabase
+                  .from("lotes_calidad")
+                  .select("*")
+                  .eq("planeacion_item_id", item.id)
+                  .returns<LoteCalidad[]>(),
+                "lotes_calidad"
+              )) ?? []
+            ).map(normalizarLote),
+            { itemIds: [item.id] }
+          )
         )
       : [];
   const calidad = panelCalidadQr(resumenFinal ?? null, puedeEvaluar);
-  // Pasos guardados de la ruta: con la sugerida (sin guardar) no hay a dónde regresar lo rechazado.
-  const pasosRegreso = flujo.ruta.flatMap((p, n) =>
-    p.id ? [{ id: p.id, etiqueta: `${n + 1}. ${etiquetaPaso(flujo.ruta, n)}` }] : []
-  );
+  // Pasos guardados de las rutas (de cada parte y del mueble): con la sugerida (sin guardar) no
+  // hay a dónde regresar lo rechazado.
+  const pasosRegreso = pasosDeTodasLasRutas(flujo.ruta, flujo.partes ?? []);
 
   const rechazos: RechazoQr[] = [
     ...(rechazosLote ?? []).map((r) => ({
@@ -398,7 +441,12 @@ export default async function FichaMuebleQrPage({
         produccion: {
           puedeAsignar: asignarAqui,
           porEntregar: faltanEntregar,
-          porAsignar: sigue ? { paso: sigue.etiqueta, cantidad: sigue.disponible } : null,
+          porAsignar: sigue
+            ? {
+                paso: sigue.paso.etiqueta,
+                cantidad: sigue.paso.disponible,
+              }
+            : null,
         },
         calidad: {
           revisionFinal: calidad.revisionFinal,
@@ -429,10 +477,11 @@ export default async function FichaMuebleQrPage({
             itemId={item.id}
             descripcion={descripcionMueble}
             unidad={item.unidad}
-            pasos={opciones}
+            rutas={opcionesAsignar(flujo)}
             equipos={equipos ?? []}
             encargados={encargados ?? []}
-            pasoInicial={sigue?.indice}
+            faltaDespiece={requiereDespiece(flujo)}
+            inicial={sigue ? { parte: sigue.parte?.id ?? null, paso: sigue.paso.indice } : undefined}
             className={clase}
           >
             {a.etiqueta}
@@ -474,9 +523,9 @@ export default async function FichaMuebleQrPage({
           {item.modelo ?? `Ítem ${item.item_code}`}
         </h1>
         {item.descripcion && (
-          <p className="line-clamp-1 text-sm text-slate-700">{item.descripcion.split("\n")[0]}</p>
+          <p className="line-clamp-2 break-words text-sm text-slate-700">{item.descripcion.split("\n")[0]}</p>
         )}
-        <p className="truncate text-xs text-slate-500">
+        <p className="break-words text-xs text-slate-500">
           {pedido.proyectos?.nombre} — {pedido.proyectos?.cliente}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800">
@@ -505,7 +554,7 @@ export default async function FichaMuebleQrPage({
         </p>
       )}
 
-      <RutaQr resumen={ruta} />
+      {ruta && ruta.tramos.length > 0 && <RutaQr resumen={ruta} completa={rutaCompleta} />}
 
       {area && panel ? (
         <section aria-labelledby="acciones-titulo" className="flex flex-col gap-3">

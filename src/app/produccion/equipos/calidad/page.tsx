@@ -89,7 +89,7 @@ export default async function CalidadPorEquipoPage({
         </div>
         <Link
           href="/produccion/equipos"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-brand-50"
         >
           Equipos
         </Link>
@@ -104,7 +104,7 @@ export default async function CalidadPorEquipoPage({
             className={`rounded-full border px-3 py-1.5 transition-colors ${
               p.valor === periodo
                 ? "border-brand-500 bg-brand-50 font-medium text-brand-800"
-                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                : "border-slate-300 bg-white text-slate-600 hover:bg-brand-50"
             }`}
           >
             {p.etiqueta}
@@ -116,7 +116,7 @@ export default async function CalidadPorEquipoPage({
         <EstadoVacio
           titulo="Sin entregas en este periodo"
           descripcion="Cuando los equipos entreguen y se revise lo entregado, aquí aparecerán sus números."
-          accion={{ href: "/produccion/taller?vista=lista", etiqueta: "Ir al taller" }}
+          accion={{ href: "/produccion/panel", etiqueta: "Ir al panel de asignación" }}
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">

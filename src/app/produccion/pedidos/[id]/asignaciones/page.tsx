@@ -24,15 +24,22 @@ import DetalleAsignacion, {
 
 import { admiteElectrificacion } from "@/lib/produccion/electrificacion";
 import { admiteSuperficieSolida } from "@/lib/produccion/superficie-solida";
-import { disponibleDe, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
-import { rutaSugerida } from "@/lib/produccion/ruta";
+import { disponibleDe, rutasDelFlujo, seAsignaCompleto, type MuebleFlujo } from "@/lib/produccion/flujo-mueble";
 import { cargarRutas } from "@/lib/produccion/rutas-db";
 import { cargarPartes } from "@/lib/produccion/partes-db";
-import { revisionFinalActiva } from "@/lib/calidad/ajustes-flujo";
+import { entregasPorParte, partesParaEntrega } from "@/lib/produccion/entregas-partes";
+import { revisionFinalActiva } from "@/lib/compartido/ajustes-flujo";
 import { cargarRevisionFinal } from "@/lib/calidad/revision-final";
 import FlujoMuebles from "./flujo-muebles";
 import PestanasPedido from "../pestanas-pedido";
 import { leer } from "@/lib/supabase/leer";
+interface Componente {
+  parent_item_id: string | null;
+  descripcion: string | null;
+  eliminacion_solicitada_en: string | null;
+  estado_revision: string | null;
+}
+
 interface MuebleRow {
   id: string;
   item_code: number;
@@ -133,17 +140,22 @@ export default async function AsignacionesPedidoPage({
       ? leer(
           supabase
             .from("planeacion_items")
-            .select("parent_item_id, descripcion")
+            .select("parent_item_id, descripcion, eliminacion_solicitada_en, estado_revision")
             .eq("pedido_version_id", version.id)
             .eq("tipo_registro", "FU")
-            .returns<{ parent_item_id: string | null; descripcion: string | null }[]>(),
+            .returns<Componente[]>(),
           "los componentes"
         )
-      : Promise.resolve([] as { parent_item_id: string | null; descripcion: string | null }[]),
+      : Promise.resolve([] as Componente[]),
   ]);
 
   const descripcionesHijos = new Map<string, string[]>();
+  // Muebles con componentes vigentes: se asignan por su despiece.
+  const conComponentes = new Set<string>();
   for (const c of componentes ?? []) {
+    if (c.parent_item_id && !c.eliminacion_solicitada_en && c.estado_revision !== "cancelado") {
+      conComponentes.add(c.parent_item_id);
+    }
     if (!c.parent_item_id || !c.descripcion) continue;
     const lista = descripcionesHijos.get(c.parent_item_id) ?? [];
     lista.push(c.descripcion);
@@ -196,10 +208,10 @@ export default async function AsignacionesPedidoPage({
     };
   };
 
-  // Cada mueble con su ruta: la guardada o, si aún no tiene, la sugerida.
+  // Cada mueble con su ruta y la de cada parte: las guardadas o, si aún no tienen, las sugeridas.
   const flujo: MuebleFlujo[] = liberados.map((m) => {
-    const guardada = rutas.get(m.id);
     const aplica = aplicaA(m);
+    const r = rutasDelFlujo(rutas.get(m.id), aplica, partes.get(m.id) ?? []);
     return {
       id: m.id,
       item_code: m.item_code,
@@ -207,16 +219,27 @@ export default async function AsignacionesPedidoPage({
       unidad: m.unidad,
       cantidad: Number(m.cantidad_total),
       aplica,
-      ruta: guardada && guardada.pasos.length > 0 ? guardada.pasos : rutaSugerida(aplica),
-      versionRuta: guardada?.version ?? 0,
+      ruta: r.ruta,
+      versionRuta: rutas.get(m.id)?.version ?? 0,
+      porPartes: rutas.get(m.id)?.porPartes ?? false,
       asignaciones: porItem.get(m.id) ?? [],
       revisionFinal: revisionFinal ? { aprobadas: revisionFinal.get(m.id)?.aprobadas ?? 0 } : null,
-      partes: partes.get(m.id) ?? [],
+      partes: r.partes,
+      conComponentes: conComponentes.has(m.id),
+      despieceHref: `/produccion/pedidos/${id}/despiece/${m.id}`,
     };
   });
 
-  // Para asignar varios muebles de una vez: lo que falta de cada uno.
-  const paraLote: MuebleParaLote[] = flujo.map((m) => ({
+  // Entregas por parte (despiece) de las asignaciones que se entregan por partes.
+  const muebleDeAsignacion = new Map(flujo.flatMap((m) => m.asignaciones.map((a) => [a.id, m] as const)));
+  const porParte = await entregasPorParte(
+    supabase,
+    todas.filter((a) => partesParaEntrega(muebleDeAsignacion.get(a.id), a, undefined)).map((a) => a.id)
+  );
+
+  // Para asignar varios muebles de una vez: lo que falta de cada uno (solo los que se
+  // asignan completos; los demás van por partes de su despiece).
+  const paraLote: MuebleParaLote[] = flujo.filter(seAsignaCompleto).map((m) => ({
     id: m.id,
     item_code: m.item_code,
     modelo: m.modelo,
@@ -307,6 +330,7 @@ export default async function AsignacionesPedidoPage({
                 entregas={entregas.get(a.id) ?? []}
                 puedeEditar={puedeEditar}
                 puedeAnular={puedeAnular}
+                partes={partesParaEntrega(muebleDeAsignacion.get(a.id), a, porParte.get(a.id))}
               />,
             ])
           )}

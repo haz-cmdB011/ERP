@@ -20,7 +20,7 @@ export default async function MigasPedido({
     .eq("id", pedidoId)
     .maybeSingle<{ numero_pedido: string; orden_trabajo: string | null }>();
 
-  const items: Miga[] = [{ etiqueta: "Pedidos", href: "/produccion" }];
+  const items: Miga[] = [{ etiqueta: "Pedidos", href: "/produccion/pedidos" }];
   if (pedido?.orden_trabajo) {
     items.push({
       etiqueta: `O.T. ${pedido.orden_trabajo}`,

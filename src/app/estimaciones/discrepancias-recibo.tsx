@@ -44,9 +44,13 @@ export default function DiscrepanciasRecibo({
                 : "Pendiente de revisión del administrador"}
           </p>
           <p className="text-xs">
-            {d.cantidadPm == null
-              ? `El modelo no está en el PM de la OT (se capturaron ${d.cantidadCapturada} pz)`
-              : `PM declara ${d.cantidadPm} pz · acumulado con este renglón ${d.cantidadAcumulada} pz (${d.cantidadAcumulada - d.cantidadPm} de más)`}
+            {d.esReproceso
+              ? d.cantidadPm == null
+                ? `Reproceso sin retrabajo reasignado por Producción (se capturaron ${d.cantidadCapturada} pz)`
+                : `Reproceso: Producción reasignó ${d.cantidadPm} pz · acumulado con este renglón ${d.cantidadAcumulada} pz (${d.cantidadAcumulada - d.cantidadPm} de más)`
+              : d.cantidadPm == null
+                ? `El modelo no está en el PM de la OT (se capturaron ${d.cantidadCapturada} pz)`
+                : `PM declara ${d.cantidadPm} pz · acumulado con este renglón ${d.cantidadAcumulada} pz (${d.cantidadAcumulada - d.cantidadPm} de más)`}
           </p>
           <p className="mt-1 text-xs">Motivo: {d.motivo}</p>
           {d.notaResolucion && (

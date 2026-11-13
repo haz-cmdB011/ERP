@@ -79,9 +79,11 @@ export function clienteDe(p: PedidoConOt): string | null {
 // Arma el href de la lista conservando los demás filtros.
 export function hrefListaPedidos(
   base: string,
-  params: { q?: string; anio?: string; cliente?: string; entrega?: string }
+  params: { q?: string; anio?: string; cliente?: string; entrega?: string; estado?: string; n?: string }
 ): string {
   const qs = new URLSearchParams();
+  if (params.estado) qs.set("estado", params.estado);
+  if (params.n) qs.set("n", params.n);
   if (params.q) qs.set("q", params.q);
   if (params.anio) qs.set("anio", params.anio);
   if (params.cliente) qs.set("cliente", params.cliente);

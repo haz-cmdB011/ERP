@@ -7,6 +7,8 @@ import { detectarFormatoImagen, LIMITE_PIXELES } from "@/lib/seguridad/imagen";
 // celular (4000 px, 3–8 MB) queda en ~150–400 KB en WebP.
 const LADO_MAXIMO = 1800;
 const CALIDAD_WEBP = 75;
+// Esfuerzo máximo del codificador WebP (sharp usa 4): misma calidad, 5–10 % menos peso.
+const ESFUERZO_WEBP = 6;
 
 // Tope de lo que acepta la ruta: el navegador ya la reduce antes de subirla
 // (Vercel no recibe cuerpos de más de 4.5 MB).
@@ -27,7 +29,7 @@ export async function comprimirFotoEntrega(buffer: Buffer): Promise<Buffer | nul
         fit: "inside",
         withoutEnlargement: true,
       })
-      .webp({ quality: CALIDAD_WEBP })
+      .webp({ quality: CALIDAD_WEBP, effort: ESFUERZO_WEBP })
       .toBuffer();
   } catch {
     return null;

@@ -67,11 +67,11 @@ export function Panel({
 export function Dato({ etiqueta, valor, nota }: { etiqueta: string; valor: string; nota?: string }) {
   return (
     <div className="flex flex-col rounded-lg bg-slate-50 px-3 py-2">
-      <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
         {etiqueta}
       </span>
       <span className="text-base font-semibold tabular-nums text-slate-900">{valor}</span>
-      {nota && <span className="text-[11px] text-slate-500">{nota}</span>}
+      {nota && <span className="text-xs text-slate-500">{nota}</span>}
     </div>
   );
 }
@@ -167,7 +167,7 @@ export function SeccionMaquilador({
 
   return (
     <details className="group rounded-xl border border-slate-200 bg-white shadow-sm">
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-slate-50">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-brand-50">
         <span
           aria-hidden="true"
           className="h-3 w-3 shrink-0 rounded-sm"
@@ -308,7 +308,7 @@ export function CambiosDivergentes({ filas }: { filas: FilaComparativa[] }) {
               <span className="truncate text-slate-700" title={f.etiqueta}>
                 {f.etiqueta}
               </span>
-              {rotulo && <span className="text-[11px] font-medium text-slate-500">{rotulo}</span>}
+              {rotulo && <span className="text-xs font-medium text-slate-500">{rotulo}</span>}
             </span>
             <span
               role="img"
@@ -334,7 +334,7 @@ export function CambiosDivergentes({ filas }: { filas: FilaComparativa[] }) {
                 {f.diferencia === 0 ? "Igual" : firmado(f.diferencia)}
               </span>
               {f.estado !== "nuevo" && f.estado !== "sin-pago" && f.cambio != null && f.diferencia !== 0 && (
-                <span className="font-mono text-[11px] tabular-nums text-slate-500 sm:w-12">
+                <span className="font-mono text-xs tabular-nums text-slate-500 sm:w-12">
                   {f.cambio > 0 ? "+" : ""}
                   {f.cambio.toLocaleString("es-MX", { maximumFractionDigits: 1 })}%
                 </span>

@@ -124,29 +124,16 @@ export function etiquetaProceso(a: {
   return a.parte_descripcion ? `${proceso} · ${a.parte_descripcion}` : proceso;
 }
 
-// "5/7 PZA" de un mueble completo; de una parte, en muebles y con sus piezas:
-// "5/7 muebles · 42 PZA".
+// "5/7 PZA". Una asignación de una parte va en piezas de esa parte, con su unidad
+// (migración partes_en_piezas_y_ruta_por_parte).
 export function textoAvanceAsignacion(
   a: Pick<AsignacionResumen, "cantidad" | "entregado" | "unidad"> & {
     parte_id?: string | null;
-    parte_piezas_por_mueble?: number | null;
     parte_unidad?: string | null;
   }
 ): string {
-  const avance = `${Number(a.entregado)}/${Number(a.cantidad)}`;
-  const piezas = piezasDeParte(Number(a.cantidad), a);
-  return piezas ? `${avance} muebles · ${piezas}` : `${avance} ${a.unidad ?? ""}`.trim();
-}
-
-// Piezas de una parte para cierta cantidad de muebles ("42 PZA" = 7 muebles × 6); null
-// si la asignación es del mueble completo.
-export function piezasDeParte(
-  muebles: number,
-  a: { parte_id?: string | null; parte_piezas_por_mueble?: number | null; parte_unidad?: string | null }
-): string | null {
-  if (!a.parte_id || a.parte_piezas_por_mueble == null) return null;
-  const piezas = Math.round(Number(muebles) * Number(a.parte_piezas_por_mueble) * 100) / 100;
-  return `${piezas} ${a.parte_unidad ?? "PZA"}`;
+  const unidad = a.parte_id ? (a.parte_unidad ?? a.unidad) : a.unidad;
+  return `${Number(a.entregado)}/${Number(a.cantidad)} ${unidad ?? ""}`.trim();
 }
 
 // Un retrabajo (de un lote o de la revisión final) no cuenta contra la cantidad
@@ -163,7 +150,8 @@ export interface EntregaProduccion {
   fecha_entrega: string;
   cantidad: number;
   folios_calidad: string;
-  foto_path: string;
+  // null en las entregas registradas sin foto (migración entrega_sin_foto_ni_calificacion).
+  foto_path: string | null;
   registrado_en: string;
   anulada_en: string | null;
   motivo_anulacion: string | null;
@@ -182,16 +170,6 @@ export function revisionEntrega(
   if (e.rechazada_en) return "rechazada";
   if (e.verificada_en) return "verificada";
   return "por_verificar";
-}
-
-// Lo que decide quien registra la entrega al tomar la foto de la hoja: si las
-// piezas cumplen, la entrega nace verificada y pasa a Calidad; si no, nace
-// rechazada (con motivo) y el equipo vuelve a entregarlas.
-export const RESULTADOS_REVISION = ["cumple", "no_cumple"] as const;
-export type ResultadoRevision = (typeof RESULTADOS_REVISION)[number];
-
-export function esResultadoRevision(valor: unknown): valor is ResultadoRevision {
-  return typeof valor === "string" && (RESULTADOS_REVISION as readonly string[]).includes(valor);
 }
 
 export interface EquipoProduccion {

@@ -2,8 +2,7 @@
 // entrega. El celular guarda las capturas hechas sin red y las manda cuando vuelve la
 // conexión (src/lib/offline); si la red se corta justo después de que el servidor guardó
 // la entrega y la respuesta no llega, el celular la reenvía. La clave de envío identifica
-// el intento: la foto se sube a una ruta que sale de ella, y la entrega se reconoce por esa
-// ruta (índice único en entregas_produccion.foto_path).
+// el intento y queda en la entrega (índice único en entregas_produccion.clave_envio).
 
 import { randomUUID } from "node:crypto";
 
@@ -14,8 +13,34 @@ export function leerClaveEnvio(valor: FormDataEntryValue | null): string {
   return typeof valor === "string" && UUID.test(valor.trim()) ? valor.trim().toLowerCase() : randomUUID();
 }
 
-export function rutaFotoEntrega(asignacionId: string, clave: string): string {
-  return `${asignacionId}/${clave}.webp`;
+export interface PiezasDeParte {
+  parteId: string;
+  piezas: number;
+}
+
+/**
+ * Las partes que trae una entrega parcial por partes (texto JSON: [{parteId, piezas}]), o null si
+ * no vino, no es válida o no trae ninguna con piezas. Las partes en cero se descartan.
+ */
+export function leerPartesEntrega(valor: FormDataEntryValue | null): PiezasDeParte[] | null {
+  if (typeof valor !== "string" || !valor.trim()) return null;
+  let crudo: unknown;
+  try {
+    crudo = JSON.parse(valor);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(crudo) || crudo.length > 50) return null;
+  const partes: PiezasDeParte[] = [];
+  for (const x of crudo) {
+    if (!x || typeof x !== "object") return null;
+    const { parteId, piezas } = x as { parteId?: unknown; piezas?: unknown };
+    if (typeof parteId !== "string" || !UUID.test(parteId)) return null;
+    const n = typeof piezas === "number" ? piezas : Number(piezas);
+    if (!Number.isFinite(n) || n < 0) return null;
+    if (n > 0) partes.push({ parteId: parteId.toLowerCase(), piezas: n });
+  }
+  return partes.length > 0 ? partes : null;
 }
 
 interface ErrorConCodigo {
@@ -24,12 +49,7 @@ interface ErrorConCodigo {
   statusCode?: string | number | null;
 }
 
-/** La foto ya estaba en Storage: un intento anterior de este mismo envío la subió. */
-export function esFotoYaSubida(error: ErrorConCodigo): boolean {
-  return String(error.statusCode ?? "") === "409" || /already exists|duplicate/i.test(error.message ?? "");
-}
-
-/** La entrega ya estaba registrada: choca con el índice único de foto_path. */
+/** La entrega ya estaba registrada: choca con el índice único de clave_envio. */
 export function esViolacionUnica(error: ErrorConCodigo): boolean {
   return error.code === "23505";
 }

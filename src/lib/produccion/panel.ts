@@ -4,8 +4,25 @@
 
 import type { EstadoMueble, MuebleFlujo } from "./flujo-mueble";
 
-// Tope de ids en la dirección del panel (37 caracteres cada uno).
+// Tope de ids en la dirección del panel (37 caracteres cada uno). Más de esos se abren por
+// `lote` (la marca de tiempo de la liberación), que no depende de cuántos sean.
 export const MAX_IDS_PANEL = 100;
+
+// Cuántos muebles se pintan de entrada y cuántos más trae cada "Ver más": las entregas, las
+// miniaturas y los detalles de asignación solo se piden de lo que se ve.
+export const MUEBLES_POR_PAGINA = 40;
+export const MAX_MUEBLES_PANEL = 2000;
+
+// Lo mínimo de un mueble para buscarlo, antes de cargar su flujo.
+export interface TextoBuscableMueble {
+  numeroPm: string;
+  ot: string | null;
+  proyecto: string | null;
+  cliente: string | null;
+  modelo: string | null;
+  descripcion: string | null;
+  itemCode: number;
+}
 
 // "activos" = por asignar + en proceso (lo que sigue en el taller o espera equipo).
 export type FiltroPanel = "activos" | EstadoMueble | "todos";
@@ -23,10 +40,13 @@ export interface MuebleDePanel {
   flujo: MuebleFlujo;
   estado: EstadoMueble;
   descripcion: string | null;
+  // Cuándo se liberó a producción (ISO); los viejos pueden no tenerlo.
+  liberadoEn?: string | null;
   pedidoId: string;
   numeroPm: string;
   ot: string | null;
   proyecto: string | null;
+  cliente: string | null;
 }
 
 export interface GrupoPmPanel {
@@ -38,6 +58,7 @@ export interface GrupoPmPanel {
 
 export interface GrupoOtPanel {
   ot: string | null;
+  cliente: string | null; // el de su primer PM, como en Pedidos
   pms: GrupoPmPanel[];
   total: number;
 }
@@ -73,14 +94,43 @@ function normalizar(texto: string): string {
     .trim();
 }
 
-export function coincideBusqueda(m: MuebleDePanel, q: string): boolean {
+export function coincideTexto(m: TextoBuscableMueble, q: string): boolean {
   const buscado = normalizar(q);
   if (!buscado) return true;
   return normalizar(
-    [m.numeroPm, m.ot, m.proyecto, m.flujo.modelo, m.descripcion, m.flujo.item_code]
+    [m.numeroPm, m.ot, m.proyecto, m.cliente, m.modelo, m.descripcion, m.itemCode]
       .filter((v) => v !== null && v !== undefined)
       .join(" ")
   ).includes(buscado);
+}
+
+export function coincideBusqueda(m: MuebleDePanel, q: string): boolean {
+  return coincideTexto(
+    {
+      numeroPm: m.numeroPm,
+      ot: m.ot,
+      proyecto: m.proyecto,
+      cliente: m.cliente,
+      modelo: m.flujo.modelo,
+      descripcion: m.descripcion,
+      itemCode: m.flujo.item_code,
+    },
+    q
+  );
+}
+
+// Los primeros `limite` muebles en el orden en que se ven (O.T., PM, número de ítem).
+export function limitarPanel(muebles: MuebleDePanel[], limite: number): MuebleDePanel[] {
+  return agruparPanel(muebles)
+    .flatMap((g) => g.pms.flatMap((pm) => pm.muebles))
+    .slice(0, Math.max(0, limite));
+}
+
+// Cuántos muebles pide la dirección (`n`): al menos una página, con tope.
+export function leerLimitePanel(valor: string | undefined): number {
+  const n = Number.parseInt(valor ?? "", 10);
+  if (!Number.isFinite(n) || n < MUEBLES_POR_PAGINA) return MUEBLES_POR_PAGINA;
+  return Math.min(n, MAX_MUEBLES_PANEL);
 }
 
 export function filtrarPanel(
@@ -126,6 +176,7 @@ export function agruparPanel(muebles: MuebleDePanel[]): GrupoOtPanel[] {
         }));
       return {
         ot: ot === "" ? null : ot,
+        cliente: lista[0]?.muebles[0]?.cliente ?? null,
         pms: lista,
         total: lista.reduce((n, pm) => n + pm.muebles.length, 0),
       };
