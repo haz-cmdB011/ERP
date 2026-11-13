@@ -208,6 +208,21 @@ describe("renglones del tablero", () => {
     expect(hay[0].faltaAsignar).toEqual({ cantidad: 8, total: 13, etiqueta: "Armado" });
   });
 
+  it("un mueble con piezas esperando a Calidad suma su renglón En Calidad sin quitarle los demás", () => {
+    const hay = renglonesDeTablero(
+      [
+        mueble("item-a", { estado: "en_proceso", enCalidad: 3, faltaAsignar: { cantidad: 8, total: 13, etiqueta: "Armado" } }),
+        mueble("item-b", { estado: "terminado", enCalidad: 13 }),
+        mueble("item-c", { estado: "terminado" }),
+        mueble("item-d", { estado: "terminado", enCalidad: 0 }),
+      ],
+      armarBitacora([], sinPlazos, ots, HOY)
+    );
+    expect(hay.map((r) => r.clave).sort()).toEqual(["calidad:item-a", "calidad:item-b", "mueble:item-a"]);
+    expect(hay.find((r) => r.clave === "calidad:item-a")).toMatchObject({ enCalidad: 3, estado: "En Calidad", marca: null });
+    expect(hay.find((r) => r.clave === "mueble:item-a")?.enCalidad).toBeNull();
+  });
+
   it("dice desde cuándo se asignó y si su entrega se hace por partes del despiece", () => {
     expect(renglones.find((r) => r.clave === "asignacion:a")).toMatchObject({ fechaAsignacion: "2026-11-01", porPartes: false });
     const conPartes = renglonesDeTablero(
