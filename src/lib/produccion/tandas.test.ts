@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enParalelo, tandas } from "./tandas";
+import { MUEBLES_POR_TANDA, enParalelo, leerEnTandas, tandas } from "./tandas";
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -62,5 +62,51 @@ describe("enParalelo", () => {
       )
     ).rejects.toThrow("falla");
     expect(lanzadas.length).toBeLessThan(8);
+  });
+});
+
+describe("leerEnTandas", () => {
+  const ids = Array.from({ length: 250 }, (_, i) => `m${i}`);
+
+  it("pide por tandas de MUEBLES_POR_TANDA y junta las filas en orden", async () => {
+    const lotes: string[][] = [];
+    const filas = await leerEnTandas<string>(
+      ids,
+      async (lote) => {
+        lotes.push(lote);
+        return { data: lote, error: null };
+      },
+      "pruebas"
+    );
+    expect(lotes.map((l) => l.length)).toEqual([MUEBLES_POR_TANDA, MUEBLES_POR_TANDA, 50]);
+    expect(filas).toEqual(ids);
+  });
+
+  it("si una tanda trae el tope de 1000 filas sigue pidiendo páginas (no se pierden filas)", async () => {
+    const paginas: [number, number][] = [];
+    const filas = await leerEnTandas<number>(
+      ["a"],
+      async (_lote, desde, hasta) => {
+        paginas.push([desde, hasta]);
+        const quedan = 1500 - desde;
+        const n = Math.max(0, Math.min(hasta - desde + 1, quedan));
+        return { data: Array.from({ length: n }, (_, i) => desde + i), error: null };
+      },
+      "pruebas"
+    );
+    expect(paginas).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+    expect(filas).toHaveLength(1500);
+  });
+
+  it("sin ids no consulta, y si la base falla lanza el error en vez de devolver datos parciales", async () => {
+    let llamadas = 0;
+    expect(await leerEnTandas<string>([], async () => (llamadas++, { data: [], error: null }), "x")).toEqual([]);
+    expect(llamadas).toBe(0);
+    await expect(
+      leerEnTandas<string>(["a"], async () => ({ data: null, error: { message: "se cayó" } }), "las asignaciones")
+    ).rejects.toThrow("No se pudo leer las asignaciones: se cayó");
   });
 });

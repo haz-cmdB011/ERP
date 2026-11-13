@@ -4,10 +4,10 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { leer } from "@/lib/supabase/leer";
-import { ErrorLectura } from "@/lib/supabase/paginar";
+import { ErrorLectura, paginarTodo } from "@/lib/supabase/paginar";
 import { esProceso } from "./asignaciones";
 import type { PasoRuta } from "./ruta";
-import { enParalelo } from "./tandas";
+import { MUEBLES_POR_TANDA, enParalelo, tandas } from "./tandas";
 
 export interface RutaGuardada {
   version: number;
@@ -17,14 +17,6 @@ export interface RutaGuardada {
   pasos: PasoRuta[];
   // Pasos de cada parte, por id de parte (solo las que tienen pasos guardados).
   partes: Map<string, PasoRuta[]>;
-}
-
-// .in() con muchos ids rompe el largo de la URL; 50 muebles × 12 pasos como
-// máximo quedan bajo el límite de filas por respuesta.
-function tandas<T>(lista: T[], tamano = 50): T[][] {
-  const salida: T[][] = [];
-  for (let i = 0; i < lista.length; i += tamano) salida.push(lista.slice(i, i + tamano));
-  return salida;
 }
 
 interface FilaRuta {
@@ -63,24 +55,26 @@ export async function cargarRutas(
   const mapa = new Map<string, RutaGuardada>();
   if (itemIds.length === 0) return mapa;
 
-  // De a pocas tandas a la vez: con miles de muebles, pedirlas todas juntas satura la base.
-  const lotes = await enParalelo(tandas(itemIds), (lote) =>
-    Promise.all([
+  // Por tandas de MUEBLES_POR_TANDA, de a pocas a la vez (con miles de muebles, pedirlas todas juntas satura la base).
+  // Los pasos con paginación: la base corta cada respuesta en 1000 filas sin avisar.
+  const lotes = await enParalelo(tandas(itemIds, MUEBLES_POR_TANDA), async (lote) => {
+    const [rutas, pasos] = await Promise.all([
       leerRutas(supabase, lote),
-      leer(
-        supabase
-          .from("pasos_ruta_produccion")
-          .select("id, planeacion_item_id, parte_id, orden, proceso")
-          .in("planeacion_item_id", lote)
-          .is("retirado_en", null)
-          .order("orden")
-          .returns<
-            { id: string; planeacion_item_id: string; parte_id: string | null; orden: number; proceso: string }[]
-          >(),
-        "los pasos de las rutas"
+      paginarTodo<{ id: string; planeacion_item_id: string; parte_id: string | null; orden: number; proceso: string }>(
+        (desde, hasta) =>
+          supabase
+            .from("pasos_ruta_produccion")
+            .select("id, planeacion_item_id, parte_id, orden, proceso")
+            .in("planeacion_item_id", lote)
+            .is("retirado_en", null)
+            .order("orden")
+            .order("id")
+            .range(desde, hasta),
+        { contexto: "los pasos de las rutas" }
       ),
-    ])
-  );
+    ]);
+    return [rutas, pasos] as const;
+  });
 
   for (const [rutas, pasos] of lotes) {
     for (const r of rutas ?? []) {

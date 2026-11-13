@@ -201,14 +201,16 @@ pendientes (4 a la vista, "Ver más" despliega el resto); lo más reciente prime
 muebles padre vigentes: los liberados con el estado del panel de asignación (`cargarMueblesDePanel`) y los por liberar.
 Lógica en `src/lib/produccion/inicio.ts`, lectura en `inicio-db.ts`.
 
-**Volumen (medido el 12 nov 2026, `npm run db:volumen`, solo lectura):** el inicio lee el flujo de TODOS los muebles
+**Volumen (medido el 13 nov 2026, `npm run db:volumen`, solo lectura):** el inicio lee el flujo de TODOS los muebles
 liberados cada vez que se abre o se actualiza, y eso crece en línea recta: con la clave de servicio, 1000 muebles
-tardan ~4 s (171 peticiones) y 2000, ~7 s (341); con la sesión de una persona (RLS) algo más. Las lecturas por
+tardan ~2.7 s (91 peticiones) y 2000, ~4.5 s (181); con la sesión de una persona (RLS) algo más. Las lecturas por
 tandas (`flujo-db.ts`, `rutas-db.ts`, `partes-db.ts`) piden de a pocas a la vez (`enParalelo`, `TANDAS_SIMULTANEAS`
-en `tandas.ts`) para no saturar la base: antes iban todas juntas (242 a la vez con 2000 muebles). Hacia la pantalla
+en `tandas.ts`) para no saturar la base. Las tandas son de 100 muebles (`MUEBLES_POR_TANDA`) y cada una se pide
+con paginación (`leerEnTandas`): la base corta cada respuesta en 1000 filas sin avisar, así que una tanda grande
+sin paginar perdería filas en silencio (antes eran de 25 por eso: 171 peticiones y ~4.3 s con 1000 muebles). Quien
+agregue otra lectura por muebles debe usar `leerEnTandas` con un orden estable (desempate por `id`). Hacia la pantalla
 viajan ~1.5 KB por tarjeta del tablero (1000 muebles ≈ 0.5 MB; 3000 ≈ 1.6 MB) y el inicio se vuelve a leer cada
-minuto por pestaña. Las tandas de 25 de componentes y asignaciones no se agrandan a ciegas: la base corta cada
-respuesta en 1000 filas sin avisar. Si el inicio pasa de unos 2000 muebles liberados, lo siguiente es no leer el
+minuto por pestaña. Si el inicio pasa de unos 2000 muebles liberados, lo siguiente es no leer el
 flujo de lo terminado, o que la base calcule el estado de cada mueble (hoy se calcula en `flujo-mueble.ts`).
 
 **Tablero** (única vista del inicio desde el 9 nov 2026: la lista se quitó "por el momento" y `?vista=lista` ya no hace nada; `lista-modelos.tsx`, `bitacora-taller.tsx` y `cambiar-vista.tsx` siguen en el repo sin usarse, por si se vuelve a poner): **una sección
