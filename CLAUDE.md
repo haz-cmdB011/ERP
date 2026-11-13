@@ -579,8 +579,23 @@ servidor**: `enviarAUsuarios(ids, { titulo, cuerpo, url, etiqueta })` de `src/li
 de servicio, borra las suscripciones caducadas y nunca lanza). Hace falta configurar `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
 `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` (ver `.env.example` y `docs/operacion.md`); sin ellas todo sigue igual y la sección
 dice que no están configuradas. La dirección de cada suscripción solo se acepta si es de un servicio de push conocido
-(`esServicioDePush`, contra SSRF). **Pendiente (fase 2)**: conectar los avisos de cada área (liberar a Producción,
-entregas a Calidad, aprobado o rechazado, recibos) y la campanita dentro de la app.
+(`esServicioDePush`, contra SSRF). **Avisos por área (fase 2, migración `avisos_por_area`; rama `notificaciones-avisos-por-area`)**: cada
+aviso nace de un **trigger** de la base, no de la pantalla (no se puede inventar desde el navegador y cubre toda vía:
+rutas de servidor o funciones que la app llama directo). Cinco avisos: se liberaron muebles → **Producción** (una vez por
+liberación, trigger por instrucción con tablas de transición); Producción registró una entrega → **Calidad**; Calidad
+aprobó o rechazó (lote o revisión final) → **Producción**; recibo nuevo → **Estimaciones**; recibo revisado → quien lo
+capturó (el maquilador). Los triggers atrapan sus errores: un aviso que falla NUNCA frena el hecho. Tablas `avisos`
+(de un área, o de una persona con `destinatario_id`; solo la escriben los triggers) y `avisos_leidos` (quién lo leyó,
+aparte porque lo ven varias personas); RLS con `aviso_visible`: el administrador y el trabajador de esa área, el
+desarrollador el de cada área en la que entra, el maquilador solo los suyos. **Campanita** (`src/components/campanita.tsx`,
+en `AreaNav`; `GET /api/avisos?area=`, `POST /api/avisos/leer`): pregunta cada minuto con la pestaña a la vista y se
+esconde sola si la base aún no tiene la tabla. **Al celular** (`despacharAvisos` de `src/lib/notificaciones/despachar.ts`):
+reclama con un UPDATE los avisos recientes (15 min) de quien llama y los manda al personal del área (administrador y
+trabajador, NO al desarrollador, y sin quien lo provocó) o a la persona del aviso; lo llaman `liberar` y `entregas` y,
+para lo que nace de una función directa (Calidad, recibos), la propia lectura de la campanita. Lógica pura y pruebas en
+`avisos.ts`. **Falta**: aplicar la migración (con permiso, ver "Migraciones: cómo aplicarlas"); los avisos de las
+entregas por partes (`entregas_partes_produccion`) y de "Por llegar" no existen todavía; no hay limpieza de avisos
+viejos (la campanita solo muestra 30 días).
 
 ## Capturas sin conexión
 

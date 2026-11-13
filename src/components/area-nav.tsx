@@ -8,6 +8,7 @@ import MenuArea from "./menu-area";
 import DesplazarAlActivo from "./desplazar-al-activo";
 import Marca from "./marca";
 import Avatar from "./avatar";
+import Campanita from "./campanita";
 import { urlAvatar } from "@/lib/cuenta/avatar";
 import { INICIO_DE_AREA, RUTA_CUENTA, type AreaApp } from "@/lib/auth/acceso";
 
@@ -154,6 +155,8 @@ export default async function AreaNav({
           {/* Acciones de sesión: a la derecha de la marca. */}
           <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5 mob:xl:order-3">
             <BuscadorGlobal area={area} />
+            {/* Avisos del área (Administración no tiene). Se esconde sola si la base aún no los tiene. */}
+            {area !== "usuarios" && <Campanita area={area} />}
             <PersonalizarApariencia />
             <SelectorTema />
             <Link
