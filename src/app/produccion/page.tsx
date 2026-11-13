@@ -27,8 +27,7 @@ import TableroMarcas from "./tablero-marcas";
 const OTS_A_LA_VISTA = 4;
 
 // Inicio de Producción: el tablero de muebles por asignar y, al final, qué O.T. tienen pendientes.
-// (La lista de modelos con la bitácora de taller se quitó por ahora: `lista-modelos.tsx`,
-// `bitacora-taller.tsx` y `cambiar-vista.tsx` siguen en el repositorio por si se vuelve a poner.)
+// (La lista de modelos con la bitácora de taller se quitó; se recupera del historial de Git si se quiere volver a poner.)
 export default async function ProduccionInicioPage() {
   const supabase = await createClient();
   const hoy = hoyMexico();

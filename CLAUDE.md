@@ -193,8 +193,7 @@ es que el Armado con solo el modelo es el del mueble completo (el ensamble) y co
 ## Inicio de Producción
 
 `/produccion` es el panel de inicio del área (la lista de O.T./PM pasó a `/produccion/pedidos`):
-**muebles recientes** (un recuadro por modelo, esté en uno o en varios PM, en un carrusel de tres en tres,
-`carrusel-modelos.tsx`, con anillos concéntricos por estado,
+**muebles recientes** (un recuadro por modelo, esté en uno o en varios PM, con anillos concéntricos por estado,
 sus O.T. de tres en tres y el nombre que abre el panel de asignación), lo que tiene cada equipo en taller y las O.T. con
 pendientes (4 a la vista, "Ver más" despliega el resto); lo más reciente primero (las O.T., por su último movimiento, como los muebles; los muebles recientes, los 30 con el
 último movimiento: subida del PM, liberación, asignación o entrega). Cuenta
@@ -211,7 +210,7 @@ minuto por pestaña. Las tandas de 25 de componentes y asignaciones no se agrand
 respuesta en 1000 filas sin avisar. Si el inicio pasa de unos 2000 muebles liberados, lo siguiente es no leer el
 flujo de lo terminado, o que la base calcule el estado de cada mueble (hoy se calcula en `flujo-mueble.ts`).
 
-**Tablero** (única vista del inicio desde el 9 nov 2026: la lista se quitó "por el momento" y `?vista=lista` ya no hace nada; `lista-modelos.tsx`, `bitacora-taller.tsx` y `cambiar-vista.tsx` siguen en el repo sin usarse, por si se vuelve a poner): **una sección
+**Tablero** (única vista del inicio desde el 9 nov 2026: la lista se quitó "por el momento" y `?vista=lista` ya no hace nada; esa lista —`lista-modelos.tsx`, `bitacora-taller.tsx`, `cambiar-vista.tsx` y el carrusel— se borró el 13 nov 2026 y se recupera del historial de Git): **una sección
 por O.T.** (la de movimiento más reciente primero, "Sin O.T." al final; cuando hay más de tres solo la primera empieza abierta, todas se
 pliegan; el título abre la pantalla de la O.T. y trae cuántas hay en cada columna), cada una con **columnas que salen del
 estado, no se arrastran** (`renglonesDeTablero` en `control-taller.ts`, `columnaDeRenglon` en `tablero.ts`): **"Por entregar"**
@@ -257,7 +256,7 @@ conexión ni con una ventana abierta, y muestra "Actualizado hh:mm". Arriba, si 
 Una asignación con tache en la Bitácora lleva en la tarjeta "✕ No está" (solo aviso). La leyenda de colores llama "Por entregar" a lo que antes decía "En taller". Lógica en `src/lib/produccion/tablero.ts`, pantalla en
 `tablero-marcas.tsx`.
 
-**Bitácora de taller** (nov 2026; esta lista del inicio está **quitada por ahora**, ver Tablero): se llamaba "Bitácora de producción" (`lista-modelos.tsx`, 8 a la vista y
+**Bitácora de taller** (nov 2026; esta lista del inicio está **quitada**, ver Tablero): se llamaba "Bitácora de producción" (8 a la vista y
 "Ver más"): lo más reciente primero (sin encabezados por día), con la hora (`dias.ts`) y de qué fue el último
 movimiento de cada modelo (PM subido, liberado, asignado, entrega; `tipoReciente`). Un renglón por modelo con sus anillos, sus O.T. y, al lado, quién lo tiene: equipo, cuántos
 (pendiente de lo asignado), O.T./PM, **palomita o tache que elige quien asigna (Producción)** y "Asignar" (abre
@@ -280,7 +279,7 @@ control, historial, Excel e imprimir) se **quitó el 9 nov 2026** junto con su r
 **Los motivos están apagados por ahora** (`MOTIVOS_ACTIVOS = false` en `historial-marcas.ts`): no se piden ni se
 muestran en pantalla ni en el Excel; la columna, el trigger y la ruta siguen listas, y para volver a verlos
 basta ponerlo en `true`. Lo entregado en los últimos 14 días también sale (`DIAS_BITACORA`). Las asignaciones
-de modelos que no están entre los 30 recientes salen abajo, por equipo (`bitacora-taller.tsx`); "O.T. con
+de modelos que no están entre los 30 recientes salen abajo, por equipo; "O.T. con
 pendientes" va al final. Lógica en `src/lib/produccion/bitacora.ts`, lectura en `bitacora-db.ts`.
 
 ## Carrito y panel de asignación
