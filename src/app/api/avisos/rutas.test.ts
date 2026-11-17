@@ -34,7 +34,11 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 const despachar = vi.fn();
-vi.mock("@/lib/notificaciones/despachar", () => ({ despacharAvisos: (...a: unknown[]) => despachar(...a) }));
+const recordatorios = vi.fn();
+vi.mock("@/lib/notificaciones/despachar", () => ({
+  despacharAvisos: (...a: unknown[]) => despachar(...a),
+  despacharRecordatorios: (...a: unknown[]) => recordatorios(...a),
+}));
 
 import { GET } from "./route";
 import { POST } from "./leer/route";
@@ -61,6 +65,7 @@ beforeEach(() => {
   leerMarcas.mockReset().mockResolvedValue({ data: [], error: null });
   upsert.mockReset().mockResolvedValue({ error: null });
   despachar.mockReset().mockResolvedValue(0);
+  recordatorios.mockReset().mockResolvedValue(0);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 

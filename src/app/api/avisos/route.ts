@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { DIAS_DE_AVISOS, MAX_AVISOS, esAreaAviso, type Aviso } from "@/lib/notificaciones/avisos";
-import { despacharAvisos } from "@/lib/notificaciones/despachar";
+import { despacharAvisos, despacharRecordatorios } from "@/lib/notificaciones/despachar";
 
 export const runtime = "nodejs";
 
@@ -31,7 +31,10 @@ export async function GET(request: Request) {
   const area = new URL(request.url).searchParams.get("area");
   if (!esAreaAviso(area)) return NextResponse.json({ error: "Área no válida." }, { status: 400 });
 
-  after(() => despacharAvisos(user.id));
+  after(async () => {
+    await despacharAvisos(user.id);
+    await despacharRecordatorios();
+  });
 
   const desde = new Date(Date.now() - DIAS_DE_AVISOS * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase

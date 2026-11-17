@@ -588,10 +588,11 @@ de servicio, borra las suscripciones caducadas y nunca lanza). Hace falta config
 dice que no están configuradas. La dirección de cada suscripción solo se acepta si es de un servicio de push conocido
 (`esServicioDePush`, contra SSRF). **Avisos por área (fase 2, migración `avisos_por_area`, aplicada y fusionada el 13 nov 2026)**: cada
 aviso nace de un **trigger** de la base, no de la pantalla (no se puede inventar desde el navegador y cubre toda vía:
-rutas de servidor o funciones que la app llama directo). Cinco avisos: se liberaron muebles → **Producción** (una vez por
-liberación, trigger por instrucción con tablas de transición); Producción registró una entrega → **Calidad**; Calidad
-aprobó o rechazó (lote o revisión final) → **Producción**; recibo nuevo → **Estimaciones**; recibo revisado → quien lo
-capturó (el maquilador). Los triggers atrapan sus errores: un aviso que falla NUNCA frena el hecho. Tablas `avisos`
+rutas de servidor o funciones que la app llama directo). Avisos de hechos: Producción registró una entrega → **Calidad**; Calidad rechazó un mueble o una parte → **Producción** (a reprocesar,
+enlace a Rechazos); Calidad aprobó (lote, parte o revisión final) → **Producción** y, si es de un equipo externo y de Armado o
+Acabados, → **Estimaciones** ("ya pueden llegar recibos", enlace a Por llegar; la aprobación del mueble que la base arma sola a partir de
+sus partes no repite el aviso); recibo nuevo → **Estimaciones**; recibo revisado → quien lo capturó (el maquilador). **Ya no hay aviso
+de "se liberaron muebles"** (migración `avisos_recordatorios`, 17 nov 2026). Los triggers atrapan sus errores: un aviso que falla NUNCA frena el hecho. Tablas `avisos`
 (de un área, o de una persona con `destinatario_id`; solo la escriben los triggers) y `avisos_leidos` (quién lo leyó,
 aparte porque lo ven varias personas); RLS con `aviso_visible`: el administrador y el trabajador de esa área, el
 desarrollador el de cada área en la que entra, el maquilador solo los suyos. **Campanita** (`src/components/campanita.tsx`,

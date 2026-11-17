@@ -19,6 +19,7 @@
 //   function-contiene <esquema.nombre> <txt>  su definición contiene el texto
 //   sin-function <esquema.nombre>             la función YA NO existe
 //   trigger <esquema.tabla.trigger>
+//   sin-trigger <esquema.tabla.trigger>       el trigger YA NO existe
 //   column <esquema.tabla.columna>
 //   table <esquema.tabla>
 //   index <esquema.indice>
@@ -43,6 +44,7 @@ function existe(tipo, nombre, resto) {
       // que da error: PostgreSQL no garantiza el orden de los AND del WHERE.
       return `exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where case when p.prokind = 'f' and n.nspname || '.' || p.proname = ${q(nombre)} then position(${q(resto)} in pg_get_functiondef(p.oid)) else 0 end > 0)`;
     case "trigger":
+    case "sin-trigger":
       return `exists (select 1 from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace where not t.tgisinternal and n.nspname || '.' || c.relname || '.' || t.tgname = ${q(nombre)})`;
     case "column":
       return `exists (select 1 from information_schema.columns where table_schema || '.' || table_name || '.' || column_name = ${q(nombre)})`;
@@ -76,7 +78,7 @@ const todas = readdirSync(DIR)
     return { archivo, version: m[1], nombre: m[2], objetos };
   });
 
-// Una función que una migración posterior borra (`sin-function`) ya no se
+// Una función o trigger que una migración posterior borra (`sin-function`, `sin-trigger`) ya no se
 // comprueba en las anteriores: lo que dejaron quedó reemplazado. Se calcula con
 // todas las migraciones, aunque se pida --desde.
 const migraciones = todas
@@ -85,12 +87,12 @@ const migraciones = todas
       todas
         .slice(i + 1)
         .flatMap((posterior) => posterior.objetos)
-        .filter((o) => o.tipo === "sin-function")
+        .filter((o) => o.tipo === "sin-function" || o.tipo === "sin-trigger")
         .map((o) => o.nombre)
     );
     const objetos = mig.objetos.filter(
       (o) =>
-        !((o.tipo === "function" || o.tipo === "function-contiene") && borradasDespues.has(o.nombre))
+        !((o.tipo === "function" || o.tipo === "function-contiene" || o.tipo === "trigger") && borradasDespues.has(o.nombre))
     );
     return { ...mig, objetos };
   })
@@ -101,9 +103,9 @@ const filas = migraciones.map(({ version, nombre, objetos }) => {
     ? `array_remove(array[${objetos
         .map((o) => {
           const etiqueta = `${o.tipo} ${o.nombre}${o.resto ? ` (${o.resto})` : ""}`;
-          // sin-function falla cuando SÍ existe; el resto, cuando NO existe.
+          // sin-function y sin-trigger fallan cuando SÍ existen; el resto, cuando NO existe.
           const condicion =
-            o.tipo === "sin-function"
+            o.tipo === "sin-function" || o.tipo === "sin-trigger"
               ? `not ${existe(o.tipo, o.nombre, o.resto)}`
               : existe(o.tipo, o.nombre, o.resto);
           return `case when ${condicion} then null else ${q(etiqueta)} end`;
