@@ -586,7 +586,7 @@ servidor**: `enviarAUsuarios(ids, { titulo, cuerpo, url, etiqueta })` de `src/li
 de servicio, borra las suscripciones caducadas y nunca lanza). Hace falta configurar `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
 `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` (ver `.env.example` y `docs/operacion.md`); sin ellas todo sigue igual y la sección
 dice que no están configuradas. La dirección de cada suscripción solo se acepta si es de un servicio de push conocido
-(`esServicioDePush`, contra SSRF). **Avisos por área (fase 2, migración `avisos_por_area`; rama `notificaciones-avisos-por-area`)**: cada
+(`esServicioDePush`, contra SSRF). **Avisos por área (fase 2, migración `avisos_por_area`, aplicada y fusionada el 13 nov 2026)**: cada
 aviso nace de un **trigger** de la base, no de la pantalla (no se puede inventar desde el navegador y cubre toda vía:
 rutas de servidor o funciones que la app llama directo). Cinco avisos: se liberaron muebles → **Producción** (una vez por
 liberación, trigger por instrucción con tablas de transición); Producción registró una entrega → **Calidad**; Calidad
@@ -600,7 +600,8 @@ esconde sola si la base aún no tiene la tabla. **Al celular** (`despacharAvisos
 reclama con un UPDATE los avisos recientes (15 min) de quien llama y los manda al personal del área (administrador y
 trabajador, NO al desarrollador, y sin quien lo provocó) o a la persona del aviso; lo llaman `liberar` y `entregas` y,
 para lo que nace de una función directa (Calidad, recibos), la propia lectura de la campanita. Lógica pura y pruebas en
-`avisos.ts`. **Falta**: aplicar la migración (con permiso, ver "Migraciones: cómo aplicarlas"); los avisos de las
+`avisos.ts`. **Falta**: poner las llaves VAPID en Vercel (sin ellas los avisos salen en la campanita pero no al
+celular); los avisos de las
 entregas por partes (`entregas_partes_produccion`) y de "Por llegar" no existen todavía; no hay limpieza de avisos
 viejos (la campanita solo muestra 30 días).
 
