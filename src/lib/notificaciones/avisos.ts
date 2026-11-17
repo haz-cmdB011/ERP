@@ -16,6 +16,8 @@ export const DIAS_DE_AVISOS = 30;
 export const MAX_AVISOS = 30;
 // Un aviso solo se manda al celular si es reciente: uno viejo que nunca salió ya no es noticia.
 export const MINUTOS_PARA_ENVIAR = 15;
+// Cada cuánto, como mucho, una instancia del servidor pide a la base que genere los recordatorios por tiempo.
+export const MINUTOS_ENTRE_RECORDATORIOS = 10;
 // Tope de ids por petición de "marcar como leído".
 export const MAX_IDS_LEER = 50;
 

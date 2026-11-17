@@ -155,17 +155,22 @@ servicio de push rechazó el envío (suscripción caducada: se limpia sola). Sin
 
 ### Avisos por área y campanita
 
-Con la migración `avisos_por_area` aplicada, la base crea sola un aviso cuando: se liberan muebles (→ Producción), Producción
-registra una entrega (→ Calidad), Calidad aprueba o rechaza (→ Producción), llega un recibo (→ Estimaciones) y cuando se revisa
-un recibo (→ quien lo capturó). Se ven en la **campanita** de la barra (cada área ve los suyos; el desarrollador, los del área
+Con las migraciones `avisos_por_area` y `avisos_recordatorios` aplicadas, la base crea sola un aviso cuando: Producción registra una
+entrega (→ Calidad); Calidad rechaza un mueble o una parte (→ Producción, a reprocesar); Calidad aprueba (→ Producción y, si se puede
+cobrar, → Estimaciones: "ya pueden llegar recibos"); llega un recibo (→ Estimaciones); y se revisa un recibo (→ quien lo capturó).
+Además hay **recordatorios** que se repiten una vez al día mientras sigan pendientes: muebles liberados sin asignar tras 2 días (a quien
+los liberó), asignaciones sin entregar tras 3 días (a toda Producción), recibos sin revisar tras 3 días y recibos revisados sin pagar
+tras 3 días (a Estimaciones). Se ven en la **campanita** de la barra (cada área ve los suyos; el desarrollador, los del área
 en la que está) y, si la persona activó las notificaciones y las llaves están puestas, también le llegan al celular (al
 personal del área, no al desarrollador, y nunca a quien provocó el aviso).
 
 - La campanita no sale hasta que la migración esté aplicada. Los avisos al celular no salen sin las llaves.
 - Un aviso que no se pudo crear **no frena** la operación (liberar, entregar, evaluar…): solo no aparece.
 - Los avisos de más de 30 días ya no se muestran; no se borran solos. Para limpiar: `delete from public.avisos where creado_en < now() - interval '90 days';`
-- Para apagar los avisos sin quitar nada más: `alter table public.planeacion_items disable trigger trg_aviso_liberado;` y lo mismo con
-  `trg_aviso_entrega`, `trg_aviso_informe_calidad`, `trg_aviso_revision_final`, `trg_aviso_recibo_nuevo` y `trg_aviso_recibo_revisado` (cada una en su tabla; ver la migración).
+- Los recordatorios se generan cuando alguien abre la campanita (no hay tarea programada). Para cambiar los días: migración nueva que
+  reemplace los valores por omisión de `generar_recordatorios`. Para apagarlos: `revoke execute on function public.generar_recordatorios(integer, integer, integer, integer) from service_role;`
+- Para apagar los avisos de hechos sin quitar nada más: `alter table public.entregas_produccion disable trigger trg_aviso_entrega;` y lo mismo con
+  `trg_aviso_informe_calidad`, `trg_aviso_revision_final`, `trg_aviso_recibo_nuevo` y `trg_aviso_recibo_revisado` (cada una en su tabla; ver la migración).
 
 ## Cambios de base de datos
 
