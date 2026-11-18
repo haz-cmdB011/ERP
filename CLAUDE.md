@@ -575,9 +575,15 @@ cae al login de siempre (correo y contraseña). **`/instalar/hoja`** (pública) 
 Lógica sin navegador en `src/lib/ui/instalar-app.ts`; pruebas en `e2e/humo.spec.ts` ("instalar la app"). Solo se pide
 instalar: no se piden permisos del navegador (cámara, notificaciones) al instalar.
 
-## Notificaciones al celular (Web Push)
+## Notificaciones del navegador y del celular (Web Push)
 
-Cada quien las activa en **/cuenta → Notificaciones** (`src/app/cuenta/notificaciones-form.tsx`; también en
+Funcionan igual en computadora (Chrome, Edge, Firefox) que en celular. **Al entrar a un área sale un recuadro
+"¿Quieres recibir avisos en este navegador?"** (`src/components/pedir-notificaciones.tsx`, en `AreaNav` junto a la
+campanita; "Activar" lanza el permiso real del navegador y "Ahora no" no vuelve a salir en ese navegador, se guarda en
+`localStorage`); solo aparece si el navegador las soporta, el servidor tiene sus llaves y no están activas ni
+bloqueadas. La lógica de activar/desactivar está en el hook `useNotificaciones` (`use-notificaciones.ts`), que
+comparten el recuadro y Mi perfil. Cada quien también las activa en **/cuenta → Notificaciones**
+(`src/app/cuenta/notificaciones-form.tsx`; también en
 `/estimaciones/cuenta`): registra `public/sw.js` (solo atiende `push` y `notificationclick`, sin caché), pide el permiso
 y guarda la suscripción del aparato (`POST /api/notificaciones/suscribir`, tabla `suscripciones_push` con RLS: cada
 persona solo ve las suyas). "Enviar notificación de prueba" (`/api/notificaciones/prueba`) manda un aviso real a sus

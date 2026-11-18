@@ -17,7 +17,7 @@ interface Respuesta {
 
 // Campanita de la barra: los avisos importantes del área (se liberó un mueble, hubo una entrega, Calidad
 // aprobó o rechazó, llegó un recibo…). Se esconde sola si la base todavía no tiene los avisos. Los mismos
-// avisos le llegan al celular como notificación si la persona las activó en Mi perfil.
+// avisos le llegan al navegador (computadora o celular) como notificación si la persona las activó en Mi perfil.
 export default function Campanita({ area }: { area: AreaAviso }) {
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [abierto, setAbierto] = useState(false);
