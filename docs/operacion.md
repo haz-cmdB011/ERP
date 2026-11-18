@@ -139,9 +139,9 @@ update public.ajustes_flujo set activo = false, actualizado_en = now()
   where clave = 'cobro_segun_produccion';
 ```
 
-## Notificaciones al celular
+## Notificaciones del navegador y del celular
 
-Cada quien las activa en **Mi perfil → Notificaciones** (por aparato; en iPhone, con la app instalada). Para que
+Al entrar a un área sale un recuadro que las ofrece (o se activan en **Mi perfil → Notificaciones**), por aparato y navegador; en iPhone, con la app instalada. Para que
 funcionen el servidor necesita tres variables, en Vercel (Production) y en `.env.local` si se prueba en local:
 
 1. Generar las llaves, **una sola vez**: `npx web-push generate-vapid-keys`.

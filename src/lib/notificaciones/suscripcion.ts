@@ -1,4 +1,4 @@
-// Notificaciones al celular (Web Push): lo que el navegador manda al activarlas y cómo se valida antes de
+// Notificaciones del navegador (Web Push): lo que el navegador manda al activarlas y cómo se valida antes de
 // guardarlo. Lógica sin base de datos ni navegador, para poder probarla.
 //
 // Seguridad: el servidor le manda la notificación a la dirección (`endpoint`) que dio el navegador. Si se aceptara
