@@ -663,8 +663,20 @@ describe("variantes de encabezado de archivos reales", () => {
     return Buffer.from(await wb.xlsx.writeBuffer());
   }
 
-  // El formato exige los nombres exactos: los alias de archivos viejos ya no pasan.
-  it.each(["CANT\nTOTAL", "CANTIDAD DE MUEBLES EN PLANTA "])(
+  // Los nombres de plantillas anteriores se leen igual y salen como AVISO (recuadro amarillo), no como rechazo.
+  it.each(["CANT\nTOTAL", "CANT TOTAL", "TOTAL"])("acepta %j como CANTIDAD TOTAL y lo avisa", async (encabezado) => {
+    const resultado = await parsePlaneacionExcel(await libroConEncabezados(encabezado));
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.avisos.map((a) => a.mensaje)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/La columna L se llama "CANT TOTAL"|La columna L se llama "TOTAL"/)])
+    );
+    // La cantidad se leyó de esa columna.
+    expect(resultado.items.map((i) => i.cantidad_total)).toEqual([2, 6]);
+  });
+
+  // Lo que NO se parece a un nombre conocido se sigue rechazando, con la columna parecida señalada.
+  it.each(["CANTIDAD DE MUEBLES EN PLANTA "])(
     "rechaza %j como CANTIDAD TOTAL y dice en qué columna está",
     async (encabezado) => {
       const resultado = await parsePlaneacionExcel(await libroConEncabezados(encabezado));
@@ -675,13 +687,34 @@ describe("variantes de encabezado de archivos reales", () => {
     }
   );
 
-  it("rechaza dos columnas TIPO en lugar de COMPONENTE y lo indica", async () => {
+  it("sin la columna COMPONENTE (plantilla anterior) carga y avisa: los componentes quedan sin categoría", async () => {
     const resultado = await parsePlaneacionExcel(await libroConEncabezados("CANTIDAD TOTAL"));
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.errores.map((e) => e.mensaje)).toEqual([
-      expect.stringMatching(/Falta la columna "COMPONENTE"\. Debe llamarse exactamente "COMPONENTE"\./),
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.avisos.map((a) => a.mensaje)).toEqual([
+      expect.stringMatching(/El archivo no trae la columna COMPONENTE \(es de una plantilla anterior\)/),
     ]);
+    expect(resultado.items.map((i) => i.categoria_componente)).toEqual([null, null]);
+    // El rol padre/hijo lo decide la forma del ITEM, no esa columna.
+    expect(resultado.items.map((i) => i.tipo_registro)).toEqual(["MO", "FU"]);
+  });
+
+  it("una hoja de notas con 'TOTAL' y 'COMP' no se vuelve PM por sus alias (solo cuentan los nombres exactos)", async () => {
+    const wb = new ExcelJS.Workbook();
+    const pm = wb.addWorksheet("PEDIDO");
+    pm.getCell("L3").value = "No. PEDIDO";
+    pm.getCell("N3").value = "051-24-2";
+    pm.getCell("L5").value = "PROYECTO:";
+    pm.getCell("M5").value = "MOBILIARIO VARIOS";
+    pm.getCell("L6").value = "CLIENTE:";
+    pm.getCell("M6").value = "CLIENTE";
+    pm.getRow(10).values = ["ITEM", "COMPONENTE", "TIPO", "MODELO", "DESCRIPCION", "CANTIDAD X MUEBLE", "UNIDAD", "CANTIDAD TOTAL"];
+    pm.getRow(11).values = [1, "MO", "HIBRIDO", "SAL", "SOFA", 1, "PZA", 2];
+    const ws = wb.addWorksheet("RESUMEN");
+    ws.getRow(2).values = ["ITEM", "COMP", "DESCRIPCION", "UNIDAD", "TOTAL"];
+    ws.getRow(3).values = [1, "x", "algo", "PZA", 5];
+    const libro = await parsePlaneacionLibro(Buffer.from(await wb.xlsx.writeBuffer()));
+    expect(libro.hojasIgnoradas).toEqual(["RESUMEN"]);
   });
 
   it("no toma por CANTIDAD TOTAL la cantidad de herrajes de la hoja de resumen", async () => {
@@ -735,5 +768,40 @@ describe("celdas con una fecha inválida", () => {
 
   it("una fecha válida se sigue leyendo igual", () => {
     expect(textoDeCelda(celda(new Date("2026-01-14T00:00:00.000Z")))).toBe("2026-01-14T00:00:00.000Z");
+  });
+});
+
+describe("aviso de fechas", () => {
+  async function libroConFechas(pedido: string, entrega: string): Promise<Buffer> {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("PEDIDO");
+    ws.getCell("L2").value = "No. PEDIDO";
+    ws.getCell("N2").value = "006-26-2";
+    ws.getCell("L3").value = "PROYECTO:";
+    ws.getCell("M3").value = "SMART FIT GUADALAJARA";
+    ws.getCell("L4").value = "CLIENTE:";
+    ws.getCell("M4").value = "SMART FIT";
+    ws.getCell("L5").value = "FECHA:";
+    ws.getCell("M5").value = pedido;
+    ws.getCell("L6").value = "FECHA DE ENTREGA:";
+    ws.getCell("M6").value = entrega;
+    ws.getRow(10).values = ["ITEM", "COMPONENTE", "TIPO", "MODELO", "DESCRIPCION", "CANTIDAD X MUEBLE", "UNIDAD", "CANTIDAD TOTAL"];
+    ws.getRow(11).values = [1, "MO", "HIBRIDO", "SAL", "SOFA", 1, "PZA", 2];
+    return Buffer.from(await wb.xlsx.writeBuffer());
+  }
+
+  it("avisa cuando la fecha de entrega es anterior a la del pedido (año mal escrito) y aun así carga", async () => {
+    const r = await parsePlaneacionExcel(await libroConFechas("14.01.26", "15.02.25"));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.avisos.map((a) => a.mensaje)).toEqual([
+      expect.stringMatching(/FECHA DE ENTREGA \(15\/02\/2025\) es anterior a la FECHA del pedido \(14\/01\/2026\)/),
+    ]);
+  });
+
+  it("no avisa con fechas en orden", async () => {
+    const r = await parsePlaneacionExcel(await libroConFechas("14.01.26", "15.02.26"));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.avisos).toEqual([]);
   });
 });

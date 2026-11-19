@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import type { FaseTaller } from "./fases-taller";
 import {
   COLUMNAS_REQUERIDAS,
+  COLUMNAS_TOLERADAS,
   diagnosticarEncabezados,
   letraColumna,
   nombreCanonico,
@@ -207,14 +208,24 @@ export function buscarEncabezados(worksheet: ExcelJS.Worksheet): EncabezadosHoja
   for (let r = 1; r <= Math.min(worksheet.rowCount, MAX_HEADER_SCAN_ROWS); r++) {
     const row = worksheet.getRow(r);
     const map: Record<string, number> = {};
+    const textos: [number, string][] = [];
     for (let c = 1; c <= row.cellCount; c++) {
       const text = cellText(resolvedValue(row.getCell(c)));
       if (!text) continue;
-      const nombre = nombreCanonico(text);
+      textos.push([c, text]);
+      // 1.º los nombres exactos (normalizados): son los que mandan.
+      const nombre = normalize(text);
       if (!(nombre in map)) map[nombre] = c;
     }
     if (!map["ITEM"]) continue;
+    // Para decidir si la hoja es un PM solo cuentan los nombres exactos: así una hoja de notas con "TOTAL" o
+    // "COMP" no pasa a contarse como PM por sus alias.
     const coincidencias = COLUMNAS_REQUERIDAS.filter((h) => map[h]).length;
+    // 2.º los alias (plantillas anteriores), solo para lo que no tiene su nombre exacto.
+    for (const [c, text] of textos) {
+      const canonico = nombreCanonico(text);
+      if (!(canonico in map)) map[canonico] = c;
+    }
     if (!mejor || coincidencias > mejor.coincidencias) {
       mejor = { headerRowNumber: r, columnMap: map, coincidencias };
     }
@@ -432,7 +443,32 @@ function parsearHoja(
     if (texto) columnasEncabezado.push({ columna: c, texto });
   }
   const diagnostico = diagnosticarEncabezados(columnasEncabezado);
+  // Avisos (recuadro amarillo) sobre el encabezado: lo que se leyó por otro nombre y lo que la plantilla anterior no
+  // traía. Cargan igual; solo piden revisar.
+  const avisosEncabezado: FilaError[] = [];
+  // Una entrega antes del pedido casi siempre es el año mal escrito (la plantilla del año anterior): sin este aviso
+  // el tablero de Producción la marcaría como atrasada desde el primer día.
+  if (metadata.fecha_pedido && metadata.fecha_entrega && metadata.fecha_entrega < metadata.fecha_pedido) {
+    const dmy = (iso: string) => iso.split("-").reverse().join("/");
+    avisosEncabezado.push({
+      fila: 0,
+      mensaje: `La FECHA DE ENTREGA (${dmy(metadata.fecha_entrega)}) es anterior a la FECHA del pedido (${dmy(metadata.fecha_pedido)}). ¿El año está bien? Con esa fecha el pedido aparecerá como atrasado.`,
+    });
+  }
+  for (const eq of diagnostico.equivalentes) {
+    avisosEncabezado.push({
+      fila: headerRowNumber,
+      mensaje: `La columna ${letraColumna(eq.columna)} se llama "${eq.texto.replace(/\s+/g, " ")}"; se leyó como ${eq.nombre}. Si no es lo mismo, corrígelo en el Excel.`,
+    });
+  }
   for (const falta of diagnostico.faltantes) {
+    if (COLUMNAS_TOLERADAS.includes(falta.nombre)) {
+      avisosEncabezado.push({
+        fila: headerRowNumber,
+        mensaje: `El archivo no trae la columna ${falta.nombre} (es de una plantilla anterior): los componentes se guardaron sin categoría (MOB/FUN/PER).`,
+      });
+      continue;
+    }
     const pista = falta.sugerida
       ? ` En la columna ${letraColumna(falta.sugerida.columna)} dice "${falta.sugerida.texto}".`
       : "";
@@ -448,7 +484,7 @@ function parsearHoja(
 
   // ---- 3. Filas de datos ---------------------------------------------------
   const items: PlaneacionItemParsed[] = [];
-  const avisos: FilaError[] = [];
+  const avisos: FilaError[] = [...avisosEncabezado];
   let filasTotales = 0;
 
   const col = (name: (typeof COLUMNAS_REQUERIDAS)[number] | string) => columnMap[name];
@@ -461,7 +497,8 @@ function parsearHoja(
     const itemCode = cellNumber(resolvedValue(row.getCell(col("ITEM"))));
     const descripcion = cellText(resolvedValue(row.getCell(col("DESCRIPCION"))));
     const modelo = cellText(resolvedValue(row.getCell(col("MODELO"))));
-    const componenteRaw = cellText(resolvedValue(row.getCell(col("COMPONENTE"))));
+    // Sin la columna COMPONENTE (plantilla anterior) la categoría queda vacía.
+    const componenteRaw = col("COMPONENTE") ? cellText(resolvedValue(row.getCell(col("COMPONENTE")))) : null;
 
     const filaTieneContenido = itemCode !== null || descripcion || modelo || componenteRaw;
     if (!filaTieneContenido) continue; // fila vacía / separador, se ignora

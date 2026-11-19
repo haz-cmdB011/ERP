@@ -1,11 +1,14 @@
 import type { FaseTaller } from "./fases-taller";
 
 /**
- * Formato del Excel "PEDIDO DE MANUFACTURA": los nombres de las columnas son
- * fijos. La referencia es la plantilla PM_v5.xlsm (hoja PEDIDOS, fila 9). Si
- * falta una obligatoria, el archivo no se carga. Las no reconocidas se ignoran
- * (suelen ser notas de Planeación), pero se muestran en la vista previa para
- * que se vea qué no entra.
+ * Formato del Excel "PEDIDO DE MANUFACTURA": la referencia es la plantilla
+ * PM_v5.xlsm (hoja PEDIDOS, fila 9). Los nombres de plantillas anteriores
+ * ("CANT TOTAL", "COMP", "CANTIDAD POR MUEBLE"…) se leen igual y salen como AVISO
+ * (recuadro amarillo); la columna COMPONENTE puede faltar (también avisa). Si falta
+ * cualquier otra obligatoria con un nombre que no se reconoce, el archivo no se
+ * carga y se dice qué columna parece ser. Las columnas no reconocidas se ignoran
+ * (suelen ser notas de Planeación), pero se muestran en la vista previa para que
+ * se vea qué no entra.
  */
 
 // Normaliza un encabezado para compararlo: sin acentos, mayúsculas y con
@@ -57,11 +60,30 @@ export const COLUMNAS_OPCIONALES: readonly string[] = [
   "SUMINISTRO DE MATS",
 ];
 
-// Nombres de archivos anteriores a la plantilla -> nombre actual (ya
-// normalizados). Se siguen aceptando para no rechazar archivos viejos.
+// Nombres que usan plantillas anteriores (o variantes comunes) -> nombre actual (todos ya normalizados). Se
+// leen igual, pero cada uno sale como AVISO ("la columna se llama X; se leyó como Y") para que se corrija en el
+// Excel: así un PM de una plantilla vieja se carga en vez de rechazarse. Si el nombre exacto también está, manda
+// el exacto (el alias solo cubre lo que falta). Los nombres que no están aquí se siguen rechazando, con la columna
+// parecida señalada.
 const ALIAS_COLUMNAS: Record<string, string> = {
   ELEVACION: "ELEVACION/UBICACION",
+  COMP: "COMPONENTE",
+  "CANT TOTAL": "CANTIDAD TOTAL",
+  "CANT. TOTAL": "CANTIDAD TOTAL",
+  TOTAL: "CANTIDAD TOTAL",
+  "CANTIDAD POR MUEBLE": "CANTIDAD X MUEBLE",
+  "CANT X MUEBLE": "CANTIDAD X MUEBLE",
+  "CANT. X MUEBLE": "CANTIDAD X MUEBLE",
+  "CANT POR MUEBLE": "CANTIDAD X MUEBLE",
 };
+
+// Alias de siempre que no avisan (ya eran aceptados en silencio).
+const ALIAS_SIN_AVISO = new Set(["ELEVACION"]);
+
+// Obligatorias que, si faltan, NO impiden cargar: la plantilla anterior no traía la columna COMPONENTE (la
+// categoría MOB/FUN/PER). El rol padre/hijo lo decide la forma del ITEM; sin la columna, la categoría queda vacía y
+// se avisa.
+export const COLUMNAS_TOLERADAS: readonly string[] = ["COMPONENTE"];
 
 // Nombre que se compara con el formato: normalizado y con los alias resueltos.
 export function nombreCanonico(texto: string): string {
@@ -85,9 +107,16 @@ export interface FaltaColumna {
   sugerida: ColumnaEncabezado | null;
 }
 
+// Columna que se leyó por otro nombre (ej. "CANT TOTAL" como CANTIDAD TOTAL).
+export interface ColumnaEquivalente extends ColumnaEncabezado {
+  nombre: string;
+}
+
 export interface DiagnosticoEncabezados {
   faltantes: FaltaColumna[];
   desconocidas: ColumnaEncabezado[];
+  // Columnas leídas por un alias (solo las que deben avisar).
+  equivalentes: ColumnaEquivalente[];
 }
 
 export function letraColumna(numero: number): string {
@@ -115,16 +144,28 @@ function parecida(texto: string, nombre: string): boolean {
 
 export function diagnosticarEncabezados(columnas: ColumnaEncabezado[]): DiagnosticoEncabezados {
   const presentes = new Set<string>();
-  const desconocidas: ColumnaEncabezado[] = [];
+  const usadasComoExactas = new Set<number>();
+  // 1.º los nombres exactos: un segundo TIPO no cuenta como otra columna.
   for (const c of columnas) {
-    const nombre = nombreCanonico(c.texto);
-    // Un nombre repetido (ej. un segundo TIPO) no cuenta como otra columna.
+    const nombre = normalize(c.texto);
     if (NOMBRES_CONOCIDOS.has(nombre) && !presentes.has(nombre)) {
       presentes.add(nombre);
-    } else {
-      desconocidas.push(c);
+      usadasComoExactas.add(c.columna);
     }
   }
+  // 2.º los alias, solo para lo que no tiene su nombre exacto.
+  const equivalentes: ColumnaEquivalente[] = [];
+  const usadasComoAlias = new Set<number>();
+  for (const c of columnas) {
+    if (usadasComoExactas.has(c.columna)) continue;
+    const nombre = normalize(c.texto);
+    const canonico = ALIAS_COLUMNAS[nombre];
+    if (!canonico || presentes.has(canonico)) continue;
+    presentes.add(canonico);
+    usadasComoAlias.add(c.columna);
+    if (!ALIAS_SIN_AVISO.has(nombre)) equivalentes.push({ ...c, nombre: canonico });
+  }
+  const desconocidas = columnas.filter((c) => !usadasComoExactas.has(c.columna) && !usadasComoAlias.has(c.columna));
 
   const usadas = new Set<number>();
   const faltantes: FaltaColumna[] = [];
@@ -136,5 +177,5 @@ export function diagnosticarEncabezados(columnas: ColumnaEncabezado[]): Diagnost
     faltantes.push({ nombre, sugerida });
   }
 
-  return { faltantes, desconocidas };
+  return { faltantes, desconocidas, equivalentes };
 }
