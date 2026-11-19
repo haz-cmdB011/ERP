@@ -639,7 +639,9 @@ Ver `SEGURIDAD.md`: capas de defensa, variables opcionales (`REGISTRO_DOMINIOS_P
 `NEXT_PUBLIC_SITE_URL`, `CSP_SOLO_REPORTE`) y pasos manuales en Supabase/Vercel. Reglas que no
 hay que romper: la lectura de datos exige rol asignado (`is_staff()`; un `usuario` recién
 registrado no ve nada), las imágenes se validan por su contenido real antes de `sharp`
-(`src/lib/seguridad/imagen.ts`), `?next=` solo acepta rutas internas
+(`src/lib/seguridad/imagen.ts`), el Excel de un PM se revisa antes de leerlo (`src/lib/seguridad/excel.ts`: es un ZIP de verdad, sin bombas, y
+**máx. 50 MB de XML al abrirlo**: un PM de 249 MB sin comprimir —millones de filas vacías con formato— hacía que el lector pidiera más de 4 GB y
+tumbara el servidor; el PM real más grande de 2024–2026 trae 13 MB), `?next=` solo acepta rutas internas
 (`src/lib/seguridad/redireccion.ts`) y toda tabla nueva lleva RLS desde su migración.
 
 ## Contraseñas filtradas
