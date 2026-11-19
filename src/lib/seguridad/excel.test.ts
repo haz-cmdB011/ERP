@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_BYTES_DESCOMPRIMIDOS_EXCEL,
   MAX_BYTES_ENTRADA_EXCEL,
+  MAX_BYTES_XML_EXCEL,
   validarContenidoExcel,
 } from "./excel";
 
@@ -77,6 +78,29 @@ describe("validarContenidoExcel", () => {
     const firma = Buffer.from([0x50, 0x4b, 0x01, 0x02]);
     for (let i = zip.indexOf(firma); i >= 0; i = zip.indexOf(firma, i + 4)) zip.writeUInt32LE(porParte, i + 24);
     expect(validarContenidoExcel(zip).ok).toBe(false);
+  });
+
+  it("rechaza un Excel con hojas enormes (filas vacías con formato) con un mensaje que dice cómo arreglarlo", async () => {
+    const zip = Buffer.from(await zipDe({ ...LIBRO_MINIMO, "xl/worksheets/sheet2.xml": "x" }));
+    const firma = Buffer.from([0x50, 0x4b, 0x01, 0x02]);
+    // Se declara a la hoja 86 MB sin comprimir, como el PM real que tumbaba el lector.
+    for (let i = zip.indexOf(firma); i >= 0; i = zip.indexOf(firma, i + 4)) {
+      const largo = zip.readUInt16LE(i + 28);
+      if (zip.toString("latin1", i + 46, i + 46 + largo) === "xl/worksheets/sheet2.xml") zip.writeUInt32LE(86 * 1024 * 1024, i + 24);
+    }
+    const r = validarContenidoExcel(zip);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.motivo).toMatch(/filas o columnas vacías/);
+  });
+
+  it("no confunde fotos pesadas con hojas enormes: las imágenes no cuentan para el tope de XML", async () => {
+    const zip = Buffer.from(await zipDe({ ...LIBRO_MINIMO, "xl/media/foto1.jpg": "x" }));
+    const firma = Buffer.from([0x50, 0x4b, 0x01, 0x02]);
+    for (let i = zip.indexOf(firma); i >= 0; i = zip.indexOf(firma, i + 4)) {
+      const largo = zip.readUInt16LE(i + 28);
+      if (zip.toString("latin1", i + 46, i + 46 + largo) === "xl/media/foto1.jpg") zip.writeUInt32LE(MAX_BYTES_XML_EXCEL * 2, i + 24);
+    }
+    expect(validarContenidoExcel(zip).ok).toBe(true);
   });
 
   it("rechaza el valor reservado de ZIP64 en el tamaño de una parte", async () => {

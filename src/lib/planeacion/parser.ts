@@ -81,7 +81,9 @@ function resolvedValue(cell: ExcelJS.Cell): CellValue {
 
 function cellText(value: CellValue): string | null {
   if (value === null || value === undefined) return null;
-  if (value instanceof Date) return value.toISOString();
+  // Una fórmula rota (#REF!) con formato de fecha llega como Date inválida: se lee como vacía en vez de
+  // lanzar "Invalid time value" y tumbar la carga.
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
   if (typeof value === "object") {
     if ("richText" in value && Array.isArray(value.richText)) {
       return value.richText.map((rt) => rt.text).join("").trim() || null;
@@ -137,7 +139,7 @@ const PATRON_FECHA_TEXTO = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/;
 
 function cellDateISO(value: CellValue): string | null {
   if (value === null || value === undefined) return null;
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
   if (typeof value === "object" && "result" in value) {
     return cellDateISO(value.result as CellValue);
   }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import ExcelJS from "exceljs";
-import { parsePlaneacionExcel, parsePlaneacionLibro } from "./parser";
+import { parsePlaneacionExcel, parsePlaneacionLibro, textoDeCelda } from "./parser";
 
 const MUESTRA_REAL =
   "P:/2026/107-26-2 SMART FIT PLAZA PALMIRA/PEDIDO/PM 107-26 SMART FIT PLAZA PALMIRA.xlsx";
@@ -719,5 +719,21 @@ describe("hojas con encabezados mal escritos", () => {
     expect(libro.hojasIgnoradas).toEqual([]);
     expect(libro.hojas).toHaveLength(1);
     expect(libro.hojas[0].resultado.ok).toBe(false);
+  });
+});
+
+describe("celdas con una fecha inválida", () => {
+  // Un PM real de 2025 (SIDINGS COLUMNAS EXTERIORES) trae una celda con formato de fecha cuya fórmula está rota
+  // (#REF!): exceljs la devuelve como { formula, result: Invalid Date } y `toISOString()` lanzaba "Invalid time value",
+  // así que la carga se caía con un error 500 en vez de leer el archivo.
+  const celda = (value: unknown) => ({ value, model: undefined }) as unknown as ExcelJS.Cell;
+
+  it("textoDeCelda no lanza con una fórmula rota que da una fecha inválida: la lee como vacía", () => {
+    expect(textoDeCelda(celda({ formula: "#REF!", result: new Date(NaN) }))).toBe("");
+    expect(textoDeCelda(celda(new Date(NaN)))).toBe("");
+  });
+
+  it("una fecha válida se sigue leyendo igual", () => {
+    expect(textoDeCelda(celda(new Date("2026-01-14T00:00:00.000Z")))).toBe("2026-01-14T00:00:00.000Z");
   });
 });

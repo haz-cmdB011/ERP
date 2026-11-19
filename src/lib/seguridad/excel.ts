@@ -16,6 +16,12 @@ export const MAX_ENTRADAS_EXCEL = 10_000;
 // deja pasar cualquier pedido real y frena los miles de MB de una bomba.
 export const MAX_BYTES_DESCOMPRIMIDOS_EXCEL = 600 * 1024 * 1024;
 export const MAX_BYTES_ENTRADA_EXCEL = 250 * 1024 * 1024;
+// Lo que pesa de verdad al leerlo es el XML (hojas, textos, estilos), no las imágenes: exceljs lo carga
+// entero en memoria, unas 15–20 veces su tamaño. En 589 PM reales de 2024 a 2026 el mayor trae 13 MB de
+// XML; un PM con 3 hojas de millones de filas vacías con formato (249 MB) hacía que el lector pidiera más
+// de 4 GB y tumbara el servidor, y una sola hoja de 82 MB ya usaba 1.8 GB. Con este tope (4 veces lo más
+// grande que hay) un archivo así se rechaza antes de leerlo, con un mensaje que dice cómo arreglarlo.
+export const MAX_BYTES_XML_EXCEL = 50 * 1024 * 1024;
 
 const FIRMA_LOCAL = 0x04034b50; // "PK\x03\x04"
 const FIRMA_FIN_DIRECTORIO = 0x06054b50;
@@ -62,6 +68,7 @@ export function validarContenidoExcel(buffer: Buffer | Uint8Array): ResultadoExc
 
   const nombres = new Set<string>();
   let total = 0;
+  let xml = 0;
   let pos = inicioDirectorio;
   for (let n = 0; n < totalEntradas; n++) {
     if (pos + 46 > b.length || b.readUInt32LE(pos) !== FIRMA_DIRECTORIO) {
@@ -81,8 +88,17 @@ export function validarContenidoExcel(buffer: Buffer | Uint8Array): ResultadoExc
       return rechazo("El archivo de Excel ocupa demasiado al descomprimirse.");
     }
 
-    nombres.add(b.toString("latin1", pos + 46, pos + 46 + largoNombre));
+    const nombre = b.toString("latin1", pos + 46, pos + 46 + largoNombre);
+    nombres.add(nombre);
+    if (/\.(xml|rels)$/i.test(nombre)) xml += tamanoDescomprimido;
     pos += 46 + largoNombre + largoExtra + largoComentario;
+  }
+
+  // Se suma todo el XML y se revisa al final para decir el tamaño real (no el de cuando se cruzó el tope).
+  if (xml > MAX_BYTES_XML_EXCEL) {
+    return rechazo(
+      `El Excel trae demasiados datos en sus hojas (${Math.round(xml / 1048576)} MB al abrirlo; lo normal es menos de 15 MB). Suele ser por filas o columnas vacías con formato: ábrelo en Excel, borra las filas y columnas sobrantes (Ctrl+Fin lleva a la última celda usada), guárdalo y vuelve a subirlo.`
+    );
   }
 
   // Partes que todo libro de Excel trae (y que un ZIP cualquiera, un .docx o un
