@@ -15,7 +15,7 @@ describe("construirVistaPrevia", () => {
       ws.getCell("N1").value = "107-26";
       ws.getRow(3).values = [
         "ITEM", "COMPONENTE", "TIPO", "MODELO", "DESCRIPCION", "CANTIDAD X MUEBLE", "UNIDAD",
-        "CANT TOTAL", "NOTAS",
+        "CANTIDAD FINAL", "NOTAS",
       ];
       ws.getRow(4).values = [1, "MO", "HIBRIDO", "SAL", "SOFA", 1, "PZA", 2, "revisar"];
     });
@@ -25,12 +25,12 @@ describe("construirVistaPrevia", () => {
     if (!vista) return;
     expect(vista.hoja).toBe("PEDIDO");
     expect(vista.filaEncabezado).toBe(3);
-    // "CANT TOTAL" no es un nombre reconocido, así que también sale en ámbar.
+    // "CANTIDAD FINAL" no es un nombre ni un alias reconocido, así que también sale en ámbar.
     expect(vista.desconocidas).toEqual([8, 9]);
     expect(vista.faltantes).toEqual([
       {
         nombre: "CANTIDAD TOTAL",
-        sugerida: { columna: 8, texto: "CANT TOTAL" },
+        sugerida: { columna: 8, texto: "CANTIDAD FINAL" },
       },
     ]);
     const filaEncabezado = vista.filas.find((f) => f.numero === 3);

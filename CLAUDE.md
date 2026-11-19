@@ -64,7 +64,13 @@ lo que se cargue o borre en local afecta datos reales.
 - `src/lib/supabase/`: clientes `client`, `server` y `admin` (service role).
 - `src/lib/auth/`: perfil actual, guard de admin y definición de roles.
 - `src/lib/planeacion/`: parser del Excel "PEDIDO DE MANUFACTURA", números PM,
-  jerarquía MO/FU, imágenes.
+  jerarquía MO/FU, imágenes. **Errores vs. avisos al subir un PM**: un error (rojo) rechaza el archivo; un aviso (recuadro
+  amarillo, "Se cargó, pero revisa…") carga igual. Los nombres de columna de plantillas anteriores (`CANT TOTAL`, `TOTAL`,
+  `COMP`, `CANTIDAD POR MUEBLE`, `CANT X MUEBLE`; `ALIAS_COLUMNAS` en `formato.ts`) se leen y avisan, y la columna
+  `COMPONENTE` puede faltar (`COLUMNAS_TOLERADAS`: queda sin categoría y avisa). Sigue siendo error: una columna obligatoria
+  sin nombre reconocible (se señala la parecida), la falta de las etiquetas `PROYECTO`/`CLIENTE`, y una hoja sin fila de
+  encabezados. Una entrega anterior al pedido también avisa (año mal escrito). Se probó contra 589 PM reales (2024–2026): los 451
+  que ya cargaban no cambian y 65 más cargan.
 - `src/lib/estimaciones/`: motor de precios, recibos de acabados, armado y
   electrificación, revisión.
 - `src/lib/planos/`, `src/lib/pdf/`, `src/lib/produccion/`: planos, PDF tamaño
