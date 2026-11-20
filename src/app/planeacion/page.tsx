@@ -2,6 +2,7 @@ import Link from "next/link";
 import AccesosRapidos from "@/components/accesos-rapidos";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { paginarTodo } from "@/lib/supabase/paginar";
 import { getPerfilActual, puedeAdministrarPlaneacion, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import AccionesPedido from "./acciones-pedido";
 import ListaPedidos from "./lista-pedidos";
@@ -64,14 +65,25 @@ export default async function PlaneacionListPage({
     getPerfilActual(supabase),
     cookies(),
     busqueda ? buscarMuebles(supabase, busqueda) : Promise.resolve(null),
-    supabase
-      .from("pedidos")
-      .select(COLUMNAS)
-      .is("eliminado_en", null)
-      // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
-      .is("eliminado_definitivo_en", null)
-      .order("created_at", { ascending: false })
-      .returns<PedidoRow[]>(),
+    // Pagina: la base corta cada respuesta en 1000 filas sin avisar, y con más de 1000 PM la lista habría salido
+    // incompleta (sin los más antiguos). Si una página falla se muestra el aviso de error de abajo.
+    paginarTodo<PedidoRow>(
+      (desde, hasta) =>
+        supabase
+          .from("pedidos")
+          .select(COLUMNAS)
+          .is("eliminado_en", null)
+          // Eliminado definitivo con folios de Calidad: solo vive en Cancelados.
+          .is("eliminado_definitivo_en", null)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(desde, hasta)
+          .returns<PedidoRow[]>(),
+      { contexto: "los pedidos" }
+    ).then(
+      (data) => ({ data: data as PedidoRow[] | null, error: null as { message: string } | null }),
+      (e: Error) => ({ data: null as PedidoRow[] | null, error: { message: e.message } })
+    ),
   ]);
   const esAdmin = puedeAdministrarPlaneacion(perfil);
   const puedeCargar = puedeEditarPlaneacion(perfil);
