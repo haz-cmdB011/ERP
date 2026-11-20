@@ -20,7 +20,10 @@ jobs:
   revisar:
     name: Lint, pruebas y build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Normal: ~3 min. El paso de Chromium instala fuentes del sistema (apt) y el espejo de GitHub a veces va lento
+    # (el 20 nov 2026 tardó 9 min solo ahí y el CI llegó a 12): 25 min evita que un día lento lo marque en rojo
+    # sin que haya ningún error en el código.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
