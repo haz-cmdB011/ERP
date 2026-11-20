@@ -71,6 +71,12 @@ lo que se cargue o borre en local afecta datos reales.
   sin nombre reconocible (se señala la parecida), la falta de las etiquetas `PROYECTO`/`CLIENTE`, y una hoja sin fila de
   encabezados. Una entrega anterior al pedido también avisa (año mal escrito). Se probó contra 589 PM reales (2024–2026): los 451
   que ya cargaban no cambian y 65 más cargan.
+  **Carga masiva (medido el 20 nov 2026)**: la pantalla sube un archivo a la vez y el servidor deja 40 cargas por 10 minutos por persona
+  (80 las confirmaciones): al topar, el resto queda en espera con aviso y se vuelve a pulsar "Subir". La base carga un PM de 600 filas en
+  ~0.9 s, de 1500 en ~2.3 s y de 3000 en ~4.7 s (el tope de las llamadas de la app es 8 s; el PM real más grande trae 598 filas y 104
+  imágenes) y 200 PM seguidos tardan lo mismo cada uno (~42 ms); con 600 muebles liberados, asignados y aprobados las pantallas siguen en
+  milisegundos. Procesar las imágenes del PM más grande tarda ~1 s y ~216 MB. Dos cargas simultáneas del mismo archivo no duplican versiones
+  (candado `pg_advisory_xact_lock`; la versión vieja de la función, sin candado, se quitó).
 - `src/lib/estimaciones/`: motor de precios, recibos de acabados, armado y
   electrificación, revisión.
 - `src/lib/planos/`, `src/lib/pdf/`, `src/lib/produccion/`: planos, PDF tamaño
