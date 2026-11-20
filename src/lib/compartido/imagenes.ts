@@ -48,7 +48,7 @@ async function imagenesDeItems(
   itemIds: string[]
 ): Promise<ImagenRow[]> {
   try {
-    return await leerPorLotes(
+    const propias = await leerPorLotes(
       itemIds,
       (ids) =>
         supabase
@@ -59,9 +59,55 @@ async function imagenesDeItems(
           .returns<ImagenRow[]>(),
       { contexto: "las imágenes" }
     );
+    // En muchos PM la foto del mueble está pegada junto a su primer componente, no junto a la fila del
+    // mueble: sin esto el mueble (lo que ve Producción, Calidad y el tablero) salía sin imagen.
+    const conImagen = new Set(propias.map((i) => i.planeacion_item_id));
+    const sinImagen = itemIds.filter((id) => !conImagen.has(id));
+    if (sinImagen.length === 0) return propias;
+    try {
+      const deHijos = await leerPorLotes(
+        sinImagen,
+        (ids) =>
+          supabase
+            .from("planeacion_item_imagenes")
+            .select("storage_path, orden, planeacion_items!inner ( parent_item_id, fila_excel_origen )")
+            .in("planeacion_items.parent_item_id", ids)
+            .returns<ImagenDeHijoRow[]>(),
+        // Pocos padres por lote: cada uno puede traer decenas de imágenes y la respuesta se corta en 1000 filas.
+        { lote: 20, contexto: "las imágenes de los componentes" }
+      );
+      return [...propias, ...imagenesHeredadas(deHijos)];
+    } catch {
+      return propias; // sin la herencia el mueble se ve como antes, sin imagen
+    }
   } catch {
     return [];
   }
+}
+
+export interface ImagenDeHijoRow {
+  storage_path: string;
+  orden: number;
+  planeacion_items: { parent_item_id: string | null; fila_excel_origen: number | null } | null;
+}
+
+// A cada mueble sin imagen propia le toca la del primer componente (el de la fila más arriba en el Excel)
+// que tenga: sus imágenes, en su orden.
+export function imagenesHeredadas(deHijos: ImagenDeHijoRow[]): ImagenRow[] {
+  const elegido = new Map<string, { fila: number; imagenes: ImagenDeHijoRow[] }>();
+  for (const img of deHijos) {
+    const padre = img.planeacion_items?.parent_item_id;
+    if (!padre) continue;
+    const fila = img.planeacion_items?.fila_excel_origen ?? Number.MAX_SAFE_INTEGER;
+    const actual = elegido.get(padre);
+    if (!actual || fila < actual.fila) elegido.set(padre, { fila, imagenes: [img] });
+    else if (fila === actual.fila) actual.imagenes.push(img);
+  }
+  return [...elegido.entries()].flatMap(([padre, { imagenes }]) =>
+    imagenes
+      .sort((a, b) => a.orden - b.orden)
+      .map((i) => ({ planeacion_item_id: padre, storage_path: i.storage_path, orden: i.orden }))
+  );
 }
 
 // Igual que getImagenesPorItem, pero cada imagen trae también su versión

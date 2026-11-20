@@ -85,6 +85,7 @@ lo que se cargue o borre en local afecta datos reales.
   muebles: con cientos de PM fallaban por la dirección demasiado larga y la lista principal de Planeación se cortaba en 1000 PM.
   Ahora leen solo lo que tiene cancelaciones o papelera (`cargarCancelados`, `src/lib/planeacion/cancelados-db.ts`) y la lista
   principal de Planeación pagina.
+  **Imagen del mueble** (20 nov 2026): en muchos PM la foto va junto al primer componente, no junto a la fila del mueble (de 36 muebles reales, 29 no traían foto propia). `imagenesDeItems` (`src/lib/compartido/imagenes.ts`) le da al mueble sin foto la del primer componente que tenga; no cambia datos.
 - `src/lib/estimaciones/`: motor de precios, recibos de acabados, armado y
   electrificación, revisión.
 - `src/lib/planos/`, `src/lib/pdf/`, `src/lib/produccion/`: planos, PDF tamaño
