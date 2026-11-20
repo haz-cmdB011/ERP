@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPerfilActual, puedeEditarPlaneacion } from "@/lib/auth/get-perfil";
 import { RevertirItemBoton, RevertirPedidoBoton } from "@/components/revertir-cancelacion";
 import { paginarTodo } from "@/lib/supabase/paginar";
+import { cargarCancelados } from "@/lib/planeacion/cancelados-db";
 import { formatoFechaDMA } from "@/lib/resumen/entrega";
 
 // Los `.in()` con cientos de ids rompen la URL: se piden en lotes.
@@ -10,28 +11,6 @@ function lotes<T>(items: T[], tamano = 100): T[][] {
   const salida: T[][] = [];
   for (let i = 0; i < items.length; i += tamano) salida.push(items.slice(i, i + tamano));
   return salida;
-}
-
-interface PedidoRow {
-  id: string;
-  numero_pedido: string;
-  cancelado_en: string | null;
-  motivo_cancelacion: string | null;
-  proyectos: { nombre: string; cliente: string } | null;
-  pedido_versiones: { id: string; numero_version: number; es_version_activa: boolean }[];
-}
-
-interface ItemEstadoRow {
-  id: string;
-  item_code: number;
-  modelo: string | null;
-  tipo_material: string | null;
-  descripcion: string | null;
-  cantidad_total: number;
-  unidad: string | null;
-  pedido_version_id: string;
-  estado_revision: string | null;
-  motivo_cancelacion: string | null;
 }
 
 interface InformeRow {
@@ -74,51 +53,9 @@ export default async function CanceladosCalidadPage() {
   // solo el desarrollador o el personal de Planeación ven los botones.
   const puedeRevertir = puedeEditarPlaneacion(await getPerfilActual(supabase));
 
-  // Lanzan si una lectura falla: una lista de cancelados incompleta engaña.
-  const pedidos = await paginarTodo<PedidoRow>(
-    (desde, hasta) =>
-      supabase
-        .from("pedidos")
-        .select(
-          "id, numero_pedido, cancelado_en, motivo_cancelacion, proyectos ( nombre, cliente ), pedido_versiones ( id, numero_version, es_version_activa )"
-        )
-        .is("eliminado_en", null)
-        .order("created_at", { ascending: false })
-        .order("id")
-        .range(desde, hasta)
-        .returns<PedidoRow[]>(),
-    { contexto: "los pedidos" }
-  );
-
-  const versionPorPedido = new Map<string, string>();
-  for (const p of pedidos) {
-    const activa =
-      p.pedido_versiones.find((v) => v.es_version_activa) ??
-      [...p.pedido_versiones].sort((a, b) => b.numero_version - a.numero_version)[0];
-    if (activa) versionPorPedido.set(p.id, activa.id);
-  }
-  const versionIds = Array.from(versionPorPedido.values());
-
-  const itemsEstado = (
-    await Promise.all(
-      lotes(versionIds).map((lote) =>
-        paginarTodo<ItemEstadoRow>(
-          (desde, hasta) =>
-            supabase
-              .from("planeacion_items")
-              .select(
-                "id, item_code, modelo, tipo_material, descripcion, cantidad_total, unidad, pedido_version_id, estado_revision, motivo_cancelacion"
-              )
-              .in("pedido_version_id", lote)
-              .eq("estado_liberacion", "enviado_a_produccion")
-              .order("id")
-              .range(desde, hasta)
-              .returns<ItemEstadoRow[]>(),
-          { contexto: "los ítems cancelados" }
-        )
-      )
-    )
-  ).flat();
+  // Solo los pedidos con algo cancelado que le importe a Calidad y sus muebles enviados a producción (no todos los
+  // PM: con cientos, leer todo era lento y pesado). Lanza si una lectura falla: una lista incompleta engaña.
+  const { pedidos, versionPorPedido, itemsEstado } = await cargarCancelados(supabase, { soloLiberados: true });
 
   const itemsCanceladosIds = itemsEstado
     .filter((i) => i.estado_revision === "cancelado")
