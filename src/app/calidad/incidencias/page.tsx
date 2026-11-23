@@ -33,6 +33,7 @@ import SelectorPeriodo from "./selector-periodo";
 import TablaAuditores from "./tabla-auditores";
 import Tarjeta from "./tarjeta";
 import NuevoReporte from "./nuevo-reporte";
+import ImportarExcel from "./importar-excel";
 import Pendientes from "./pendientes";
 import Secciones from "./secciones";
 import TablaReportes from "./tabla-reportes";
@@ -190,7 +191,10 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
     <main className="mx-auto flex max-w-7xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">No conformidades</h1>
-        <NuevoReporte opciones={opciones} hoy={hoy} sugerido={leerReporteSugerido(parametros)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ImportarExcel />
+          <NuevoReporte opciones={opciones} hoy={hoy} sugerido={leerReporteSugerido(parametros)} />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -219,7 +223,7 @@ export default async function IncidenciasPage({ searchParams }: { searchParams: 
       {todas.length === 0 ? (
         <EstadoVacio
           titulo="Todavía no hay reportes"
-          descripcion="Captura el primero con «Nuevo reporte», o carga el Excel de control con el script de importación."
+          descripcion="Captura el primero con «Nuevo reporte», o carga el Excel de control con «Importar Excel»."
         />
       ) : (
         <>

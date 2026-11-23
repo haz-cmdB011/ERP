@@ -25,22 +25,13 @@
 import ExcelJS from "exceljs";
 import { createClient } from "@supabase/supabase-js";
 import {
-  incidenciaDesdeFilaExcel,
   resumirIncidencias,
   resumirPorAuditor,
   resumirPorSemana,
   type Incidencia,
-  type Linea,
-  type NuevaIncidencia,
 } from "../../src/lib/calidad/incidencias.ts";
+import { leerIncidenciasDeLibro } from "../../src/lib/calidad/importar-incidencias.ts";
 
-const HOJAS: ReadonlyArray<readonly [string, Linea]> = [
-  ["MADERA 26", "madera"],
-  ["METAL 26", "metal"],
-];
-const PRIMERA_FILA_DATOS = 3;
-// Columnas de las hojas (la fila 2 trae los encabezados).
-const COL = { fecha: 1, folio: 2, tipo: 4, proyecto: 6, mueble: 7, area: 10, motivo: 14, origen: 19, reporta: 20, auditor: 18, estado: 23, descripcion: 15, solucion: 16, seguimiento: 17 };
 const LOTE = 200;
 
 const args = process.argv.slice(2);
@@ -53,60 +44,19 @@ if (!ruta) {
   process.exit(1);
 }
 
-function valorDeCelda(celda: ExcelJS.Cell): unknown {
-  const v = celda.value;
-  if (v && typeof v === "object" && !(v instanceof Date)) {
-    const o = v as { result?: unknown; richText?: Array<{ text: string }>; text?: string };
-    if (o.result !== undefined) return o.result;
-    if (o.richText) return o.richText.map((t) => t.text).join("");
-    if (o.text !== undefined) return o.text;
-    return "";
-  }
-  return v;
-}
-
 const libro = new ExcelJS.Workbook();
 await libro.xlsx.readFile(ruta);
 
-const nuevas: NuevaIncidencia[] = [];
-const omitidas: string[] = [];
-const conAvisos: Array<{ clave: string; avisos: string[] }> = [];
-
-for (const [nombreHoja, linea] of HOJAS) {
-  const hoja = libro.getWorksheet(nombreHoja);
-  if (!hoja) {
-    console.error(`No encuentro la hoja "${nombreHoja}" en el Excel.`);
-    process.exit(1);
-  }
-  for (let n = PRIMERA_FILA_DATOS; n <= hoja.rowCount; n++) {
-    const fila = hoja.getRow(n);
-    const g = (col: number) => valorDeCelda(fila.getCell(col));
-    // Una fila sin folio es una fila vacía de la hoja; el folio solo sirve para esto (no se guarda).
-    if (!String(g(COL.folio) ?? "").trim()) continue;
-    const { incidencia, avisos } = incidenciaDesdeFilaExcel(linea, n, {
-      tipo: g(COL.tipo),
-      proyecto: g(COL.proyecto),
-      mueble: g(COL.mueble),
-      area: g(COL.area),
-      motivo: g(COL.motivo),
-      origen: g(COL.origen),
-      reporta: g(COL.reporta),
-      estado: g(COL.estado),
-      fecha: g(COL.fecha),
-      auditor: g(COL.auditor),
-      descripcion: g(COL.descripcion),
-      solucion: g(COL.solucion),
-      seguimiento: g(COL.seguimiento),
-    });
-    const clave = `${linea}:${n}`;
-    if (!incidencia) {
-      omitidas.push(`${clave} → ${avisos.join("; ")}`);
-      continue;
-    }
-    if (avisos.length) conAvisos.push({ clave, avisos });
-    nuevas.push(incidencia);
-  }
+// La lectura es la misma que usa el botón "Importar Excel" de No conformidades (hojas MADERA y METAL de
+// cualquier año).
+const lectura = leerIncidenciasDeLibro(libro);
+if (lectura.hojas.length === 0) {
+  console.error("No encuentro hojas de madera ni de metal en el Excel (se esperan nombres como \"MADERA 26\" y \"METAL 26\").");
+  process.exit(1);
 }
+const nuevas = lectura.incidencias;
+const omitidas = lectura.omitidas.map((o) => `${o.donde} → ${o.motivo}`);
+const conAvisos = [...lectura.avisos].map(([aviso, n]) => ({ aviso, n }));
 
 const filas: Incidencia[] = nuevas.map((n, i) => ({ ...n, id: String(i) }));
 const r = resumirIncidencias(filas);
@@ -134,11 +84,9 @@ console.log(`Área que reporta (${r.porAreaQueReporta.length} distintas): ${list
 console.log(`Categorías: ${lista(r.porCategoria, 9)}`);
 console.log(`Proyectos (${r.porProyecto.length} distintos): ${lista(r.porProyecto, 5)}`);
 if (omitidas.length) console.log(`\nOmitidas:\n  ${omitidas.join("\n  ")}`);
-const resumenAvisos = new Map<string, number>();
-for (const a of conAvisos) for (const t of a.avisos) resumenAvisos.set(t, (resumenAvisos.get(t) ?? 0) + 1);
-if (resumenAvisos.size) {
+if (conAvisos.length) {
   console.log("\nAvisos (filas que se importan pero con algo vacío):");
-  for (const [t, n] of resumenAvisos) console.log(`  ${t}: ${n}`);
+  for (const { aviso, n } of conAvisos) console.log(`  ${aviso}: ${n}`);
 }
 
 if (!aplicar) {
