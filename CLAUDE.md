@@ -462,6 +462,25 @@ la puerta obligatoria hacia obra.
   suma a "Calidad aprobó" de Estimaciones (ya se aprobó una vez). Liberado a obra = la final aprobó la
   cantidad del mueble.
 
+## No conformidades (Calidad)
+
+`/calidad/incidencias` (menú "No conformidades"): reportes de no conformidad, desviación, incidencia o mejora, con
+resumen, gráficas, "Nuevo reporte" y "Descargar Excel" (tabla `incidencias_calidad`). Vienen del Excel de control
+`BD-CONTROL` (hojas MADERA y METAL) y siguen entrando desde él: el botón **Importar Excel** (`importar-excel.tsx`,
+`POST /api/calidad/incidencias/importar?modo=simular|aplicar`, solo Calidad) lee el libro, enseña cuántas son nuevas,
+cuántos reportes son nuevos, cuáles ya cargados cambian (p. ej. los cerraron en el Excel), cuántos quedan sin cambios y
+cuáles tienen problema; al confirmar **agrega lo nuevo y actualiza lo que el Excel trae distinto** (el Excel manda, para
+que las gráficas y los pendientes de +30 días sigan al libro de control). Reglas de la actualización
+(`cambiosDeUnReporte`): una celda vacía del Excel no borra lo que ya hay; un reporte cerrado en la app no se reabre aunque
+el Excel lo tenga abierto; la línea nunca cambia; lo que el Excel trae con valor y es distinto sí se escribe (también
+sobre lo editado en la pantalla: la vista previa lo muestra). Cada fila se reconoce por su clave (`origen_importacion`:
+`madera:427`; las hojas de otro año llevan el año, `madera-27:12`) y, para lo nuevo, también por su contenido (línea,
+tipo, fecha, proyecto, muebles y motivo): si el Excel se ordena o se le insertan filas y un reporte cambia de número de
+fila, no se carga dos veces, ni uno ya capturado a mano. Repetirlo es seguro. Lógica sin base en
+`src/lib/calidad/importar-incidencias.ts` (la lectura es la misma que usa
+`npm run calidad:importar-incidencias -- "ruta.xlsx" [--aplicar]`). Una fila con tipo desconocido o que pasa los topes de
+la base (motivo 300 letras, etc.) se omite diciendo cuál es.
+
 ## Cuadre con Calidad (Estimaciones)
 
 "PM contra cobrado" (`/estimaciones/pm-cobrado/<OT>` y el reporte semanal) cruza, por O.T. y variante del
