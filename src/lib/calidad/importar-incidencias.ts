@@ -233,6 +233,8 @@ export interface Actualizacion {
   campos: CampoActualizable[];
   // Lo que se escribe: solo los campos que cambian (más la categoría si cambió el motivo).
   cambios: Record<string, unknown>;
+  // Si el reporte cambió de número de fila en el Excel, su clave nueva.
+  nuevaClave?: string;
 }
 
 const mismaLista = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -300,62 +302,143 @@ export function cambiosDeUnReporte(
   return { campos, cambios, seguiaCerrado };
 }
 
+
+export interface Reubicacion {
+  id: string;
+  nuevaClave: string;
+}
+
 export interface ClasificacionImportacion {
   // Lo que se va a agregar.
   nuevas: NuevaIncidencia[];
-  // Su clave ya estaba en la base y el Excel no trae nada distinto: se dejan como están.
+  // El reporte ya estaba en la base y el Excel no trae nada distinto: se deja como está.
   sinCambios: number;
-  // Su clave ya estaba en la base y el Excel trae algo distinto (lo cerraron, corrigieron el motivo, etc.).
+  // El reporte ya estaba en la base y el Excel trae algo distinto (lo cerraron, corrigieron el motivo, etc.).
   aActualizar: Actualizacion[];
   // Abiertas en el Excel pero ya cerradas en la app: se dejan cerradas.
   cerradasEnLaApp: number;
-  // La clave es nueva pero el reporte ya está en la base con otro número de fila (o se capturó en la
-  // app): no se vuelve a cargar.
-  repetidasPorContenido: number;
+  // Reportes que ya estaban en la base pero con otro número de fila (el Excel se ordenó o se le insertaron
+  // filas) o que se capturaron en la app: se reconocen por su contenido y no se vuelven a cargar. Ya están
+  // contados en `sinCambios` o en `aActualizar`.
+  cambiaronDeFila: number;
+  // Los que cambiaron de fila y no traen nada más distinto: solo se les anota su clave nueva.
+  reubicadas: Reubicacion[];
+  // Antes de escribir, a estos reportes (por id) hay que quitarles la clave: la van a tomar otros (porque
+  // cambiaron de fila o porque ahora la usa un reporte nuevo) y la clave no se puede repetir.
+  liberarClaves: string[];
 }
 
+// Cuántos de los cinco datos con que se reconoce un reporte coinciden (tipo, fecha, proyecto, muebles, motivo).
+function datosEnComun(a: ExistenteParaComparar, b: ExistenteParaComparar): number {
+  const lista = (x: string[]) => x.map(textoNormalizado).sort().join("|");
+  return [
+    textoNormalizado(a.tipo) === textoNormalizado(b.tipo),
+    (a.fecha ?? "") === (b.fecha ?? ""),
+    textoNormalizado(a.proyecto) === textoNormalizado(b.proyecto),
+    lista(a.muebles) === lista(b.muebles),
+    textoNormalizado(a.motivo) === textoNormalizado(b.motivo),
+  ].filter(Boolean).length;
+}
+
+const tieneClaveEn = (e: ExistenteParaComparar, claves: Set<string>) => !!e.origen_importacion && claves.has(e.origen_importacion);
+
+// Empareja cada fila del Excel con el reporte que ya está en la base, en tres pasos:
+//  1. misma clave y mismo contenido: el caso de siempre;
+//  2. mismo contenido con otra clave: el Excel se ordenó o se le insertaron filas y el reporte cambió de
+//     número (también reconoce los capturados a mano en la app); se le anota la clave nueva y, si el Excel
+//     trae algo distinto (lo cerraron…), se actualiza igual que cualquiera;
+//  3. misma clave y contenido casi igual (3 de 5 datos): alguien corrigió el reporte en el Excel sin moverlo.
+// Una fila con la misma clave pero contenido muy distinto NO se toma por el mismo reporte (con el Excel
+// reordenado, ese número ahora es de otro reporte): se agrega como nueva y la clave se libera del anterior.
 export function clasificarImportacion(
   leidas: NuevaIncidencia[],
   existentes: ExistenteParaComparar[]
 ): ClasificacionImportacion {
+  const clavesLeidas = new Set(leidas.map((i) => i.origen_importacion).filter((c): c is string => !!c));
   const porClave = new Map<string, ExistenteParaComparar>();
   for (const e of existentes) if (e.origen_importacion) porClave.set(e.origen_importacion, e);
-  const clavesLeidas = new Set(leidas.map((i) => i.origen_importacion).filter((c): c is string => !!c));
-  // Cuántos reportes de cada huella hay en la base SIN una fila del Excel que los reconozca por su clave
-  // (los capturados en la app y los que cambiaron de fila). Dos iguales de verdad cuentan dos veces.
-  const huellas = new Map<string, number>();
+
+  const pareja = new Map<NuevaIncidencia, ExistenteParaComparar>();
+  const tomados = new Set<ExistenteParaComparar>();
+  const unir = (l: NuevaIncidencia, e: ExistenteParaComparar) => {
+    pareja.set(l, e);
+    tomados.add(e);
+  };
+
+  // 1. Misma clave y mismo contenido.
+  for (const l of leidas) {
+    const e = l.origen_importacion ? porClave.get(l.origen_importacion) : undefined;
+    if (e && huellaDeIncidencia(e) === huellaDeIncidencia(l)) unir(l, e);
+  }
+
+  // 2. Mismo contenido con otra clave. Dos reportes iguales de verdad se emparejan de a uno; primero los que
+  // ya no tienen una fila propia en el Excel (clave que ya no existe, o sin clave).
+  const libresPorHuella = new Map<string, ExistenteParaComparar[]>();
   for (const e of existentes) {
-    if (e.origen_importacion && clavesLeidas.has(e.origen_importacion)) continue;
+    if (tomados.has(e)) continue;
     const h = huellaDeIncidencia(e);
-    huellas.set(h, (huellas.get(h) ?? 0) + 1);
+    libresPorHuella.set(h, [...(libresPorHuella.get(h) ?? []), e]);
+  }
+  for (const lista of libresPorHuella.values()) {
+    lista.sort((a, b) => Number(tieneClaveEn(a, clavesLeidas)) - Number(tieneClaveEn(b, clavesLeidas)));
+  }
+  const cambiaronDeFila = new Set<NuevaIncidencia>();
+  for (const l of leidas) {
+    if (pareja.has(l)) continue;
+    const e = libresPorHuella.get(huellaDeIncidencia(l))?.shift();
+    if (e) {
+      unir(l, e);
+      cambiaronDeFila.add(l);
+    }
+  }
+
+  // 3. Misma clave, contenido casi igual: corregido en el Excel sin moverlo.
+  for (const l of leidas) {
+    if (pareja.has(l) || !l.origen_importacion) continue;
+    const e = porClave.get(l.origen_importacion);
+    if (e && !tomados.has(e) && datosEnComun(l as ExistenteParaComparar, e) >= 3) unir(l, e);
   }
 
   const nuevas: NuevaIncidencia[] = [];
   const aActualizar: Actualizacion[] = [];
+  const reubicadas: Reubicacion[] = [];
+  const claveNecesaria = new Set<string>();
+  const liberar = new Set<string>();
   let sinCambios = 0;
   let cerradasEnLaApp = 0;
-  let repetidasPorContenido = 0;
-  for (const i of leidas) {
-    const actual = i.origen_importacion ? porClave.get(i.origen_importacion) : undefined;
-    if (actual) {
-      const { campos, cambios, seguiaCerrado } = cambiosDeUnReporte(i, actual);
-      if (seguiaCerrado) cerradasEnLaApp++;
-      if (campos.length > 0 && actual.id) {
-        const etiqueta = [i.proyecto, i.muebles.slice(0, 2).join(", ")].filter(Boolean).join(" · ") || i.origen_importacion || "";
-        aActualizar.push({ id: actual.id, etiqueta, campos, cambios });
-      } else {
-        sinCambios++;
-      }
+  for (const l of leidas) {
+    const e = pareja.get(l);
+    if (!e) {
+      nuevas.push(l);
+      if (l.origen_importacion) claveNecesaria.add(l.origen_importacion);
       continue;
     }
-    const h = huellaDeIncidencia(i);
-    const disponibles = huellas.get(h) ?? 0;
-    if (disponibles > 0) {
-      huellas.set(h, disponibles - 1);
-      repetidasPorContenido++;
-      continue;
+    const { campos, cambios, seguiaCerrado } = cambiosDeUnReporte(l, e);
+    if (seguiaCerrado) cerradasEnLaApp++;
+    const nuevaClave = l.origen_importacion && l.origen_importacion !== e.origen_importacion ? l.origen_importacion : undefined;
+    if (nuevaClave) {
+      claveNecesaria.add(nuevaClave);
+      if (e.id) liberar.add(e.id);
     }
-    nuevas.push(i);
+    if (campos.length > 0 && e.id) {
+      const etiqueta = [l.proyecto, l.muebles.slice(0, 2).join(", ")].filter(Boolean).join(" · ") || l.origen_importacion || "";
+      aActualizar.push({ id: e.id, etiqueta, campos, cambios, ...(nuevaClave ? { nuevaClave } : {}) });
+    } else {
+      sinCambios++;
+      if (nuevaClave && e.id) reubicadas.push({ id: e.id, nuevaClave });
+    }
   }
-  return { nuevas, sinCambios, aActualizar, cerradasEnLaApp, repetidasPorContenido };
+  // Quien tenga hoy una clave que otro va a tomar (aunque ya no esté en el Excel) la suelta primero.
+  for (const e of existentes) {
+    if (e.id && tieneClaveEn(e, claveNecesaria)) liberar.add(e.id);
+  }
+  return {
+    nuevas,
+    sinCambios,
+    aActualizar,
+    cerradasEnLaApp,
+    cambiaronDeFila: cambiaronDeFila.size,
+    reubicadas,
+    liberarClaves: [...liberar],
+  };
 }
