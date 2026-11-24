@@ -109,10 +109,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { nuevas, sinCambios, aActualizar, cerradasEnLaApp, repetidasPorContenido } = clasificarImportacion(
-    lectura.incidencias,
-    existentes
-  );
+  const { nuevas, sinCambios, aActualizar, cerradasEnLaApp, cambiaronDeFila, reubicadas, liberarClaves } =
+    clasificarImportacion(lectura.incidencias, existentes);
 
   // Cuántos reportes cambian en cada campo (para la vista previa).
   const porCampo = new Map<CampoActualizable, number>();
@@ -133,7 +131,7 @@ export async function POST(request: NextRequest) {
       cierra: a.cambios.estado === "cerrado",
     })),
     cerradasEnLaApp,
-    repetidasPorContenido,
+    cambiaronDeFila,
     omitidas: lectura.omitidas.length,
     detalleOmitidas: lectura.omitidas.slice(0, MAX_OMITIDAS_EN_PANTALLA),
     avisos: [...lectura.avisos].map(([aviso, filas]) => ({ aviso, filas })),
@@ -151,7 +149,39 @@ export async function POST(request: NextRequest) {
   if (modo === "simular" || (nuevas.length === 0 && aActualizar.length === 0)) return NextResponse.json(resumen);
 
   // Se escribe por lotes con la sesión de quien importa. Si un lote falla se dice cuántas alcanzaron a
-  // entrar; repetir es seguro (lo que ya entró se reconoce por su clave y no se duplica).
+  // entrar; repetir es seguro (lo que ya entró se reconoce por su clave o por su contenido y no se duplica).
+  const falla = (mensaje: string, agregadas: number, actualizadas: number) =>
+    NextResponse.json(
+      {
+        error: `${mensaje} Se agregaron ${agregadas} y se actualizaron ${actualizadas}; vuelve a importar el mismo archivo para completar el resto, no se duplica nada.`,
+        agregadas,
+        actualizadas,
+      },
+      { status: 500 }
+    );
+
+  // 1. Si el Excel se ordenó, un número de fila pasó a ser de otro reporte: primero se les quita la clave a
+  // los que la van a soltar (la clave no se puede repetir). Si algo se corta aquí, esos reportes quedan sin
+  // clave y la siguiente importación los vuelve a reconocer por su contenido.
+  for (let i = 0; i < liberarClaves.length; i += 100) {
+    const { error } = await supabase
+      .from("incidencias_calidad")
+      .update({ origen_importacion: null })
+      .in("id", liberarClaves.slice(i, i + 100));
+    if (error) return falla(`Falló al reacomodar los reportes (${error.message}).`, 0, 0);
+  }
+
+  // 2. Los que cambiaron de fila y no traen nada más distinto: solo se les anota su clave nueva.
+  for (let i = 0; i < reubicadas.length; i += 10) {
+    const resultados = await Promise.all(
+      reubicadas
+        .slice(i, i + 10)
+        .map((r) => supabase.from("incidencias_calidad").update({ origen_importacion: r.nuevaClave }).eq("id", r.id))
+    );
+    const error = resultados.find((r) => r.error)?.error;
+    if (error) return falla(`Falló al reacomodar los reportes (${error.message}).`, 0, 0);
+  }
+
   let agregadas = 0;
   for (let i = 0; i < nuevas.length; i += LOTE) {
     const lote: (NuevaIncidencia & { creado_por: string })[] = nuevas
@@ -161,16 +191,7 @@ export async function POST(request: NextRequest) {
       .from("incidencias_calidad")
       .upsert(lote, { onConflict: "origen_importacion", ignoreDuplicates: true })
       .select("id");
-    if (error) {
-      return NextResponse.json(
-        {
-          error: `Falló al guardar (${error.message}). Se agregaron ${agregadas} de ${nuevas.length}; vuelve a importar el mismo archivo para completar el resto, no se duplica nada.`,
-          agregadas,
-          actualizadas: 0,
-        },
-        { status: 500 }
-      );
-    }
+    if (error) return falla(`Falló al guardar (${error.message}).`, agregadas, 0);
     agregadas += data?.length ?? 0;
   }
 
@@ -179,19 +200,16 @@ export async function POST(request: NextRequest) {
   for (let i = 0; i < aActualizar.length; i += 10) {
     const tanda = aActualizar.slice(i, i + 10);
     const resultados = await Promise.all(
-      tanda.map((a) => supabase.from("incidencias_calidad").update(a.cambios).eq("id", a.id).select("id"))
+      tanda.map((a) =>
+        supabase
+          .from("incidencias_calidad")
+          .update(a.nuevaClave ? { ...a.cambios, origen_importacion: a.nuevaClave } : a.cambios)
+          .eq("id", a.id)
+          .select("id")
+      )
     );
     for (const r of resultados) {
-      if (r.error) {
-        return NextResponse.json(
-          {
-            error: `Falló al actualizar (${r.error.message}). Se agregaron ${agregadas} y se actualizaron ${actualizadas}; vuelve a importar el mismo archivo para completar el resto, no se duplica nada.`,
-            agregadas,
-            actualizadas,
-          },
-          { status: 500 }
-        );
-      }
+      if (r.error) return falla(`Falló al actualizar (${r.error.message}).`, agregadas, actualizadas);
       if (r.data && r.data.length > 0) actualizadas++;
     }
   }

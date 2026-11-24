@@ -474,9 +474,13 @@ que las gráficas y los pendientes de +30 días sigan al libro de control). Regl
 (`cambiosDeUnReporte`): una celda vacía del Excel no borra lo que ya hay; un reporte cerrado en la app no se reabre aunque
 el Excel lo tenga abierto; la línea nunca cambia; lo que el Excel trae con valor y es distinto sí se escribe (también
 sobre lo editado en la pantalla: la vista previa lo muestra). Cada fila se reconoce por su clave (`origen_importacion`:
-`madera:427`; las hojas de otro año llevan el año, `madera-27:12`) y, para lo nuevo, también por su contenido (línea,
-tipo, fecha, proyecto, muebles y motivo): si el Excel se ordena o se le insertan filas y un reporte cambia de número de
-fila, no se carga dos veces, ni uno ya capturado a mano. Repetirlo es seguro. Lógica sin base en
+`madera:427`; las hojas de otro año llevan el año, `madera-27:12`) y también por su contenido (línea, tipo, fecha,
+proyecto, muebles y motivo). `clasificarImportacion` empareja en tres pasos: misma clave y mismo contenido; mismo
+contenido con otra clave (el Excel se ordenó o se le insertaron filas: el reporte no se carga dos veces, recibe sus
+cambios —por ejemplo, que lo cerraron— y se le anota la clave nueva; lo mismo con uno capturado a mano); y misma clave
+con contenido casi igual (3 de 5 datos: corregido en su sitio). Una fila con la misma clave pero otro reporte NO pisa al
+anterior: se agrega como nueva. Como la clave es única, al escribir primero se les quita la clave a quienes la sueltan
+(`liberarClaves`) y luego se asignan; si se corta a la mitad, repetir es seguro. Repetirlo es seguro. Lógica sin base en
 `src/lib/calidad/importar-incidencias.ts` (la lectura es la misma que usa
 `npm run calidad:importar-incidencias -- "ruta.xlsx" [--aplicar]`). Una fila con tipo desconocido o que pasa los topes de
 la base (motivo 300 letras, etc.) se omite diciendo cuál es.
@@ -649,8 +653,10 @@ trabajador, NO al desarrollador, y sin quien lo provocó) o a la persona del avi
 para lo que nace de una función directa (Calidad, recibos), la propia lectura de la campanita. Lógica pura y pruebas en
 `avisos.ts`. **Falta**: poner las llaves VAPID en Vercel (sin ellas los avisos salen en la campanita pero no al
 celular); los avisos de las
-entregas por partes (`entregas_partes_produccion`) y de "Por llegar" no existen todavía; no hay limpieza de avisos
-viejos (la campanita solo muestra 30 días).
+entregas por partes (`entregas_partes_produccion`) y de "Por llegar" no existen todavía. **Limpieza** (migración
+`limpieza_avisos_viejos`): `limpiar_avisos()` borra los avisos de más de 60 días (la campanita muestra 30; sus marcas de
+leído se van en cascada y las claves de los recordatorios llevan el día, así que no se regeneran); la llama
+`despacharRecordatorios` tras `generar_recordatorios` (sin pg_cron) y, si falla, solo deja aviso en la consola.
 
 ## Capturas sin conexión
 

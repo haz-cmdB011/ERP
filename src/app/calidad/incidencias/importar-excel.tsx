@@ -15,7 +15,7 @@ interface Resumen {
   cambiosPorCampo: { campo: string; filas: number }[];
   muestraActualizar: { etiqueta: string; campos: string[]; cierra: boolean }[];
   cerradasEnLaApp: number;
-  repetidasPorContenido: number;
+  cambiaronDeFila: number;
   omitidas: number;
   detalleOmitidas: { donde: string; motivo: string }[];
   avisos: { aviso: string; filas: number }[];
@@ -152,7 +152,7 @@ export default function ImportarExcel() {
                     <div className="text-xs text-sky-800">se actualizan</div>
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-                    <div className="text-xl font-semibold text-slate-800">{resumen.sinCambios + resumen.repetidasPorContenido}</div>
+                    <div className="text-xl font-semibold text-slate-800">{resumen.sinCambios}</div>
                     <div className="text-xs text-slate-600">sin cambios</div>
                   </div>
                   <div className={`rounded-lg border p-2 ${resumen.omitidas ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
@@ -164,8 +164,8 @@ export default function ImportarExcel() {
                 <p className="text-xs text-slate-500">
                   Hojas leídas: {resumen.hojas.map((h) => `${h.nombre} (${h.filas})`).join(", ")}.
                   {resumen.hojasIgnoradas.length > 0 && ` Se ignoran: ${resumen.hojasIgnoradas.join(", ")}.`}
-                  {resumen.repetidasPorContenido > 0 &&
-                    ` ${resumen.repetidasPorContenido} ya estaban con otro número de fila y no se vuelven a cargar.`}
+                  {resumen.cambiaronDeFila > 0 &&
+                    ` ${resumen.cambiaronDeFila} ${resumen.cambiaronDeFila === 1 ? "cambió" : "cambiaron"} de número de fila en el Excel (se ordenó o se le insertaron filas): se reconocen por su contenido, no se vuelven a cargar y siguen recibiendo sus cambios.`}
                 </p>
 
                 {resumen.actualizar > 0 && (

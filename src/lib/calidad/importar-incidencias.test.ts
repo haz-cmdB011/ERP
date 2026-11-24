@@ -151,13 +151,15 @@ describe("clasificarImportacion", () => {
 
   it("un reporte que cambió de número de fila (Excel ordenado) no se carga dos veces", () => {
     const r = clasificarImportacion([incidencia("madera:9")], [existente("madera:3")]);
-    expect(r.repetidasPorContenido).toBe(1);
+    expect(r.cambiaronDeFila).toBe(1);
     expect(r.nuevas).toEqual([]);
+    expect(r.reubicadas).toEqual([{ id: "id-madera:3", nuevaClave: "madera:9" }]);
+    expect(r.liberarClaves).toEqual(["id-madera:3"]);
   });
 
   it("uno capturado a mano en la app tampoco se repite si llega del Excel", () => {
     const r = clasificarImportacion([incidencia("madera:9")], [existente(null)]);
-    expect(r.repetidasPorContenido).toBe(1);
+    expect(r.cambiaronDeFila).toBe(1);
     expect(r.nuevas).toEqual([]);
   });
 
@@ -171,7 +173,7 @@ describe("clasificarImportacion", () => {
       [incidencia("madera:3"), incidencia("madera:4")],
       [existente("madera:3"), existente("madera:4")]
     );
-    expect(r).toMatchObject({ sinCambios: 2, repetidasPorContenido: 0, aActualizar: [] });
+    expect(r).toMatchObject({ sinCambios: 2, cambiaronDeFila: 0, aActualizar: [], reubicadas: [], liberarClaves: [] });
     expect(r.nuevas).toEqual([]);
   });
 
@@ -227,6 +229,88 @@ describe("actualizar reportes ya cargados", () => {
     const r = clasificarImportacion([igual], [existente("madera:3", { estado: "cerrado", auditor: "Luis Corona", muebles: ["A", "B"] })]);
     expect(r.aActualizar).toEqual([]);
     expect(r.sinCambios).toBe(1);
+  });
+});
+
+// Tres reportes distintos, como los guarda la base (cada uno con su fila del Excel).
+const A = { proyecto: "SMART FIT", motivo: "MEDIDA INCORRECTA", fecha: "2026-11-03" };
+const B = { proyecto: "LIVERPOOL", motivo: "DAÑO EN CANTO", fecha: "2026-11-04", categoria_motivo: "Daño" as const };
+const C = { proyecto: "COPPEL", motivo: "FALTA HERRAJE", fecha: "2026-11-05", categoria_motivo: "Extravío o faltante" as const };
+
+describe("el Excel se reordena", () => {
+  it("con las filas intercambiadas no pisa un reporte con los datos de otro", () => {
+    const r = clasificarImportacion(
+      [incidencia("madera:3", B), incidencia("madera:4", A)],
+      [existente("madera:3", A), existente("madera:4", B)]
+    );
+    expect(r.nuevas).toEqual([]);
+    expect(r.aActualizar).toEqual([]);
+    expect(r.cambiaronDeFila).toBe(2);
+    // Se cruzan las claves: primero las sueltan los dos y después cada uno toma la nueva.
+    expect(r.liberarClaves.sort()).toEqual(["id-madera:3", "id-madera:4"]);
+    expect(r.reubicadas.sort((x, y) => x.id.localeCompare(y.id))).toEqual([
+      { id: "id-madera:3", nuevaClave: "madera:4" },
+      { id: "id-madera:4", nuevaClave: "madera:3" },
+    ]);
+  });
+
+  it("un reporte que cambió de fila y además lo cerraron en el Excel sí se actualiza", () => {
+    const r = clasificarImportacion([incidencia("madera:9", { ...A, estado: "cerrado" })], [existente("madera:3", A)]);
+    expect(r.nuevas).toEqual([]);
+    expect(r.aActualizar).toHaveLength(1);
+    expect(r.aActualizar[0]).toMatchObject({ id: "id-madera:3", campos: ["estado"], nuevaClave: "madera:9" });
+    expect(r.reubicadas).toEqual([]);
+  });
+
+  it("si se inserta una fila arriba, el nuevo se agrega y los demás solo cambian de número", () => {
+    const r = clasificarImportacion(
+      [incidencia("madera:3", C), incidencia("madera:4", A), incidencia("madera:5", B)],
+      [existente("madera:3", A), existente("madera:4", B)]
+    );
+    expect(r.nuevas.map((n) => n.origen_importacion)).toEqual(["madera:3"]);
+    expect(r.cambiaronDeFila).toBe(2);
+    expect(r.aActualizar).toEqual([]);
+    // El nuevo toma el 3, que hoy tiene A: A tiene que soltarlo antes.
+    expect(r.liberarClaves).toContain("id-madera:3");
+  });
+
+  it("si se borra una fila y las de abajo suben, el que ya no está suelta su clave", () => {
+    const r = clasificarImportacion(
+      [incidencia("madera:3", B), incidencia("madera:4", C)],
+      [existente("madera:3", A), existente("madera:4", B), existente("madera:5", C)]
+    );
+    expect(r.nuevas).toEqual([]);
+    expect(r.aActualizar).toEqual([]);
+    expect(r.cambiaronDeFila).toBe(2);
+    // A (ya no está en el Excel) se queda con su clave vieja solo si nadie más la necesita: aquí la necesita B.
+    expect(r.liberarClaves).toContain("id-madera:3");
+    expect(r.reubicadas).toContainEqual({ id: "id-madera:4", nuevaClave: "madera:3" });
+    expect(r.reubicadas).toContainEqual({ id: "id-madera:5", nuevaClave: "madera:4" });
+  });
+
+  it("una fila con la misma clave pero otro reporte (muy distinto) no se toma por el mismo", () => {
+    const r = clasificarImportacion([incidencia("madera:3", { ...C, tipo: "Incidencia", muebles: ["Z-9"] })], [existente("madera:3", A)]);
+    expect(r.aActualizar).toEqual([]);
+    expect(r.nuevas).toHaveLength(1);
+    expect(r.liberarClaves).toEqual(["id-madera:3"]);
+  });
+
+  it("un reporte corregido en el Excel sin moverlo (casi igual) sí se actualiza en su sitio", () => {
+    const r = clasificarImportacion([incidencia("madera:3", { ...A, motivo: "MEDIDA MAL TOMADA", categoria_motivo: "Dimensión" })], [existente("madera:3", A)]);
+    expect(r.nuevas).toEqual([]);
+    expect(r.aActualizar[0]).toMatchObject({ id: "id-madera:3", campos: ["motivo"] });
+    expect(r.aActualizar[0].nuevaClave).toBeUndefined();
+    expect(r.liberarClaves).toEqual([]);
+  });
+
+  it("dos reportes idénticos que cambian de fila se reconocen de a uno", () => {
+    const r = clasificarImportacion(
+      [incidencia("madera:8", A), incidencia("madera:9", A)],
+      [existente("madera:3", A), existente("madera:4", A)]
+    );
+    expect(r.nuevas).toEqual([]);
+    expect(r.cambiaronDeFila).toBe(2);
+    expect(new Set(r.reubicadas.map((x) => x.nuevaClave))).toEqual(new Set(["madera:8", "madera:9"]));
   });
 });
 

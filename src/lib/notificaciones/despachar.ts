@@ -93,6 +93,9 @@ export async function despacharRecordatorios(ahora: number = Date.now(), forzar 
       console.error("avisos: no se pudieron generar los recordatorios", error.message);
       return 0;
     }
+    // De paso se borran los avisos de más de 60 días (ya no los muestra la campanita). Si falla, no estorba.
+    const limpieza = await admin.rpc("limpiar_avisos");
+    if (limpieza.error) console.error("avisos: no se pudo limpiar los avisos viejos", limpieza.error.message);
     if (!notificacionesConfiguradas()) return 0;
     return await repartirAvisos(admin, null);
   } catch (e) {

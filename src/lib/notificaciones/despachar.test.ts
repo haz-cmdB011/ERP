@@ -137,11 +137,23 @@ describe("despacharRecordatorios", () => {
   });
 
   it("no vuelve a pedirlos antes de que pase el intervalo", async () => {
+    const generaciones = () => rpc.mock.calls.filter(([n]) => n === "generar_recordatorios").length;
     await despacharRecordatorios(1_000_000);
     await despacharRecordatorios(1_000_000 + 5 * 60_000);
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(generaciones()).toBe(1);
     await despacharRecordatorios(1_000_000 + 11 * 60_000);
-    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(generaciones()).toBe(2);
+  });
+
+  it("de paso limpia los avisos viejos, y si eso falla igual reparte los recordatorios", async () => {
+    reclamar.mockResolvedValue({ data: [recordatorio()], error: null });
+    leerPersonal.mockResolvedValue({ data: [{ id: "p1", area: "produccion" }], error: null });
+    rpc.mockImplementation(async (nombre: string) =>
+      nombre === "limpiar_avisos" ? { data: null, error: { message: "function limpiar_avisos does not exist" } } : { data: 1, error: null }
+    );
+    expect(await despacharRecordatorios(1_000_000, true)).toBe(1);
+    expect(rpc).toHaveBeenCalledWith("limpiar_avisos");
+    expect(enviarAUsuarios).toHaveBeenCalledWith(["p1"], expect.anything());
   });
 
   it("sin las llaves de notificaciones los genera (salen en la campanita) pero no los manda", async () => {
