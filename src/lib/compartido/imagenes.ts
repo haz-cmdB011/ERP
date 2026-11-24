@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { firmarUrls } from "@/lib/storage/urls-firmadas";
 import { leerPorLotes } from "@/lib/supabase/por-lotes";
+import { paginarTodo } from "@/lib/supabase/paginar";
 
 export const BUCKET_IMAGENES_ITEMS = "planeacion-item-imagenes";
 
@@ -67,13 +68,26 @@ async function imagenesDeItems(
     try {
       const deHijos = await leerPorLotes(
         sinImagen,
-        (ids) =>
-          supabase
-            .from("planeacion_item_imagenes")
-            .select("storage_path, orden, planeacion_items!inner ( parent_item_id, fila_excel_origen )")
-            .in("planeacion_items.parent_item_id", ids)
-            .returns<ImagenDeHijoRow[]>(),
-        // Pocos padres por lote: cada uno puede traer decenas de imágenes y la respuesta se corta en 1000 filas.
+        async (ids) => {
+          // Cada padre puede traer decenas de imágenes (las de todos sus componentes) y la base corta cada respuesta
+          // en 1000 filas sin avisar: se pagina para no quedarse con una lista incompleta.
+          try {
+            const data = await paginarTodo<ImagenDeHijoRow>(
+              (desde, hasta) =>
+                supabase
+                  .from("planeacion_item_imagenes")
+                  .select("storage_path, orden, planeacion_items!inner ( parent_item_id, fila_excel_origen )")
+                  .in("planeacion_items.parent_item_id", ids)
+                  .order("id")
+                  .range(desde, hasta)
+                  .returns<ImagenDeHijoRow[]>(),
+              { contexto: "las imágenes de los componentes" }
+            );
+            return { data, error: null };
+          } catch (e) {
+            return { data: null, error: { message: e instanceof Error ? e.message : "error de lectura" } };
+          }
+        },
         { lote: 20, contexto: "las imágenes de los componentes" }
       );
       return [...propias, ...imagenesHeredadas(deHijos)];
