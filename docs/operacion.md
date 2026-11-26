@@ -156,8 +156,9 @@ servicio de push rechazó el envío (suscripción caducada: se limpia sola). Sin
 ### Avisos por área y campanita
 
 Con las migraciones `avisos_por_area` y `avisos_recordatorios` aplicadas, la base crea sola un aviso cuando: Producción registra una
-entrega (→ Calidad); Calidad rechaza un mueble o una parte (→ Producción, a reprocesar); Calidad aprueba (→ Producción y, si se puede
-cobrar, → Estimaciones: "ya pueden llegar recibos"); llega un recibo (→ Estimaciones); y se revisa un recibo (→ quien lo capturó).
+entrega, completa o por partes del despiece (→ Calidad; la de partes es un solo aviso con cada parte y, si completa muebles, cuántos);
+Calidad rechaza un mueble o una parte (→ Producción, a reprocesar); Calidad aprueba (→ Producción y, si se puede cobrar —trabajo de un
+equipo externo en Armado o Acabados—, → Estimaciones: "ya pueden llegar recibos"); llega un recibo (→ Estimaciones); y se revisa un recibo (→ quien lo capturó).
 Además hay **recordatorios** que se repiten una vez al día mientras sigan pendientes: muebles liberados sin asignar tras 2 días (a quien
 los liberó), asignaciones sin entregar tras 3 días (a toda Producción), recibos sin revisar tras 3 días y recibos revisados sin pagar
 tras 3 días (a Estimaciones). Se ven en la **campanita** de la barra (cada área ve los suyos; el desarrollador, los del área

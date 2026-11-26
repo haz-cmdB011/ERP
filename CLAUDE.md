@@ -638,10 +638,14 @@ de servicio, borra las suscripciones caducadas y nunca lanza). Hace falta config
 dice que no están configuradas. La dirección de cada suscripción solo se acepta si es de un servicio de push conocido
 (`esServicioDePush`, contra SSRF). **Avisos por área (fase 2, migración `avisos_por_area`, aplicada y fusionada el 13 nov 2026)**: cada
 aviso nace de un **trigger** de la base, no de la pantalla (no se puede inventar desde el navegador y cubre toda vía:
-rutas de servidor o funciones que la app llama directo). Avisos de hechos: Producción registró una entrega → **Calidad**; Calidad rechazó un mueble o una parte → **Producción** (a reprocesar,
+rutas de servidor o funciones que la app llama directo). Avisos de hechos: Producción registró una entrega → **Calidad**
+(una entrega **por partes** del despiece da UN aviso con cada parte y sus piezas, "Producción entregó 6 pz de 2 partes", y si completa
+muebles lo dice ahí, "Completa 2 muebles", sin otro aviso por la entrega del mueble que arma la base; `trg_aviso_entrega_parte`,
+agrupa por `clave` = asignación + transacción; migración `avisos_entregas_por_partes`); Calidad rechazó un mueble o una parte → **Producción** (a reprocesar,
 enlace a Rechazos); Calidad aprobó (lote, parte o revisión final) → **Producción** y, si es de un equipo externo y de Armado o
 Acabados, → **Estimaciones** ("ya pueden llegar recibos", enlace a Por llegar; la aprobación del mueble que la base arma sola a partir de
-sus partes no repite el aviso); recibo nuevo → **Estimaciones**; recibo revisado → quien lo capturó (el maquilador). **Ya no hay aviso
+sus partes no repite el aviso; la revisión final solo avisa a Estimaciones si el mueble tuvo asignaciones vigentes de un equipo externo en
+Armado o Barniz, y dice cuáles: "Armado y Acabados"); recibo nuevo → **Estimaciones**; recibo revisado → quien lo capturó (el maquilador). **Ya no hay aviso
 de "se liberaron muebles"** (migración `avisos_recordatorios`, 17 nov 2026). Los triggers atrapan sus errores: un aviso que falla NUNCA frena el hecho. Tablas `avisos`
 (de un área, o de una persona con `destinatario_id`; solo la escriben los triggers) y `avisos_leidos` (quién lo leyó,
 aparte porque lo ven varias personas); RLS con `aviso_visible`: el administrador y el trabajador de esa área, el
@@ -652,8 +656,7 @@ reclama con un UPDATE los avisos recientes (15 min) de quien llama y los manda a
 trabajador, NO al desarrollador, y sin quien lo provocó) o a la persona del aviso; lo llaman `liberar` y `entregas` y,
 para lo que nace de una función directa (Calidad, recibos), la propia lectura de la campanita. Lógica pura y pruebas en
 `avisos.ts`. **Falta**: poner las llaves VAPID en Vercel (sin ellas los avisos salen en la campanita pero no al
-celular); los avisos de las
-entregas por partes (`entregas_partes_produccion`) y de "Por llegar" no existen todavía. **Limpieza** (migración
+celular). **Limpieza** (migración
 `limpieza_avisos_viejos`): `limpiar_avisos()` borra los avisos de más de 60 días (la campanita muestra 30; sus marcas de
 leído se van en cascada y las claves de los recordatorios llevan el día, así que no se regeneran); la llama
 `despacharRecordatorios` tras `generar_recordatorios` (sin pg_cron) y, si falla, solo deja aviso en la consola.
