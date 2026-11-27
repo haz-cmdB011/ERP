@@ -129,9 +129,11 @@ Hoy todas las laptops apuntan a **producción** (ver `CLAUDE.md`). Quedó pospue
 segundo proyecto gratuito porque la cuenta ya tiene 2 proyectos activos (límite del plan gratuito). Opciones cuando
 se retome: pausar el otro proyecto gratuito y crear `erp-becario-pruebas` (costo 0, misma región), usar Supabase
 local con Docker, o pasar a Pro. Al tenerla: aplicar las migraciones de `supabase/migrations/`, comprobar con
-`npm run db:verificar` y repartir a las laptops solo las claves de esa base. **Al 27 nov 2026 el otro proyecto
-(`simulador-sistemas`) ya está en pausa**, así que la primera opción quizá ya se pueda; lo decide quien administra
-la organización de Supabase. Qué cambia para el equipo: `docs/operacion.md` ("Base de pruebas").
+`npm run db:verificar` y repartir a las laptops solo las claves de esa base. Ojo: el límite cuenta los proyectos
+gratuitos **activos de la cuenta de quien lo crea**, en cualquier organización. El 7 oct 2026 se rechazó aunque
+`simulador-sistemas` ya estaba en pausa, porque esa cuenta tenía otro proyecto activo en otra organización. Lo
+puede crear alguien cuya cuenta tenga lugar (por ejemplo, el dueño de la organización) o se pausa ese otro
+proyecto. Qué cambia para el equipo: `docs/operacion.md` ("Base de pruebas").
 
 Mientras no haya base de pruebas ni respaldos automáticos, `npm run db:respaldo` saca un respaldo de solo lectura
 de los datos (ver `docs/operacion.md`, "Respaldo de la base"). La carpeta `respaldos/` trae datos personales: no se

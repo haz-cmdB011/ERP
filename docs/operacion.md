@@ -243,9 +243,10 @@ check obligatorio no puede dejar un PR atorado.
 Hoy la app local, las pruebas, las vistas previas de Vercel y la app real usan **la misma base** de producción.
 Una base de pruebas aparte evitaría que un error al probar toque datos reales, y permitiría probar
 automáticamente los flujos con sesión (ver abajo). No se ha hecho porque el plan gratuito de Supabase deja 2
-proyectos activos. Al 27 nov 2026 la organización (de haz-cmdB011) tiene el ERP y `simulador-sistemas`, que
-está **en pausa**; un proyecto en pausa normalmente no cuenta para ese límite, así que quizá ya se pueda crear
-uno gratis. Lo decide quien administra la cuenta de Supabase. Si se crea:
+proyectos **activos por cuenta** (cuentan los de todas las organizaciones de quien lo crea): el 7 oct 2026 se
+rechazó aunque `simulador-sistemas` ya estaba en pausa, porque la cuenta que lo intentó tenía otro proyecto
+activo en otra organización. Lo puede crear alguien cuya cuenta tenga lugar (por ejemplo, el dueño de la
+organización, haz-cmdB011) o se pausa ese otro proyecto. Lo decide quien administra la cuenta de Supabase. Si se crea:
 
 1. Proyecto nuevo (gratis) en la misma organización; aplicarle todas las migraciones del repo.
 2. Cada quien cambia **su** `.env.local` a la base de pruebas para trabajar en local. Producción no cambia.
