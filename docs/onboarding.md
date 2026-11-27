@@ -32,6 +32,8 @@ Next solo lee `.env.local` al arrancar: reinicia `npm run dev` después de cambi
 3. Antes de abrir el PR: `npm test` y `npm run lint` (el CI además corre el build, la auditoría de
    dependencias y las pruebas de navegador).
 4. **PR a `main`**; no fusionar con el CI en rojo. Al fusionar, Vercel despliega a producción.
+5. Si el PR trae una **migración**, aplicarla justo antes de fusionar y fusionar ese mismo día (la base es una
+   sola: aplicada ya está en producción). Detalle en `docs/operacion.md` ("Cambios de base de datos").
 
 ### Comandos útiles
 
@@ -41,6 +43,7 @@ Next solo lee `.env.local` al arrancar: reinicia `npm run dev` después de cambi
 | `npm run test:e2e` | Pruebas de navegador (Playwright); necesitan `npm run build` antes y Chrome instalado |
 | `npm run test:db` | Pruebas de solo lectura contra la base real |
 | `npm run db:verificar` | Genera la consulta que compara las migraciones del repo con la base |
+| `npm run db:respaldo` | Respaldo de solo lectura de los datos en `respaldos/` (no se sube a Git; ver `docs/operacion.md`) |
 | `npm run lint` / `npm run build` | Lo mismo que corre el CI |
 
 ## 4. Mapa del código
