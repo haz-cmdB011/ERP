@@ -65,12 +65,38 @@ y ayuda a que el proyecto no se pause por inactividad (no sustituye a un plan de
 - *"…excede el tamaño máximo"*: tope de 40 MB.
 - Errores de estructura del pedido: el mensaje indica hoja y fila.
 
+## Respaldo de la base
+
+Supabase **no guarda respaldos automáticos** mientras el proyecto siga en el plan gratuito (confirmarlo en
+*Settings → Database → Backups*). Por eso hay un respaldo manual:
+
+```bash
+npm run db:respaldo                   # todo: tablas, usuarios y archivos de Storage
+npm run db:respaldo -- --sin-archivos # sin descargar los archivos (solo su lista)
+```
+
+- **Solo lee**: no cambia nada en la base. Usa la clave de servicio de `.env.local`.
+- Deja una carpeta `respaldos/<AAAA-MM-DD_HHMM>/` con `tablas/<tabla>.json` (las 50 tablas), `usuarios.json`
+  (sin contraseñas: la API no las da), `archivos/` (Storage), `archivos.json` y `manifiesto.json` (cuántas filas
+  trae cada tabla, la última migración del repo y si quedó completo).
+- Compara las filas guardadas con las que cuenta la base; si algo no cuadra, lo dice y termina con error: **un
+  respaldo que termina en error no sirve**, hay que repetirlo.
+- El esquema (tablas, funciones, reglas) no va en el respaldo: está en `supabase/migrations/`.
+- **La carpeta `respaldos/` trae datos reales** (nombres, correos, recibos): está en `.gitignore` y nunca se sube
+  a Git. Guárdala en un lugar seguro (el Drive de la empresa o un disco externo) y borra la copia local.
+- **Cuándo**: una vez por semana y **antes de cualquier cambio grande** (una migración que borra o mueve datos,
+  una limpieza, una importación masiva). El 27 nov 2026 tardó menos de un minuto.
+
 ## Si hay que restaurar datos
 
-- **Hoy no hay respaldos automáticos** mientras el proyecto de Supabase siga en el plan gratuito
-  (confirmarlo en *Settings → Database → Backups*). Esto es un riesgo conocido: ver las opciones
-  (plan Pro, o un respaldo programado) en `SEGURIDAD.md` / la lista de pendientes del equipo.
-- Cuando existan respaldos, anotar aquí el procedimiento exacto y probarlo una vez.
+- **Pocas filas borradas o cambiadas por error**: buscarlas en el respaldo más reciente
+  (`respaldos/<fecha>/tablas/<tabla>.json`) y volver a insertarlas o corregirlas. Hacerlo con cuidado: lo que
+  pasó después del respaldo no está ahí. El historial de *Administración → Auditoría* ayuda a ver qué cambió.
+- **Perder el proyecto completo**: crear uno nuevo, aplicar todas las migraciones del repo, crear los usuarios
+  con su mismo id (`usuarios.json`; cada quien restablece su contraseña), cargar las tablas empezando por las
+  que no dependen de otras (`proyectos`, `pedidos`, `pedido_versiones`, `planeacion_items`…) y subir los
+  archivos de `archivos/` a sus buckets. **No está automatizado ni se ha ensayado**: hacerlo con calma y, si se
+  puede, ensayarlo antes en un proyecto aparte.
 - Los registros importantes ya tienen historial de cambios (*Administración → Auditoría*), que ayuda a
   reconstruir qué pasó, pero no sustituye a un respaldo.
 
@@ -176,8 +202,58 @@ personal del área, no al desarrollador, y nunca a quien provocó el aviso).
 ## Cambios de base de datos
 
 Siempre como archivo nuevo en `supabase/migrations/`, aplicado por **una sola vía** y verificado con
-`npm run db:verificar` (ver `CLAUDE.md`). Si el código nuevo depende de una migración, aplicar la
-migración **antes** de fusionar el PR.
+`npm run db:verificar` (ver `CLAUDE.md`).
+
+**Cuándo aplicarla**: la base es una sola y la comparte todo el equipo, así que una migración aplicada ya
+está "en producción" aunque su PR no se haya fusionado. Para que la base y `main` no se separen:
+
+1. Abrir el PR con la migración y esperar el CI en verde.
+2. Aplicar la migración **justo antes de fusionar** (no al abrir el PR) y verificarla.
+3. Fusionar **ese mismo día**. Si el código nuevo depende de la migración, nunca fusionar antes de aplicarla.
+4. Si un PR con la migración ya aplicada se cierra sin fusionar, **deshacerla** con su bloque "Para deshacer"
+   (otra migración) o fusionar al menos el archivo, para que la base no quede con algo que el repo no tiene.
+
+Si para probar la vista previa de Vercel hace falta la migración, se puede aplicar antes, pero entonces el
+PR se fusiona ese mismo día. Antes de una migración que borra o mueve datos, correr `npm run db:respaldo`.
+
+## Ajustes de GitHub (los hace un administrador del repositorio)
+
+Hoy cualquiera con permiso de escritura puede subir cambios directo a `main` sin PR ni CI. Nadie lo hace
+(en los 60 días previos al 27 nov 2026 todo entró por PR), así que protegerla **no cambia cómo trabajamos**:
+solo impide saltarse el camino por error. Lo hace quien administra el repositorio, en GitHub:
+
+1. *Settings → Rules → Rulesets → New branch ruleset* (o *Settings → Branches → Add rule*), para la rama
+   `main`, en estado **Active**:
+   - **Require a pull request before merging**: sí, con **0 aprobaciones** requeridas (cada quien sigue
+     fusionando sus PR, como hoy).
+   - **Require status checks to pass**: sí, el check **"Lint, pruebas y build"** (el del CI). Dejar **apagado**
+     "Require branches to be up to date before merging": si se enciende, cada PR tendría que actualizarse con
+     `main` antes de fusionar, y eso sí cambia el flujo.
+   - **Block force pushes** y **Restrict deletions**: sí.
+   - **Bypass list**: solo el administrador del repositorio, para emergencias.
+2. *Settings → General → Pull Requests*: encender **Automatically delete head branches**. Así la rama de un
+   PR se borra sola al fusionarlo (se puede recuperar desde el PR con "Restore branch").
+
+Qué no cambia: Vercel sigue publicando al fusionar en `main`; los PR de Dependabot pasan por el mismo CI; la
+fusión sigue siendo manual con *merge commit*. El CI corre en todo PR (sin filtros de carpetas), así que el
+check obligatorio no puede dejar un PR atorado.
+
+## Base de pruebas (pendiente)
+
+Hoy la app local, las pruebas, las vistas previas de Vercel y la app real usan **la misma base** de producción.
+Una base de pruebas aparte evitaría que un error al probar toque datos reales, y permitiría probar
+automáticamente los flujos con sesión (ver abajo). No se ha hecho porque el plan gratuito de Supabase deja 2
+proyectos **activos por cuenta** (cuentan los de todas las organizaciones de quien lo crea): el 7 oct 2026 se
+rechazó aunque `simulador-sistemas` ya estaba en pausa, porque la cuenta que lo intentó tenía otro proyecto
+activo en otra organización. Lo puede crear alguien cuya cuenta tenga lugar (por ejemplo, el dueño de la
+organización, haz-cmdB011) o se pausa ese otro proyecto. Lo decide quien administra la cuenta de Supabase. Si se crea:
+
+1. Proyecto nuevo (gratis) en la misma organización; aplicarle todas las migraciones del repo.
+2. Cada quien cambia **su** `.env.local` a la base de pruebas para trabajar en local. Producción no cambia.
+3. Opcional: que las vistas previas de Vercel usen la base de pruebas (variables de entorno de *Preview*).
+
+Eso sí cambia una costumbre: lo que se prueba en local ya no aparece en producción. Por eso es una decisión
+del equipo, no un ajuste automático.
 
 ## Lo que todavía no se puede probar automáticamente
 

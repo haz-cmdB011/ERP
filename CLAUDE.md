@@ -25,6 +25,7 @@ npm test        # vitest run
 npm run test:e2e     # pruebas de navegador (Playwright); antes: npm run build
 npm run test:db      # pruebas de la base de Supabase (solo lectura, usa .env.local)
 npm run db:verificar # genera la consulta que compara migraciones del repo vs la base
+npm run db:respaldo  # respaldo de SOLO LECTURA de los datos en respaldos/ (no se sube a Git)
 ```
 
 Scripts de planos (Node con `tsx`): `scripts/planos/*.mts`.
@@ -39,6 +40,8 @@ en la OT 102-24 = 119…) se omiten con aviso si esa OT no está cargada. No cor
 
 `docs/onboarding.md` (guía para quien entra), `docs/operacion.md` (qué hacer si algo falla: avisos,
 monitor `/api/salud`, accesos, restauración) y `SEGURIDAD.md`.
+
+El detalle de cada módulo vive en `docs/modulos/` (ver "Módulos" abajo).
 
 ## Variables de entorno (`.env.local`, no se sube a Git)
 
@@ -63,34 +66,16 @@ lo que se cargue o borre en local afecta datos reales.
   (`src/lib/supabase/middleware.ts`).
 - `src/lib/supabase/`: clientes `client`, `server` y `admin` (service role).
 - `src/lib/auth/`: perfil actual, guard de admin y definición de roles.
-- `src/lib/planeacion/`: parser del Excel "PEDIDO DE MANUFACTURA", números PM,
-  jerarquía MO/FU, imágenes. **Errores vs. avisos al subir un PM**: un error (rojo) rechaza el archivo; un aviso (recuadro
-  amarillo, "Se cargó, pero revisa…") carga igual. Los nombres de columna de plantillas anteriores (`CANT TOTAL`, `TOTAL`,
-  `COMP`, `CANTIDAD POR MUEBLE`, `CANT X MUEBLE`; `ALIAS_COLUMNAS` en `formato.ts`) se leen y avisan, y la columna
-  `COMPONENTE` puede faltar (`COLUMNAS_TOLERADAS`: queda sin categoría y avisa). Sigue siendo error: una columna obligatoria
-  sin nombre reconocible (se señala la parecida), la falta de las etiquetas `PROYECTO`/`CLIENTE`, y una hoja sin fila de
-  encabezados. Una entrega anterior al pedido también avisa (año mal escrito). Se probó contra 589 PM reales (2024–2026): los 451
-  que ya cargaban no cambian y 65 más cargan.
-  **Carga masiva (medido el 20 nov 2026)**: la pantalla sube un archivo a la vez y el servidor deja 40 cargas por 10 minutos por persona
-  (80 las confirmaciones): al topar, el resto queda en espera con aviso y se vuelve a pulsar "Subir". La base carga un PM de 600 filas en
-  ~0.9 s, de 1500 en ~2.3 s y de 3000 en ~4.7 s (el tope de las llamadas de la app es 8 s; el PM real más grande trae 598 filas y 104
-  imágenes) y 200 PM seguidos tardan lo mismo cada uno (~42 ms); con 600 muebles liberados, asignados y aprobados las pantallas siguen en
-  milisegundos. Procesar las imágenes del PM más grande tarda ~1 s y ~216 MB. Dos cargas simultáneas del mismo archivo no duplican versiones
-  (candado `pg_advisory_xact_lock`; la versión vieja de la función, sin candado, se quitó).
-  **Con 5000 PM de 20 muebles (100 mil filas, 20 nov 2026)**: cargarlos tardó 105 s (~20 ms por PM, sin enlentecerse), el PM 5001
-  entró en 31 ms y abrir un PM, la lista de pedidos o `muebles_en_calidad` siguen en milisegundos. Lo que sí crece es
-  `listar_ots_recibos` (la lista de O.T. de los recibos): 1.9 s con 5011 O.T., lineal, así que llegaría al tope de 8 s hacia las
-  20 mil O.T. Dos reglas que ese volumen exige: toda lista que pueda pasar de 1000 filas usa `paginarTodo`, y todo `.in()` con muchos
-  ids va en lotes de 100 (`enLotes`). Las pantallas **Cancelados** (Planeación, Producción y Calidad) leían todos los PM y todos sus
-  muebles: con cientos de PM fallaban por la dirección demasiado larga y la lista principal de Planeación se cortaba en 1000 PM.
-  Ahora leen solo lo que tiene cancelaciones o papelera (`cargarCancelados`, `src/lib/planeacion/cancelados-db.ts`) y la lista
-  principal de Planeación pagina.
-  **Imagen del mueble** (20 nov 2026): en muchos PM la foto va junto al primer componente, no junto a la fila del mueble (de 36 muebles reales, 29 no traían foto propia). `imagenesDeItems` (`src/lib/compartido/imagenes.ts`) le da al mueble sin foto la del primer componente que tenga; no cambia datos.
+- `src/lib/planeacion/`: parser del Excel "PEDIDO DE MANUFACTURA", números PM, jerarquía MO/FU, imágenes. Al
+  subir un PM, un **error** (rojo) lo rechaza y un **aviso** (amarillo) carga igual. Reglas de volumen: toda lista
+  que pueda pasar de 1000 filas usa `paginarTodo` y todo `.in()` con muchos ids va en lotes de 100 (`enLotes`).
+  Detalle (columnas toleradas, carga masiva y sus mediciones, Cancelados, imagen del mueble):
+  `docs/modulos/planeacion.md`.
 - `src/lib/estimaciones/`: motor de precios, recibos de acabados, armado y
   electrificación, revisión.
 - `src/lib/planos/`, `src/lib/pdf/`, `src/lib/produccion/`: planos, PDF tamaño
   carta y búsqueda de muebles.
-- `src/lib/offline/`: cola de capturas sin conexión (ver abajo).
+- `src/lib/offline/`: cola de capturas sin conexión (`docs/modulos/sin-conexion.md`).
 - `supabase/migrations/`: esquema versionado. Los números de versión deben
   coincidir con `supabase_migrations.schema_migrations` del proyecto.
 
@@ -121,6 +106,10 @@ en RLS y funciones SQL (`is_admin`, `is_admin_planeacion`, `is_admin_area`,
 - Correr `npm test` y `npm run lint` antes de abrir un PR. GitHub Actions
   (`.github/workflows/ci.yml`) los vuelve a correr en cada PR junto con el
   build; no fusionar si sale en rojo.
+- **La base es una sola** (local, pruebas, vistas previas y producción): una migración aplicada ya está en
+  producción. Aplicarla **justo antes de fusionar** su PR (CI en verde) y fusionar ese mismo día; si el PR se
+  cierra sin fusionar, deshacerla. Antes de algo que borre o mueva datos, `npm run db:respaldo`. Detalle:
+  `docs/operacion.md` ("Cambios de base de datos" y "Respaldo de la base").
 
 ## Migraciones: cómo aplicarlas
 
@@ -146,541 +135,36 @@ en el repo. Por eso:
    `select statements from supabase_migrations.schema_migrations where version = '...'`
    y guardarla en el repo.
 
-## Preaprobación de Producción
+## Módulos (el detalle vive en `docs/modulos/`)
 
-Calidad solo **evalúa** piezas que Producción preaprobó, pero **ve** todo lo enviado a producción (desde el
-20 oct 2026; antes lo de taller no aparecía): arriba lo listo (preaprobado o con informes,
-`listosParaCalidad` en `src/lib/calidad/estado-item.ts`, lectura en `preaprobados-db.ts`) y abajo, plegado,
-"En taller" (`enTallerParaCalidad`, el mueble va junto con sus componentes). Lo de taller no se aprueba ni
-cuenta como pendiente en el panel ni en la O.T.; tiene "Reportar falla", que abre el alta de no conformidades
-prellenada (`?reportar=1&reportar_proyecto=…&reportar_mueble=…`). Producción **ya no califica** al registrar la
-entrega ni sube foto (migración `entrega_sin_foto_ni_calificacion`): solo fecha, cantidad y folio, y la
-entrega nace verificada y pasa a Calidad, que es quien evalúa. Las entregas viejas conservan su foto y su
-"cumplen / no cumplen". Lo controla el ajuste `verificacion_produccion` de la tabla
-`ajustes_flujo`, hoy ENCENDIDO (migración `entrega_con_preaprobacion`). Apagado, Calidad evalúa todo
-ítem liberado aunque no haya entregas (un mueble sin entregas se evalúa completo) y las entregas nacen
-verificadas. Cómo apagarlo o encenderlo y qué anotar después: `docs/operacion.md` ("Si Calidad no puede
-evaluar un mueble"). La pantalla lee el ajuste con `src/lib/compartido/ajustes-flujo.ts`; si no puede
-leerlo asume el flujo con verificación.
+Antes de tocar un módulo, leer su archivo: ahí está cómo funciona, qué migración hizo cada cosa y las trampas
+conocidas. Al cambiarlo, actualizar ese archivo, no este.
 
-## Ruta de Producción
-
-Cada mueble padre liberado tiene una **ruta**: pasos en orden que se pueden repetir (Armado → Barniz →
-Armado). La sugerida es Armado → Superficie Sólida → Barniz → Electrificación (S.S. y Electrificación solo
-si el mueble o sus componentes las llevan); se crea con la primera asignación o al guardar la ruta
-(`guardar_ruta_produccion`, bloqueo optimista por versión, una versión por mueble). Migración `ruta_produccion`,
-lógica sin base en `src/lib/produccion/ruta.ts` y `flujo-mueble.ts`.
-
-**Ruta del mueble completo** (migración `ruta_por_mueble_completo`, 5 nov 2026; reemplaza lo de rutas por
-parte de abajo para lo nuevo): el mueble **se asigna completo** aunque tenga despiece y su ruta es la única;
-las partes ya no llevan ruta ni se asignan (una parte nueva nace con `ruta_guardada_en` y sin pasos). La
-ruta se elige **en el carrito** ("Cambiar ruta" en cada mueble): por liberar se guarda en el aparato
-(`useRutasCarrito`, `carrito-navegador.ts`) y `/api/produccion/items/liberar` la guarda al liberar
-(`pasosConIds`); ya liberado se guarda directo. Sin elegir, la sugerida. El panel solo asigna pasos del
-mueble y muestra el despiece como consulta con el **icono y color de cada material**
-(`src/app/produccion/material-parte.tsx`, que también usa el editor del despiece). Los muebles que ya
-trabajaban por partes (con asignaciones de partes vigentes) conservan su tabla: lo de sus partes solo se
-consulta y entrega, sin "+" (`partesConRuta`). Lo que sigue describe ese modelo anterior.
-
-**Rutas por parte** (migración `rutas_por_parte`, 26 oct 2026): la ruta del mueble es **solo del mueble
-completo** y cada parte del despiece tiene **la suya** (`pasos_ruta_produccion.parte_id`: null = mueble). Son
-independientes: agregar un paso al mueble no aparece en sus partes ni al revés (la Tabla: Armado → Barniz;
-el herraje: Armado). Primero van las partes y después el mueble: lo listo para su primer paso es lo que
-alcanza la parte más atrasada en el último paso de su ruta (`muebles_por_partes`; `partesCompletas`). Un
-mueble con partes nace con su ruta **vacía**; lo que se le hace ya armado lo agrega Producción. **No hay
-proceso Ensamble**: ensamblar es un Armado del mueble completo (la migración `ensamble_produccion`, del mismo
-día, quedó reemplazada). Una parte que nunca guardó su ruta (`partes_despiece.ruta_guardada_en` null) usa la
-sugerida y la base la crea al asignar o guardar (`asegurar_ruta_produccion`; `rutasDelFlujo` en pantalla).
-Cada ruta se edita aparte con "Ruta" al abrir el mueble en el panel (`editar-ruta.tsx`, `p_parte_id`).
-`procesos_omitidos` y `guardar_procesos_parte` ya no se usan. En los recibos, la idea acordada (aún no hecha)
-es que el Armado con solo el modelo es el del mueble completo (el ensamble) y con componente, la parte.
-
-- Cada asignación es de un paso (`asignaciones_produccion.paso_id`) y el tope es **por paso** (la cantidad
-  del mueble), no por proceso. El retrabajo no cuenta y hereda el paso (`trg_paso_de_retrabajo`).
-- Asignar más de lo que el paso anterior entregó y verificó **no se bloquea**: se avisa y la asignación
-  queda `adelantada`.
-- Un paso con asignaciones vigentes no se quita, y dos pasos con asignaciones no cambian de orden entre sí
-  (`puedeMover`; la base también lo rechaza); los quitados quedan con `retirado_en`.
-- Un paso no está terminado mientras Calidad tenga piezas rechazadas de sus lotes sin reasignar
-  (`rechazado_por_reasignar` del resumen). Con un proceso repetido, el resumen y los lotes de Calidad dicen
-  qué vez es (`vez_paso` de `veces_proceso`; en pantalla "Armado 2" con `etiquetaProceso`). La línea de
-  tiempo de Planeación cuenta un proceso hasta terminar todas sus pasadas (migración
-  `correcciones_ruta_produccion`).
-- Un proceso que la ruta repite **se cobra cada vez**: en Estimaciones lo esperado de un mueble padre en
-  Armado/Acabados es cantidad del PM × (pasos de armado/barniz de la ruta del mueble + los de la parte que más
-  veces lo lleva) (mínimo 1; `veces_proceso_ruta`, migraciones `recibos_procesos_repetidos` y `rutas_por_parte`). Componentes y Electrificación siguen 1×. Lo usan el control al
-  guardar el renglón, el campo Modelo de la captura y "PM contra cobrado" (`cantidad_pm_acabados/armado`).
-
-## Inicio de Producción
-
-`/produccion` es el panel de inicio del área (la lista de O.T./PM pasó a `/produccion/pedidos`):
-**muebles recientes** (un recuadro por modelo, esté en uno o en varios PM, con anillos concéntricos por estado,
-sus O.T. de tres en tres y el nombre que abre el panel de asignación), lo que tiene cada equipo en taller y las O.T. con
-pendientes (4 a la vista, "Ver más" despliega el resto); lo más reciente primero (las O.T., por su último movimiento, como los muebles; los muebles recientes, los 30 con el
-último movimiento: subida del PM, liberación, asignación o entrega). Cuenta
-muebles padre vigentes: los liberados con el estado del panel de asignación (`cargarMueblesDePanel`) y los por liberar.
-Lógica en `src/lib/produccion/inicio.ts`, lectura en `inicio-db.ts`.
-
-**Fila de cada O.T. con pendientes** (13 nov 2026): cuenta igual que el tablero, cada mueble en una sola cosa: *por liberar*;
-*por asignar* (espera equipo o tiene piezas sin equipo en su paso); *por entregar* (tiene alguna asignación en el taller, la
-misma lista de la columna del tablero: `conEnTaller`); *en Calidad*; y *en espera* (en proceso sin nada de lo anterior, por
-ejemplo los muebles que van por partes del despiece con todo entregado, que se asignan en el panel y no salen en el tablero).
-Antes "por entregar" era todo mueble en proceso y no cuadraba con las tarjetas del tablero.
-
-**Volumen (medido el 13 nov 2026, `npm run db:volumen`, solo lectura):** el inicio lee el flujo de TODOS los muebles
-liberados cada vez que se abre o se actualiza, y eso crece en línea recta: con la clave de servicio, 1000 muebles
-tardan ~2.7 s (91 peticiones) y 2000, ~4.5 s (181); con la sesión de una persona (RLS) algo más. Las lecturas por
-tandas (`flujo-db.ts`, `rutas-db.ts`, `partes-db.ts`) piden de a pocas a la vez (`enParalelo`, `TANDAS_SIMULTANEAS`
-en `tandas.ts`) para no saturar la base. Las tandas son de 100 muebles (`MUEBLES_POR_TANDA`) y cada una se pide
-con paginación (`leerEnTandas`): la base corta cada respuesta en 1000 filas sin avisar, así que una tanda grande
-sin paginar perdería filas en silencio (antes eran de 25 por eso: 171 peticiones y ~4.3 s con 1000 muebles). Quien
-agregue otra lectura por muebles debe usar `leerEnTandas` con un orden estable (desempate por `id`). Hacia la pantalla
-viajan ~1.5 KB por tarjeta del tablero (1000 muebles ≈ 0.5 MB; 3000 ≈ 1.6 MB) y el inicio se vuelve a leer cada
-minuto por pestaña. Si el inicio pasa de unos 2000 muebles liberados, lo siguiente es no leer el
-flujo de lo terminado, o que la base calcule el estado de cada mueble (hoy se calcula en `flujo-mueble.ts`).
-
-**Tablero** (única vista del inicio desde el 9 nov 2026: la lista se quitó "por el momento" y `?vista=lista` ya no hace nada; esa lista —`lista-modelos.tsx`, `bitacora-taller.tsx`, `cambiar-vista.tsx` y el carrusel— se borró el 13 nov 2026 y se recupera del historial de Git): **una sección
-por O.T.** (la de movimiento más reciente primero, "Sin O.T." al final; cuando hay más de tres solo la primera empieza abierta, todas se
-pliegan; el título abre la pantalla de la O.T. y trae cuántas hay en cada columna), cada una con **columnas que salen del
-estado, no se arrastran** (`renglonesDeTablero` en `control-taller.ts`, `columnaDeRenglon` en `tablero.ts`): **"Por entregar"**
-(asignaciones que siguen en taller, con lo que falta entregar) y **"Por asignar"** (todo mueble liberado en estado por asignar, tenga o
-no un proceso ya entregado, **y el asignado a medias**: el paso en que va aún tiene piezas sin equipo; es el mismo "Por asignar" de la
-leyenda de colores). Su tarjeta dice cuánto falta: "13 PZA" si no se ha asignado nada o "Faltan 8 de 13 PZA · Armado" si ya se asignó una
-parte (`faltaPorAsignar` de `inicio.ts`, el mismo tope por paso de `crear_asignacion_produccion`; `esPorAsignar` en `control-taller.ts`).
-Un mueble que va por partes del despiece no entra por esta vía. Lo que sigue por liberar no sale: se
-libera antes, desde el carrito. Una **tercera columna, "En Calidad"**, junta los muebles con piezas que ya
-entregó Producción y esperan la revisión final de Calidad ("3 de 13 PZA en revisión"; vista
-`revision_final_muebles`, columna `pendientes`, que lee `en-calidad-db.ts` y `conEnCalidad` de `inicio.ts` anota
-en cada mueble). Solo informa, sin botón, y no sale si no hay nada (ni la tira ni su punto violeta en el encabezado
-de la O.T.); un mueble puede salir a la vez en Por asignar y en Calidad con piezas distintas. Un enlace a
-Calidad no se pone a propósito: quien es de Producción no abre esas pantallas. Si la lectura falla, la columna
-no sale y el inicio sigue (aviso en la consola del servidor). Con la revisión final apagada (`ajustes_flujo`) no
-sale nada: Calidad evaluaría entonces por entrega y no por mueble. Cada tarjeta lleva miniatura que se amplía con el visor de siempre (`ImagenAmpliable`), nombre que
-abre el panel, **los mismos anillos concéntricos de la lista** (`AnillosConcentricos`: cuántos muebles de su modelo hay por
-liberar, por asignar, en taller y terminados; `conteosPorModelo` sale de `modelosRecientes`, y la leyenda de colores de arriba
-de la página) y el PM que abre su pedido. En "Por asignar" va el botón **Asignar**, que abre
-`/produccion/panel?ids=<mueble>` (el panel con ese mueble ya abierto). En "Por entregar" va el botón **Entregar** (solo quien
-edita Producción; sin palomita ni tache en la tarjeta) y, **al tocar cualquier parte del texto de la tarjeta** (nombre, equipo,
-PM, "5 de 13 PZA" y su barra; ahí el nombre y el PM ya no son enlaces) se abre la **vista previa
-flotante** (`vista-previa-mueble.tsx`, una ventana sobre la página con el fondo difuminado, Esc o tocar fuera la cierra): imagen del
-mueble, nombre, anillos de su modelo, avance, la ruta como línea de puntos con el % de cada proceso (`procesosDeMueble` de `inicio.ts`,
-el mismo avance de las columnas del panel), la **Bitácora** (solo la palomita y el tache de la asignación, `MarcaSeleccionable`;
-sin tira de datos ni historial a la vista: el registro de cada cambio lo sigue escribiendo el trigger de la base) y, debajo, un
-menú: panel de asignación y pedido (por eso la tarjeta ya no los enlaza).
-**Entregar** abre una ventana mínima (`entregar-mueble.tsx`): % antes y después con barra, cantidad con − / +, "Entregar todo",
-folio de la hoja y fecha (hoy, con "Cambiar fecha"). Registra por la misma ruta que "Registrar entrega" del panel
-(`POST /api/produccion/entregas`, con cola sin conexión), así que al guardar la tarjeta y el panel se actualizan (`router.refresh`).
-Si la entrega del mueble se hace **por partes** del despiece (`partesParaEntrega`; `entregaPorPartes` de `MuebleInicio` →
-`porPartes` de la tarjeta), la ventana ofrece además el enlace al panel de asignación con ese mueble (`hrefPanel`) para entregar por partes.
-**Lo urgente va primero**: cada tarjeta lleva un
-chip de plazo según la fecha de entrega de su PM ("Atrasada 3 d", "Vence hoy", "Vence en 2 d"; `plazoDeTarjeta`, `plazosDePedidos`; sin
-fecha de entrega no hay chip), las tarjetas se ordenan por urgencia y después por lo más reciente (`reciente`), las O.T. con algo
-atrasado van primero y su encabezado dice cuántas ("2 atrasadas"). Por omisión el tablero muestra las 30 tarjetas que más importan
-(`MAX_TARJETAS_RECIENTES`: lo urgente y luego lo reciente; el botón "Todos" muestra el resto). **El PM siempre se ve corto** (`pmCorto`,
-`src/lib/compartido/pm-corto.ts`): solo "PM009-26" o, si hay SDC, solo "SDC-1"; el nombre completo queda en el `title`. 8 tarjetas
-por columna y "Ver todas". No cubre un mueble por partes ni uno cuyo paso sigue en proceso con todo asignado y sin
-asignación en taller (casos raros): esos se ven en el panel. **Se actualiza sola** (`actualizar-solo.tsx`): vuelve a leer cada minuto con la pestaña a la vista y al regresar a ella; no lo hace sin
-conexión ni con una ventana abierta, y muestra "Actualizado hh:mm". Arriba, si hay **rechazos de Calidad por reasignar**
-(`contarRechazosPorReasignar`: lotes y revisión final, el mismo criterio de Rechazos), sale un aviso que lleva a `/produccion/rechazos`.
-Una asignación con tache en la Bitácora lleva en la tarjeta "✕ No está" (solo aviso). La leyenda de colores llama "Por entregar" a lo que antes decía "En taller". Lógica en `src/lib/produccion/tablero.ts`, pantalla en
-`tablero-marcas.tsx`.
-
-**Bitácora de taller** (nov 2026; esta lista del inicio está **quitada**, ver Tablero): se llamaba "Bitácora de producción" (8 a la vista y
-"Ver más"): lo más reciente primero (sin encabezados por día), con la hora (`dias.ts`) y de qué fue el último
-movimiento de cada modelo (PM subido, liberado, asignado, entrega; `tipoReciente`). Un renglón por modelo con sus anillos, sus O.T. y, al lado, quién lo tiene: equipo, cuántos
-(pendiente de lo asignado), O.T./PM, **palomita o tache que elige quien asigna (Producción)** y "Asignar" (abre
-`/produccion/panel` filtrado por ese PM; "Liberar" y el pedido si el mueble sigue por liberar). **Todos los
-muebles llevan marca**: los asignados, una por asignación, y los que aún no tienen equipo ("Sin equipo · Por
-asignar"), una por mueble. Se guarda en `marcas_taller_produccion` (migraciones `marcas_taller_produccion` y
-`marcas_por_mueble`; una fila marca una asignación o un mueble, nunca las dos; sin fila = sin marcar; la ven
-todos los internos, la eligen quienes son de Producción; `POST /api/produccion/marcas` con `asignacionId` o
-`itemId`, `marca-seleccionable.tsx`) y es solo informativa: no cambia estados ni cobros.
-
-**Control de la bitácora** (migración `historial_marcas_taller`): cada marca puede llevar una **nota** (el
-motivo, hasta 300 caracteres; al poner el tache se abre la ventana, se puede omitir) y cada cambio queda en
-`historial_marcas_taller_produccion`, que escribe solo un trigger (nadie lo edita desde la app, sin llaves
-foráneas: sobrevive a que se borre el mueble o la asignación, y guarda copia del modelo, PM, O.T., equipo y
-nombre de quien lo hizo). La ventana de cada marca (`marca-seleccionable.tsx`) muestra sus últimos cambios
-(`GET /api/produccion/marcas/historial`). La pantalla **Bitácora de taller** (`/produccion/bitacora`, con lista de
-control, historial, Excel e imprimir) se **quitó el 9 nov 2026** junto con su ruta de exportar y su lectura
-(`control-taller-db.ts`, `bitacora-excel.ts`): se recupera del historial de Git. Lógica que sigue en el repo en
-`control-taller.ts` y `historial-marcas.ts`.
-**Los motivos están apagados por ahora** (`MOTIVOS_ACTIVOS = false` en `historial-marcas.ts`): no se piden ni se
-muestran en pantalla ni en el Excel; la columna, el trigger y la ruta siguen listas, y para volver a verlos
-basta ponerlo en `true`. Lo entregado en los últimos 14 días también sale (`DIAS_BITACORA`). Las asignaciones
-de modelos que no están entre los 30 recientes salen abajo, por equipo; "O.T. con
-pendientes" va al final. Lógica en `src/lib/produccion/bitacora.ts`, lectura en `bitacora-db.ts`.
-
-## Carrito y panel de asignación
-
-Llevar muebles a los equipos de maquila sigue un solo camino; el pedido y la O.T. ya no traen botones de
-"Asignar a equipos" ni de liberar:
-
-- **Carrito**: en el pedido se marcan muebles o componentes (o se usa el botón de carrito de cada fila) y se
-  mandan al carrito. Vive en el aparato (`localStorage`, `src/lib/produccion/carrito-navegador.ts`; lógica pura
-  con pruebas en `carrito.ts`) y junta ítems de cualquier PM u O.T. `/produccion/carrito` los agrupa por
-  O.T. → PM con su estado real (`/api/produccion/carrito`, `carrito-db.ts`).
-- El pedido de Producción **solo muestra muebles padre**; sus componentes viajan con el mueble al carrito
-  (se liberan con él) y ahí tampoco salen como filas (`filasCarrito`).
-- **Despiece en el carrito**: un mueble con componentes muestra si le falta o ya tiene su despiece y lo abre
-  al tocar su fila, que despliega sus componentes como el mismo editor (`despiece-en-linea.tsx`, datos de `GET /api/produccion/despiece`,
-  carga en `src/lib/produccion/despiece-db.ts`, que comparte la página del despiece). Al guardar se pliega.
-  **Sin despiece no se libera** un mueble con componentes (botones del carrito y `/api/produccion/items/liberar`,
-  que también usa Planeación). En el panel ya no se hace: solo "Editar despiece" si hace falta (o "Falta
-  despiece" para los viejos). Cada parte del despiece se pinta del color de su material (`tipoMaterial`).
-- **Despiece por modelo** (`copiarDespieceAlModelo`, al guardar en `POST /api/produccion/despiece`): se copia a
-  los demás muebles vigentes del mismo modelo, de cualquier O.T./PM, **con los mismos componentes**
-  (`firmaComponentes`: descripción + cantidad por mueble) que no tienen despiece o siguen con la copia anterior
-  sin cambios. Uno editado a mano o con otros componentes no se toca. Cada copia pasa por
-  `guardar_despiece_produccion`; el aviso al guardar dice a cuántos llegó.
-- **Liberar** se hace desde el carrito (por PM o todo). Lo liberado sale del carrito y se abre el panel de
-  asignación con esos muebles (`/produccion/panel?ids=…`, máximo `MAX_IDS_PANEL`). Lo asignado desde el
-  carrito (muebles que ya estaban liberados) también sale.
-- **Panel de asignación** (menú de Producción, `/produccion/panel`; simplificado el 5 nov 2026): todos los
-  muebles liberados en **una lista plana** con una cabecera delgada por PM (PM, O.T., proyecto), sin niveles
-  que abrir. Cada mueble va en una línea (`FilaMueble` de `pedidos/[id]/asignaciones/flujo-muebles.tsx`, que
-  comparte la pantalla de asignaciones del PM): miniatura y nombre, la ruta en anillos y a la derecha **un solo
-  botón** con lo que sigue ("Asignar Barniz", "Hacer despiece") o en qué va. Al abrirlo: primero las
-  asignaciones por paso (las que siguen en taller, abiertas con su "Registrar entrega"), y al pie el despiece
-  resumido por material (se despliega), "Cambiar ruta" y "Editar despiece". Filtros: selector de
-  Activos / Por asignar / En proceso / Terminados (`estado`, por omisión Activos, también al llegar de liberar)
-  y un buscador que filtra al escribir (`q`: PM, O.T., modelo, descripción, proyecto, cliente;
-  `buscador-panel.tsx`); `ot` se sigue aceptando en la dirección. Lógica pura en
-  `src/lib/produccion/panel.ts`, lectura en `panel-db.ts` (primero una fila liviana por mueble, `listarLiberadosDePanel`, para filtrar por O.T. y búsqueda; el flujo solo se carga de lo que queda). Se pintan 40 muebles y "Ver más" suma otros 40 (`?n=`); lo recién liberado abre por `?ids=` o, si son más de 100, por `?lote=<liberado_en>`, que devuelve `/api/produccion/items/liberar`. `flujo-db.ts` (`cargarFlujoMuebles`) arma el flujo
-  y lo comparten el panel y el carrito.
-- La pantalla de asignaciones de un PM (`/produccion/pedidos/<id>/asignaciones`) sigue existiendo (la usan el
-  QR y el tablero), pero ya no se llega a ella desde el pedido ni la O.T.
-
-## Despiece por partes (fases 1 y 2)
-
-Un mueble se puede asignar **por partes de su despiece** (migración `despiece_por_partes`): cada línea del
-despiece es una parte con id fijo (`partes_despiece`; la línea lleva `id` en `despieces_produccion.lineas`)
-y una asignación es de una parte (`asignaciones_produccion.parte_id`) o del mueble completo (null).
-
-- Una asignación de una parte va en **piezas de esa parte** (migración `partes_en_piezas_y_ruta_por_parte`):
-  la Tabla, 3 por mueble × 13 muebles = 39 piezas; se pueden asignar 20. Sus entregas y lotes también van en
-  piezas y la asignación lleva la unidad de la parte. Tope por paso de una parte = piezas por mueble ×
-  cantidad del mueble. Lo del mueble completo (muebles sin componentes o asignaciones viejas) sigue en
-  muebles y cuenta para todas sus partes × sus piezas por mueble.
-- **Cada parte tiene su ruta** (ver "Rutas por parte" arriba): una asignación de una parte va en un paso de su
-  ruta y la del mueble completo, en uno de la del mueble (la base rechaza cruzarlas). El paso anterior de una
-  parte (para "listo"/adelantada) es el anterior de su ruta; el primero del mueble, lo que alcanzan sus partes.
-- **Revisión final**: sin pasos del mueble, cuenta lo que alcanza la parte más atrasada en su último paso;
-  con pasos, lo del último paso del mueble (`piezas_listas_revision_final`). Lo rechazado puede regresar a un
-  paso de una parte: sigue el resto de su ruta en sus piezas (muebles × piezas por mueble) y después la del
-  mueble (`siguiente_paso_revision_final`, columnas `siguiente_parte*` de `rechazos_revision_final`).
-- **Cobro** (`verificado_produccion_variante`, `aprobado_calidad_variante`): un paso del mueble cuenta lo suyo;
-  los de las partes se juntan por proceso y vez (`vez_paso_ruta`) y cuentan la parte más atrasada entre las
-  que llevan ese proceso esa vez (`cobertura_partes_vez`). Si un mueble se reparte entre planta y maquilador,
-  lo liberado para cobrar queda en 0 hasta la fase 3 (cobro por partes).
-- Asignar: al abrir el mueble en el panel sale la **tabla del despiece**: una fila por parte y una del
-  "Mueble completo", una columna por proceso (`columnasMueble`; "—" si esa ruta no lo lleva), con lo
-  entregado de cada paso, su "+" y el botón "Ruta" de cada fila. En la fila del mueble, con despiece, hay
-  **un anillo por proceso** (`avanceColumna`: las partes que lo llevan, ponderadas por su %, y el mueble
-  completo si también lo lleva). El mueble completo de un mueble con partes **no lleva Barniz** hasta
-  demostrar lo contrario (solo pantalla: `editar-ruta.tsx` no lo ofrece; uno que ya lo tenga lo conserva). `AsignarForm` pregunta
-  "¿Qué se asigna?" (una parte o el mueble completo) y luego el paso de esa ruta; una parte va en piezas
-  (`crear_asignacion_produccion` con `p_parte_id`; `crear_asignaciones_por_partes` ya no se usa). La parte sale en `etiquetaProceso`
-  ("Armado · Base de metal") y `textoAvanceAsignacion` da "5/39 PZA" con la unidad de la parte.
-- **Bloqueo** (`guardar_despiece_produccion`): una parte con asignaciones vigentes no se quita ni baja su
-  cantidad por mueble; agregar partes o subir cantidades sí. Al volver a la sugerencia, la parte se
-  reconoce por su componente del PM. El retrabajo hereda la parte (`trg_paso_de_retrabajo`).
-- **El despiece se usa para asignar** (migración `despiece_porcentaje_obligatorio`): un mueble con
-  componentes vigentes en el PM no se asigna sin despiece guardado (`requiere_despiece`; en el panel sale
-  "Hacer despiece" en lugar del "+"); los muebles sin componentes se asignan completos. Con despiece, el
-  mueble completo se asigna solo en los pasos de su propia ruta. Cada parte vale un
-  **% del mueble** en partes iguales (`partes_despiece.porcentaje`): no se captura, el editor lo calcula
-  solo al guardar (`repartirPorcentajes`); la base acepta un % por línea que sume 100. Solo es visual (los
-  anillos por proceso): el cobro y la revisión final siguen contando un mueble cuando todas sus partes.
-- **Encuadre** (`encuadreMueble` en `flujo-mueble.ts`, solo pantalla): muebles completos = lo que alcanza la
-  parte más atrasada, con lo entregado en el último paso de la ruta de cada parte (piezas ÷ piezas por mueble,
-  hacia abajo). También da, por parte, sus piezas terminadas, los muebles que alcanza y lo que le falta
-  para llegar a la más adelantada (20 tablas de 3 = 6 muebles → al herraje le faltan 6). En pantalla solo
-  sale "0/23 completos" junto a la cantidad del mueble en el panel; el resto queda como lógica.
-- **Dividir y entregar por partes** (migración `entrega_por_partes`, 5 nov 2026): en el editor, "Dividir en partes"
-  separa una línea ("Puerta con marco" → Puerta y Marco; `sugerirPartes`/`dividirLinea` en `despiece.ts`; las
-  nuevas no se ligan al componente del PM y no se divide una ya asignada). El mueble sigue asignándose completo con
-  una sola ruta, pero **la entrega** de un mueble con despiece puede ser "Por partes" (`registrar-entrega.tsx`,
-  `partes` en `POST /api/produccion/entregas`): `registrar_entrega_partes` guarda las piezas por parte
-  (`entregas_partes_produccion`) y, cuando la parte más atrasada alcanza para más muebles que los ya entregados,
-  registra sola la entrega del mueble completo (`registrar_entrega_produccion`) por la diferencia; Calidad y cobro
-  siguen contando muebles. No aplica a asignaciones de una parte ni a muebles de antes con ruta por parte
-  (`partesParaEntrega`, `src/lib/produccion/entregas-partes.ts`). Anular esa entrega del mueble no devuelve las piezas.
-  **Procesos por parte** (migración `procesos_por_parte`, aplicada el 5 nov 2026): cada línea del
-  despiece dice por qué procesos NO pasa (`partes_despiece.procesos_omitidos`, `procesos_omitidos` en la línea; vacío =
-  todos, lo normal; "Pasa por" en el editor, nunca los cuatro omitidos). La entrega por partes de una asignación (que es
-  de un proceso) solo ofrece las partes que llevan ese proceso y los muebles completos se cuentan con ellas: el Barniz
-  de la puerta no espera al marco si el marco no lleva Barniz.
-  **Asignar por partes** (migración `asignar_por_partes`, aplicada el 5 nov 2026; interruptor por mueble,
-  `rutas_produccion.por_partes`): por omisión el mueble se asigna completo con una sola ruta. En un mueble con
-  despiece, "Asignar por partes" (pie del detalle, `asignar-por-partes.tsx`, `activar_asignacion_por_partes`) retira la
-  ruta del mueble (sin asignaciones completas vigentes) y da a cada parte la suya: los procesos de la ruta del mueble
-  menos los que omite ("Pasa por"). Entonces cada parte se asigna y entrega en sus piezas (`crear_asignacion_produccion`
-  con `p_parte_id`, el "+" de la tabla y "Asignar partes"), y el mueble cuenta completo cuando la parte más atrasada
-  termina su último paso (lo de "Despiece por partes" de arriba). "Volver al mueble completo" solo si ninguna parte tiene
-  asignaciones vigentes. Sin la migración aplicada la lectura sigue (`leerRutas` tolera que falte la columna) y todo va
-  por mueble completo. Con el interruptor encendido no aplica la entrega parcial por partes de arriba: sus partes tienen
-  asignaciones propias.
-- **Calidad revisa las partes y se cobran** (migraciones `calidad_revisa_partes` y `cobro_por_partes`, 6 nov
-  2026): cada renglón de piezas de una entrega por partes es una entrega que Calidad aprueba o no (vista
-  `lotes_partes_calidad`, `evaluar_entrega_parte_calidad`; en pantalla, `conLotesDePartes` de
-  `src/lib/calidad/lotes-partes-db.ts` las junta con los lotes). La entrega del mueble que la base junta con
-  esas piezas (`entregas_produccion.desde_partes`) no se evalúa directo: la aprueba
-  `aprobar_mueble_desde_partes` cuando la parte más atrasada alcanza en piezas aprobadas. Lo no aprobado de
-  una parte se vuelve a entregar en la misma asignación. Cobro: `aprobado_calidad_variante` da una fila por
-  parte del despiece propio (lo aprobado de sus piezas o el mueble × piezas por mueble) y el tope de Calidad ya
-  no exime a las partes. En "Rechazos de Calidad" sale "Partes por volver a entregar" (`partes-rechazadas.ts`).
-- **Procesos en anillos** (pedido de Calidad, solo pantalla): un mueble con entregas se ve como su ruta en
-  anillos, igual que en el panel de Producción (Armado → Barniz → …): cada anillo se llena con lo aprobado contra la
-  cantidad del mueble (verde), lo por revisar (ámbar, con su número) y lo que está en retrabajo (rosa); al tocarlo
-  salen sus folios (el historial). Debajo, un "Revisar Armado: 1 PZA del …" por entrega pendiente; el asistente dice
-  "Revisar Armado" y muestra la ruta con ese proceso marcado. Ya no se suman piezas de procesos distintos. Lógica en
-  `src/lib/calidad/pista-procesos.ts`, pantalla en `src/app/calidad/pista-procesos.tsx`.
-
-## Revisión final de Calidad
-
-Calidad revisa el **mueble completo** antes de mandarlo a obra, no cada proceso (migraciones
-`revision_final_calidad` y `revision_final_obligatoria`). Revisar un lote por proceso queda como opción,
-para cuando hay una falla ahí: en pantalla no se habla de "lotes" sino de **entregas identificadas por su
-fecha** ("Revisar 3 pz del 20/10", página Entregas de `/calidad/entregas`), y el panel ya no tiene tarjeta ni
-alerta de días sin evaluar (los datos siguen en la vista `lotes_calidad`). Está detrás del ajuste `revision_final` de `ajustes_flujo`, que se enciende
-**después de fusionar** la pantalla que pide el origen de la falla (cómo: `docs/operacion.md`); encendida es
-la puerta obligatoria hacia obra.
-
-- Listas = lo que **Producción verificó** en el **último paso** de la ruta (entregas preaprobadas, incluidos
-  los retrabajos que ya llegaron ahí) − lo que Calidad rechazó en esos lotes si los revisó − lo revisado
-  (`piezas_listas_revision_final`, vista `revision_final_muebles`). Antes era lo que Calidad aprobó.
-- `registrar_revision_final`: folio `FIN-` por resultado; lo rechazado lleva motivo, **dónde nació la falla**
-  (`origen_paso_id`, un paso de la ruta, u `origen_area`: ingenieria, planeacion, compras, diseno, otra;
-  exactamente uno; `AREAS_ORIGEN` en `src/lib/calidad/revision-final.ts`) y el paso de la ruta al
-  que regresa, y desde ahí **sigue el resto de la ruta**: Producción lo reasigna paso por paso con
-  `crear_retrabajo_revision_final`, que toma el siguiente paso (`siguiente_paso_revision_final`; vista
-  `rechazos_revision_final`, pantalla Rechazado por Calidad). Ese retrabajo no cuenta contra el tope del
-  paso; el retrabajo de sus lotes hereda el vínculo (`trg_paso_de_retrabajo`). Un paso con piezas de la
-  revisión final pendientes no se quita de la ruta.
-- Solo muebles padre. No cambia el cobro ni la revisión por lotes: lo retrabajado por la revisión final no
-  suma a "Calidad aprobó" de Estimaciones (ya se aprobó una vez). Liberado a obra = la final aprobó la
-  cantidad del mueble.
-
-## No conformidades (Calidad)
-
-`/calidad/incidencias` (menú "No conformidades"): reportes de no conformidad, desviación, incidencia o mejora, con
-resumen, gráficas, "Nuevo reporte" y "Descargar Excel" (tabla `incidencias_calidad`). Vienen del Excel de control
-`BD-CONTROL` (hojas MADERA y METAL) y siguen entrando desde él: el botón **Importar Excel** (`importar-excel.tsx`,
-`POST /api/calidad/incidencias/importar?modo=simular|aplicar`, solo Calidad) lee el libro, enseña cuántas son nuevas,
-cuántos reportes son nuevos, cuáles ya cargados cambian (p. ej. los cerraron en el Excel), cuántos quedan sin cambios y
-cuáles tienen problema; al confirmar **agrega lo nuevo y actualiza lo que el Excel trae distinto** (el Excel manda, para
-que las gráficas y los pendientes de +30 días sigan al libro de control). Reglas de la actualización
-(`cambiosDeUnReporte`): una celda vacía del Excel no borra lo que ya hay; un reporte cerrado en la app no se reabre aunque
-el Excel lo tenga abierto; la línea nunca cambia; lo que el Excel trae con valor y es distinto sí se escribe (también
-sobre lo editado en la pantalla: la vista previa lo muestra). Cada fila se reconoce por su clave (`origen_importacion`:
-`madera:427`; las hojas de otro año llevan el año, `madera-27:12`) y también por su contenido (línea, tipo, fecha,
-proyecto, muebles y motivo). `clasificarImportacion` empareja en tres pasos: misma clave y mismo contenido; mismo
-contenido con otra clave (el Excel se ordenó o se le insertaron filas: el reporte no se carga dos veces, recibe sus
-cambios —por ejemplo, que lo cerraron— y se le anota la clave nueva; lo mismo con uno capturado a mano); y misma clave
-con contenido casi igual (3 de 5 datos: corregido en su sitio). Una fila con la misma clave pero otro reporte NO pisa al
-anterior: se agrega como nueva. Como la clave es única, al escribir primero se les quita la clave a quienes la sueltan
-(`liberarClaves`) y luego se asignan; si se corta a la mitad, repetir es seguro. Repetirlo es seguro. Lógica sin base en
-`src/lib/calidad/importar-incidencias.ts` (la lectura es la misma que usa
-`npm run calidad:importar-incidencias -- "ruta.xlsx" [--aplicar]`). Una fila con tipo desconocido o que pasa los topes de
-la base (motivo 300 letras, etc.) se omite diciendo cuál es.
-
-## Cuadre con Calidad (Estimaciones)
-
-"PM contra cobrado" (`/estimaciones/pm-cobrado/<OT>` y el reporte semanal) cruza, por O.T. y variante del
-modelo (código + descripción), lo que declaró Planeación, lo que Calidad aprobó y lo cobrado en recibos
-(migración `cuadre_calidad_recibos`). Sin campos nuevos para el maquilador:
-
-- **Componentes (hijos)**: salen como filas aparte bajo su mueble y el campo "Modelo" del recibo de
-  Acabados/Armado también los ofrece (`CampoModeloOt`). Un recibo puede cobrar un componente suelto y se
-  compara contra la cantidad de ese componente: el trigger `est_conciliar_renglon_pm` no cambió, solo
-  `cantidad_pm_variante` los incluye. **Si Producción guardó un despiece que no es el sugerido**
-  (`igual_a_sugerencia` = false), los componentes de ese mueble son sus partes (piezas por mueble ×
-  cantidad del mueble en el PM) en vez de los hijos del PM; una parte ligada a un hijo conserva la
-  descripción del hijo (`componentes_recibo_ot`, migración `recibos_segun_despiece`). El reporte usa la misma
-  regla: en pantalla es **"PM de Producción contra cobrado"** (migración `pm_cobrado_segun_despiece`; la ruta
-  y la función siguen siendo `pm-cobrado` y `ot_contra_cobrado`). Electrificación sigue solo con padres, pero cuenta los que llevan iluminación o electrificación en él o en sus componentes (`admite_electrificacion`, migración `electrificacion_estimaciones_por_componentes`). El saldo por
-  código (`cantidad_pm_ot`, `saldosDeVariantes`) NO suma componentes.
-- **"Calidad aprobó" por área** (`aprobado_calidad_variante`, interna): barniz → Acabados y armado → Armado, de
-  lotes de equipos que no son de planta (la planta no cobra recibo); en un componente, su último informe (todo
-  o nada). Solo hay dato si Producción asignó el mueble en el sistema; si no, es null y no se marca nada.
-  Electrificación no se compara con Calidad.
-- **Tope duro al guardar un recibo** (migraciones `cobro_limitado_por_pm_y_calidad` y `mensajes_cobro_cortos`, 3 nov
-  2026; `reprocesos_segun_produccion` las sobrescribió el 4 nov y `tope_cobro_sobre_reprocesos` las volvió a poner):
-  el trigger `est_conciliar_renglon_pm` no deja guardar un renglón **normal** que cobre más que el PM de la OT (ni con
-  motivo; un modelo que no está en la OT tampoco) ni, en Acabados y Armado, más que lo que **Calidad aprobó** del
-  mueble en el área (`aprobado_calidad_variante`, revisión final incluida; un mueble que no pasó por Producción y
-  Calidad en el sistema no se cobra). Electrificación también se topa con lo que Calidad aprobó de ese proceso
-  (`aprobado_calidad_electrificacion`, migración `cobro_por_partes`); S.S. no tiene recibo. La pantalla
-  (`dialogo-descuadres.tsx`) avisa el PM antes de guardar; lo de Calidad lo dice la base al guardar. El **reproceso**
-  conserva su regla (se mide contra el retrabajo reasignado y, si se pasa, pide motivo y deja discrepancia). **Cuidado
-  al reescribir esa función: tomar la versión vigente de la base, no la de una migración vieja.**
-- **(Apagado desde el 3 nov 2026) Se cobra según Producción** (migración `cobro_segun_produccion`, ajuste `cobro_segun_produccion` de
-  `ajustes_flujo`, hoy APAGADO: manda Calidad): Calidad revisa el mueble completo, no cada proceso, así que lo liberado para
-  cobrar es lo que **Producción verificó** al registrar la entrega (`verificado_produccion_variante`, interna,
-  mismas reglas que la de Calidad y sin retrabajos; un componente, en la proporción de su mueble). "Calidad
-  aprobó" queda solo informativo. Apagado el ajuste, todo vuelve a medirse contra Calidad. La app lo lee con
-  `cobroSegunProduccion` (`src/lib/compartido/ajustes-flujo.ts`); si no puede, asume Calidad.
-- **Listo para cobrar** = liberado − cobrado (filtro de la O.T. y del reporte; `liberadoArea` en
-  `src/lib/estimaciones/pm-cobrado.ts`). Un recibo cobrado de más se **marca al revisarlo**
-  (`recibo_contra_calidad`, que trae lo aprobado y lo verificado; `src/app/estimaciones/calidad-recibo.tsx`): es
-  un aviso, no bloquea ni le pide motivo al maquilador; se calcula al abrir, así que desaparece al liberarse.
-- No cubre el doble cobro (el mueble y también sus componentes por el mismo trabajo): salen juntos en pantalla.
-- **Reprocesos** (migración `reprocesos_segun_produccion`): no gastan saldo del PM; se comparan contra el
-  retrabajo que **Producción reasignó** tras un rechazo de Calidad (asignaciones con `informe_rechazo_id` o
-  `revision_final_rechazo_id`, equipos que no son de planta, proceso del área; `retrabajo_recibo_ot`), en las
-  mismas unidades (mueble o piezas de la parte). Pasarse, o cobrar reproceso sin retrabajo, pide motivo y deja
-  una discrepancia `es_reproceso`. La causa es obligatoria (`renglones_causa_reproceso_check`) y la revisión
-  la muestra junto al renglón.
-- **Recibos por llegar** (panel de Estimaciones y `/estimaciones/por-llegar`, solo quien revisa recibos): lo que
-  **Calidad aprobó** y aún no se cobra, por área (Acabados, Armado), con base Calidad siempre (el maquilador solo
-  cobra lo aprobado), aunque `cobro_segun_produccion` esté encendido. "Calidad aprobó" incluye la revisión final
-  del mueble (sin pasar de lo que Producción verificó de equipos externos; migración `recibos_por_llegar`). Cuenta
-  muebles, al menos un recibo por O.T. y área (los equipos no están ligados al contratista) y un importe con el
-  último precio pagado del modelo. Cada área muestra una tarjeta por mueble **entregado a Calidad** aunque no
-  esté aprobado (`muebles_en_calidad`, migración `muebles_en_calidad`): aprobados, en revisión, sin entregar y,
-  por parte del despiece, piezas entregadas y aprobadas. Lógica en `src/lib/estimaciones/por-llegar.ts`,
-  lectura en `-db.ts`.
-
-## QR del mueble
-
-El QR de la Hoja de Viajero lleva solo el id del mueble (`/q/<ítem>`). Al escanearlo con la cámara abre la
-**ficha del mueble** (`src/app/q/[itemId]/page.tsx`), pensada para entenderse de un vistazo:
-
-- **Tarjeta de estado** (`ruta-qr.tsx`, lógica en `src/lib/trazabilidad/resumen-ruta.ts`): una frase ("En
-  Armado · 5 de 7 entregadas") y una barra con un tramo por paso (ruta, revisión final, pago); al tocarla
-  se abre la ruta completa.
-- **Una acción principal por pestaña** (lo que sigue) con una línea de por qué, y las demás como
-  "Más opciones" (`panelQr` en `src/lib/trazabilidad/areas-qr.ts`). Producción: registrar entrega si hay
-  algo en taller, si no **asignar** ahí mismo (mismo `AsignarForm` del PM); opciones: ruta del PM, hoja,
-  despiece; arriba, en rojo, lo que Calidad rechazó con su "Reasignar" (`rechazos-qr.tsx`). Calidad:
-  **revisión final del mueble completo** ahí mismo (el mismo `Revisar` del pedido); opciones: componentes
-  e informes, reportar falla y, plegadas, las entregas por proceso (`entregas-calidad-qr.tsx`; abiertas
-  si la revisión final está apagada). Planeación: el PM. Estimaciones: sus recibos (`pago-qr.tsx`) y PM
-  contra cobrado.
-- **Historial**: los últimos 3 movimientos con quién hizo qué; el resto en "Ver todo".
-Cada quien ve la pestaña de su área; el desarrollador, todas (`?area=`). El QR de un componente lleva a
-su mueble. Arriba sale el botón del plano (datos del cuadro; el PDF sigue en el servidor de Ingeniería).
-No hay tabla de eventos: el historial junta lo que ya guarda cada área (lógica pura en
-`src/lib/trazabilidad/linea-tiempo-mueble.ts`, lectura en `linea-tiempo-db.ts`). Los escáneres dentro
-de Producción y Calidad siguen yendo directo a su pantalla; las hojas viejas (dirección larga) abren la hoja.
-
-- **Etiquetas QR** para pegar en el mueble: `/produccion/pedidos/<id>/etiquetas` (botón "Etiquetas QR" en
-  la tabla del pedido; con selección, esos ítems; sin ella, todos los muebles liberados), 3 × 8 por hoja
-  carta, una por mueble o una por pieza (`?por=pieza`, tope `MAX_ETIQUETAS`).
-- **Salida a obra**: se probó y se quitó (no se usa); la migración `quitar_salidas_obra` borra lo que dejó
-  `salidas_obra` en la base. El flujo del mueble termina en el pago al maquilador.
-- **Pago al maquilador** (último paso de la ruta, pestaña Estimaciones e historial): los recibos vigentes
-  que cobraron el mueble y si están pagados. Solo consulta, sin migración: liga por O.T. + código +
-  descripción (Electrificación, por `planeacion_item_id`), la regla de "PM contra cobrado". Todo vive en
-  `src/lib/trazabilidad/pago-maquilador.ts` (+ `-db.ts`, `pago-qr.tsx`): el pago del maquilador va a
-  cambiar y debe tocarse solo ahí.
-
-## Vista de celular
-
-En pantallas táctiles (`pointer: coarse`) `src/app/globals.css` da a todo botón, enlace, `summary`, pestaña y
-casilla con su texto una zona de toque de al menos 44 × 44 px con un `::after` invisible (no mueve el diseño), y
-los campos y `select` miden 44 px de alto. No la reciben los controles dentro de algo que se desliza de lado
-(`overflow-x-auto`: tablas, tiras del tablero), porque volvía desplazable el contenedor unos píxeles y atrapaba el
-dedo; ahí se agrandan en su pantalla (`pointer-coarse:min-h-11`, `min-h-11 sm:min-h-9`). Tampoco los que ya
-dibujan su `::after` (`after:` de Tailwind) ni **los que llevan otro control dentro** (`:has(...)`): el `::after`
-se pinta encima del contenido y en una fila que se despliega con botones adentro (renglón del recibo, `summary`
-con acciones) tapaba esos botones y el toque abría la fila. Por eso, **un control dentro de otro no recibe la
-zona extra**: si es chico, se agranda en su pantalla. Dos controles chicos pegados (✓ y ✗ de la bitácora,
-filas de barras) se roban toques en la orilla: se les da 44 px reales con `pointer-coarse:` en vez de confiar en
-el `::after`.
-
-También en táctil: `touch-action: manipulation` (dos toques rápidos no hacen zoom ni se pierden), los botones no
-seleccionan su texto al dejar el dedo, y todo control se aclara mientras se presiona (`:active`, opacidad 0.6; un
-`active:` o una opacidad propia de la pantalla gana). Los avisos salen **arriba** en celular (abajo tapaban la
-barra de "Guardar"). **Tocar un botón deshabilitado ya responde** (`src/components/toque-deshabilitado.tsx`, en el
-layout raíz; lógica en `src/lib/ui/toque-deshabilitado.ts`): si es el de enviar y falta un campo obligatorio, el
-navegador lo marca y lo enfoca y sale "Falta llenar: …"; si no, sale como aviso su `title` (o `aria-description`
-/ `data-motivo`). Por eso, en un formulario, marcar `required` los campos obligatorios y poner en el `title` de un
-botón apagado el porqué. El visor de imágenes acepta pellizco y doble toque. Fichas que también se imprimen o se
-pasan a PDF (viajero) se acomodan con consultas de contenedor (`@container`, `@xl:`), no con `sm:`: el PDF las
-maqueta a 640 px aunque se descargue desde el celular.
-
-Para que nada se corte a 375 px: filtros segmentados a todo lo ancho (2 × 2 o con texto que parte renglón),
-`line-clamp-2` en vez de `truncate` cuando hay espacio abajo, y tablas anchas como tarjetas en celular (ejemplo:
-Calidad › O.T.). Para revisar una pantalla: a 375 px, en cada control visible `document.elementFromPoint` en su
-centro y orillas debe devolver el control o algo dentro de él.
-
-## Instalar la app (PWA)
-
-La app se instala desde Chrome o Safari (manifest en `src/app/manifest.ts`, íconos en `public/icons`, sin service
-worker: Chrome ya no lo exige para instalar). **`/instalar`** (pública, `src/app/instalar/`): en Chrome un botón pide la
-instalación con el aviso `beforeinstallprompt` y, al aceptar (o con `appinstalled`), muestra el aviso de **registrarse primero si es la primera vez / ingresar los datos si ya
-tiene cuenta** (botones "Registrarme" y "Ya tengo cuenta", y una pausa de `PAUSA_AL_INSTALAR_MS` que se cancela al tocarlos)
-y pasa solo a `/login`; en iPhone
-explica *Compartir → Agregar a inicio*; siempre queda "Entrar sin instalar". La app instalada abre en `/` y sin sesión
-cae al login de siempre (correo y contraseña). **`/instalar/hoja`** (pública) es la hoja carta con el QR y los tres pasos
-(Escanea, Instala, Entra); el QR lleva `getBaseUrl()` + `/instalar`, así que se imprime desde la dirección real del ERP.
-Lógica sin navegador en `src/lib/ui/instalar-app.ts`; pruebas en `e2e/humo.spec.ts` ("instalar la app"). Solo se pide
-instalar: no se piden permisos del navegador (cámara, notificaciones) al instalar.
-
-## Notificaciones del navegador y del celular (Web Push)
-
-Funcionan igual en computadora (Chrome, Edge, Firefox) que en celular. **Al entrar a un área sale un recuadro
-"¿Quieres recibir avisos en este navegador?"** (`src/components/pedir-notificaciones.tsx`, en `AreaNav` junto a la
-campanita; "Activar" lanza el permiso real del navegador y "Ahora no" no vuelve a salir en ese navegador, se guarda en
-`localStorage`); solo aparece si el navegador las soporta, el servidor tiene sus llaves y no están activas ni
-bloqueadas. La lógica de activar/desactivar está en el hook `useNotificaciones` (`use-notificaciones.ts`), que
-comparten el recuadro y Mi perfil. Cada quien también las activa en **/cuenta → Notificaciones**
-(`src/app/cuenta/notificaciones-form.tsx`; también en
-`/estimaciones/cuenta`): registra `public/sw.js` (solo atiende `push` y `notificationclick`, sin caché), pide el permiso
-y guarda la suscripción del aparato (`POST /api/notificaciones/suscribir`, tabla `suscripciones_push` con RLS: cada
-persona solo ve las suyas). "Enviar notificación de prueba" (`/api/notificaciones/prueba`) manda un aviso real a sus
-aparatos. En iPhone solo funcionan con la app instalada (`estadoNotificaciones` lo explica). **Para mandar avisos desde el
-servidor**: `enviarAUsuarios(ids, { titulo, cuerpo, url, etiqueta })` de `src/lib/notificaciones/enviar.ts` (lee con la clave
-de servicio, borra las suscripciones caducadas y nunca lanza). Hace falta configurar `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
-`VAPID_PRIVATE_KEY` y `VAPID_SUBJECT` (ver `.env.example` y `docs/operacion.md`); sin ellas todo sigue igual y la sección
-dice que no están configuradas. La dirección de cada suscripción solo se acepta si es de un servicio de push conocido
-(`esServicioDePush`, contra SSRF). **Avisos por área (fase 2, migración `avisos_por_area`, aplicada y fusionada el 13 nov 2026)**: cada
-aviso nace de un **trigger** de la base, no de la pantalla (no se puede inventar desde el navegador y cubre toda vía:
-rutas de servidor o funciones que la app llama directo). Avisos de hechos: Producción registró una entrega → **Calidad**
-(una entrega **por partes** del despiece da UN aviso con cada parte y sus piezas, "Producción entregó 6 pz de 2 partes", y si completa
-muebles lo dice ahí, "Completa 2 muebles", sin otro aviso por la entrega del mueble que arma la base; `trg_aviso_entrega_parte`,
-agrupa por `clave` = asignación + transacción; migración `avisos_entregas_por_partes`); Calidad rechazó un mueble o una parte → **Producción** (a reprocesar,
-enlace a Rechazos); Calidad aprobó (lote, parte o revisión final) → **Producción** y, si es de un equipo externo y de Armado o
-Acabados, → **Estimaciones** ("ya pueden llegar recibos", enlace a Por llegar; la aprobación del mueble que la base arma sola a partir de
-sus partes no repite el aviso; la revisión final solo avisa a Estimaciones si el mueble tuvo asignaciones vigentes de un equipo externo en
-Armado o Barniz, y dice cuáles: "Armado y Acabados"); recibo nuevo → **Estimaciones**; recibo revisado → quien lo capturó (el maquilador). **Ya no hay aviso
-de "se liberaron muebles"** (migración `avisos_recordatorios`, 17 nov 2026). Los triggers atrapan sus errores: un aviso que falla NUNCA frena el hecho. Tablas `avisos`
-(de un área, o de una persona con `destinatario_id`; solo la escriben los triggers) y `avisos_leidos` (quién lo leyó,
-aparte porque lo ven varias personas); RLS con `aviso_visible`: el administrador y el trabajador de esa área, el
-desarrollador el de cada área en la que entra, el maquilador solo los suyos. **Campanita** (`src/components/campanita.tsx`,
-en `AreaNav`; `GET /api/avisos?area=`, `POST /api/avisos/leer`): pregunta cada minuto con la pestaña a la vista y se
-esconde sola si la base aún no tiene la tabla. **Al celular** (`despacharAvisos` de `src/lib/notificaciones/despachar.ts`):
-reclama con un UPDATE los avisos recientes (15 min) de quien llama y los manda al personal del área (administrador y
-trabajador, NO al desarrollador, y sin quien lo provocó) o a la persona del aviso; lo llaman `liberar` y `entregas` y,
-para lo que nace de una función directa (Calidad, recibos), la propia lectura de la campanita. Lógica pura y pruebas en
-`avisos.ts`. **Falta**: poner las llaves VAPID en Vercel (sin ellas los avisos salen en la campanita pero no al
-celular). **Limpieza** (migración
-`limpieza_avisos_viejos`): `limpiar_avisos()` borra los avisos de más de 60 días (la campanita muestra 30; sus marcas de
-leído se van en cascada y las claves de los recordatorios llevan el día, así que no se regeneran); la llama
-`despacharRecordatorios` tras `generar_recordatorios` (sin pg_cron) y, si falla, solo deja aviso en la consola.
-
-## Capturas sin conexión
-
-En el taller a veces se cae el Wi-Fi. La **entrega de Producción** se guarda en el
-propio aparato (IndexedDB) si no hay red y se manda sola al volver, con un indicador en pantalla
-(`EstadoEnvios`, en el layout raíz). Núcleo en `src/lib/offline/cola-envios.ts` (sin navegador, con
-pruebas), almacén en `almacen-indexeddb.ts`, pegamento del navegador en `cola-navegador.ts`.
-
-- **Repetir un envío nunca duplica**: cada captura lleva una `claveEnvio` que queda en la
-  entrega (`entregas_produccion.clave_envio`, índice único `idx_entregas_produccion_clave_envio_unica`):
-  `registrar_entrega_produccion` devuelve la misma entrega en vez de registrar otra (`src/app/api/produccion/entregas/route.ts`).
-- Para llevar **otra captura** a la cola: que su ruta de servidor acepte `claveEnvio` y sea idempotente
-  (si la operación crea algo, la clave debe identificarlo de forma única) y mandarla con
-  `enviarOGuardar` en vez de `fetch`. No encolar lo que no sea seguro repetir.
-- El **despiece** de Producción también va por la cola (`/api/produccion/despiece`): su `claveEnvio`
-  queda en `despieces_produccion_historial` y `guardar_despiece_produccion` no guarda dos veces la misma
-  clave. Guardar exige la versión que se tenía abierta (bloqueo optimista): si alguien guardó antes, la
-  cola lo muestra como rechazado (409) y el trabajo sigue en la pantalla (hay borrador local).
-- Solo se manda con la **misma sesión** que capturó (el servidor registra a quien esté dentro).
-- Hoy NO cubre: abrir pantallas nuevas sin red (el escáner de QR y el detalle de cada mueble necesitan
-  conexión para cargar), ni Calidad ni Estimaciones.
+- **Planeación** (`docs/modulos/planeacion.md`): carga del PM, errores contra avisos, carga masiva y sus
+  mediciones, Cancelados, imagen del mueble.
+- **Producción** (`docs/modulos/produccion.md`): ruta del mueble (pasos que se repiten; el tope es por paso; un
+  proceso repetido se cobra cada vez), inicio y tablero (Por asignar, Por entregar, En Calidad), carrito → liberar →
+  panel de asignación (sin despiece no se libera un mueble con componentes), despiece y entrega por partes. Toda
+  lectura por muebles usa `leerEnTandas` con orden estable (desempate por `id`): la base corta cada respuesta en
+  1000 filas sin avisar. Las "rutas por parte" son del modelo anterior a `ruta_por_mueble_completo` y solo aplican
+  a muebles que ya trabajaban así.
+- **Calidad** (`docs/modulos/calidad.md`): solo evalúa lo que Producción preaprobó (ajuste
+  `verificacion_produccion`, encendido); revisión final del mueble completo (ajuste `revision_final`) con el origen
+  de la falla; no conformidades e importación del Excel BD-CONTROL (el Excel manda; cada fila se reconoce por su
+  clave y por su contenido).
+- **Estimaciones** (`docs/modulos/estimaciones.md`): "PM contra cobrado", tope duro al guardar un recibo
+  (`est_conciliar_renglon_pm`: no más que el PM ni que lo que Calidad aprobó; **al reescribirla, tomar la versión
+  vigente de la base, no la de una migración vieja**), reprocesos y recibos por llegar. `cobro_segun_produccion`
+  está apagado.
+- **QR y trazabilidad** (`docs/modulos/qr.md`): ficha del mueble `/q/<ítem>`, etiquetas QR y pago al maquilador
+  (se toca solo en `src/lib/trazabilidad/pago-maquilador.ts`).
+- **Celular e instalación** (`docs/modulos/interfaz.md`): zona de toque de 44 px (un control dentro de otro no la
+  recibe: si es chico, se agranda en su pantalla), `required` en campos obligatorios y `title` en un botón apagado
+  con el porqué, fichas imprimibles con `@container` y no con `sm:`; instalación desde `/instalar`.
+- **Notificaciones y avisos** (`docs/modulos/notificaciones.md`): Web Push (faltan las llaves VAPID en Vercel) y
+  avisos por área que nacen de **triggers** de la base, nunca de la pantalla; un aviso que falla nunca frena el hecho.
+- **Capturas sin conexión** (`docs/modulos/sin-conexion.md`): la entrega y el despiece de Producción van por la
+  cola; otra captura solo si su ruta acepta `claveEnvio` y repetirla no duplica nada.
 
 ## Seguridad
 

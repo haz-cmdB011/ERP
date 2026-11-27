@@ -58,3 +58,6 @@ next-env.d.ts
 # Configuración personal de Claude Code
 .claude/settings.local.json
 /SKILL.md
+
+# Respaldos de datos (npm run db:respaldo): datos reales, NUNCA se suben
+/respaldos/

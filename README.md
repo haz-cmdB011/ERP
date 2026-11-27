@@ -9,6 +9,8 @@ pedido.
 ## Documentación
 
 - [`CLAUDE.md`](CLAUDE.md): comandos, estructura, roles y convenciones de trabajo.
+- [`docs/modulos/`](docs/modulos/): cómo funciona cada módulo (Planeación, Producción, Calidad, Estimaciones, QR,
+  celular, notificaciones, capturas sin conexión).
 - [`docs/onboarding.md`](docs/onboarding.md): guía para quien entra al equipo.
 - [`docs/operacion.md`](docs/operacion.md): qué hacer si algo falla (avisos, monitor, accesos, restauración).
 - [`SEGURIDAD.md`](SEGURIDAD.md): capas de defensa y pasos manuales.

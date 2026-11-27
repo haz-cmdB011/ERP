@@ -13,6 +13,7 @@
     "db:verificar": "node scripts/db/verificar-migraciones.mjs",
     "db:huerfanos": "node --env-file=.env.local --import tsx scripts/db/limpiar-huerfanos.mts",
     "db:volumen": "node --env-file=.env.local --import tsx scripts/db/prueba-volumen.mts",
+    "db:respaldo": "node --env-file=.env.local --import tsx scripts/db/respaldo.mts",
     "calidad:importar-incidencias": "node --env-file=.env.local --import tsx scripts/calidad/importar-incidencias.mts"
   },
   "dependencies": {
